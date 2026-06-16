@@ -1,0 +1,84 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sentiment-backend-big-frontend:latest
+    container_name: sentiment-backend-big-frontend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # kingstar API Key - 必须从 .env 文件或环境变量读取
+      # 生产环境：创建 .env 文件并设置 kingstar_API_KEY=your_key_here
+      - kingstar_API_KEY=${kingstar_API_KEY}
+      - kingstar_BASE_URL=${kingstar_BASE_URL}
+      # MySQL 数据库配置
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-Sentiment_analysis}
+      - MYSQL_CHARSET=${MYSQL_CHARSET:-utf8mb4}
+      # 可选配置
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # 数据持久化：宿主机 data 目录映射到容器
+      - ./data:/app/data
+      # 日志目录
+      - ./logs:/app/logs
+      - ./models:/app/models 
+    networks:
+      - sentiment-network
+    restart: unless-stopped
+    # 资源限制（根据服务器配置调整）
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    # 日志轮转配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 240s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: sentiment-frontend-big-frontend:latest
+    container_name: sentiment-frontend-big-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - sentiment-network
+    restart: unless-stopped
+    # 日志轮转配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  sentiment-network:
+    driver: bridge

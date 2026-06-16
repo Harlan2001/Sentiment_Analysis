@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 继承现有的CSS变量和样式 */
+:root {
+  --color-up: #52c41a;
+  --color-down: #ff4d4f;
+  --color-neutral: #faad14;
+  --color-primary: #a78bfa;
+  --color-bg: #1a1a1a;
+  --color-bg-card: #242424;
+  --color-border: #333;
+  --color-text: #e0e0e0;
+  --color-text-secondary: #888;
+}
+
+/* 全局样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+  color: #ffffff;
+  min-height: 100vh;
+}
+
+/* 自定义组件样式 */
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-500 text-white px-5 py-2.5 rounded-lg font-medium text-sm hover:transform hover:translate-y-[-1px] hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-800 border border-gray-600 text-gray-200 px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-700 transition-colors duration-200;
+  }
+  
+  .panel {
+    @apply bg-gray-900/80 border border-gray-600 rounded-xl p-5 mb-5 backdrop-blur-sm;
+  }
+  
+  .input-field {
+    @apply px-3.5 py-2.5 border border-gray-600 rounded-lg text-sm bg-gray-900 text-white outline-none transition-colors duration-200 focus:border-purple-500 focus:shadow-sm focus:shadow-purple-500/10;
+  }
+  
+  .loading {
+    @apply text-center py-10 text-gray-400;
+  }
+  
+  .error {
+    @apply text-center py-10 text-red-400 bg-red-400/10 rounded-xl my-5;
+  }
+}
+
+/* 图表容器样式 */
+.chart-container {
+  position: relative;
+  width: 100%;
+  border-radius: 1rem;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+/* 文本截断工具类 */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
