@@ -15,6 +15,7 @@ from backend.routers.news import router as news_router
 from backend.routers.forecast import router as forecast_router
 from backend.routers.chat import router as chat_router
 from backend.routers.graph_augment import router as graph_augment_router
+from backend.routers.report import router as report_router
 
 app = FastAPI(title="Bond Yield Backend")
 
@@ -34,6 +35,7 @@ app.include_router(news_router)
 app.include_router(forecast_router)
 app.include_router(chat_router)
 app.include_router(graph_augment_router)
+app.include_router(report_router)
 
 
 @app.get("/health")
