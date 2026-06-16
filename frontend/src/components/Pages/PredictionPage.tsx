@@ -256,6 +256,15 @@ const PredictionPage: React.FC = () => {
     
     return (
       <div className="space-y-6">
+         {/* ☆ 打印专用报告主标题（仅 print 显示） */}
+         <div className="print-report-title no-print" aria-hidden="true">
+           <h1>AI 债券市场智能分析报告</h1>
+           <p className="print-report-date">报告日期：{report.trade_date}</p>
+           <p className="print-report-meta">
+             模型：{report.model_name} | 版本：{report.prompt_version} | 生成时间：{formatDate(report.created_at, 'YYYY-MM-DD HH:mm')}
+           </p>
+         </div>
+
          {/* 报告信息头部 */}
          <Card>
            <CardContent className="p-4">
@@ -598,6 +607,16 @@ const PredictionPage: React.FC = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* ☆ 免责声明 & 风险提示（仅 print 显示） */}
+        <div className="disclaimer no-print" aria-hidden="true">
+          <h4>【免责声明】</h4>
+          <p>本报告基于公开数据和模型分析生成，仅供专业投资者参考，不构成任何投资建议或承诺。</p>
+          <p>报告中的预测结果基于历史数据和特定模型假设，实际市场走势可能与预测存在偏差。</p>
+          <p>投资者应根据自身风险承受能力独立做出投资决策，并自行承担投资风险。</p>
+          <h4 style={{ marginTop: '6px' }}>【交易风险提示】</h4>
+          <p>债券投资面临利率风险、信用风险、流动性风险等多种风险因素。过往表现不代表未来收益，请谨慎投资。</p>
+        </div>
       </div>
     )
   }
@@ -809,7 +828,7 @@ const PredictionPage: React.FC = () => {
       </Card>
       
       {/* 标签页导航 */}
-      <div className="flex space-x-1 p-1 bg-gray-800 rounded-lg">
+      <div className="flex space-x-1 p-1 bg-gray-800 rounded-lg no-print">
         <button
           onClick={() => setActiveTab('current')}
           className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
