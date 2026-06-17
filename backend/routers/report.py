@@ -5,6 +5,7 @@ from fastapi import HTTPException, Query, APIRouter
 from pathlib import Path
 from datetime import date
 from backend.common.database import get_db_connection
+from backend.push.pdf_generator import generate_prediction_pdf
 import logging
 
 logger = logging.getLogger(__name__)

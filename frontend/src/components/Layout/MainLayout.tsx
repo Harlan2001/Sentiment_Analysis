@@ -48,6 +48,12 @@ const StrategyIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
   </svg>
 )
 
+const ChangeIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+  </svg>
+)
+
 interface MainLayoutProps {
   children: React.ReactNode
 }
@@ -64,6 +70,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { name: 'Agent', href: '/agents', icon: BeakerIcon },
     { name: 'AI推荐', href: '/select-strategy', icon: SparklesIcon },
     { name: '策略', href: '/strategies', icon: StrategyIcon },
+    { name: '变动对比', href: '/change', icon: ChangeIcon },
     { name: '信号日志', href: '/macro-signal-logs', icon: ClipboardListIcon },
   ]
 

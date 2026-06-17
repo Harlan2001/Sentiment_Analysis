@@ -29,6 +29,9 @@ import type {
   GraphAugmentRelationship,
   MacroSignalRequestLogQuery,
   MacroSignalRequestLogListResponse,
+  ChangeSnapshotsResponse,
+  ChangeCompareResponse,
+  ChangeTriggerResponse,
 } from "./types";
 
 const BASE = "/api";
@@ -522,5 +525,43 @@ export async function fetchMacroSignalRequestLogs(
 export async function fetchAllStrategies(): Promise<AllStrategiesResponse> {
   const r = await fetch(`/api/ai-strategy-recommendation/strategies`);
   if (!r.ok) throw new Error('策略列表读取失败');
+  return r.json();
+}
+
+// ========== Change / Strategy Comparison ==========
+
+export async function fetchChangeSnapshots(hours: number = 24): Promise<ChangeSnapshotsResponse> {
+  const r = await fetch(`${BASE}/change/snapshots?hours=${hours}`);
+  if (!r.ok) throw new Error('快照列表读取失败');
+  return r.json();
+}
+
+export async function fetchChangeCompare(
+  oldSnapshotId?: number,
+  newSnapshotId?: number,
+  oldVersionTime?: string,
+  newVersionTime?: string,
+): Promise<ChangeCompareResponse> {
+  const r = await fetch(`${BASE}/change/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      old_snapshot_id: oldSnapshotId,
+      new_snapshot_id: newSnapshotId,
+      old_version_time: oldVersionTime,
+      new_version_time: newVersionTime,
+    }),
+  });
+  if (!r.ok) throw new Error('快照对比失败');
+  return r.json();
+}
+
+export async function triggerChangeSnapshot(force: boolean = false): Promise<ChangeTriggerResponse> {
+  const r = await fetch(`${BASE}/change/trigger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ force }),
+  });
+  if (!r.ok) throw new Error('快照触发失败');
   return r.json();
 }
