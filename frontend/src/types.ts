@@ -466,3 +466,127 @@ export interface AllStrategiesResponse {
   trading_total: number;
   errors?: Array<{ source: string; error: string }>;
 }
+
+// ========== Change / Strategy Comparison Types ==========
+
+export interface StockRecommendItem {
+  code: string;
+  name: string;
+  rating: string;
+  weight: number;
+  reason: string;
+  tags: string[];
+  risk_level: string;
+}
+
+export interface StrategyRecommendItem {
+  id: string;
+  name: string;
+  priority: number;
+  weight: number;
+  target_pool: string[];
+  trigger_logic: string;
+}
+
+export interface SummaryStats {
+  sentiment?: string;
+  pos_ratio?: number;
+  neg_ratio?: number;
+  hot_tags?: string[];
+  market_overview?: string;
+}
+
+export interface ChangeSnapshotItem {
+  id: number;
+  version_time: string;
+  window_start: string;
+  window_end: string;
+  news_total: number;
+  news_added_count: number;
+  news_removed_count: number;
+  stock_count: number;
+  strategy_count: number;
+  generate_status: number;
+  create_time: string;
+}
+
+export interface ChangeSnapshotsResponse {
+  success: boolean;
+  items: ChangeSnapshotItem[];
+  count: number;
+}
+
+export interface StockRemovedItem {
+  code: string;
+  name: string;
+  prev_rating: string;
+}
+
+export interface StockModifiedItem {
+  code: string;
+  name: string;
+  old_rating?: string;
+  new_rating?: string;
+  old_weight?: number;
+  new_weight?: number;
+  old_reason?: string;
+  new_reason?: string;
+}
+
+export interface StrategyRemovedItem {
+  id: string;
+  name: string;
+  prev_priority: number;
+}
+
+export interface StrategyModifiedItem {
+  id: string;
+  name: string;
+  old_priority?: number;
+  new_priority?: number;
+  old_weight?: number;
+  new_weight?: number;
+  old_trigger_logic?: string;
+  new_trigger_logic?: string;
+}
+
+export interface ChangeCompareResponse {
+  success: boolean;
+  old_snapshot_id: number;
+  new_snapshot_id: number;
+  old_summary: SummaryStats;
+  new_summary: SummaryStats;
+  base_info: {
+    old_version: string;
+    new_version: string;
+    old_window: [string, string];
+    new_window: [string, string];
+    news_diff: {
+      added_count: number;
+      removed_count: number;
+    };
+  };
+  diff_summary: {
+    new_stocks: number;
+    removed_stocks: number;
+    rating_changes: number;
+    strategy_changes: number;
+  };
+  stock_changes: {
+    added: StockRecommendItem[];
+    removed: StockRemovedItem[];
+    modified: StockModifiedItem[];
+  };
+  strategy_changes: {
+    added: StrategyRecommendItem[];
+    removed: StrategyRemovedItem[];
+    modified: StrategyModifiedItem[];
+  };
+}
+
+export interface ChangeTriggerResponse {
+  success: boolean;
+  message: string;
+  skipped?: boolean;
+  snapshot?: Record<string, unknown>;
+}
