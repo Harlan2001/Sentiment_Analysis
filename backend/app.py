@@ -12,6 +12,7 @@ from backend.routers.strategy import router as strategy_router, start_strategy_s
 from backend.routers.macro import router as macro_router
 from backend.routers.factors import router as factors_router
 from backend.routers.news import router as news_router
+from backend.routers.pipeline import router as pipeline_router
 from backend.routers.forecast import router as forecast_router
 from backend.routers.chat import router as chat_router
 from backend.routers.graph_augment import router as graph_augment_router
@@ -32,6 +33,7 @@ app.include_router(strategy_router)
 app.include_router(macro_router)
 app.include_router(factors_router)
 app.include_router(news_router)
+app.include_router(pipeline_router)
 app.include_router(forecast_router)
 app.include_router(chat_router)
 app.include_router(graph_augment_router)
