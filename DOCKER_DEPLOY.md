@@ -1,126 +1,228 @@
 # Docker 部署指南
 
-> 本文档只适用于当前的 sentiment-big-frontend 版本。它描述的是前端 Nginx + 后端 FastAPI 的双容器部署方式，不再沿用基础版的单体部署或旧脚本流程。
+> 前端 Nginx + 后端 FastAPI 双容器部署。**代码通过 volume 挂载，日常更新只传文件不重打镜像。**
 
-## 1. 部署结构
+## 1. 部署架构
 
-当前仓库里和部署相关的文件如下：
-
-```text
-.
-├── Dockerfile              # 后端镜像
-├── docker-compose.yml      # 根目录编排文件
-├── .env.example            # 环境变量模板
-├── requirements.txt        # Python 依赖
-├── frontend/
-│   ├── Dockerfile          # 前端镜像
-│   └── nginx.conf          # 前端 Nginx 配置
-└── deploy/                 # 离线部署副本目录
-    ├── Dockerfile
-    ├── docker-compose.yml
-    ├── .env.example
-    └── frontend/
+```
+┌─────────────────┐     ┌─────────────────┐
+│   frontend      │────►│   backend       │
+│   Nginx :80     │     │   FastAPI :8000 │
+│                 │     │                 │
+│  dist/  ← volume│     │ main.py ←volume │
+│        (不挂载)  │     │ backend/←volume │
+└─────────────────┘     └────────┬────────┘
+                                 │
+               ┌─────────────────┼─────────────────┐
+               │ ./data          │ ./logs           │ ./models
+               │ (持久化)         │ (持久化)         │ (只读)
+               └─────────────────┴──────────────────┘
 ```
 
-部署时，前端容器对外暴露 80 端口，后端容器对外暴露 8000 端口。前端 Nginx 负责静态资源和 `/api/*`、`/health` 反向代理。
+- 前端 Nginx 负责静态资源和 `/api/*`、`/health` 反向代理
+- 后端代码通过 `:ro` 只读 volume 挂载，更新代码 = scp 文件 + restart
+- 前端不挂 volume，变动较少时走镜像重建
 
-## 2. 运行要求
+## 2. 部署目标
+
+| 名称 | 地址 | 用户 | 密码 | 路径 | 连接方式 |
+|------|------|------|------|------|----------|
+| **大前台** | `10.253.50.112` | `admin` | `Kingstar2022!` | `/opt/sentiment/deploy` | 直连 SSH |
+| **Saas** | `172.18.0.23` | `root` | `Kayak2020!` | `/data/sentiment_deploy` | 跳板机 → 见下文 |
+
+**Saas 跳板机**：
+- 地址：`114.67.114.200`，端口 `2222`
+- 用户：`root`，密码：`Kayak2020!`
+- SSH 命令示例：`ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" root@172.18.0.23`
+
+## 3. 运行要求
 
 - Docker 20.10+
 - Docker Compose v2+
-- Linux x86_64 服务器，建议 CentOS 7 / Ubuntu 18.04 及以上
 - 至少 8GB 内存，推荐 16GB
 - 至少 20GB 可用磁盘空间
-- 外部 MySQL 5.7+ 数据库，项目不内置 MySQL 容器
+- 外部 MySQL 5.7+ 数据库
 
-## 3. 环境变量
+## 4. 环境变量
 
-先复制模板文件：
-
-```bash
-cp .env.example .env
-```
-
-当前版本至少需要配置这些项：
+服务器上 `.env` 文件（与 `docker-compose.yml` 同目录）：
 
 ```env
-kingstar_API_KEY=你的实际密钥
-kingstar_BASE_URL=你的OpenAI兼容网关地址
-
-MYSQL_HOST=你的MySQL地址
+kingstar_API_KEY=sk-xxx
+kingstar_BASE_URL=https://api.kingstarinfotech.cn/dmx/openai/v1
+DB_TYPE=mysql
+MYSQL_HOST=10.253.50.134
 MYSQL_PORT=3306
 MYSQL_USER=root
-MYSQL_PASSWORD=你的MySQL密码
+MYSQL_PASSWORD=123456
 MYSQL_DATABASE=Sentiment_analysis
 MYSQL_CHARSET=utf8mb4
-
+MYSQL_AUTOCOMMIT=true
 PYTHONUNBUFFERED=1
-LOG_LEVEL=INFO
 ```
 
-说明：
+## 5. 两种部署模式
 
-- `kingstar_API_KEY` 必填
-- `kingstar_BASE_URL` 必填
-- `MYSQL_PASSWORD` 必填
-- 其余字段可按需覆盖
+### 模式 A：快速部署（每周代码更新，1 分钟）
 
-## 5. 离线部署
-
-如果服务器不能联网，在有网络的机器上先构建镜像，再把镜像和部署文件传到服务器。
-
-### 5.1 在构建机器上打包
+代码变了但 `requirements.txt` 没变时，**只传代码文件**，不重打镜像：
 
 ```bash
-cd /path/to/sentiment-big-frontend
-cp .env.example .env
-vim .env
+# 大前台
+./scripts/deploy.sh
 
-docker compose build --no-cache
-docker save sentiment-backend-big-frontend:latest | gzip > sentiment-backend-big-frontend.tar.gz
-docker save sentiment-frontend-big-frontend:latest | gzip > sentiment-frontend-big-frontend.tar.gz
+# Saas
+./scripts/deploy.sh saas
 ```
 
-如果 `data`、`logs`、`models` 有新增内容，也一并同步。
+脚本做的事：
+1. rsync/scp `main.py` + `backend/` 到服务器
+2. `docker compose restart backend`
 
-### 5.2 传到服务器
+### 模式 B：镜像重建（依赖/前端变更，几周一次）
+
+`requirements.txt` 或前端源码变更时，重打完整镜像：
 
 ```bash
-scp sentiment-backend-big-frontend.tar.gz sentiment-frontend-big-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/deploy/
-scp -r docker-compose.yml Dockerfile .env.example frontend admin@10.253.50.112:/opt/sentiment/deploy/
-scp -r data logs models admin@10.253.50.112:/opt/sentiment/
+# 大前台
+./scripts/deploy-image.sh
+
+# Saas
+./scripts/deploy-image.sh saas
 ```
 
-### 5.3 在服务器上加载镜像并启动
+脚本做的事：
+1. 本地 `docker compose build`（利用层缓存，不 `--no-cache`）
+2. `docker save` → gzip → scp 到服务器
+3. 服务器 `docker load` → `docker compose up -d --force-recreate`
+
+> **注意**：日常使用不要加 `--no-cache`，只在依赖未更新但构建出问题时才加。
+
+## 6. 目录结构
+
+### 构建机（你的开发机）
+
+```
+.
+├── docker-compose.yml       # 编排文件
+├── Dockerfile               # 后端镜像
+├── requirements.txt
+├── main.py
+├── backend/
+├── frontend/
+│   ├── Dockerfile           # 前端镜像
+│   ├── nginx.conf
+│   └── src/                 # 前端源码
+├── scripts/
+│   ├── deploy.sh            # 快速部署
+│   └── deploy-image.sh      # 镜像重建部署
+└── deploy/
+    ├── yield_update.sh      # Cron: 收益率更新
+    ├── report_gen.sh        # Cron: 报告生成
+    └── analysis_fallback.sh # Cron: 分析兜底
+```
+
+### 服务器
+
+```
+/opt/sentiment/deploy/          ← 大前台
+/data/sentiment_deploy/         ← Saas
+├── docker-compose.yml
+├── .env                        # 生产环境变量
+├── main.py                     ← volume 挂载
+├── backend/                    ← volume 挂载
+├── data/                       ← 数据持久化
+├── logs/                       ← 日志
+├── models/                     ← ML 模型
+├── sentiment-backend.tar.gz    ← 传输的镜像文件
+├── sentiment-frontend.tar.gz
+├── yield_update.sh
+├── report_gen.sh
+└── analysis_fallback.sh
+```
+
+## 7. 首次部署
+
+### 7.1 构建镜像
 
 ```bash
+cd /path/to/sentiment
+docker compose build
+```
+
+### 7.2 传输镜像 + 代码到服务器
+
+```bash
+# 镜像
+docker save sentiment-backend:latest | gzip > sentiment-backend.tar.gz
+docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
+
+# === 大前台 ===
+scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/deploy/
+scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/deploy/
+scp -r main.py backend/ frontend/nginx.conf admin@10.253.50.112:/opt/sentiment/deploy/
+
+# === Saas（经跳板机）===
+scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
+    sentiment-backend.tar.gz sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment_deploy/
+# ... 同理传 docker-compose.yml、代码等
+```
+
+### 7.3 服务器加载镜像并启动
+
+```bash
+# 大前台
+ssh admin@10.253.50.112
 cd /opt/sentiment/deploy
-gunzip -c sentiment-backend-big-frontend.tar.gz | docker load
-gunzip -c sentiment-frontend-big-frontend.tar.gz | docker load
-
+gunzip -c sentiment-backend.tar.gz | docker load
+gunzip -c sentiment-frontend.tar.gz | docker load
 docker compose up -d --force-recreate
-docker compose ps
-docker compose logs -f
+
+# Saas（经跳板机）
+ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" root@172.18.0.23
+cd /data/sentiment_deploy
+gunzip -c sentiment-backend.tar.gz | docker load
+gunzip -c sentiment-frontend.tar.gz | docker load
+docker compose up -d --force-recreate
 ```
 
-## 6. 日常运维
+### 7.4 验证
+
+```bash
+docker compose ps
+docker compose logs -f backend
+curl http://localhost:8000/health
+```
+
+## 8. 定时任务
+
+服务器上的 Cron 配置（`crontab -e`）：
+
+```
+# 每天 19:00 — 收益率数据更新
+0 19 * * * /opt/sentiment/deploy/yield_update.sh
+
+# 每天 09:00 — 生成昨日交易日报告
+0 9 * * * /opt/sentiment/deploy/report_gen.sh
+
+# 每天 23:00 — 分析补偿兜底
+0 23 * * * /opt/sentiment/deploy/analysis_fallback.sh
+```
+
+## 9. 日常运维
 
 ### 查看日志
 
 ```bash
 docker compose logs -f
-docker compose logs -f backend
-docker compose logs -f frontend
 docker compose logs --tail=100 backend
 ```
 
 ### 重启服务
 
 ```bash
-docker compose restart
-docker compose restart backend
-docker compose restart frontend
-docker compose up -d --force-recreate
+docker compose restart            # 快速重启
+docker compose up -d --force-recreate  # 完全重建
 ```
 
 ### 停止服务
@@ -130,12 +232,10 @@ docker compose stop
 docker compose down
 ```
 
-### 查看资源和进入容器
+### 进入容器
 
 ```bash
-docker stats
 docker compose exec backend bash
-docker compose exec frontend sh
 ```
 
 ### 备份数据
@@ -146,65 +246,19 @@ tar -czf backups/sentiment-data-$(date +%Y%m%d).tar.gz data/ logs/ models/
 tar -czf backups/sentiment-config-$(date +%Y%m%d).tar.gz docker-compose.yml .env frontend/nginx.conf
 ```
 
-## 7. 版本更新
-
-代码更新后，执行下面步骤：
+### 清理磁盘
 
 ```bash
-cd /opt/sentiment
-git pull
-docker compose build --no-cache
-docker compose up -d --force-recreate
-docker compose ps
-docker compose logs -f backend
+docker image prune -f     # 清理无标签镜像
+docker system prune -f    # 全面清理
 ```
 
-如果只改了配置，通常只需要更新 `.env` 后执行：
+## 10. 快速参考
 
-```bash
-docker compose up -d --force-recreate
-```
-
-## 8. 故障排查
-
-### 容器无法启动
-
-```bash
-docker compose logs backend
-docker compose config | grep kingstar_API_KEY
-docker compose restart backend
-```
-
-### 健康检查失败
-
-```bash
-curl http://127.0.0.1:8000/health
-docker compose logs backend --since 1h
-```
-
-### 前端无法访问后端 API
-
-```bash
-docker compose logs frontend
-docker compose exec frontend cat /etc/nginx/conf.d/default.conf
-```
-
-### 数据库连接失败
-
-```bash
-docker compose exec backend bash
-python -c "from backend.config import MYSQL_CONFIG; print(MYSQL_CONFIG)"
-```
-
-## 9. 检查清单
-
-- [ ] `docker compose ps` 显示两个服务都已启动
-- [ ] `curl http://localhost:8000/health` 返回正常
-- [ ] `curl http://localhost/` 能返回前端页面
-- [ ] `/api/news` 能正常返回数据
-- [ ] `.env` 已配置 `kingstar_API_KEY`、`kingstar_BASE_URL` 和 MySQL 信息
-- [ ] `data/`、`logs/`、`models/` 目录已准备好
-
-## 10. 补充说明
-
-当前仓库保留了根目录和 `deploy/` 两套部署副本，内容都属于当前版本的部署材料。若后续需要定时任务，请在宿主机侧单独编排，不要再沿用基础版里的旧脚本流程。
+| 场景 | 命令 |
+|------|------|
+| 代码更新（大前台） | `./scripts/deploy.sh` |
+| 代码更新（Saas） | `./scripts/deploy.sh saas` |
+| 依赖更新 | `./scripts/deploy-image.sh` |
+| 依赖更新（Saas） | `./scripts/deploy-image.sh saas` |
+| 首次部署 | 见第 7 节 |

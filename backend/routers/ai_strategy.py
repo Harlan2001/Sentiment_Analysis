@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 
-from backend.strategy.ai_strategy_recommendation import (
+from backend.strategy.strategy_recommendation import (
     get_all_strategies,
     get_latest_recommendation,
     get_or_create_recommendation,

@@ -1,0 +1,27 @@
+root = true
+
+# 所有文件通用规则
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# TS/JS/JSON/CSS/HTML
+[*.{ts,tsx,js,jsx,json,css,scss,html,md,yaml,yml}]
+indent_style = space
+indent_size = 2
+
+# Python 文件单独缩进4空格
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# 配置文件、脚本
+[*.{sh,ini}]
+indent_size = 2
+
+# 忽略文件夹
+[.git/**]
+trim_trailing_whitespace = false

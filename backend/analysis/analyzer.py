@@ -89,7 +89,7 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
         }
 
     selected_model_name = model_name or MODEL_NAME
-    provider_model = get_analysis_model_info(selected_model_name)
+    provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
 
     # 构建完整prompt
     prompt = f"""
@@ -235,7 +235,7 @@ async def process_single_news_analysis(news_id: int, model_name: Optional[str] =
                 return {"success": False, "message": "新闻不存在", "news_id": news_id}
 
             selected_model_name = model_name or MODEL_NAME
-            provider_model = get_analysis_model_info(selected_model_name)
+            provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
 
             analysis_result = await analyze_bond_yield_async(news_id, model_name=selected_model_name)
 

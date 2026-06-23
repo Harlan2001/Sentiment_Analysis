@@ -2,99 +2,68 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hashlib
 import json
-import os
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Dict, List, Optional, Tuple
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
-from backend.config.config import ANALYSIS_MODEL_PRIORITY
-from backend.common.database import get_db_connection
-
-
-PORTFOLIO_TZ = ZoneInfo("Asia/Shanghai")
-PORTFOLIO_MODEL = os.getenv("PORTFOLIO_STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215")
-
-RATING_ENUM = {"不限", "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+"}
-CATEGORY_KEYS = [
-    "gov_bond",
-    "local_gov_bond",
-    "corp_credit_bond",
-    "financial_bond_non_policy",
-    "other_bond",
-    "policy_financial_bond",
-    "gov_supported_institution_bond",
-    "cd",
-    "abs",
-]
-TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
+from backend.config.config import (
+    CATEGORY_KEYS,
+    PORTFOLIO_MODEL,
+    PORTFOLIO_TZ,
+    RATING_ENUM,
+    TYPE_KEYS,
+)
+from backend.common.db_operations import DBOperations
+from backend.tools.portfolio_utils import (
+    build_cache_key,
+    build_data_version,
+    distribution_sum_check,
+    extract_json_text,
+    format_datetime,
+    range_to_datetime_window,
+    to_decimal_2,
+    validate_range,
+)
 
 
 @dataclass
 class PortfolioRuntimeConfig:
+    """组合策略运行时配置，默认值来自全局常量。"""
     model: str = PORTFOLIO_MODEL
-    tz: ZoneInfo = PORTFOLIO_TZ
+    tz: "ZoneInfo" = PORTFOLIO_TZ  # type: ignore[name-defined]
 
 
 class PortfolioStrategyService:
+    """组合策略分析服务。
+
+    根据指定日期的新闻分析结果，调用 LLM 生成组合筛选建议（久期、评级、分布等），
+    并通过缓存表实现幂等与结果复用。
+    """
+
     def __init__(self, llm_client: OpenAI, runtime_config: Optional[PortfolioRuntimeConfig] = None):
         self._llm_client = llm_client
         self._cfg = runtime_config or PortfolioRuntimeConfig()
 
-    @staticmethod
-    def _to_decimal_2(value: Any) -> float:
-        d = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return float(d)
-
-    @staticmethod
-    def _range_to_datetime_window(target_date: date) -> Tuple[datetime, datetime]:
-        return (
-            datetime.combine(target_date, time(0, 0, 0)),
-            datetime.combine(target_date, time(23, 59, 59)),
-        )
-
-    @staticmethod
-    def _extract_json_text(content: str) -> str:
-        text = (content or "").strip()
-        if not text:
-            return ""
-        if text.startswith("```"):
-            text = text.strip("`")
-            if text.startswith("json"):
-                text = text[4:].strip()
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            return ""
-        return text[start : end + 1]
-
-    @staticmethod
-    def _distribution_sum_check(block: Dict[str, Dict[str, float]], block_name: str) -> None:
-        min_sum = sum(v["min"] for v in block.values())
-        max_sum = sum(v["max"] for v in block.values())
-        if min_sum > 100.0:
-            raise ValueError(f"{block_name} min 总和必须 <= 100，当前 {min_sum:.2f}")
-        if max_sum < 100.0:
-            raise ValueError(f"{block_name} max 总和必须 >= 100，当前 {max_sum:.2f}")
-
-    def _validate_range(self, node: Dict[str, Any], name: str) -> Dict[str, float]:
-        if "min" not in node or "max" not in node:
-            raise ValueError(f"{name} 缺少 min 或 max 字段")
-        min_v = self._to_decimal_2(node["min"])
-        max_v = self._to_decimal_2(node["max"])
-        if min_v < 0 or max_v < 0 or min_v > 100 or max_v > 100:
-            raise ValueError(f"{name} 必须满足 0<=min/max<=100")
-        if min_v > max_v:
-            raise ValueError(f"{name} 必须满足 min<=max")
-        return {"min": min_v, "max": max_v}
+    # ------------------------------------------------------------------
+    # 输出校验 — 业务逻辑层，依赖工具函数与常量
+    # ------------------------------------------------------------------
 
     def _normalize_and_validate_output(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """校验并规范化 LLM 输出的组合筛选 JSON。
+
+        Args:
+            payload: LLM 返回并解析后的原始字典
+
+        Returns:
+            规范化后的输出字典
+
+        Raises:
+            ValueError: 结构缺失、字段非法或分布区间违反约束
+        """
         if not isinstance(payload, dict):
             raise ValueError("输出必须是 JSON object")
 
@@ -109,14 +78,14 @@ class PortfolioStrategyService:
         if not isinstance(by_type, dict):
             raise ValueError("缺少 distribution_by_type 对象")
 
-        duration = self._validate_range(general.get("duration_years") or {}, "组合久期")
-        single_weight = self._validate_range(general.get("single_bond_weight_pct") or {}, "单券权重")
+        duration = validate_range(general.get("duration_years") or {}, "组合久期")
+        single_weight = validate_range(general.get("single_bond_weight_pct") or {}, "单券权重")
 
         min_rating = str(general.get("min_rating", "不限")).strip() or "不限"
         if min_rating not in RATING_ENUM:
             raise ValueError(f"最低评级不合法：{min_rating}")
 
-        fund = self._to_decimal_2(general.get("portfolio_fund_wan", 0.0))
+        fund = to_decimal_2(general.get("portfolio_fund_wan", 0.0))
         if fund < 0:
             raise ValueError("组合资金必须 >= 0")
 
@@ -124,16 +93,16 @@ class PortfolioStrategyService:
         for key in CATEGORY_KEYS:
             if key not in by_category:
                 raise ValueError(f"按种类缺少字段：{key}")
-            normalized_by_category[key] = self._validate_range(by_category[key], f"按种类/{key}")
+            normalized_by_category[key] = validate_range(by_category[key], f"按种类/{key}")
 
         normalized_by_type: Dict[str, Dict[str, float]] = {}
         for key in TYPE_KEYS:
             if key not in by_type:
                 raise ValueError(f"按类型缺少字段：{key}")
-            normalized_by_type[key] = self._validate_range(by_type[key], f"按类型/{key}")
+            normalized_by_type[key] = validate_range(by_type[key], f"按类型/{key}")
 
-        self._distribution_sum_check(normalized_by_category, "按种类")
-        self._distribution_sum_check(normalized_by_type, "按类型")
+        distribution_sum_check(normalized_by_category, "按种类")
+        distribution_sum_check(normalized_by_type, "按类型")
 
         return {
             "general": {
@@ -146,201 +115,20 @@ class PortfolioStrategyService:
             "distribution_by_type": normalized_by_type,
         }
 
-    def _priority_case_sql(self) -> str:
-        return " ".join([f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
-
-    def _query_news_reason_rows(self, target_news_date: date) -> Tuple[List[Dict[str, Any]], Optional[datetime]]:
-        priority_cases = self._priority_case_sql()
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"""
-                    SELECT n.id, n.title, n.pub_time,
-                           COALESCE(a.direction, '') AS direction,
-                           COALESCE(a.reason, '') AS reason,
-                           a.model
-                    FROM news n
-                    JOIN analysis a ON a.news_id = n.id
-                    WHERE DATE(n.pub_time) = %s
-                      AND a.reason IS NOT NULL
-                      AND TRIM(a.reason) <> ''
-                      AND a.model = (
-                          SELECT a2.model
-                          FROM analysis a2
-                          WHERE a2.news_id = n.id
-                          ORDER BY CASE a2.model
-                              {priority_cases}
-                              ELSE 999
-                          END
-                          LIMIT 1
-                      )
-                    ORDER BY n.pub_time ASC
-                    """,
-                    (target_news_date,),
-                )
-                rows = cur.fetchall()
-
-        items: List[Dict[str, Any]] = []
-        latest_pub_time: Optional[datetime] = None
-        for row in rows:
-            pub_time = row[2]
-            if isinstance(pub_time, datetime):
-                latest_pub_time = pub_time if latest_pub_time is None else max(latest_pub_time, pub_time)
-            items.append(
-                {
-                    "news_id": row[0],
-                    "title": row[1],
-                    "pub_time": row[2],
-                    "direction": row[3],
-                    "reason": row[4],
-                    "model": row[5],
-                }
-            )
-        return items, latest_pub_time
+    # ------------------------------------------------------------------
+    # 提示词构建 — 业务逻辑层
+    # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_data_version(latest_news_pub_time: Optional[datetime]) -> str:
-        if not isinstance(latest_news_pub_time, datetime):
-            return "none"
-        return latest_news_pub_time.strftime("%Y%m%d%H")
+    def _build_news_material(rows: List[Dict[str, Any]]) -> str:
+        """将新闻与分析结果格式化为 LLM 提示词素材。
 
-    @staticmethod
-    def _build_cache_key(target_news_date: date, model_name: str, data_version: str) -> str:
-        raw = f"{target_news_date.isoformat()}|{model_name}|schema_v1|{data_version}"
-        return hashlib.md5(raw.encode("utf-8")).hexdigest()
+        Args:
+            rows: 新闻行列表，每行含 pub_time / title / direction / reason
 
-    @staticmethod
-    def _format_dt(value: Optional[datetime]) -> Optional[str]:
-        if not isinstance(value, datetime):
-            return None
-        return value.strftime("%Y-%m-%d %H:%M:%S")
-
-    def _load_cached_success(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT output_json, model_name, news_count, window_start, window_end,
-                           latest_news_pub_time, latency_ms, request_id
-                    FROM portfolio_strategy_analysis_cache
-                    WHERE cache_key = %s AND status = 'success'
-                    ORDER BY id DESC
-                    LIMIT 1
-                    """,
-                    (cache_key,),
-                )
-                row = cur.fetchone()
-
-        if not row:
-            return None
-        output_json = row[0]
-        if isinstance(output_json, str):
-            output_json = json.loads(output_json)
-
-        return {
-            "data": output_json,
-            "meta": {
-                "cache_hit": True,
-                "model_name": row[1],
-                "news_count": row[2] or 0,
-                "window_start": self._format_dt(row[3]),
-                "window_end": self._format_dt(row[4]),
-                "latest_news_pub_time": self._format_dt(row[5]),
-                "latency_ms": row[6],
-                "request_id": row[7],
-            },
-        }
-
-    def _upsert_running(
-        self,
-        cache_key: str,
-        target_news_date: date,
-        request_id: str,
-        news_ids: List[int],
-        news_count: int,
-        window_start: datetime,
-        window_end: datetime,
-        latest_news_pub_time: Optional[datetime],
-    ) -> None:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO portfolio_strategy_analysis_cache (
-                        cache_key, target_news_date, model_name, status, output_json,
-                        news_count, news_ids_json, window_start, window_end,
-                        latest_news_pub_time, request_id, error_message,
-                        started_at, finished_at, latency_ms
-                    ) VALUES (%s, %s, %s, 'running', NULL, %s, %s, %s, %s, %s, %s, NULL, NOW(), NULL, NULL)
-                    ON DUPLICATE KEY UPDATE
-                        target_news_date = VALUES(target_news_date),
-                        model_name = VALUES(model_name),
-                        status = 'running',
-                        output_json = NULL,
-                        news_count = VALUES(news_count),
-                        news_ids_json = VALUES(news_ids_json),
-                        window_start = VALUES(window_start),
-                        window_end = VALUES(window_end),
-                        latest_news_pub_time = VALUES(latest_news_pub_time),
-                        request_id = VALUES(request_id),
-                        error_message = NULL,
-                        started_at = NOW(),
-                        finished_at = NULL,
-                        latency_ms = NULL
-                    """,
-                    (
-                        cache_key,
-                        target_news_date,
-                        self._cfg.model,
-                        news_count,
-                        json.dumps(news_ids, ensure_ascii=False),
-                        window_start,
-                        window_end,
-                        latest_news_pub_time,
-                        request_id,
-                    ),
-                )
-            conn.commit()
-
-    def _finish_success(
-        self,
-        cache_key: str,
-        output_data: Dict[str, Any],
-        latency_ms: int,
-    ) -> None:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE portfolio_strategy_analysis_cache
-                    SET status = 'success',
-                        output_json = %s,
-                        error_message = NULL,
-                        finished_at = NOW(),
-                        latency_ms = %s
-                    WHERE cache_key = %s
-                    """,
-                    (json.dumps(output_data, ensure_ascii=False), latency_ms, cache_key),
-                )
-            conn.commit()
-
-    def _finish_fail(self, cache_key: str, error_message: str, latency_ms: int) -> None:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE portfolio_strategy_analysis_cache
-                    SET status = 'fail',
-                        error_message = %s,
-                        finished_at = NOW(),
-                        latency_ms = %s
-                    WHERE cache_key = %s
-                    """,
-                    (error_message[:65535], latency_ms, cache_key),
-                )
-            conn.commit()
-
-    def _build_news_material(self, rows: List[Dict[str, Any]]) -> str:
+        Returns:
+            编号后的新闻素材字符串
+        """
         lines: List[str] = []
         for i, item in enumerate(rows, start=1):
             pub_time = item["pub_time"]
@@ -350,11 +138,26 @@ class PortfolioStrategyService:
             )
         return "\n".join(lines)
 
-    def _build_prompt(self, target_news_date: date, rows: List[Dict[str, Any]], correction_hint: str = "") -> str:
+    def _build_prompt(
+        self,
+        target_news_date: date,
+        rows: List[Dict[str, Any]],
+        correction_hint: str = "",
+    ) -> str:
+        """构建组合策略分析 LLM 提示词。
+
+        Args:
+            target_news_date: 目标新闻日期
+            rows: 新闻分析行列表
+            correction_hint: 上次校验失败的错误信息，用于二次修正
+
+        Returns:
+            完整的提示词字符串
+        """
         material = self._build_news_material(rows)
         correction_section = f"\n校验错误修正提示：{correction_hint}\n" if correction_hint else ""
         return f"""
-你是中国债券市场组合分析助手。请根据新闻及其分析原因，输出“组合筛选字段”的 JSON。
+你是中国债券市场组合分析助手。请根据新闻及其分析原因，输出"组合筛选字段"的 JSON。
 
 严格要求：
 1) 只能输出 JSON，不要 Markdown，不要解释文字。
@@ -380,7 +183,19 @@ class PortfolioStrategyService:
 {material}
 """
 
+    # ------------------------------------------------------------------
+    # LLM 调用与输出生成
+    # ------------------------------------------------------------------
+
     def _call_llm_once(self, prompt: str) -> str:
+        """单次调用 LLM，返回清洗后的文本内容。
+
+        Args:
+            prompt: 提示词
+
+        Returns:
+            模型返回的文本（已去首尾空白）
+        """
         response = self._llm_client.chat.completions.create(
             model=self._cfg.model,
             messages=[
@@ -391,42 +206,89 @@ class PortfolioStrategyService:
         )
         return (response.choices[0].message.content or "").strip()
 
-    def _generate_output_sync(self, target_news_date: date, rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _generate_output_sync(
+        self,
+        target_news_date: date,
+        rows: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """同步生成并校验 LLM 输出，支持一次失败后带修正提示重试。
+
+        Args:
+            target_news_date: 目标新闻日期
+            rows: 新闻分析行列表
+
+        Returns:
+            校验通过的规范化输出字典
+
+        Raises:
+            ValueError / json.JSONDecodeError: 两次尝试均失败
+        """
         first_prompt = self._build_prompt(target_news_date, rows)
         first_content = self._call_llm_once(first_prompt)
 
         try:
-            parsed = json.loads(self._extract_json_text(first_content))
+            parsed = json.loads(extract_json_text(first_content))
             return self._normalize_and_validate_output(parsed)
         except Exception as first_error:
-            second_prompt = self._build_prompt(target_news_date, rows, correction_hint=str(first_error))
+            second_prompt = self._build_prompt(
+                target_news_date, rows, correction_hint=str(first_error)
+            )
             second_content = self._call_llm_once(second_prompt)
-            parsed_second = json.loads(self._extract_json_text(second_content))
+            parsed_second = json.loads(extract_json_text(second_content))
             return self._normalize_and_validate_output(parsed_second)
 
-    async def analyze(self, force_refresh: bool = False) -> Dict[str, Any]:
-        target_news_date = (datetime.now(self._cfg.tz) - timedelta(days=1)).date()
-        window_start, window_end = self._range_to_datetime_window(target_news_date)
+    # ------------------------------------------------------------------
+    # 公共入口 — 异步编排：查询 → 缓存 → LLM → 落库
+    # ------------------------------------------------------------------
 
-        rows, latest_news_pub_time = await asyncio.to_thread(self._query_news_reason_rows, target_news_date)
+    async def analyze(self, force_refresh: bool = False) -> Dict[str, Any]:
+        """执行组合策略分析（主入口）。
+
+        流程：
+        1. 取昨天日期，查询当日新闻及分析原因
+        2. 构建缓存键，优先返回已成功缓存的结果
+        3. 缓存未命中时写入 running 状态，调用 LLM 生成输出
+        4. 成功/失败均更新缓存表状态
+
+        Args:
+            force_refresh: 是否强制刷新，跳过缓存
+
+        Returns:
+            {"data": {...}, "meta": {...}} 分析结果与元信息
+
+        Raises:
+            RuntimeError: 目标日期无可用新闻数据
+        """
+        target_news_date = (datetime.now(self._cfg.tz) - timedelta(days=1)).date()
+        window_start, window_end = range_to_datetime_window(target_news_date)
+
+        rows, latest_news_pub_time = await asyncio.to_thread(
+            DBOperations.get_news_reason_rows, target_news_date
+        )
         if not rows:
             raise RuntimeError("目标新闻日没有可分析的新闻或 reason 数据为空")
 
         news_ids = [int(item["news_id"]) for item in rows]
-        data_version = self._build_data_version(latest_news_pub_time)
-        cache_key = self._build_cache_key(target_news_date, self._cfg.model, data_version)
+        data_version = build_data_version(latest_news_pub_time)
+        cache_key = build_cache_key(target_news_date, self._cfg.model, data_version)
 
+        # 缓存命中直接返回
         if not force_refresh:
-            cached = await asyncio.to_thread(self._load_cached_success, cache_key)
+            cached = await asyncio.to_thread(
+                DBOperations.load_portfolio_strategy_cache, cache_key
+            )
             if cached:
                 return cached
 
         started_at = datetime.now(self._cfg.tz)
         request_id = str(uuid.uuid4())
+
+        # 写入运行中状态
         await asyncio.to_thread(
-            self._upsert_running,
+            DBOperations.upsert_portfolio_strategy_running,
             cache_key,
             target_news_date,
+            self._cfg.model,
             request_id,
             news_ids,
             len(news_ids),
@@ -436,9 +298,18 @@ class PortfolioStrategyService:
         )
 
         try:
-            output = await asyncio.to_thread(self._generate_output_sync, target_news_date, rows)
-            latency_ms = int((datetime.now(self._cfg.tz) - started_at).total_seconds() * 1000)
-            await asyncio.to_thread(self._finish_success, cache_key, output, latency_ms)
+            output = await asyncio.to_thread(
+                self._generate_output_sync, target_news_date, rows
+            )
+            latency_ms = int(
+                (datetime.now(self._cfg.tz) - started_at).total_seconds() * 1000
+            )
+            await asyncio.to_thread(
+                DBOperations.finish_portfolio_strategy_success,
+                cache_key,
+                output,
+                latency_ms,
+            )
             return {
                 "data": output,
                 "meta": {
@@ -446,16 +317,23 @@ class PortfolioStrategyService:
                     "request_id": request_id,
                     "model_name": self._cfg.model,
                     "news_count": len(news_ids),
-                    "window_start": self._format_dt(window_start),
-                    "window_end": self._format_dt(window_end),
-                    "latest_news_pub_time": self._format_dt(latest_news_pub_time),
+                    "window_start": format_datetime(window_start),
+                    "window_end": format_datetime(window_end),
+                    "latest_news_pub_time": format_datetime(latest_news_pub_time),
                     "latency_ms": latency_ms,
                 },
             }
         except Exception as exc:
-            latency_ms = int((datetime.now(self._cfg.tz) - started_at).total_seconds() * 1000)
+            latency_ms = int(
+                (datetime.now(self._cfg.tz) - started_at).total_seconds() * 1000
+            )
             with contextlib.suppress(Exception):
-                await asyncio.to_thread(self._finish_fail, cache_key, str(exc), latency_ms)
+                await asyncio.to_thread(
+                    DBOperations.finish_portfolio_strategy_fail,
+                    cache_key,
+                    str(exc),
+                    latency_ms,
+                )
             raise
 
 
@@ -463,6 +341,14 @@ _service_instance: Optional[PortfolioStrategyService] = None
 
 
 def get_portfolio_strategy_service(llm_client: OpenAI) -> PortfolioStrategyService:
+    """获取组合策略服务的模块级单例。
+
+    Args:
+        llm_client: OpenAI 兼容客户端实例
+
+    Returns:
+        PortfolioStrategyService 全局唯一实例
+    """
     global _service_instance
     if _service_instance is None:
         _service_instance = PortfolioStrategyService(llm_client=llm_client)

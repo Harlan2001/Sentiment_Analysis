@@ -3,11 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sentiment-backend-big-frontend:latest
-    container_name: sentiment-backend-big-frontend
+    image: sentiment-backend:latest
+    container_name: sentiment-backend
     ports:
       - "8000:8000"
     environment:
+      - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
       # kingstar API Key - 必须从 .env 文件或环境变量读取
       # 生产环境：创建 .env 文件并设置 kingstar_API_KEY=your_key_here
@@ -27,7 +28,10 @@ services:
       - ./data:/app/data
       # 日志目录
       - ./logs:/app/logs
-      - ./models:/app/models 
+      - ./models:/app/models
+      # === 代码热替换：只传代码文件，不用重打镜像 ===
+      - ./main.py:/app/main.py:ro
+      - ./backend:/app/backend:ro
     networks:
       - sentiment-network
     restart: unless-stopped
@@ -57,8 +61,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: sentiment-frontend-big-frontend:latest
-    container_name: sentiment-frontend-big-frontend
+    image: sentiment-frontend:latest
+    container_name: sentiment-frontend
     ports:
       - "80:80"
     depends_on:

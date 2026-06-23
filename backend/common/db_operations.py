@@ -3,11 +3,14 @@
 提供原子化的数据库操作接口，支持事务
 """
 
+import json
+
 import pymysql
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import date, datetime, timedelta
 from backend.common.database import get_db_connection
-from backend.config.config import MYSQL_CONFIG, PERIOD_MAP
+from backend.config.config import MYSQL_CONFIG, PERIOD_MAP, ANALYSIS_MODEL_PRIORITY
+from backend.tools.portfolio_utils import format_datetime
 
 
 class DBOperations:
@@ -448,3 +451,253 @@ class DBOperations:
             "yield_data": yield_data,
             "market_summary": market_summary,
         }
+
+    # ====================== 投资组合策略缓存操作 ======================
+
+    @staticmethod
+    def priority_case_sql() -> str:
+        """生成模型优先级排序的 SQL CASE 子句。
+
+        从 ANALYSIS_MODEL_PRIORITY 列表构建 CASE WHEN ... THEN ... 表达式，
+        用于在关联查询中选取最高优先级模型的 analysis 记录。
+
+        Returns:
+            SQL CASE 片段，如 "WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ..."
+        """
+        return " ".join([f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
+
+    @staticmethod
+    def get_news_reason_rows(
+        target_news_date: date,
+    ) -> Tuple[List[Dict[str, Any]], Optional[datetime]]:
+        """按日期查询新闻及其 AI 分析原因（取最高优先级模型的结果）。
+
+        从 news 与 analysis 表联表查询，按 ANALYSIS_MODEL_PRIORITY 取每条新闻
+        的最高优先级模型的分析记录，仅返回 reason 非空的记录。
+
+        Args:
+            target_news_date: 目标新闻日期（date 对象）
+
+        Returns:
+            (新闻行列表, 最新新闻发布时间) 元组
+                每条新闻行为 dict: news_id, title, pub_time, direction, reason, model
+        """
+        priority_cases = DBOperations.priority_case_sql()
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT n.id, n.title, n.pub_time,
+                           COALESCE(a.direction, '') AS direction,
+                           COALESCE(a.reason, '') AS reason,
+                           a.model
+                    FROM news n
+                    JOIN analysis a ON a.news_id = n.id
+                    WHERE DATE(n.pub_time) = %s
+                      AND a.reason IS NOT NULL
+                      AND TRIM(a.reason) <> ''
+                      AND a.model = (
+                          SELECT a2.model
+                          FROM analysis a2
+                          WHERE a2.news_id = n.id
+                          ORDER BY CASE a2.model
+                              {priority_cases}
+                              ELSE 999
+                          END
+                          LIMIT 1
+                      )
+                    ORDER BY n.pub_time ASC
+                    """,
+                    (target_news_date,),
+                )
+                rows = cur.fetchall()
+
+        items: List[Dict[str, Any]] = []
+        latest_pub_time: Optional[datetime] = None
+        for row in rows:
+            pub_time = row[2]
+            if isinstance(pub_time, datetime):
+                latest_pub_time = pub_time if latest_pub_time is None else max(latest_pub_time, pub_time)
+            items.append(
+                {
+                    "news_id": row[0],
+                    "title": row[1],
+                    "pub_time": row[2],
+                    "direction": row[3],
+                    "reason": row[4],
+                    "model": row[5],
+                }
+            )
+        return items, latest_pub_time
+
+    @staticmethod
+    def load_portfolio_strategy_cache(cache_key: str) -> Optional[Dict[str, Any]]:
+        """从缓存表加载已成功的组合策略分析结果。
+
+        Args:
+            cache_key: 缓存键（MD5 哈希）
+
+        Returns:
+            命中的缓存数据字典（含 data/meta），未命中则返回 None
+        """
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT output_json, model_name, news_count, window_start, window_end,
+                           latest_news_pub_time, latency_ms, request_id
+                    FROM portfolio_strategy_analysis_cache
+                    WHERE cache_key = %s AND status = 'success'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (cache_key,),
+                )
+                row = cur.fetchone()
+
+        if not row:
+            return None
+
+        # 数据库中存储为 JSON 字符串，需要反序列化
+        output_json = row[0]
+        if isinstance(output_json, str):
+            output_json = json.loads(output_json)
+
+        return {
+            "data": output_json,
+            "meta": {
+                "cache_hit": True,
+                "model_name": row[1],
+                "news_count": row[2] or 0,
+                "window_start": format_datetime(row[3]),
+                "window_end": format_datetime(row[4]),
+                "latest_news_pub_time": format_datetime(row[5]),
+                "latency_ms": row[6],
+                "request_id": row[7],
+            },
+        }
+
+    @staticmethod
+    def upsert_portfolio_strategy_running(
+        cache_key: str,
+        target_news_date: date,
+        model_name: str,
+        request_id: str,
+        news_ids: List[int],
+        news_count: int,
+        window_start: datetime,
+        window_end: datetime,
+        latest_news_pub_time: Optional[datetime],
+    ) -> None:
+        """写入或更新组合策略分析缓存状态为 'running'。
+
+        使用 INSERT ... ON DUPLICATE KEY UPDATE 实现幂等写入，
+        已存在相同 cache_key 的行将重置为 running 状态。
+
+        Args:
+            cache_key: 缓存键
+            target_news_date: 目标新闻日期
+            model_name: 使用的模型名称
+            request_id: 本次请求 UUID
+            news_ids: 新闻 ID 列表
+            news_count: 新闻数量
+            window_start: 时间窗口起始
+            window_end: 时间窗口结束
+            latest_news_pub_time: 最新新闻发布时间
+        """
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO portfolio_strategy_analysis_cache (
+                        cache_key, target_news_date, model_name, status, output_json,
+                        news_count, news_ids_json, window_start, window_end,
+                        latest_news_pub_time, request_id, error_message,
+                        started_at, finished_at, latency_ms
+                    ) VALUES (%s, %s, %s, 'running', NULL, %s, %s, %s, %s, %s, %s, NULL, NOW(), NULL, NULL)
+                    ON DUPLICATE KEY UPDATE
+                        target_news_date = VALUES(target_news_date),
+                        model_name = VALUES(model_name),
+                        status = 'running',
+                        output_json = NULL,
+                        news_count = VALUES(news_count),
+                        news_ids_json = VALUES(news_ids_json),
+                        window_start = VALUES(window_start),
+                        window_end = VALUES(window_end),
+                        latest_news_pub_time = VALUES(latest_news_pub_time),
+                        request_id = VALUES(request_id),
+                        error_message = NULL,
+                        started_at = NOW(),
+                        finished_at = NULL,
+                        latency_ms = NULL
+                    """,
+                    (
+                        cache_key,
+                        target_news_date,
+                        model_name,
+                        news_count,
+                        json.dumps(news_ids, ensure_ascii=False),
+                        window_start,
+                        window_end,
+                        latest_news_pub_time,
+                        request_id,
+                    ),
+                )
+            conn.commit()
+
+    @staticmethod
+    def finish_portfolio_strategy_success(
+        cache_key: str,
+        output_data: Dict[str, Any],
+        latency_ms: int,
+    ) -> None:
+        """更新组合策略缓存状态为 'success'，写入输出数据。
+
+        Args:
+            cache_key: 缓存键
+            output_data: 分析结果 JSON 数据
+            latency_ms: 耗时毫秒数
+        """
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE portfolio_strategy_analysis_cache
+                    SET status = 'success',
+                        output_json = %s,
+                        error_message = NULL,
+                        finished_at = NOW(),
+                        latency_ms = %s
+                    WHERE cache_key = %s
+                    """,
+                    (json.dumps(output_data, ensure_ascii=False), latency_ms, cache_key),
+                )
+            conn.commit()
+
+    @staticmethod
+    def finish_portfolio_strategy_fail(
+        cache_key: str,
+        error_message: str,
+        latency_ms: int,
+    ) -> None:
+        """更新组合策略缓存状态为 'fail'，记录错误信息。
+
+        Args:
+            cache_key: 缓存键
+            error_message: 错误描述（超过 65535 字符将被截断）
+            latency_ms: 耗时毫秒数
+        """
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE portfolio_strategy_analysis_cache
+                    SET status = 'fail',
+                        error_message = %s,
+                        finished_at = NOW(),
+                        latency_ms = %s
+                    WHERE cache_key = %s
+                    """,
+                    (error_message[:65535], latency_ms, cache_key),
+                )
+            conn.commit()

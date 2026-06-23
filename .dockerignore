@@ -3,3 +3,6 @@
 !main.py
 !backend/
 !backend/**
+# 排除不需要的
+backend/__pycache__/
+backend/**/__pycache__/

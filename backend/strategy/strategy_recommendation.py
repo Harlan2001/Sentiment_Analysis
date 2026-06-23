@@ -507,7 +507,7 @@ async def analyze(
     model_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     selected_model_name = model_name or MODEL_NAME
-    provider_model = get_analysis_model_info(selected_model_name)
+    provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
 
     news_text = "\n".join(f"{idx}. {reason}" for idx, reason in enumerate(news_summary, 1))
     if not news_text:

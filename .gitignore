@@ -5,7 +5,7 @@ models/text2vec-base-chinese/
 models/Kronos-small/
 models/Kronos-Tokenizer-base/
 
-deploy/
+/deploy/
 
 logs/
 

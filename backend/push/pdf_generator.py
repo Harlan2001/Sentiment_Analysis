@@ -6,13 +6,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
-# Windows 必须使用 ProactorEventLoop 才能支持 Playwright 的子进程
-if sys.platform == "win32":
-    try:
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    except AttributeError:
-        pass  # 旧版本 Python 可能没有 WindowsProactorEventLoopPolicy
-
 logger = logging.getLogger("pdf_generator")
 
 # 项目根目录
@@ -33,7 +26,7 @@ FRONTEND_USERNAME = os.getenv("FRONTEND_USERNAME", "")
 FRONTEND_PASSWORD = os.getenv("FRONTEND_PASSWORD", "")
 
 
-async def _do_login_ks(page, base_url: str) -> bool:
+async def _do_login_ks(page) -> bool:
     """
     针对 KS 平台生产环境的自动登录。
     拦截 oauth/token 请求，将 grant_type=ldap.rdtp 改为 password。

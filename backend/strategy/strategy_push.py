@@ -43,7 +43,7 @@ class StrategyPushService:
     @staticmethod
     def _slot_key(value: datetime) -> str:
         return value.strftime("%Y-%m-%d %H:%M")
-
+    
     def _compute_window_start(self, now: datetime) -> datetime:
         boundary = now.replace(hour=20, minute=30, second=0, microsecond=0)
         if now >= boundary:

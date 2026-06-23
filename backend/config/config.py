@@ -6,6 +6,7 @@ import os
 import httpx
 from dotenv import load_dotenv
 from typing import Optional, Dict
+from zoneinfo import ZoneInfo
 
 # 基础路径配置
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -100,3 +101,30 @@ NEWS_SOURCES = {
     "wallstreetcn": "华尔街见闻", "yicai": "第一财经",
 }
 DEFAULT_NEWS_SOURCES = []
+
+# ====================== 投资组合策略配置 ======================
+
+# 组合策略时区：统一使用北京时间进行日期计算和时间戳生成
+PORTFOLIO_TZ = ZoneInfo("Asia/Shanghai")
+
+# 组合策略默认模型：可通过环境变量 PORTFOLIO_STRATEGY_MODEL 覆盖
+PORTFOLIO_MODEL = os.getenv("PORTFOLIO_STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215")
+
+# 债券评级枚举：AI 输出中允许的最低评级取值集合
+RATING_ENUM = {"不限", "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+"}
+
+# 按债券种类分布键：AI 输出 distribution_by_category 必须包含的 9 个种类键
+CATEGORY_KEYS = [
+    "gov_bond",                       # 国债
+    "local_gov_bond",                 # 地方政府债
+    "corp_credit_bond",               # 企业信用债
+    "financial_bond_non_policy",      # 非政策性金融债
+    "other_bond",                     # 其他债券
+    "policy_financial_bond",          # 政策性金融债
+    "gov_supported_institution_bond", # 政府支持机构债
+    "cd",                             # 同业存单
+    "abs",                            # 资产支持证券
+]
+
+# 按债券类型分布键：AI 输出 distribution_by_type 必须包含的 2 个类型键
+TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
