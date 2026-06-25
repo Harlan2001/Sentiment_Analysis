@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchYields, fetchNewsByDate, fetchNewsById, fetchNewsSources, fetchNewsByDateRange, fetchLatestTradingDay } from '../api'
+import { storage } from '../utils/helpers'
 import type { YieldPoint, NewsItem, NewsSource } from '../types'
+
+function authHeaders(): Record<string, string> {
+  const token = storage.get<string>("auth_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
 // 收益率数据Hook
 export const useYields = (start: string, end: string, type: string) => {
@@ -76,6 +85,7 @@ export const useNewsAnalysis = () => {
       }
       const response = await fetch(`/api/news/${newsId}/analyze?${params.toString()}`, {
         method: 'POST',
+        headers: authHeaders(),
       })
       return response.json()
     },
@@ -91,7 +101,7 @@ export const useSimilarNews = (newsId: number) => {
   return useQuery({
     queryKey: ['news', 'similar', newsId],
     queryFn: async () => {
-      const response = await fetch(`/api/news/similar?news_id=${newsId}`)
+      const response = await fetch(`/api/news/similar?news_id=${newsId}`, { headers: authHeaders() })
       return response.json()
     },
     enabled: !!newsId,
@@ -108,7 +118,7 @@ export const useSearchNews = (keyword: string, limit: number = 20) => {
         keyword: keyword.trim(),
         limit: limit.toString(),
       })
-      const response = await fetch(`/api/search/news?${params}`)
+      const response = await fetch(`/api/search/news?${params}`, { headers: authHeaders() })
       if (!response.ok) throw new Error('搜索失败')
       return response.json()
     },

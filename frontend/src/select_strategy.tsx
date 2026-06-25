@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error, Input, Loading } from './components/UI'
+import { storage } from './utils/helpers'
+
+function authHeaders(): Record<string, string> {
+  const token = storage.get<string>("auth_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
 const BASE = '/api/ai-strategy-recommendation'
 
@@ -74,13 +83,13 @@ function getYesterday() {
 }
 
 async function fetchLatestRecommendation(): Promise<LatestResponse> {
-  const res = await fetch(`${BASE}/latest`)
+  const res = await fetch(`${BASE}/latest`, { headers: authHeaders() })
   if (!res.ok) throw new Error('最新推荐读取失败')
   return res.json()
 }
 
 async function fetchRecommendationHistory(): Promise<HistoryResponse> {
-  const res = await fetch(`${BASE}/history?limit=100`)
+  const res = await fetch(`${BASE}/history?limit=100`, { headers: authHeaders() })
   if (!res.ok) throw new Error('历史推荐读取失败')
   return res.json()
 }
@@ -88,7 +97,7 @@ async function fetchRecommendationHistory(): Promise<HistoryResponse> {
 async function requestRecommendation(analysisDate: string, forceRefresh: boolean = false): Promise<AnalyzeResponse> {
   const res = await fetch(`${BASE}/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       analysis_date: analysisDate,
       force_refresh: forceRefresh,

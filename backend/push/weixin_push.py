@@ -39,7 +39,7 @@ except ImportError:
     pass
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
-from backend.pdf_png import get_latest_pdf, pdf_to_images
+from backend.push.pdf_png import get_latest_pdf, pdf_to_images
 
 # ==================== 日志 ====================
 LOG_DIR = BASE_DIR / "logs"

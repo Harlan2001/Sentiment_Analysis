@@ -9,7 +9,7 @@
 │   frontend      │────►│   backend       │
 │   Nginx :80     │     │   FastAPI :8000 │
 │                 │     │                 │
-│  dist/  ← volume│     │ main.py ←volume │
+│                 │     │ main.py ←volume │
 │        (不挂载)  │     │ backend/←volume │
 └─────────────────┘     └────────┬────────┘
                                  │
@@ -50,7 +50,6 @@
 ```env
 kingstar_API_KEY=sk-xxx
 kingstar_BASE_URL=https://api.kingstarinfotech.cn/dmx/openai/v1
-DB_TYPE=mysql
 MYSQL_HOST=10.253.50.134
 MYSQL_PORT=3306
 MYSQL_USER=root
@@ -65,36 +64,44 @@ PYTHONUNBUFFERED=1
 
 ### 模式 A：快速部署（每周代码更新，1 分钟）
 
-代码变了但 `requirements.txt` 没变时，**只传代码文件**，不重打镜像：
+代码变了但 `pyproject.toml` / `uv.lock` 没变时，**只传代码文件**，不重打镜像：
 
 ```bash
 # 大前台
-./scripts/deploy.sh
+./scripts/deploy.sh bigfrontend
 
 # Saas
 ./scripts/deploy.sh saas
+
+# 双服务器
+./scripts/deploy.sh both
 ```
 
 脚本做的事：
 1. rsync/scp `main.py` + `backend/` 到服务器
-2. `docker compose restart backend`
+2. 传输 `deploy/*.sh` 定时任务脚本
+3. `docker compose restart backend`
 
 ### 模式 B：镜像重建（依赖/前端变更，几周一次）
 
-`requirements.txt` 或前端源码变更时，重打完整镜像：
+`pyproject.toml` / `uv.lock` 或前端源码变更时，重打完整镜像：
 
 ```bash
 # 大前台
-./scripts/deploy-image.sh
+./scripts/deploy-image.sh bigfrontend
 
 # Saas
 ./scripts/deploy-image.sh saas
+
+# 双服务器
+./scripts/deploy-image.sh both
 ```
 
 脚本做的事：
 1. 本地 `docker compose build`（利用层缓存，不 `--no-cache`）
 2. `docker save` → gzip → scp 到服务器
-3. 服务器 `docker load` → `docker compose up -d --force-recreate`
+3. 传输 `deploy/*.sh` 定时任务脚本
+4. 服务器 `docker load` → `docker compose up -d --force-recreate`
 
 > **注意**：日常使用不要加 `--no-cache`，只在依赖未更新但构建出问题时才加。
 
@@ -106,7 +113,8 @@ PYTHONUNBUFFERED=1
 .
 ├── docker-compose.yml       # 编排文件
 ├── Dockerfile               # 后端镜像
-├── requirements.txt
+├── pyproject.toml           # Python 项目配置
+├── uv.lock                  # 依赖锁定文件
 ├── main.py
 ├── backend/
 ├── frontend/
@@ -160,7 +168,7 @@ docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
 # === 大前台 ===
 scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/deploy/
 scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/deploy/
-scp -r main.py backend/ frontend/nginx.conf admin@10.253.50.112:/opt/sentiment/deploy/
+scp -r main.py backend/ admin@10.253.50.112:/opt/sentiment/deploy/
 
 # === Saas（经跳板机）===
 scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
@@ -243,7 +251,7 @@ docker compose exec backend bash
 ```bash
 mkdir -p backups
 tar -czf backups/sentiment-data-$(date +%Y%m%d).tar.gz data/ logs/ models/
-tar -czf backups/sentiment-config-$(date +%Y%m%d).tar.gz docker-compose.yml .env frontend/nginx.conf
+tar -czf backups/sentiment-config-$(date +%Y%m%d).tar.gz docker-compose.yml .env
 ```
 
 ### 清理磁盘
@@ -257,8 +265,10 @@ docker system prune -f    # 全面清理
 
 | 场景 | 命令 |
 |------|------|
-| 代码更新（大前台） | `./scripts/deploy.sh` |
+| 代码更新（大前台） | `./scripts/deploy.sh bigfrontend` |
 | 代码更新（Saas） | `./scripts/deploy.sh saas` |
-| 依赖更新 | `./scripts/deploy-image.sh` |
+| 代码更新（双服务器） | `./scripts/deploy.sh both` |
+| 依赖更新（大前台） | `./scripts/deploy-image.sh bigfrontend` |
 | 依赖更新（Saas） | `./scripts/deploy-image.sh saas` |
+| 依赖更新（双服务器） | `./scripts/deploy-image.sh both` |
 | 首次部署 | 见第 7 节 |

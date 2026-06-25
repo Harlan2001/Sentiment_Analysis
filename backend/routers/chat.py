@@ -4,7 +4,7 @@ import os
 import json
 from typing import Any, List
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat import (

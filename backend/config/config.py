@@ -29,6 +29,12 @@ def _get_env_str(name: str) -> str:
 def _is_truthy(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+# ====================== 本地快照配置 ======================
+# 【临时兼容】SaaS 无法访问内网 API 时，使用本地快照文件替代实时 API 调用
+# 使用前需在内网环境运行 scripts/generate_snapshot.py 生成快照文件
+SNAPSHOT_DIR = DATA_DIR / "snapshots"
+USE_LOCAL_SNAPSHOT = _is_truthy(_get_env_str("USE_LOCAL_SNAPSHOT") or "false")
+
 # ====================== 代理配置 ======================
 def is_outbound_proxy_enabled() -> bool:
     raw_value = _get_env_str("OUTBOUND_PROXY_ENABLED")
@@ -128,3 +134,13 @@ CATEGORY_KEYS = [
 
 # 按债券类型分布键：AI 输出 distribution_by_type 必须包含的 2 个类型键
 TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
+
+# ====================== 认证配置 ======================
+# 是否启用登录认证（true=需要登录，false=免登录）
+AUTH_ENABLED = _is_truthy(_get_env_str("AUTH_ENABLED") or "false")
+
+# JWT 密钥（启用认证时必填，建议 32 位以上随机字符串）
+JWT_SECRET_KEY = _get_env_str("JWT_SECRET_KEY") or "sentiment-jwt-secret-change-me"
+
+# JWT 过期时间（小时），默认 24 小时
+JWT_EXPIRY_HOURS = int(_get_env_str("JWT_EXPIRY_HOURS") or "24")

@@ -13,7 +13,6 @@ PDF 转高清图片工具。
 """
 
 import fitz  # PyMuPDF
-import os
 import sys
 import argparse
 import logging

@@ -23,15 +23,20 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from backend.config.config import get_analysis_model_info, get_default_analysis_model_name
 from backend.common.database import get_db_connection
 
+# 【临时兼容】SaaS 本地快照模式配置
+# 通过 config 模块动态读取，而非模块级导入，以便快照脚本能在运行时覆盖
+from backend.config import config as _config
+
 
 MODEL_NAME = get_default_analysis_model_name()
 
+# 【临时兼容】离线模式下不需要 kingstar API key（不走 LLM 调用）
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-if not kingstar_API_KEY:
+if not _config.USE_LOCAL_SNAPSHOT and not kingstar_API_KEY:
     raise ValueError("kingstar_API_KEY environment variable is not set.")
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
-async_client = AsyncOpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL)
+async_client = AsyncOpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL) if kingstar_API_KEY and kingstar_BASE_URL else None
 
 STRATEGY_LIST_PATH = "/v1/strategy/follow_price_point_strategy/list"
 BOND_LIST_PATH = "/v1/bondBasisInfo/query"
@@ -40,11 +45,11 @@ DEFAULT_HTTP_TIMEOUT = 30
 
 # 量化策略API配置（从环境变量读取）
 QUANT_STRATEGY_BASE_URL = os.getenv("QUANT_STRATEGY_BASE_URL")
-if not QUANT_STRATEGY_BASE_URL:
+if not _config.USE_LOCAL_SNAPSHOT and not QUANT_STRATEGY_BASE_URL:
     raise ValueError("QUANT_STRATEGY_BASE_URL environment variable is not set.")
 
 QUANT_STRATEGY_TOKEN = os.getenv("QUANT_STRATEGY_TOKEN")
-if not QUANT_STRATEGY_TOKEN:
+if not _config.USE_LOCAL_SNAPSHOT and not QUANT_STRATEGY_TOKEN:
     raise ValueError("QUANT_STRATEGY_TOKEN environment variable is not set.")
 
 
@@ -57,6 +62,9 @@ if not QUANT_STRATEGY_TOKEN:
     reraise=True,
 )
 async def async_chat_completion(**kwargs):
+    # 【临时兼容】离线模式下不使用 LLM，此函数不应被调用
+    if async_client is None:
+        raise RuntimeError("async_client 未初始化（离线模式下不支持 LLM 调用）")
     return await async_client.chat.completions.create(**kwargs)
 
 
@@ -237,6 +245,17 @@ def _normalize_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_available_strategies() -> List[Dict[str, Any]]:
+    # 【临时兼容】SaaS 无法访问内网 API，从本地快照文件读取策略列表
+    if _config.USE_LOCAL_SNAPSHOT:
+        snapshot_path = _config.SNAPSHOT_DIR / "trading_strategies.json"
+        if not snapshot_path.exists():
+            raise RuntimeError(
+                f"本地快照文件不存在: {snapshot_path}，请先在内网环境运行"
+                f" scripts/generate_snapshot.py 生成快照"
+            )
+        with open(snapshot_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     base_url = _get_required_base_url("STRATEGY_API_BASE_URL")
     employee_no = _get_employee_no()
     payload: Dict[str, Any] = {}
@@ -331,14 +350,26 @@ def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> List[Dict[str, Any]]:
     """获取可用的量化策略列表
-    
+
     Args:
         page_size: 每页数量，默认100
         page_num: 页码，默认1
-    
+        【临时兼容】离线模式下忽略分页参数，直接返回全量快照数据
+
     Returns:
         标准化后的量化策略列表
     """
+    # 【临时兼容】SaaS 无法访问内网 API，从本地快照文件读取量化策略列表
+    if _config.USE_LOCAL_SNAPSHOT:
+        snapshot_path = _config.SNAPSHOT_DIR / "quant_strategies.json"
+        if not snapshot_path.exists():
+            raise RuntimeError(
+                f"本地快照文件不存在: {snapshot_path}，请先在内网环境运行"
+                f" scripts/generate_snapshot.py 生成快照"
+            )
+        with open(snapshot_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     url = _join_url(QUANT_STRATEGY_BASE_URL, QUANT_STRATEGY_LIST_PATH)
     
     # 构建查询参数
@@ -446,6 +477,17 @@ def _normalize_bond(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_available_targets() -> List[Dict[str, Any]]:
+    # 【临时兼容】SaaS 无法访问内网 API，从本地快照文件读取债券标的列表
+    if _config.USE_LOCAL_SNAPSHOT:
+        snapshot_path = _config.SNAPSHOT_DIR / "targets.json"
+        if not snapshot_path.exists():
+            raise RuntimeError(
+                f"本地快照文件不存在: {snapshot_path}，请先在内网环境运行"
+                f" scripts/generate_snapshot.py 生成快照"
+            )
+        with open(snapshot_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     base_url = _get_required_base_url("BOND_API_BASE_URL")
     page_size = int(os.getenv("BOND_API_PAGE_SIZE", "10000"))
     max_targets = int(os.getenv("AI_RECOMMENDATION_MAX_TARGETS", "300"))

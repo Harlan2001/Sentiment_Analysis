@@ -1,8 +1,11 @@
 **
-!requirements.txt
 !main.py
 !backend/
 !backend/**
+!pyproject.toml
+!uv.lock
 # 排除不需要的
 backend/__pycache__/
 backend/**/__pycache__/
+.venv/
+**/__pycache__/

@@ -1,8 +1,7 @@
 import asyncio
-import sys
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 

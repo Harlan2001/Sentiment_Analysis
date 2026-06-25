@@ -33,8 +33,20 @@ import type {
   ChangeCompareResponse,
   ChangeTriggerResponse,
 } from "./types";
+import { storage } from "./utils/helpers";
 
 const BASE = "/api";
+
+/**
+ * 获取认证请求头（如果已登录）
+ */
+function authHeaders(): Record<string, string> {
+  const token = storage.get<string>("auth_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
 export async function fetchYields(
   start: string,
@@ -42,7 +54,8 @@ export async function fetchYields(
   type: string
 ): Promise<YieldPoint[]> {
   const r = await fetch(
-    `${BASE}/yields?start=${start}&end=${end}&type=${type}`
+    `${BASE}/yields?start=${start}&end=${end}&type=${type}`,
+    { headers: authHeaders() }
   );
   return r.json();
 }
@@ -60,7 +73,7 @@ export async function fetchNewsByDate(
   if (model) {
     url += `&model=${encodeURIComponent(model)}`;
   }
-  const r = await fetch(url);
+  const r = await fetch(url, { headers: authHeaders() });
   return r.json();
 }
 
@@ -78,17 +91,17 @@ export async function fetchNewsByDateRange(
   if (model) {
     url += `&model=${encodeURIComponent(model)}`;
   }
-  const r = await fetch(url);
+  const r = await fetch(url, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchNewsSources(): Promise<{ sources: NewsSource[] }> {
-  const r = await fetch(`${BASE}/news/sources`);
+  const r = await fetch(`${BASE}/news/sources`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchLatestTradingDay(): Promise<{ latest_date: string }> {
-  const r = await fetch(`${BASE}/news/latest-trading-day`);
+  const r = await fetch(`${BASE}/news/latest-trading-day`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -109,7 +122,7 @@ export async function fetchNewsById(
   if (query) {
     url += `?${query}`;
   }
-  const r = await fetch(url);
+  const r = await fetch(url, { headers: authHeaders() });
   return r.json();
 }
 
@@ -123,12 +136,13 @@ export interface AnalyzeResponse {
 export async function analyzeNews(newsId: number, period: string = "10年"): Promise<AnalyzeResponse> {
   const r = await fetch(`${BASE}/news/${newsId}/analyze?period=${period}`, {
     method: "POST",
+    headers: authHeaders(),
   });
   return r.json();
 }
 
 export async function fetchSimilarNews(newsId: number): Promise<SimilarNews[]> {
-  const r = await fetch(`${BASE}/news/similar?news_id=${newsId}`);
+  const r = await fetch(`${BASE}/news/similar?news_id=${newsId}`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -142,6 +156,7 @@ export async function fetchSimilarPeriods(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({
       start_date: startDate,
@@ -160,7 +175,8 @@ export async function fetchNewsYieldData(
   windowAfter: number = 10
 ): Promise<NewsYieldData> {
   const r = await fetch(
-    `${BASE}/news/${newsId}/yield?period=${period}&window_before=${windowBefore}&window_after=${windowAfter}`
+    `${BASE}/news/${newsId}/yield?period=${period}&window_before=${windowBefore}&window_after=${windowAfter}`,
+    { headers: authHeaders() }
   );
   return r.json();
 }
@@ -210,19 +226,19 @@ export async function fetchNewsByFactor(
 ): Promise<FactorNewsResponse> {
   const encodedCode = encodeURIComponent(factorCode);
   const query = model ? `?model=${encodeURIComponent(model)}` : "";
-  const r = await fetch(`${BASE}/factor/${encodedCode}/news${query}`);
+  const r = await fetch(`${BASE}/factor/${encodedCode}/news${query}`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchAllFactors(): Promise<AllFactorsResponse> {
-  const r = await fetch(`${BASE}/factors`);
+  const r = await fetch(`${BASE}/factors`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchFactorsByCategory(
   category: string
 ): Promise<FactorsByCategoryResponse> {
-  const r = await fetch(`${BASE}/factors/by-category/${category}`);
+  const r = await fetch(`${BASE}/factors/by-category/${category}`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -243,7 +259,7 @@ export async function searchNews(
     keyword: keyword.trim(),
     limit: limit.toString(),
   });
-  const r = await fetch(`${BASE}/search/news?${params}`);
+  const r = await fetch(`${BASE}/search/news?${params}`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -275,12 +291,12 @@ export interface ChatResponse {
 
 export async function fetchForecastReport(date?: string): Promise<ForecastResponse> {
   const params = date ? `?date=${date}` : '';
-  const r = await fetch(`${BASE}/forecast${params}`);
+  const r = await fetch(`${BASE}/forecast${params}`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchForecastHistory(limit: number = 30): Promise<ForecastHistoryResponse> {
-  const r = await fetch(`${BASE}/forecast/history?limit=${limit}`);
+  const r = await fetch(`${BASE}/forecast/history?limit=${limit}`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -304,6 +320,7 @@ export async function sendChatMessageStream(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...authHeaders(),
       },
       body: JSON.stringify({
         messages,
@@ -372,6 +389,7 @@ export async function sendChatMessage(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({
       messages,
@@ -395,17 +413,17 @@ export async function fetchFactorCandidates(
   params.append('page', page.toString());
   params.append('limit', limit.toString());
 
-  const r = await fetch(`${BASE}/factor-candidates?${params}`);
+  const r = await fetch(`${BASE}/factor-candidates?${params}`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchCandidatesStats(): Promise<CandidatesStats> {
-  const r = await fetch(`${BASE}/factor-candidates/stats`);
+  const r = await fetch(`${BASE}/factor-candidates/stats`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function fetchReviewQueue(): Promise<FactorCandidate[]> {
-  const r = await fetch(`${BASE}/factor-candidates/review-queue`);
+  const r = await fetch(`${BASE}/factor-candidates/review-queue`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -417,6 +435,7 @@ export async function reviewFactorCandidate(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
     },
     body: JSON.stringify(action),
   });
@@ -433,6 +452,7 @@ export async function startGraphAugment(newsText: string): Promise<GraphAugmentS
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({ newsText }),
   });
@@ -440,22 +460,22 @@ export async function startGraphAugment(newsText: string): Promise<GraphAugmentS
 }
 
 export async function getGraphAugmentStatus(runId: string): Promise<GraphAugmentStatusResponse> {
-  const r = await fetch(`${BASE}/augment/status?runId=${runId}`);
+  const r = await fetch(`${BASE}/augment/status?runId=${runId}`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function getGraphAugmentResult(runId: string): Promise<GraphAugmentResult> {
-  const r = await fetch(`${BASE}/augment/artifact?runId=${runId}&name=05_normalized.json`);
+  const r = await fetch(`${BASE}/augment/artifact?runId=${runId}&name=05_normalized.json`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function getGraphAugmentExtract(runId: string): Promise<GraphAugmentExtractResult> {
-  const r = await fetch(`${BASE}/augment/artifact?runId=${runId}&name=01_extract.json`);
+  const r = await fetch(`${BASE}/augment/artifact?runId=${runId}&name=01_extract.json`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function getGraphAugmentJobByNews(newsId: number): Promise<{ job: GraphAugmentJob | null }> {
-  const r = await fetch(`${BASE}/graph-augment/job-by-news/${newsId}`);
+  const r = await fetch(`${BASE}/graph-augment/job-by-news/${newsId}`, { headers: authHeaders() });
   return r.json();
 }
 
@@ -471,6 +491,7 @@ export async function saveGraphAugmentResult(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({
       news_id: newsId,
@@ -485,7 +506,9 @@ export async function saveGraphAugmentResult(
 }
 
 export function connectGraphAugmentStream(runId: string): EventSource {
-  return new EventSource(`${BASE}/augment/stream?runId=${runId}`);
+  const token = storage.get<string>("auth_token");
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+  return new EventSource(`${BASE}/augment/stream?runId=${runId}${tokenParam}`);
 }
 
 // Re-export graph types
@@ -512,7 +535,7 @@ export async function fetchMacroSignalRequestLogs(
   if (query.signal_type) params.set("signal_type", query.signal_type);
   if (query.start_time) params.set("start_time", query.start_time);
   if (query.end_time) params.set("end_time", query.end_time);
-  const r = await fetch(`${BASE}/macro/signal/logs?${params.toString()}`);
+  const r = await fetch(`${BASE}/macro/signal/logs?${params.toString()}`, { headers: authHeaders() });
   if (!r.ok) {
     const err = await r.json().catch(() => ({ detail: r.statusText }));
     throw new Error(err.detail || "请求失败");
@@ -523,7 +546,7 @@ export async function fetchMacroSignalRequestLogs(
 // ========== Strategies ==========
 
 export async function fetchAllStrategies(): Promise<AllStrategiesResponse> {
-  const r = await fetch(`/api/ai-strategy-recommendation/strategies`);
+  const r = await fetch(`/api/ai-strategy-recommendation/strategies`, { headers: authHeaders() });
   if (!r.ok) throw new Error('策略列表读取失败');
   return r.json();
 }
@@ -531,7 +554,7 @@ export async function fetchAllStrategies(): Promise<AllStrategiesResponse> {
 // ========== Change / Strategy Comparison ==========
 
 export async function fetchChangeSnapshots(hours: number = 24): Promise<ChangeSnapshotsResponse> {
-  const r = await fetch(`${BASE}/change/snapshots?hours=${hours}`);
+  const r = await fetch(`${BASE}/change/snapshots?hours=${hours}`, { headers: authHeaders() });
   if (!r.ok) throw new Error('快照列表读取失败');
   return r.json();
 }
@@ -544,7 +567,7 @@ export async function fetchChangeCompare(
 ): Promise<ChangeCompareResponse> {
   const r = await fetch(`${BASE}/change/compare`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
       old_snapshot_id: oldSnapshotId,
       new_snapshot_id: newSnapshotId,
@@ -559,7 +582,7 @@ export async function fetchChangeCompare(
 export async function triggerChangeSnapshot(force: boolean = false): Promise<ChangeTriggerResponse> {
   const r = await fetch(`${BASE}/change/trigger`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ force }),
   });
   if (!r.ok) throw new Error('快照触发失败');

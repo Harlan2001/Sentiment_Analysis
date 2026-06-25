@@ -1,9 +1,6 @@
 # 阶段1: 构建前端
 FROM node:20-alpine AS builder
 
-ENV PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1
-    
 WORKDIR /app
 
 # 复制 package 文件

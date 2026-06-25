@@ -259,25 +259,23 @@ def count_news_raw(window_start: datetime, window_end: datetime) -> int:
 
 
 def query_news_ids_analyzed(window_start: datetime, window_end: datetime) -> set:
-    """查询窗口内已完成分析（有 reason）的新闻ID集合，按模型优先级去重"""
+    """查询窗口内已完成分析（有 reason）的新闻ID集合，按模型优先级去重（兼容 MySQL 5.x）"""
     priority_cases = _build_model_priority_case()
 
     sql = f"""
-        SELECT DISTINCT news_id
-        FROM (
-            SELECT n.id AS news_id,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY n.id
-                       ORDER BY CASE a.model {priority_cases} ELSE 999 END
-                   ) AS rn
-            FROM news n
-            JOIN analysis a ON a.news_id = n.id
-            WHERE n.pub_time >= %s
-              AND n.pub_time <= %s
-              AND a.reason IS NOT NULL
-              AND TRIM(a.reason) <> ''
-        ) t
-        WHERE t.rn = 1
+        SELECT DISTINCT n.id AS news_id
+        FROM news n
+        JOIN analysis a ON a.news_id = n.id
+        LEFT JOIN analysis a2 ON a2.news_id = a.news_id
+            AND a2.reason IS NOT NULL
+            AND TRIM(a2.reason) <> ''
+            AND CASE a2.model {priority_cases} ELSE 999 END
+              < CASE a.model {priority_cases} ELSE 999 END
+        WHERE n.pub_time >= %s
+          AND n.pub_time <= %s
+          AND a.reason IS NOT NULL
+          AND TRIM(a.reason) <> ''
+          AND a2.news_id IS NULL
     """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -307,29 +305,27 @@ def extract_json(text: str) -> Dict[str, Any]:
 # ============================================================
 
 def query_news_for_window(window_start: datetime, window_end: datetime) -> List[Dict[str, Any]]:
-    """查询窗口内的新闻摘要（仅取 analysis.reason），按模型优先级去重"""
+    """查询窗口内的新闻摘要（仅取 analysis.reason），按模型优先级去重（兼容 MySQL 5.x）"""
     priority_cases = _build_model_priority_case()
 
     sql = f"""
-        SELECT t.news_id, t.title, t.pub_time, t.direction, t.reason, t.model
-        FROM (
-            SELECT n.id AS news_id, n.title, n.pub_time,
-                   COALESCE(a.direction, '') AS direction,
-                   COALESCE(a.reason, '') AS reason,
-                   a.model,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY n.id
-                       ORDER BY CASE a.model {priority_cases} ELSE 999 END
-                   ) AS rn
-            FROM news n
-            JOIN analysis a ON a.news_id = n.id
-            WHERE n.pub_time >= %s
-              AND n.pub_time <= %s
-              AND a.reason IS NOT NULL
-              AND TRIM(a.reason) <> ''
-        ) t
-        WHERE t.rn = 1
-        ORDER BY t.pub_time ASC
+        SELECT n.id AS news_id, n.title, n.pub_time,
+               COALESCE(a.direction, '') AS direction,
+               COALESCE(a.reason, '') AS reason,
+               a.model
+        FROM news n
+        JOIN analysis a ON a.news_id = n.id
+        LEFT JOIN analysis a2 ON a2.news_id = a.news_id
+            AND a2.reason IS NOT NULL
+            AND TRIM(a2.reason) <> ''
+            AND CASE a2.model {priority_cases} ELSE 999 END
+              < CASE a.model {priority_cases} ELSE 999 END
+        WHERE n.pub_time >= %s
+          AND n.pub_time <= %s
+          AND a.reason IS NOT NULL
+          AND TRIM(a.reason) <> ''
+          AND a2.news_id IS NULL
+        ORDER BY n.pub_time ASC
     """
 
     with get_db_connection() as conn:

@@ -14,7 +14,6 @@ from backend.change.change_service import (
     compute_diff,
     compute_window_from_news,
     count_news_raw,
-    extract_json,
     generate_recommendations,
     latest_snapshot,
     list_snapshots,

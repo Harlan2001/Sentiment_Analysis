@@ -1,10 +1,15 @@
 FROM python:3.11-slim
 
+# 安装 uv（从官方镜像复制二进制文件）
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Playwright Chromium 浏览器路径（供 appuser 读取）
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_CACHE_DIR=/app/.uv-cache
 
 # 设置工作目录
 WORKDIR /app
@@ -38,24 +43,29 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sourc
 # 创建非 root 用户
 RUN groupadd -r appgroup && useradd -r -g appgroup -u 1000 appuser
 
-# 复制依赖文件并安装 Python 包
-COPY requirements.txt .
-RUN pip install --timeout 300 --retries 5 \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
-    --trusted-host pypi.tuna.tsinghua.edu.cn \
-    -r requirements.txt
-
-# 安装 Playwright Chromium 浏览器（必须在 USER appuser 之前）
-RUN mkdir -p /opt/playwright && \
-    playwright install chromium && \
-    chown -R appuser:appgroup /opt/playwright
+# 第一层：仅安装依赖（利用 Docker 层缓存：pyproject.toml / uv.lock 不变则命中缓存）
+# uv 自动读取 pyproject.toml 中配置的清华大学 PyPI 镜像源
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project
 
 # 复制应用代码
 COPY main.py .
 COPY backend/ ./backend/
+COPY pyproject.toml uv.lock ./
+
+# 第二层：安装项目本身
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked
+
+# 安装 Playwright Chromium 浏览器（必须在 USER appuser 之前）
+RUN mkdir -p /opt/playwright && \
+    uv run playwright install chromium && \
+    chown -R appuser:appgroup /opt/playwright
 
 # 创建数据目录并设置权限
-RUN mkdir -p /app/data /app/logs && \
+RUN mkdir -p /app/data /app/logs /app/.uv-cache && \
     chown -R appuser:appgroup /app
 
 # 切换到非 root 用户
@@ -69,4 +79,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" || exit 1
 
 # 启动应用
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

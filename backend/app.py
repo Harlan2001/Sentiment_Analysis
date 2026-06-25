@@ -18,6 +18,8 @@ from backend.routers.chat import router as chat_router
 from backend.routers.graph_augment import router as graph_augment_router
 from backend.routers.report import router as report_router
 from backend.routers.change import router as change_router
+from backend.routers.auth import router as auth_router
+from backend.auth.dependencies import auth_middleware
 
 app = FastAPI(title="Bond Yield Backend")
 
@@ -29,6 +31,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 认证中间件（根据 AUTH_ENABLED 配置决定是否拦截）
+app.middleware("http")(auth_middleware)
+
+app.include_router(auth_router)
 app.include_router(ai_strategy_router)
 app.include_router(strategy_router)
 app.include_router(macro_router)
