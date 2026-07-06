@@ -30,9 +30,14 @@ logger = logging.getLogger(__name__)
 MODEL_NAME = get_default_analysis_model_name()
 MODEL_INFO = get_analysis_model_info(MODEL_NAME)
 MODEL_PROVIDER_MODEL = MODEL_INFO.get("provider_model", MODEL_NAME) if isinstance(MODEL_INFO, dict) else str(MODEL_INFO)
-PROMPT_VERSION = "v2.0"  # 升级版本号
+PROMPT_VERSION = "v2.2"  # v2.2: 多日新闻范围 + 单条新闻日期标注 + 去重
 KINGSTAR_API_KEY = os.getenv("kingstar_API_KEY")
 KINGSTAR_BASE_URL = os.getenv("kingstar_BASE_URL")
+
+# 报告生成时向前回溯的新闻天数（含 report_date 当天）
+NEWS_LOOKBACK_DAYS = 3
+# 送入 LLM 的最大新闻条数
+MAX_NEWS_IN_PROMPT = 20
 
 
 def _truncate_text(text: str, limit: int) -> str:
@@ -42,30 +47,42 @@ def _truncate_text(text: str, limit: int) -> str:
     return f"{text[:limit]}..." if len(text) > limit else text
 
 
+def _sanitize_json(text: str) -> str:
+    """清理 LLM 返回文本中常见的 JSON 不合规问题。"""
+    if not text:
+        return ""
+    # 移除尾随逗号：逗号后紧跟 ] 或 }（中间允许空白）
+    text = re.sub(r',\s*([}\]])', r'\1', text)
+    return text
+
+
 def _extract_json_content(content: str) -> str:
     """提取 fenced code block 中的 JSON 文本。"""
     if not content:
         return ""
-    
+
     #  Step 1: 移除代码块标记
     cleaned = re.sub(r'```json|```', '', content).strip()
-    
+
     #  Step 2: 提取第一个 { ... } 结构（无视前后废话）
     json_match = re.search(r'\{.*\}', cleaned, re.DOTALL)
     if json_match:
-        return json_match.group().strip()
-    
+        return _sanitize_json(json_match.group().strip())
+
     # 没找到 JSON 结构
     return ""
 
+
 def construct_enhanced_prompt(
-    news_texts: List[Dict[str, Any]], 
+    news_texts: List[Dict[str, Any]],
     yield_data: Dict[str, List[Dict[str, float]]],
     market_summary: Dict[str, Any],
-    report_date: str
+    report_date: str,
+    news_start_date: str = "",
+    news_end_date: str = "",
 ) -> str:
     """
-    构建增强版大模型提示词，要求生成详尽的市场预测报告。
+    构建增强版大模型提示词，根据数据可用性动态调整报告要求。
 
     参数:
         news_texts: 新闻分析数据列表。
@@ -76,14 +93,18 @@ def construct_enhanced_prompt(
     返回:
         格式化后的提示词文本。
     """
-    # 新闻部分 - 包含详细的分析信息
+    # 新闻部分 - 包含详细的分析信息，标注每条新闻的日期
+    news_date_label = (
+        f"{news_start_date} 至 {news_end_date}"
+        if news_start_date and news_end_date
+        else report_date
+    )
     news_section = "\n\n".join([
-        f"【新闻{i+1}】{news['title']}\n"
+        f"【新闻{i+1}】[{news.get('pub_date', report_date)}] {news['title']}\n"
         f"方向: {news['direction']}\n"
         f"时间范围: {news['horizon']}\n"
         f"逻辑: {_truncate_text(news['reason'], 200)}\n"
-        f"内容摘要: {_truncate_text(news['content'], 150)}"
-        for i, news in enumerate(news_texts[:10])  # 最多取10条新闻
+        for i, news in enumerate(news_texts[:MAX_NEWS_IN_PROMPT])
     ])
 
     # 收益率部分
@@ -107,122 +128,104 @@ def construct_enhanced_prompt(
             f"趋势: {data['trend']} | 波动率: {data['volatility']:.2f}\n"
         )
 
+    # --- 数据可用性判断 ---
+    has_yield_data = bool(yield_section)
+    has_market_summary = bool(summary_section)
+    has_news = bool(news_section)
+
+    # --- 根据数据可用性生成差异化的报告指令 ---
+    if has_market_summary and has_yield_data:
+        data_context = "以下提供了完整的近期市场概况、收益率详细数据和新闻事件分析。请基于这些实际数据生成全面的分析报告。"
+        technical_requirement = """### 2. 技术分析
+基于上方提供的实际收益率数据，分析收益率曲线形态（陡峭化/平坦化趋势）、关键支撑阻力位、动量指标判断、历史分位数位置。必须引用具体数据。"""
+        factor_requirement = """### 3. 因子分析
+结合新闻事件和实际市场数据，综合分析宏观因子（CPI、PPI、PMI、社融等）、政策因子（货币/财政/监管）、资金面流动性状况，以及外部环境的影响。"""
+        output_instruction = "分析内容需详尽充实，但每个章节用一段完整的文字表述即可，不要拆分为多个子字段"
+    elif has_news:
+        data_context = (
+            "⚠️ 注意：本次分析缺少收益率数据和市场摘要（可能为非交易日），"
+            "以下仅提供了新闻事件分析数据。请基于新闻事件进行定性分析。"
+        )
+        technical_requirement = """### 2. 技术分析
+由于缺少实际收益率数据，本节应简要说明「因本日为节假日/非交易日，无行情数据，技术分析无法进行」，不得超过3句话。"""
+        factor_requirement = """### 3. 因子分析
+基于上方提供的新闻事件，分析其中涉及的宏观、政策、资金面、外部环境因子的潜在影响。仅分析新闻中实际提及的因子，不得自行引入新闻未涉及的因子或数据。"""
+        output_instruction = "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+    else:
+        data_context = (
+            "⚠️ 注意：本次分析无市场数据、无收益率数据、无新闻数据，无法进行有效分析。"
+        )
+        technical_requirement = """### 2. 技术分析
+因无数据，本节填写「无可用数据，分析跳过」。"""
+        factor_requirement = """### 3. 因子分析
+因无数据，本节填写「无可用数据，分析跳过」。"""
+        output_instruction = "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+
     prompt = f"""# 中国债券市场预测分析报告生成任务
 
-作为专业的债券市场分析师，请基于以下详尽的市场数据，生成一份全面的市场预测报告。
+作为专业的债券市场分析师，请基于以下市场数据，生成一份市场预测报告。
+
+{data_context}
 
 ## 分析日期
 {report_date}
 
 ## 近期市场概况（近5个交易日）
-{summary_section if summary_section else "暂无市场摘要数据"}
+{summary_section if summary_section else "（无数据 — 可能为非交易日或数据未更新）"}
 
-## 新闻事件详细分析
-{news_section if news_section else "暂无新闻数据"}
+## 新闻事件详细分析（{news_date_label}，共 {len(news_texts[:MAX_NEWS_IN_PROMPT])} 条）
+{news_section if news_section else "（无新闻数据）"}
 
 ## 收益率详细数据
-{yield_section if yield_section else "暂无收益率数据"}
+{yield_section if yield_section else "（无数据 — 可能为非交易日或数据未更新）"}
 
 ---
 
-## 请生成以下详尽的预测报告内容：
+## 报告内容要求
 
-### 1. 市场综述（market_overview）
-- 当前市场总体走势和情绪
-- 主要驱动因素概述
-- 关键风险点识别
-- 与前期的对比分析
+### 1. 市场概览
+基于上述数据综合分析当前市场总体走势、市场情绪、主要驱动因素、关键风险点。{"" if has_market_summary else "如无行情数据，可简要说明市场处于休市状态，聚焦新闻事件中的情绪信号。"}
 
-### 2. 技术面分析（technical_analysis）
-- 收益率曲线形态分析（陡峭化/平坦化趋势）
-- 关键支撑/阻力位
-- 动量指标判断
-- 历史分位数位置
+{technical_requirement}
 
-### 3. 基本面因子分析（factor_analysis）
-- 宏观因子影响（CPI、PPI、PMI、社融等）
-- 政策因子影响（货币政策、财政政策、监管政策）
-- 资金面和流动性分析
-- 外部环境影响（美联储、汇率、大宗商品）
+{factor_requirement}
 
-### 4. 详细预测（预测结果）
-对每个时间周期（日/周/月）提供：
-- 上涨概率和下跌概率（精确到小数点后2位）
-- 预期变动幅度（上涨/下跌基点数）
-- 预测置信度（0-1之间）
-- 核心假设条件
+### 4. 预测结果
+对日/周/月三个周期，分别给出上涨概率和下跌概率（精确到小数点后2位）、预期变动基点数、置信度（0-1）、核心假设条件。{"若无行情数据，所有预测的置信度不得超过0.55，并在假设条件中明确标注「基于非交易日新闻情绪推断，无实际行情数据支撑」。严禁编造任何具体数值。" if not has_yield_data else ""}
 
-### 5. 情景分析（情景分析）
-- 基准情景（概率最大）
-- 乐观情景及触发条件
-- 悲观情景及触发条件
-- 黑天鹅风险提示
+### 5. 情景分析
+分析基准情景、牛市情景、熊市情景及黑天鹅风险，各含发生概率、情景描述和触发条件。
 
-### 6. 交易策略建议（strategy_recommendations）
-- 利率债策略
-- 信用债策略
-- 久期管理建议
-- 杠杆和套息策略
+### 6. 策略建议
+给出利率债策略、信用债策略、久期管理、杠杆和套息策略的综合建议。
 
-### 7. 风险提示（risk_warnings）
-- 主要风险因素清单
-- 需关注的关键数据和事件
-- 预警指标阈值
+### 7. 风险提示
+列出主要风险因素、需关注的关键数据和事件、预警指标阈值。
 
 ---
 
-**输出要求（必须严格遵守）：**
-1. **只输出纯 JSON 格式**，**绝对不要**输出任何解释、前言、总结、 markdown、代码块、说明文字
-2. 不要写 ```json，不要写```，不要写任何多余内容
-3. 所有分析内容必须详尽、充实、有逻辑
-4. 严格按照下面的 JSON 结构输出，字段一个都不能少
-5. 所有键名必须使用中文
+## ⚠️ 严禁事项（必须遵守）
+1. **严禁编造数据**：不得使用「合理假设」「假设前期」「预计在XX区间」「假设XX在XX附近」「基于XX合理推测」等措辞编造具体的收益率数值、指数点位、宏观数据。没有数据就如实说明「无法获取」，绝不自创数字。
+2. **严禁空洞堆砌**：当某个章节确实缺少分析素材时，用1-3句话简要说明原因即可，不要用大量「可能」「或许」「大概率」的猜测来填充篇幅。
+3. **区分事实与推测**：基于新闻事实的推断可以写，但必须标注「据XX新闻推断」；没有信息来源的判断不得出现。
+4. **违规示例**（绝对禁止）：❌「合理假设10年期国债收益率在2.30%-2.40%区间」❌「假设前期震荡平台为XX」❌「预计CPI同比温和回升至1.0%-1.5%」——这些数字没有数据来源，纯属编造。
 
-请以JSON格式返回完整报告，所有键名必须使用中文，格式如下：
+---
+
+**输出要求：**
+1. 只输出纯 JSON，不要任何解释、markdown 标记、代码块或说明文字
+2. 所有键名必须使用中文
+3. {output_instruction}
+
+请严格按照以下 JSON 结构输出：
 {{
-  "市场概览": {{
-    "概述": "详细的市场综述...",
-    "市场情绪": "看涨/看跌/中性",
-    "主要驱动因素": ["因素1", "因素2", ...],
-    "风险点": ["风险1", "风险2", ...]
-  }},
-  "技术分析": {{
-    "曲线形态": "收益率曲线形态描述",
-    "支撑压力": "关键支撑阻力位分析",
-    "动能分析": "动量指标判断",
-    "分位数": "历史分位数位置"
-  }},
-  "因子分析": {{
-    "宏观因子": "宏观经济因子影响分析...",
-    "政策因子": "政策因子影响分析...",
-    "流动性分析": "流动性和资金面分析...",
-    "外部因素": "外部环境和国际因素..."
-  }},
+  "市场概览": "详细的市场综述文本...",
+  "技术分析": "详细的技术分析文本...",
+  "因子分析": "详细的因子分析文本...",
   "预测结果": {{
-    "日": {{
-      "上涨概率": 0.55,
-      "下跌概率": 0.45,
-      "上涨基点": 3.5,
-      "下跌基点": -2.5,
-      "置信度": 0.72,
-      "假设条件": ["假设1", "假设2"]
-    }},
-    "周": {{
-      "上涨概率": 0.60,
-      "下跌概率": 0.40,
-      "上涨基点": 8.2,
-      "下跌基点": -5.8,
-      "置信度": 0.68,
-      "假设条件": ["假设1", "假设2"]
-    }},
-    "月": {{
-      "上涨概率": 0.65,
-      "下跌概率": 0.35,
-      "上涨基点": 15.5,
-      "下跌基点": -10.2,
-      "置信度": 0.62,
-      "假设条件": ["假设1", "假设2"]
-    }}
+    "日": {{"上涨概率": 0.55, "下跌概率": 0.45, "上涨基点": 3.5, "下跌基点": -2.5, "置信度": 0.72, "假设条件": ["假设1", "假设2"]}},
+    "周": {{"上涨概率": 0.60, "下跌概率": 0.40, "上涨基点": 8.2, "下跌基点": -5.8, "置信度": 0.68, "假设条件": ["假设1", "假设2"]}},
+    "月": {{"上涨概率": 0.65, "下跌概率": 0.35, "上涨基点": 15.5, "下跌基点": -10.2, "置信度": 0.62, "假设条件": ["假设1", "假设2"]}}
   }},
   "情景分析": {{
     "基准": {{"概率": 0.50, "描述": "基准情景描述", "触发条件": "触发条件"}},
@@ -230,21 +233,11 @@ def construct_enhanced_prompt(
     "熊市": {{"概率": 0.20, "描述": "悲观情景描述", "触发条件": "触发条件"}},
     "黑天鹅": {{"概率": 0.05, "描述": "黑天鹅风险描述"}}
   }},
-  "策略建议": {{
-    "利率债": "利率债策略建议...",
-    "信用债": "信用债策略建议...",
-    "久期管理": "久期管理建议...",
-    "杠杆策略": "杠杆和套息策略..."
-  }},
-  "风险提示": {{
-    "主要风险": ["主要风险1", "主要风险2", "主要风险3"],
-    "重点事件": ["关注事件1", "关注事件2"],
-    "关键指标": ["预警指标1", "预警指标2"]
-  }},
-    "生成时间": "{report_date}",
-  "报告摘要": "本报告核心结论摘要..."
-}}
-"""
+  "策略建议": "详细的策略建议文本...",
+  "风险提示": "详细的风险提示文本...",
+  "报告摘要": "本报告核心结论摘要...",
+  "生成时间": "{report_date}"
+}}"""
     return prompt.strip()
 
 
@@ -267,20 +260,24 @@ def call_llm(prompt: str) -> str:
         if http_client is not None:
             client_kwargs["http_client"] = http_client
         client = OpenAI(**client_kwargs)
-        
+
         response = client.chat.completions.create(
             model=MODEL_PROVIDER_MODEL,
             messages=[
-                {"role": "system", "content": "你是专业的中国债券市场分析师，擅长宏观经济分析、货币政策解读和技术面分析。请生成详尽专业的市场预测报告。"},
+                {"role": "system", "content": "你是专业的中国债券市场分析师，擅长宏观经济分析、货币政策解读和技术面分析。你必须严格遵守数据事实：有数据就深入分析，无数据就诚实说明，绝不编造任何数值或假设。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=1.0,
-            max_tokens=4000,  # 增加令牌数以获取更详细的回复
+            max_tokens=8000,
         )
-        
-        content = response.choices[0].message.content or ""
+
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
+            logger.warning("大模型返回被截断（finish_reason=length），max_tokens 可能不足")
+
+        content = choice.message.content or ""
         return _extract_json_content(content)
-        
+
     except Exception as e:
         logger.error("大模型调用失败: %s", e)
         return ""
@@ -307,7 +304,7 @@ def save_enhanced_forecast(
     with get_db_connection() as conn:
         try:
             cur = conn.cursor()
-            
+
             # 检查是否已存在该日期的完整报告
             cur.execute(
                 """
@@ -316,7 +313,7 @@ def save_enhanced_forecast(
             """,
                 (report_date,),
             )
-            
+
             if cur.fetchone():
                 logger.info("%s 的完整报告已存在，执行更新", report_date)
                 # 更新已有记录
@@ -349,24 +346,42 @@ def save_enhanced_forecast(
                         json.dumps(forecast_data, ensure_ascii=False),
                     ),
                 )
-            
+
+            conn.commit()
             logger.info("%s 的增强预测报告保存成功", report_date)
             return True
-            
+
         except Exception as e:
             logger.error("保存预测报告失败: %s", e)
             return False
 
 
 def generate_for_news_date(report_date: str) -> bool:
-    """按新闻发布日期生成并保存单日预测报告。"""
-    logger.info("开始生成 %s 的报告", report_date)
+    """按新闻发布日期生成并保存单日预测报告。
 
-    # 获取新闻与分析数据
-    news_data = DBOperations.get_news_analysis_by_date(report_date)
+    新闻范围向前回溯 NEWS_LOOKBACK_DAYS 天，避免单天新闻量过少或质量过低。
+    """
+    from datetime import timedelta
+
+    logger.info("开始生成 %s 的报告（新闻回溯 %d 天）", report_date, NEWS_LOOKBACK_DAYS)
+
+    # 计算新闻查询范围
+    end_dt = datetime.strptime(report_date, "%Y-%m-%d")
+    start_dt = end_dt - timedelta(days=NEWS_LOOKBACK_DAYS)
+    news_start_date = start_dt.strftime("%Y-%m-%d")
+    news_end_date = report_date
+
+    # 获取多日新闻与分析数据（自动去重，取最高优先级模型）
+    news_data = DBOperations.get_news_analysis_by_date_range(
+        start_date=news_start_date,
+        end_date=news_end_date,
+        limit=MAX_NEWS_IN_PROMPT,
+    )
     if not news_data:
-        logger.warning("%s 无新闻数据，跳过", report_date)
+        logger.warning("%s（范围 %s~%s）无新闻数据，跳过", report_date, news_start_date, news_end_date)
         return False
+
+    logger.info("%s 获取到 %d 条新闻（%s~%s）", report_date, len(news_data), news_start_date, news_end_date)
 
     yield_bundle = DBOperations.get_yield_data_and_market_summary(
         end_date=report_date,
@@ -377,7 +392,11 @@ def generate_for_news_date(report_date: str) -> bool:
     market_summary = yield_bundle.get("market_summary", {})
 
     # 构造提示词
-    prompt = construct_enhanced_prompt(news_data, yield_data, market_summary, report_date)
+    prompt = construct_enhanced_prompt(
+        news_data, yield_data, market_summary, report_date,
+        news_start_date=news_start_date,
+        news_end_date=news_end_date,
+    )
 
     # 调用大模型
     response = call_llm(prompt)
@@ -393,7 +412,7 @@ def generate_for_news_date(report_date: str) -> bool:
         return False
 
     forecast_data.setdefault("生成时间", datetime.now().strftime("%Y-%m-%d"))
-    
+
     if not forecast_data:
         logger.error("%s 的大模型返回校验失败", report_date)
         return False
@@ -469,7 +488,7 @@ def main() -> None:
             payload=task_payload,
         )
         task_conn.commit()
-    
+
         try:
             if not news_dates:
                 logger.error("未找到新闻发布日期")

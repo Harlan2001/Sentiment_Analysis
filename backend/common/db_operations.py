@@ -354,6 +354,74 @@ class DBOperations:
         return results
 
     @staticmethod
+    def get_news_analysis_by_date_range(
+        start_date: str,
+        end_date: str,
+        limit: int = 30,
+    ) -> List[Dict[str, Any]]:
+        """按日期范围读取新闻与分析信息，每条新闻取最高优先级模型的结果。
+
+        使用 ANALYSIS_MODEL_PRIORITY 排序取最佳模型，自动去重（一条新闻一条分析）。
+        返回按 pub_time 倒序排列。
+
+        Args:
+            start_date: 起始日期 YYYY-MM-DD（闭区间）
+            end_date: 结束日期 YYYY-MM-DD（闭区间）
+            limit: 最多返回条数
+
+        Returns:
+            新闻分析列表，每条含 title/content/pub_date/direction/horizon/reason/model
+        """
+        priority_cases = DBOperations.priority_case_sql()
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT n.title, n.content, DATE(n.pub_time) AS pub_date,
+                           COALESCE(a.direction, '中性') AS direction,
+                           COALESCE(a.horizon, '短期') AS horizon,
+                           COALESCE(a.reason, '') AS reason,
+                           a.model
+                    FROM news n
+                    LEFT JOIN analysis a ON a.news_id = n.id
+                        AND a.model = (
+                            SELECT a2.model
+                            FROM analysis a2
+                            WHERE a2.news_id = n.id
+                            ORDER BY CASE a2.model
+                                {priority_cases}
+                                ELSE 999
+                            END
+                            LIMIT 1
+                        )
+                    WHERE DATE(n.pub_time) BETWEEN %s AND %s
+                    ORDER BY n.pub_time DESC
+                    LIMIT %s
+                    """,
+                    (start_date, end_date, limit),
+                )
+                rows = cur.fetchall()
+
+        results: List[Dict[str, Any]] = []
+        for row in rows:
+            pub_date = row[2]
+            if hasattr(pub_date, "strftime"):
+                pub_date = pub_date.strftime("%Y-%m-%d")
+            results.append(
+                {
+                    "title": row[0],
+                    "content": row[1] or "",
+                    "pub_date": str(pub_date),
+                    "direction": row[3],
+                    "horizon": row[4],
+                    "reason": row[5] or "",
+                    "model": row[6] or "",
+                }
+            )
+        return results
+
+    @staticmethod
     def get_yield_series_by_period(
         start_date: str,
         end_date: str,
@@ -388,15 +456,21 @@ class DBOperations:
 
         - yield_data: [end_date-lookback_days, end_date]
         - market_summary: [end_date-summary_days, end_date]
+        - periods: 支持中文名（如 "10年"）或 DB 码（如 "10Y"），自动通过 PERIOD_MAP 转换
         """
         if periods is None:
             periods = ["10年", "5年", "2年", "1年"]
+
+        # 将期限名映射为数据库中的代码（如 "10年" → "10Y"），已为代码的保持不变
+        db_periods = [PERIOD_MAP.get(p, p) for p in periods]
+        # 反向映射：查询结果中 DB 码 → 中文名，用于返回一致的键名
+        period_label_map = {db_p: p for p, db_p in zip(periods, db_periods)}
 
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
         lookback_start = (end_dt - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
         summary_start = (end_dt - timedelta(days=summary_days)).strftime("%Y-%m-%d")
 
-        placeholders = ",".join(["%s"] * len(periods))
+        placeholders = ",".join(["%s"] * len(db_periods))
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -408,7 +482,7 @@ class DBOperations:
                       AND period IN ({placeholders})
                     ORDER BY period ASC, date ASC
                     """,
-                    tuple([lookback_start, end_date] + periods),
+                    tuple([lookback_start, end_date] + db_periods),
                 )
                 rows = cur.fetchall()
 
@@ -416,13 +490,16 @@ class DBOperations:
         summary_bucket: Dict[str, List[float]] = {p: [] for p in periods}
 
         for period, row_date, value in rows:
-            if period not in yield_data:
-                yield_data[period] = []
-            yield_data[period].append({"date": row_date, "value": value})
+            # PyMySQL 返回 Decimal，转为 float 以便后续数学运算
+            value_f = float(value)
+            label = period_label_map.get(period, period)
+            if label not in yield_data:
+                yield_data[label] = []
+            yield_data[label].append({"date": row_date, "value": value_f})
 
             row_date_str = row_date.strftime("%Y-%m-%d") if hasattr(row_date, "strftime") else str(row_date)
             if row_date_str >= summary_start:
-                summary_bucket.setdefault(period, []).append(value)
+                summary_bucket.setdefault(label, []).append(value_f)
 
         market_summary: Dict[str, Any] = {}
         for period in periods:

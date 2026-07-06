@@ -203,6 +203,9 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
         else:
             json_str = response_text.strip()
 
+        # 清理尾随逗号等常见 JSON 不合规问题
+        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+
         result = json.loads(json_str)
         return result
 

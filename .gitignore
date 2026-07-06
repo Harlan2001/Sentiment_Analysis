@@ -11,6 +11,9 @@ logs/
 
 *.gz
 
+# SQLite / database files
+*.db
+
 #忽略node_modules
 frontend/node_modules
 

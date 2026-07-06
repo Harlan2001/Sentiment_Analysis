@@ -11,6 +11,7 @@ AI目标与策略推荐服务。
 
 import json
 import os
+import re
 from datetime import date, datetime, time, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -524,6 +525,8 @@ def _extract_json(response_text: str) -> Dict[str, Any]:
         text = text.split("```json", 1)[1].split("```", 1)[0].strip()
     elif "```" in text:
         text = text.split("```", 1)[1].split("```", 1)[0].strip()
+    # 清理尾随逗号等常见 JSON 不合规问题
+    text = re.sub(r',\s*([}\]])', r'\1', text)
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:

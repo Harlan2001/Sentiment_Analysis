@@ -1,15 +1,15 @@
 #!/bin/bash
-# Sentiment 定时任务：生成昨日交易日报告
+# Sentiment 定时任务（SAAS）：生成昨日交易日报告
 # 建议执行时间：每天 09:00
-# 用法：./report_gen.sh
-# 或在 crontab 中：0 9 * * * /opt/sentiment-tasks/report_gen.sh
+# 用法：./report_gen_saas.sh
+# 或在 crontab 中：0 9 * * * /data/sentiment-tasks/report_gen_saas.sh
 
 set -e
 
 # 配置工作目录
 # 允许通过环境变量覆盖，便于测试/灰度验证
-WORKDIR="${WORKDIR:-/opt/sentiment/deploy}"
-LOG_FILE="${LOG_FILE:-/opt/sentiment/deploy/logs/sentiment-report.log}"
+WORKDIR="${WORKDIR:-/data/sentiment_deploy}"
+LOG_FILE="${LOG_FILE:-/data/sentiment_deploy/logs/sentiment-report.log}"
 
 # 如果 LOG_FILE 目录不存在，创建它；日志文件本身会在首次写入时自动创建
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -29,8 +29,9 @@ fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting report generation for trade date: $YESTERDAY" >> "$LOG_FILE"
 
 # 执行报告生成命令
-docker compose exec -T backend python -m backend.analysis.generate_report \
-  --trade-date "$YESTERDAY" \
+docker compose exec -T backend uv run python -m backend.analysis.generate_report \
+  --start-date "$YESTERDAY" \
+  --end-date "$YESTERDAY" \
   >> "$LOG_FILE" 2>&1
 
 exit_code=$?

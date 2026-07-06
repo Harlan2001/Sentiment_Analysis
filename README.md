@@ -29,7 +29,7 @@
 ### 后端
 
 - Python 3.11
-- Conda（推荐）或 venv
+- [uv](https://docs.astral.sh/uv/)（包管理与虚拟环境）
 
 ### 前端
 
@@ -42,17 +42,16 @@
 
 > 适合功能开发与调试
 
-### 1. 创建并激活 Conda 环境
+### 1. 安装后端依赖（uv 自动创建虚拟环境）
 
 ```powershell
-conda create -n Sentiment python=3.11
-conda activate Sentiment
+uv sync
 ```
 
-### 2. 安装后端依赖
+### 2. 安装 Playwright 浏览器（PDF 生成 / 微信推送所需）
 
 ```powershell
-pip install -r requirements.txt
+uv run playwright install chromium
 ```
 
 ### 3. 安装前端依赖
