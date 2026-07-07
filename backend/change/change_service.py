@@ -88,7 +88,7 @@ def snapshot_by_version_time(version_time: str) -> Optional[Dict[str, Any]]:
     return _row_to_dict(row)
 
 
-def list_snapshots(hours: int = 24) -> List[Dict[str, Any]]:
+def list_snapshots(hours: int = 168) -> List[Dict[str, Any]]:
     since = datetime.now(CHANGE_TZ) - timedelta(hours=hours)
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -132,17 +132,6 @@ def save_snapshot(snapshot: Dict[str, Any]) -> int:
                      news_added_count, news_removed_count,
                      stock_recommend, strategy_recommend, summary_stats, generate_status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    window_start = VALUES(window_start),
-                    window_end = VALUES(window_end),
-                    news_total = VALUES(news_total),
-                    news_added_count = VALUES(news_added_count),
-                    news_removed_count = VALUES(news_removed_count),
-                    stock_recommend = VALUES(stock_recommend),
-                    strategy_recommend = VALUES(strategy_recommend),
-                    summary_stats = VALUES(summary_stats),
-                    generate_status = VALUES(generate_status),
-                    create_time = CURRENT_TIMESTAMP
                 """,
                 (
                     snapshot["version_time"],
@@ -305,27 +294,21 @@ def extract_json(text: str) -> Dict[str, Any]:
 # ============================================================
 
 def query_news_for_window(window_start: datetime, window_end: datetime) -> List[Dict[str, Any]]:
-    """查询窗口内的新闻摘要（仅取 analysis.reason），按模型优先级去重（兼容 MySQL 5.x）"""
-    priority_cases = _build_model_priority_case()
+    """查询窗口内的所有新闻，已分析的按模型优先级去重，未分析的也一并返回（content 作为 fallback）。"""
+    from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
-    sql = f"""
-        SELECT n.id AS news_id, n.title, n.pub_time,
-               COALESCE(a.direction, '') AS direction,
-               COALESCE(a.reason, '') AS reason,
-               a.model
+    priority_map: Dict[str, int] = {m: i for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)}
+
+    sql = """
+        SELECT n.id AS news_id, n.title, n.pub_time, n.content,
+               a.direction, a.reason, a.model
         FROM news n
-        JOIN analysis a ON a.news_id = n.id
-        LEFT JOIN analysis a2 ON a2.news_id = a.news_id
-            AND a2.reason IS NOT NULL
-            AND TRIM(a2.reason) <> ''
-            AND CASE a2.model {priority_cases} ELSE 999 END
-              < CASE a.model {priority_cases} ELSE 999 END
+        LEFT JOIN analysis a ON a.news_id = n.id
+            AND a.reason IS NOT NULL
+            AND TRIM(a.reason) <> ''
         WHERE n.pub_time >= %s
           AND n.pub_time <= %s
-          AND a.reason IS NOT NULL
-          AND TRIM(a.reason) <> ''
-          AND a2.news_id IS NULL
-        ORDER BY n.pub_time ASC
+        ORDER BY n.pub_time ASC, n.id ASC
     """
 
     with get_db_connection() as conn:
@@ -333,17 +316,35 @@ def query_news_for_window(window_start: datetime, window_end: datetime) -> List[
             cur.execute(sql, (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)))
             rows = cur.fetchall()
 
-    return [
+    # 按模型优先级去重：同一条新闻有多条分析时，取最高优先级；无分析的行（model=NULL）直接保留
+    seen: Dict[int, tuple] = {}
+    for row in rows:
+        news_id = row[0]
+        model = row[6]
+        if news_id not in seen:
+            seen[news_id] = row
+        elif model and model in priority_map:
+            existing_model = seen[news_id][6]
+            existing_rank = priority_map.get(existing_model, 999) if existing_model else 999
+            new_rank = priority_map.get(model, 999)
+            if new_rank < existing_rank:
+                seen[news_id] = row
+
+    result = [
         {
             "news_id": row[0],
             "title": row[1],
             "pub_time": row[2],
-            "direction": (row[3] or "").strip(),
-            "reason": row[4],
-            "model": row[5],
+            "content": row[3] or "",
+            "direction": (row[4] or "").strip(),
+            "reason": row[5] or "",
+            "model": row[6] or "",
         }
-        for row in rows
+        for row in seen.values()
     ]
+    # 按 pub_time 排序（注意：pub_time 可能为 None 或 str，datetime 优先）
+    result.sort(key=lambda x: x["pub_time"] if isinstance(x["pub_time"], datetime) else (x["pub_time"] or ""))
+    return result
 
 
 # ============================================================
@@ -355,8 +356,16 @@ def _build_reason_text(news_rows: List[Dict[str, Any]]) -> str:
     for idx, item in enumerate(news_rows, 1):
         pub_time = item["pub_time"]
         ts = pub_time.strftime("%Y-%m-%d %H:%M") if isinstance(pub_time, datetime) else str(pub_time)
+        reason = (item.get("reason") or "").strip()
+        if not reason:
+            # 未分析新闻：优先用 content 前 200 字作为摘要
+            content = (item.get("content") or "").strip()
+            if content:
+                reason = "【未分析】" + (content[:200] + "…" if len(content) > 200 else content)
+            else:
+                reason = "（暂无分析摘要）"
         lines.append(
-            f"{idx}. 时间: {ts} | 方向: {item['direction']} | 标题: {item['title']} | 摘要: {item['reason']}"
+            f"{idx}. 时间: {ts} | 方向: {item['direction']} | 标题: {item['title']} | 摘要: {reason}"
         )
     return "\n".join(lines) if lines else "当前窗口内暂无有效新闻。"
 

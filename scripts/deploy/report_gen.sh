@@ -41,3 +41,19 @@ else
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Report generation failed with exit code $exit_code for $YESTERDAY." >> "$LOG_FILE"
   exit 1
 fi
+
+# ========== PDF 生成 + 飞书推送 ==========
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting PDF generation and Feishu push for $YESTERDAY." >> "$LOG_FILE"
+
+docker compose exec -T backend python -m backend.push.test_feishu \
+  >> "$LOG_FILE" 2>&1
+
+push_exit_code=$?
+
+if [ $push_exit_code -eq 0 ]; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] PDF generation and Feishu push completed successfully for $YESTERDAY." >> "$LOG_FILE"
+else
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] PDF generation or Feishu push failed with exit code $push_exit_code for $YESTERDAY." >> "$LOG_FILE"
+  exit 1
+fi

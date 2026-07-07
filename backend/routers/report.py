@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from fastapi.responses import FileResponse
 from fastapi import HTTPException, Query, APIRouter
 from pathlib import Path
@@ -62,8 +63,10 @@ async def api_generate_prediction_pdf(
                         detail="forecast_report 表为空，无法确定报告日期，请手动指定 report_date 参数",
                     )
 
-        # 生成 PDF，返回 (文件路径, 页面实际日期)
-        pdf_path, actual_trade_date = await generate_prediction_pdf(
+        # 生成 PDF — 在独立线程中运行 Playwright（sync API），
+        # 避免 Windows ProactorEventLoop 不支持子进程的问题
+        pdf_path, actual_trade_date = await asyncio.to_thread(
+            generate_prediction_pdf,
             report_date=parsed_date,
             frontend_url=frontend_url,
         )

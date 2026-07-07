@@ -65,12 +65,12 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     if version_time is None or window_start is None or window_end is None:
         raise HTTPException(status_code=503, detail="news 表为空，无法确定窗口范围。请先执行新闻爬取与分析。")
 
-    # 查询窗口内已分析的新闻（有 reason 的）
+    # 查询窗口内所有新闻（已分析+未分析），供 LLM 生成推荐
     news_rows = query_news_for_window(window_start, window_end)
 
     # 统计窗口内新闻覆盖情况
     total_news_raw = count_news_raw(window_start, window_end)
-    analyzed_count = len(news_rows)
+    analyzed_count = len([r for r in news_rows if (r.get("reason") or "").strip()])
     unanalyzed_count = max(0, total_news_raw - analyzed_count)
     analysis_coverage = (analyzed_count / total_news_raw * 100) if total_news_raw > 0 else 0
 
@@ -85,8 +85,9 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
         return {
             "success": True,
             "message": (
-                f"窗口内无已分析新闻（总{total_news_raw}条，已分析0条）。"
-                f"请检查 analysis 表是否已写入。使用 force=true 可强制生成。"
+                f"窗口内无新闻数据（{window_start.strftime('%Y-%m-%d %H:%M')}"
+                f" ~ {window_end.strftime('%Y-%m-%d %H:%M')}）。"
+                f"请先执行新闻爬取。"
             ),
             "skipped": True,
             "window": {
@@ -97,8 +98,8 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
             },
         }
 
-    # 计算相比上一版本的新闻变动
-    current_news_ids = {r["news_id"] for r in news_rows}
+    # 计算相比上一版本的新闻变动（仅统计已分析新闻，保持与历史快照一致）
+    current_news_ids = query_news_ids_analyzed(window_start, window_end)
     prev = latest_snapshot()
     news_added_count = 0
     news_removed_count = 0
@@ -160,7 +161,7 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
         summary_stats["warnings"] = warnings
 
     snapshot = {
-        "version_time": version_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "version_time": datetime.now(CHANGE_TZ).strftime("%Y-%m-%d %H:%M:%S"),
         "window_start": window_start.strftime("%Y-%m-%d %H:%M:%S"),
         "window_end": window_end.strftime("%Y-%m-%d %H:%M:%S"),
         "news_total": analyzed_count,
@@ -191,7 +192,7 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
 
 
 @router.get("/snapshots")
-def get_snapshots(hours: int = Query(24, ge=1, le=168)):
+def get_snapshots(hours: int = Query(168, ge=1, le=720)):
     """返回指定小时数内的快照列表，用于时间轴渲染"""
     try:
         items = list_snapshots(hours)
@@ -220,7 +221,7 @@ def compare_snapshots(request: CompareRequest = Body(default=CompareRequest())):
 
     # 默认：取最新两个版本
     if not new_snapshot:
-        all_items = list_snapshots(48)
+        all_items = list_snapshots(720)
         if len(all_items) >= 1:
             new_snapshot = snapshot_by_id(all_items[0]["id"])
         if not old_snapshot and len(all_items) >= 2:

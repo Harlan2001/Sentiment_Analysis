@@ -322,7 +322,7 @@ const ChangePage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchChangeSnapshots(48);
+      const res = await fetchChangeSnapshots(168);
       setSnapshots(res.items || []);
       if (res.items && res.items.length >= 2) {
         // 默认选中最新两个

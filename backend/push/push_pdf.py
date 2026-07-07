@@ -30,7 +30,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / ".env")
+    load_dotenv(BASE_DIR.parent / ".env")  # 项目根目录的 .env
 except ImportError:
     pass
 
@@ -73,7 +73,7 @@ SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "").rstrip("/") or \
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
 
-GENERATE_PDF_API = "http://127.0.0.1:8000/api/pdf/generate-prediction"
+GENERATE_PDF_API = "http://127.0.0.1:8000/api/report/generate-prediction"
 PDF_DIR = BASE_DIR / "data" / "pdf"
 
 
@@ -93,7 +93,7 @@ def generate_latest_pdf() -> tuple[str, str] | None:
     try:
         print(f"[PDF生成] 本机 IP: {LOCAL_IP}")
         print(f"[PDF生成] 正在通过前端生成最新预测报告...")
-        res = requests.get(GENERATE_PDF_API, timeout=120)
+        res = requests.post(GENERATE_PDF_API, timeout=120)
         if res.status_code == 200:
             data = res.json()
             if data.get("success"):
@@ -130,7 +130,7 @@ def push_to_feishu(file_name: str) -> bool:
     match = re.search(r"(\d{4}-\d{2}-\d{2})", file_name)
     date_str = match.group(1) if match else datetime.now().strftime("%Y-%m-%d")
 
-    pdf_url = f"{SERVER_BASE_URL}/api/pdf/files/{file_name}"
+    pdf_url = f"{SERVER_BASE_URL}/api/report/files/{file_name}"
     msg = f"📊 {date_str} 债券市场预测报告已生成\n\n📄 查看报告: {pdf_url}"
 
     print(f"[飞书推送] SERVER_BASE_URL: {SERVER_BASE_URL}")

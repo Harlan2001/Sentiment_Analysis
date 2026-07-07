@@ -553,7 +553,7 @@ export async function fetchAllStrategies(): Promise<AllStrategiesResponse> {
 
 // ========== Change / Strategy Comparison ==========
 
-export async function fetchChangeSnapshots(hours: number = 24): Promise<ChangeSnapshotsResponse> {
+export async function fetchChangeSnapshots(hours: number = 168): Promise<ChangeSnapshotsResponse> {
   const r = await fetch(`${BASE}/change/snapshots?hours=${hours}`, { headers: authHeaders() });
   if (!r.ok) throw new Error('快照列表读取失败');
   return r.json();

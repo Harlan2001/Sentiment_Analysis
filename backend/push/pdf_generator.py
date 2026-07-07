@@ -1,9 +1,9 @@
-import asyncio
 import logging
 import os
+import time
 from datetime import date
 from pathlib import Path
-from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger("pdf_generator")
 
@@ -25,7 +25,7 @@ FRONTEND_USERNAME = os.getenv("FRONTEND_USERNAME", "")
 FRONTEND_PASSWORD = os.getenv("FRONTEND_PASSWORD", "")
 
 
-async def _do_login_ks(page) -> bool:
+def _do_login_ks(page) -> bool:
     """
     针对 KS 平台生产环境的自动登录。
     拦截 oauth/token 请求，将 grant_type=ldap.rdtp 改为 password。
@@ -33,30 +33,30 @@ async def _do_login_ks(page) -> bool:
     logger.info("检测到 KS 平台登录页面，执行自动登录...")
 
     # 设置路由拦截
-    async def intercept_oauth(route):
+    def intercept_oauth(route):
         post_data = route.request.post_data or ""
         if "oauth/token" in route.request.url and "grant_type=ldap.rdtp" in post_data:
-            await route.continue_(
+            route.continue_(
                 post_data=post_data.replace("grant_type=ldap.rdtp", "grant_type=password")
             )
         else:
-            await route.continue_()
+            route.continue_()
 
-    await page.route("**/oauth/token**", intercept_oauth)
+    page.route("**/oauth/token**", intercept_oauth)
 
     try:
         # 等待登录表单
-        await page.wait_for_selector('input[placeholder*="账号"]', timeout=10000)
-        await page.locator('input[placeholder*="账号"]').first.fill(FRONTEND_USERNAME)
-        await page.locator('input[placeholder*="密码"]').first.fill(FRONTEND_PASSWORD)
-        await page.locator("button:has-text('登 录')").first.click()
+        page.wait_for_selector('input[placeholder*="账号"]', timeout=10000)
+        page.locator('input[placeholder*="账号"]').first.fill(FRONTEND_USERNAME)
+        page.locator('input[placeholder*="密码"]').first.fill(FRONTEND_PASSWORD)
+        page.locator("button:has-text('登 录')").first.click()
 
         # 等待登录完成
-        await page.wait_for_load_state("load", timeout=30000)
-        await asyncio.sleep(2)
+        page.wait_for_load_state("load", timeout=30000)
+        time.sleep(2)
 
         # 检查是否仍在登录页
-        if await page.locator("button:has-text('登 录')").count() > 0:
+        if page.locator("button:has-text('登 录')").count() > 0:
             logger.error("KS 平台登录失败")
             return False
 
@@ -76,7 +76,7 @@ def _is_ks_platform(url: str) -> bool:
     return "/ui/bond" in url
 
 
-async def generate_prediction_pdf(
+def generate_prediction_pdf(
     report_date: date = None,
     output_path: str = None,
     frontend_url: str = None,
@@ -118,12 +118,12 @@ async def generate_prediction_pdf(
     logger.info("  平台模式 : %s", "KS 平台" if is_ks else "本地开发")
 
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
                 headless=True,
                 args=["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
             )
-            context = await browser.new_context(
+            context = browser.new_context(
                 viewport={"width": 1280, "height": 1800},
                 user_agent=(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -133,10 +133,10 @@ async def generate_prediction_pdf(
                 java_script_enabled=True,
                 ignore_https_errors=True,
             )
-            page = await context.new_page()
+            page = context.new_page()
 
             # ---------- 1. 导航到预测页面 ----------
-            await page.goto(page_url, wait_until="load", timeout=30000)
+            page.goto(page_url, wait_until="load", timeout=30000)
             logger.info("页面加载完成: %s", page.url)
 
             # ---------- 2. 登录（仅 KS 平台需要） ----------
@@ -147,57 +147,57 @@ async def generate_prediction_pdf(
                     )
 
                 # 检查是否需要登录
-                if "登 录" in await page.inner_text("body"):
-                    login_ok = await _do_login_ks(page, base_url)
+                if "登 录" in page.inner_text("body"):
+                    login_ok = _do_login_ks(page)
                     if not login_ok:
                         raise RuntimeError("KS 平台登录失败")
 
                     # 登录后重新导航到预测页面
-                    await page.goto(page_url, wait_until="load", timeout=30000)
-                    await asyncio.sleep(2)
+                    page.goto(page_url, wait_until="load", timeout=30000)
+                    time.sleep(2)
 
                     # 处理锁屏
-                    if await page.locator(".lock-screen-form").count() > 0:
+                    if page.locator(".lock-screen-form").count() > 0:
                         logger.info("检测到锁屏，正在解锁...")
-                        await page.locator(".lock-screen-form input[type=password]").first.fill(FRONTEND_PASSWORD)
-                        await page.keyboard.press("Enter")
-                        await page.wait_for_load_state("load", timeout=15000)
-                        await asyncio.sleep(2)
+                        page.locator(".lock-screen-form input[type=password]").first.fill(FRONTEND_PASSWORD)
+                        page.keyboard.press("Enter")
+                        page.wait_for_load_state("load", timeout=15000)
+                        time.sleep(2)
 
             # ---------- 3. 等待页面内容加载 ----------
-            await page.wait_for_selector('input[type="date"]', timeout=15000)
+            page.wait_for_selector('input[type="date"]', timeout=15000)
             logger.info("日期输入框已出现")
 
             # ---------- 4. 设置报告日期（仅当指定了日期时） ----------
             if report_date is not None:
                 date_str = report_date.isoformat()
                 date_input = page.locator('input[type="date"]').first
-                await date_input.click()
-                await date_input.fill("")
-                await date_input.type(date_str, delay=50)
-                await page.evaluate(
+                date_input.click()
+                date_input.fill("")
+                date_input.type(date_str, delay=50)
+                page.evaluate(
                     '(input) => input.dispatchEvent(new Event("change", { bubbles: true }))',
-                    await date_input.element_handle(),
+                    date_input.element_handle(),
                 )
                 logger.info("已设置查询日期: %s", date_str)
 
             # ---------- 5. 等待数据加载 ----------
-            await page.wait_for_load_state("networkidle", timeout=20000)
+            page.wait_for_load_state("networkidle", timeout=20000)
 
             # 等待 loading 消失
             loading_selector = "text=加载预测数据..."
             try:
-                await page.wait_for_selector(loading_selector, state="detached", timeout=15000)
+                page.wait_for_selector(loading_selector, state="detached", timeout=15000)
             except PlaywrightTimeout:
                 logger.warning("Loading 状态未检测到消失，继续执行")
 
-            await asyncio.sleep(2)
+            time.sleep(2)
 
             # ---------- 6. 提取 trade_date & 更新文件名 ----------
             # 从页面 <h3>2026-06-10 市场预测分析报告</h3> 中提取实际日期
             actual_trade_date = None
             try:
-                page_text = await page.inner_text("body")
+                page_text = page.inner_text("body")
                 # 从 "2026-04-24 市场预测分析报告" 中提取日期
                 import re
                 trade_date_match = re.search(r'(\d{4}-\d{2}-\d{2})\s*市场预测分析报告', page_text)
@@ -216,14 +216,14 @@ async def generate_prediction_pdf(
 
             # ---------- 7. 检测有效内容 ----------
             empty_texts = ["暂无预测报告", "格式错误", "加载失败"]
-            page_text = await page.inner_text("body")
+            page_text = page.inner_text("body")
             if any(t in page_text for t in empty_texts):
                 logger.warning("页面显示无数据或错误状态，生成的 PDF 可能为空")
 
-            await page.emulate_media(media="print")
+            page.emulate_media(media="print")
 
             # ---------- 8. DOM 清理（JS 直接删除交互元素，比 CSS 更可靠） ----------
-            await page.evaluate("""
+            page.evaluate("""
                 (function() {
                     // 1) 删除 MainLayout 顶部 header（"📊 债券市场智能分析"）
                     var header = document.querySelector('header');
@@ -266,9 +266,7 @@ async def generate_prediction_pdf(
             logger.info("最终 PDF 输出路径: %s", output_path)
 
             # ---------- 9. 生成 PDF ----------
-            # 注意：header_template 会导致每页重复标题，已移除。
-            # 报告标题仅通过前端 @media print 在内容第一页展示。
-            pdf_bytes = await page.pdf(
+            pdf_bytes = page.pdf(
                 format="A4",
                 print_background=True,
                 margin={"top": "2cm", "right": "2cm", "bottom": "2cm", "left": "2cm"},
@@ -289,7 +287,7 @@ async def generate_prediction_pdf(
             file_size_kb = len(pdf_bytes) / 1024
             logger.info("PDF 生成成功: %s (%.1f KB)", output, file_size_kb)
 
-            await browser.close()
+            browser.close()
             return output, actual_trade_date
 
     except PlaywrightTimeout as e:
