@@ -4,6 +4,7 @@ import { zhCN } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Loading } from '../UI'
 import { useYields, useNewsByDate, useNewsSources, useNewsDetail, useSearchNews, useLatestTradingDay } from '../../hooks/useNewsApi'
+import { storage } from '../../utils/helpers'
 import YieldChart from './YieldChart'
 import NewsList from './NewsList'
 import NewsDetail from './NewsDetail'
@@ -91,7 +92,13 @@ const NewsPage: React.FC = () => {
     queryKey: ['news', 'yield_features', selectedNewsId, yieldsType],
     queryFn: async () => {
       if (!selectedNewsId) return null
-      const response = await fetch(`/api/news/${selectedNewsId}/yield?period=${yieldsType}&window_before=10&window_after=10`)
+      const token = storage.get<string>('auth_token')
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const response = await fetch(
+        `/api/news/${selectedNewsId}/yield?period=${yieldsType}&window_before=10&window_after=10`,
+        { headers }
+      )
       if (!response.ok) throw new Error('获取收益率特征失败')
       return response.json()
     },

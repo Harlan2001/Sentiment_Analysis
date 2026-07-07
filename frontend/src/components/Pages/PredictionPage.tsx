@@ -231,29 +231,7 @@ const PredictionPage: React.FC = () => {
         black_swan: fullReport['情景分析']?.['黑天鹅']
       }
     
-    // 获取中文键名的显示名称
-    const getChineseKeyName = (key: string): string => {
-      const keyMap: Record<string, string> = {
-        '概述': '概述',
-        '市场情绪': '市场情绪',
-        '主要驱动因素': '主要驱动因素',
-        '风险点': '风险点',
-        '久期管理': '久期管理',
-        '杠杆策略': '杠杆策略',
-        '利率债': '利率债',
-        '信用债': '信用债',
-        '宏观因子': '宏观因子',
-        '政策因子': '政策因子',
-        '流动性分析': '流动性分析',
-        '外部因素': '外部因素',
-        '曲线形态': '曲线形态',
-        '支撑压力': '支撑压力',
-        '动能分析': '动能分析',
-        '分位数': '分位数'
-      }
-      return keyMap[key] || key
-    }
-    
+
     return (
       <div className="space-y-6">
          {/* ☆ 打印专用报告主标题（仅 print 显示） */}
@@ -304,44 +282,12 @@ const PredictionPage: React.FC = () => {
               <CardTitle>🌍 市场概览</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-300 leading-relaxed whitespace-pre-line space-y-0">
-                {typeof marketOverview === 'object' && marketOverview !== null ? (
-                  <>
-                    {Object.entries(marketOverview).map(([key, value]) => {
-                      // 将键名转换为中文显示
-                      const displayName = getChineseKeyName(key)
-                       
-                      return (
-                        <div key={key} className="pb-4 border-b border-gray-700 last:border-b-0 last:pb-0">
-                          <h4 className="text-white font-semibold text-xl mb-3">{displayName}</h4>
-                           <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
-                             {typeof value === 'string'
-                               ? value.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                   index % 2 === 0 ? (
-                                     part
-                                   ) : (
-                                     <strong key={index} className="text-white font-semibold">{part}</strong>
-                                   )
-                                 )
-                               : Array.isArray(value)
-                                 ? (
-                                   <ul className="list-disc pl-5 space-y-2">
-                                     {value.map((item, idx) => (
-                                       <li key={idx}>{String(item)}</li>
-                                     ))}
-                                   </ul>
-                                 )
-                               : typeof value === 'object'
-                                 ? JSON.stringify(value, null, 2)
-                                 : String(value)}
-                           </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <div className="text-base">{String(marketOverview)}</div>
-                )}
+              <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
+                {typeof marketOverview === 'string'
+                  ? marketOverview.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                      index % 2 === 0 ? part : <strong key={index} className="text-white font-semibold">{part}</strong>
+                    )
+                  : String(marketOverview)}
               </div>
             </CardContent>
           </Card>
@@ -354,44 +300,12 @@ const PredictionPage: React.FC = () => {
               <CardTitle>📊 技术分析</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-300 leading-relaxed whitespace-pre-line space-y-0">
-                {typeof technicalAnalysis === 'object' && technicalAnalysis !== null ? (
-                  <>
-                    {Object.entries(technicalAnalysis).map(([key, value]) => {
-                      // 将键名转换为中文显示
-                      const displayName = getChineseKeyName(key)
-                      
-                      return (
-                        <div key={key} className="pb-4 border-b border-gray-700 last:border-b-0 last:pb-0">
-                          <h4 className="text-white font-semibold text-xl mb-3">{displayName}</h4>
-                           <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
-                             {typeof value === 'string'
-                               ? value.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                   index % 2 === 0 ? (
-                                     part
-                                   ) : (
-                                     <strong key={index} className="text-white font-semibold">{part}</strong>
-                                   )
-                                 )
-                               : Array.isArray(value)
-                                 ? (
-                                   <ul className="list-disc pl-5 space-y-2">
-                                     {value.map((item, idx) => (
-                                       <li key={idx}>{String(item)}</li>
-                                     ))}
-                                   </ul>
-                                 )
-                               : typeof value === 'object'
-                                 ? JSON.stringify(value, null, 2)
-                                 : String(value)}
-                           </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <div className="text-base">{String(technicalAnalysis)}</div>
-                )}
+              <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
+                {typeof technicalAnalysis === 'string'
+                  ? technicalAnalysis.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                      index % 2 === 0 ? part : <strong key={index} className="text-white font-semibold">{part}</strong>
+                    )
+                  : String(technicalAnalysis)}
               </div>
             </CardContent>
           </Card>
@@ -404,44 +318,12 @@ const PredictionPage: React.FC = () => {
               <CardTitle>🔍 因子分析</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-300 leading-relaxed whitespace-pre-line space-y-0">
-                {typeof factorAnalysis === 'object' && factorAnalysis !== null ? (
-                  <>
-                    {Object.entries(factorAnalysis).map(([key, value]) => {
-                      // 将键名转换为中文显示
-                      const displayName = getChineseKeyName(key)
-                      
-                      return (
-                        <div key={key} className="pb-4 border-b border-gray-700 last:border-b-0 last:pb-0">
-                          <h4 className="text-white font-semibold text-xl mb-3">{displayName}</h4>
-                           <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
-                             {typeof value === 'string'
-                               ? value.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                   index % 2 === 0 ? (
-                                     part
-                                   ) : (
-                                     <strong key={index} className="text-white font-semibold">{part}</strong>
-                                   )
-                                 )
-                               : Array.isArray(value)
-                                 ? (
-                                   <ul className="list-disc pl-5 space-y-2">
-                                     {value.map((item, idx) => (
-                                       <li key={idx}>{String(item)}</li>
-                                     ))}
-                                   </ul>
-                                 )
-                               : typeof value === 'object'
-                                 ? JSON.stringify(value, null, 2)
-                                 : String(value)}
-                           </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <div className="text-base">{String(factorAnalysis)}</div>
-                )}
+              <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
+                {typeof factorAnalysis === 'string'
+                  ? factorAnalysis.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                      index % 2 === 0 ? part : <strong key={index} className="text-white font-semibold">{part}</strong>
+                    )
+                  : String(factorAnalysis)}
               </div>
             </CardContent>
           </Card>
@@ -515,44 +397,12 @@ const PredictionPage: React.FC = () => {
               <CardTitle>💡 策略建议</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-300 leading-relaxed whitespace-pre-line space-y-0">
-                {typeof strategyRecommendations === 'object' && strategyRecommendations !== null ? (
-                  <>
-                    {Object.entries(strategyRecommendations).map(([key, value]) => {
-                      // 将键名转换为中文显示
-                      const displayName = getChineseKeyName(key)
-                      
-                      return (
-                        <div key={key} className="pb-4 border-b border-gray-700 last:border-b-0 last:pb-0">
-                          <h4 className="text-white font-semibold text-xl mb-3">{displayName}</h4>
-                           <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
-                             {typeof value === 'string'
-                               ? value.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                   index % 2 === 0 ? (
-                                     part
-                                   ) : (
-                                     <strong key={index} className="text-white font-semibold">{part}</strong>
-                                   )
-                                 )
-                               : Array.isArray(value)
-                                 ? (
-                                   <ul className="list-disc pl-5 space-y-2">
-                                     {value.map((item, idx) => (
-                                       <li key={idx}>{String(item)}</li>
-                                     ))}
-                                   </ul>
-                                 )
-                               : typeof value === 'object'
-                                 ? JSON.stringify(value, null, 2)
-                                 : String(value)}
-                           </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <div className="text-base">{String(strategyRecommendations)}</div>
-                )}
+              <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
+                {typeof strategyRecommendations === 'string'
+                  ? strategyRecommendations.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                      index % 2 === 0 ? part : <strong key={index} className="text-white font-semibold">{part}</strong>
+                    )
+                  : String(strategyRecommendations)}
               </div>
             </CardContent>
           </Card>
@@ -565,44 +415,12 @@ const PredictionPage: React.FC = () => {
               <CardTitle>⚠️ 风险提示</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-300 leading-relaxed whitespace-pre-line space-y-0">
-                {typeof riskWarnings === 'object' && riskWarnings !== null ? (
-                  <>
-                    {Object.entries(riskWarnings).map(([key, value]) => {
-                      // 将键名转换为中文显示
-                      const displayName = getChineseKeyName(key)
-                      
-                      return (
-                        <div key={key} className="pb-4 border-b border-gray-700 last:border-b-0 last:pb-0">
-                          <h4 className="text-white font-semibold text-xl mb-3">{displayName}</h4>
-                           <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
-                             {typeof value === 'string'
-                               ? value.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                   index % 2 === 0 ? (
-                                     part
-                                   ) : (
-                                     <strong key={index} className="text-white font-semibold">{part}</strong>
-                                   )
-                                 )
-                               : Array.isArray(value)
-                                 ? (
-                                   <ul className="list-disc pl-5 space-y-2">
-                                     {value.map((item, idx) => (
-                                       <li key={idx}>{String(item)}</li>
-                                     ))}
-                                   </ul>
-                                 )
-                               : typeof value === 'object'
-                                 ? JSON.stringify(value, null, 2)
-                                 : String(value)}
-                           </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                ) : (
-                  <div className="text-base">{String(riskWarnings)}</div>
-                )}
+              <div className="text-gray-300 text-base leading-relaxed whitespace-pre-line">
+                {typeof riskWarnings === 'string'
+                  ? riskWarnings.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                      index % 2 === 0 ? part : <strong key={index} className="text-white font-semibold">{part}</strong>
+                    )
+                  : String(riskWarnings)}
               </div>
             </CardContent>
           </Card>

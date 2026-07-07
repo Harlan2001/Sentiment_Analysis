@@ -6,6 +6,7 @@
 """
 
 import hashlib
+import re
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
@@ -62,7 +63,10 @@ def extract_json_text(content: str) -> str:
     end = text.rfind("}")
     if start == -1 or end == -1 or end <= start:
         return ""
-    return text[start : end + 1]
+    text = text[start : end + 1]
+    # 清理尾随逗号等常见 JSON 不合规问题
+    text = re.sub(r',\s*([}\]])', r'\1', text)
+    return text
 
 
 def distribution_sum_check(block: Dict[str, Dict[str, float]], block_name: str) -> None:

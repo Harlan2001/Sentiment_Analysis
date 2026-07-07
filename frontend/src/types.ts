@@ -134,10 +134,10 @@ export interface ScenarioAnalysis {
 }
 
 export interface FullForecastReport {
-  // 全部使用中文键名
-  市场概览?: string | Record<string, any>;
-  技术分析?: string | Record<string, any>;
-  因子分析?: string | Record<string, any>;
+  // 全部使用中文键名，扁平文本字段
+  市场概览?: string;
+  技术分析?: string;
+  因子分析?: string;
   预测结果?: {
     日?: ForecastPrediction;
     周?: ForecastPrediction;
@@ -149,8 +149,8 @@ export interface FullForecastReport {
     熊市?: ScenarioItem;
     黑天鹅?: ScenarioItem;
   };
-  策略建议?: string | Record<string, any>;
-  风险提示?: string | Record<string, any>;
+  策略建议?: string;
+  风险提示?: string;
   生成时间?: string;
   报告摘要?: string;
 }
