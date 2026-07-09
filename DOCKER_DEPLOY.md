@@ -27,8 +27,8 @@
 
 | 名称 | 地址 | 用户 | 密码 | 路径 | 连接方式 |
 |------|------|------|------|------|----------|
-| **大前台** | `10.253.50.112` | `admin` | `Kingstar2022!` | `/opt/sentiment/deploy` | 直连 SSH |
-| **Saas** | `172.18.0.23` | `root` | `Kayak2020!` | `/data/sentiment_deploy` | 跳板机 → 见下文 |
+| **大前台** | `10.253.50.112` | `admin` | `Kingstar2022!` | `/opt/sentiment` | 直连 SSH |
+| **Saas** | `172.18.0.23` | `root` | `Kayak2020!` | `/data/sentiment` | 跳板机 → 见下文 |
 
 **Saas 跳板机**：
 - 地址：`114.67.114.200`，端口 `2222`
@@ -133,8 +133,8 @@ PYTHONUNBUFFERED=1
 ### 服务器
 
 ```
-/opt/sentiment/deploy/          ← 大前台
-/data/sentiment_deploy/         ← Saas
+/opt/sentiment/          ← 大前台
+/data/sentiment/         ← Saas
 ├── docker-compose.yml
 ├── .env                        # 生产环境变量
 ├── main.py                     ← volume 挂载
@@ -166,13 +166,13 @@ docker save sentiment-backend:latest | gzip > sentiment-backend.tar.gz
 docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
 
 # === 大前台 ===
-scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/deploy/
-scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/deploy/
-scp -r main.py backend/ admin@10.253.50.112:/opt/sentiment/deploy/
+scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/
+scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/
+scp -r main.py backend/ admin@10.253.50.112:/opt/sentiment/
 
 # === Saas（经跳板机）===
 scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
-    sentiment-backend.tar.gz sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment_deploy/
+    sentiment-backend.tar.gz sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment/
 # ... 同理传 docker-compose.yml、代码等
 ```
 
@@ -181,14 +181,14 @@ scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
 ```bash
 # 大前台
 ssh admin@10.253.50.112
-cd /opt/sentiment/deploy
+cd /opt/sentiment
 gunzip -c sentiment-backend.tar.gz | docker load
 gunzip -c sentiment-frontend.tar.gz | docker load
 docker compose up -d --force-recreate
 
 # Saas（经跳板机）
 ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" root@172.18.0.23
-cd /data/sentiment_deploy
+cd /data/sentiment
 gunzip -c sentiment-backend.tar.gz | docker load
 gunzip -c sentiment-frontend.tar.gz | docker load
 docker compose up -d --force-recreate
@@ -208,13 +208,13 @@ curl http://localhost:8000/health
 
 ```
 # 每天 19:00 — 收益率数据更新
-0 19 * * * /opt/sentiment/deploy/yield_update.sh
+0 19 * * * /opt/sentiment/yield_update.sh
 
 # 每天 09:00 — 生成昨日交易日报告
-0 9 * * * /opt/sentiment/deploy/report_gen.sh
+0 9 * * * /opt/sentiment/report_gen.sh
 
 # 每天 23:00 — 分析补偿兜底
-0 23 * * * /opt/sentiment/deploy/analysis_fallback.sh
+0 23 * * * /opt/sentiment/analysis_fallback.sh
 ```
 
 ## 9. 日常运维

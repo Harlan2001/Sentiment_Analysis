@@ -23,12 +23,12 @@ declare -A HOST USER SERVER_PATH IS_SAAS
 
 HOST[bigfrontend]="10.253.50.112"
 USER[bigfrontend]="admin"
-SERVER_PATH[bigfrontend]="/opt/sentiment/deploy"
+SERVER_PATH[bigfrontend]="/opt/sentiment"
 IS_SAAS[bigfrontend]="false"
 
 HOST[saas]="172.18.0.23"
 USER[saas]="root"
-SERVER_PATH[saas]="/data/sentiment_deploy"
+SERVER_PATH[saas]="/data/sentiment"
 IS_SAAS[saas]="true"
 
 # ======================== 部署函数 ========================

@@ -8,8 +8,8 @@ set -e
 
 # 配置工作目录
 # 允许通过环境变量覆盖，便于测试/灰度验证
-WORKDIR="${WORKDIR:-/opt/sentiment/deploy}"
-LOG_FILE="${LOG_FILE:-/opt/sentiment/deploy/logs/sentiment-yield.log}"
+WORKDIR="${WORKDIR:-/opt/sentiment}"
+LOG_FILE="${LOG_FILE:-/opt/sentiment/logs/sentiment-yield.log}"
 
 # 如果 LOG_FILE 目录不存在，创建它；日志文件本身会在首次写入时自动创建
 mkdir -p "$(dirname "$LOG_FILE")"
