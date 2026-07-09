@@ -24,7 +24,7 @@ sys.path.insert(0, str(BASE_DIR))
 import os
 try:
     from dotenv import load_dotenv
-    load_dotenv(BASE_DIR.parent / ".env")
+    load_dotenv(BASE_DIR.parent / ".env", override=True)
 except ImportError:
     pass
 
@@ -72,9 +72,23 @@ def _safe_get(pred: dict, key: str, default=None):
     return v if v is not None else default
 
 
+def _truncate(text: str, max_len: int = 150) -> str:
+    """截断文本，尽量在句号处断开。"""
+    if not text or not isinstance(text, str):
+        return "—"
+    if len(text) <= max_len:
+        return text
+    # 在 max_len 范围内找最后一个句号断开
+    cut = text[:max_len].rstrip()
+    last_period = max(cut.rfind("。"), cut.rfind("；"), cut.rfind("，"))
+    if last_period > max_len // 2:
+        return cut[:last_period + 1] + "…"
+    return cut + "…"
+
+
 def build_summary(pdf_file_name: str) -> str:
     """
-    从最新 forecast_report 中提取关键信息，生成报告摘要文本。
+    从最新 forecast_report 中提取报告摘要，生成简洁推送文本。
     数据来自 AI 已生成的 full_report，无需额外调用模型。
     """
     date_str = pdf_file_name.replace(".pdf", "")
@@ -94,37 +108,13 @@ def build_summary(pdf_file_name: str) -> str:
         if not isinstance(pred, dict):
             return f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
 
-        # 报告摘要
-        summary = pred.get("报告摘要", "")
-
-        # 市场情绪（嵌套字段可能是 JSON 字符串，需要 _safe_get 解析）
-        overview = _safe_get(pred, "市场概览", {})
-        sentiment = overview.get("市场情绪", "—") if isinstance(overview, dict) else "—"
-
-        # 日/周/月预测
-        forecasts = _safe_get(pred, "预测结果", {})
-        lines = []
-        if isinstance(forecasts, dict):
-            for period, label in [("日", "日度"), ("周", "周度"), ("月", "月度")]:
-                f = forecasts.get(period, {})
-                if isinstance(f, dict):
-                    up = f.get("上涨概率", "—")
-                    down = f.get("下跌概率", "—")
-                    conf = f.get("置信度", "—")
-                    lines.append(f"{label}: 涨 {up}% / 跌 {down}%（置信度 {conf}）")
-        if not lines:
-            lines = ["预测数据暂不可用"]
-
-        # 主要风险
-        risks_info = _safe_get(pred, "风险提示", {})
-        risks = risks_info.get("主要风险", []) if isinstance(risks_info, dict) else []
-        risk_str = "、".join(risks[:3]) if risks else "—"
+        # 报告摘要（LLM 已生成的结论性摘要文本）
+        summary = _safe_get(pred, "报告摘要", "")
+        summary_str = str(summary).strip() if summary else "—"
 
         return (
             f"📊 {date_str} 债券市场预测报告\n\n"
-            f"【市场情绪】{sentiment}\n\n"
-            f"{chr(10).join(lines)}\n\n"
-            f"【主要风险】{risk_str}\n\n"
+            f"【报告摘要】\n{summary_str}\n\n"
             f"📄 完整分析请查看下方 PDF"
         )
     except Exception as e:
