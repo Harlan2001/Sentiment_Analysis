@@ -1,6 +1,11 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from backend.common.logging_config import setup_logging
+setup_logging()
+
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,6 +27,8 @@ from backend.routers.auth import router as auth_router
 from backend.auth.dependencies import auth_middleware
 
 app = FastAPI(title="Bond Yield Backend")
+
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,9 +66,9 @@ def startup_event():
     init_database(db_config)
     try:
         store = get_faiss_store()
-        print(f"[STARTUP] FaissStore loaded | vectors={store.size()}, dim={store.dim}")
+        logger.info("FaissStore loaded | vectors=%d, dim=%d", store.size(), store.dim)
     except Exception as exc:
-        print(f"[STARTUP] FaissStore unavailable, startup continues: {exc}")
+        logger.warning("FaissStore unavailable, startup continues: %s", exc)
 
 
 @app.on_event("startup")

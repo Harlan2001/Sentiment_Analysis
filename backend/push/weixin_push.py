@@ -42,24 +42,15 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from backend.push.pdf_png import get_latest_pdf, pdf_to_images
 
 # ==================== 日志 ====================
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+from backend.common.logging_config import setup_logging, add_logger_daily_file
+
+setup_logging()
+
+# weixin_push 使用独立的每日日志文件，复用统一的格式和级别
+_log_date = datetime.now().strftime("%Y%m%d")
+add_logger_daily_file("weixin_push", str(BASE_DIR / "logs" / f"weixin_push_{_log_date}.log"))
 
 logger = logging.getLogger("weixin_push")
-logger.setLevel(logging.INFO)
-
-fh = logging.FileHandler(
-    LOG_DIR / f"weixin_push_{datetime.now().strftime('%Y%m%d')}.log",
-    encoding="utf-8",
-)
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-logger.addHandler(fh)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-logger.addHandler(ch)
 
 # ==================== 配置 ====================
 WECHAT_APPID = os.getenv("WECHAT_APPID", "")
@@ -86,19 +77,21 @@ def _extract_report_date(pdf_path: str | Path) -> str:
 
 def _cleanup_old_logs(keep_days: int = 7):
     """清理超过 keep_days 天的旧日志。"""
+    from backend.config.config import LOG_DIR as _LOG_DIR
+
     now = datetime.now()
     cut_off = now - timedelta(days=keep_days)
-    for directory in [LOG_DIR]:
-        if not directory.exists():
-            continue
-        for f in directory.iterdir():
-            if f.is_file():
-                try:
-                    mtime = datetime.fromtimestamp(f.stat().st_mtime)
-                    if mtime < cut_off:
-                        f.unlink()
-                except Exception:
-                    pass
+    log_dir = Path(_LOG_DIR)
+    if not log_dir.exists():
+        return
+    for f in log_dir.iterdir():
+        if f.is_file():
+            try:
+                mtime = datetime.fromtimestamp(f.stat().st_mtime)
+                if mtime < cut_off:
+                    f.unlink()
+            except Exception:
+                pass
 
 
 def _save_login_state(context):

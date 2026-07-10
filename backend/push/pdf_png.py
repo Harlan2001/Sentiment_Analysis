@@ -25,10 +25,6 @@ PDF_DIR = BASE_DIR / "data" / "pdf"
 DEFAULT_OUTPUT_DIR = BASE_DIR / "temp_images"
 
 logger = logging.getLogger("pdf_png")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-)
 
 
 def get_latest_pdf(pdf_dir: str | Path = None) -> Path | None:
@@ -163,4 +159,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from backend.common.logging_config import setup_logging
+    setup_logging()
     main()

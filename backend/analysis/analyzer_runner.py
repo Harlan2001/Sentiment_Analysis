@@ -27,11 +27,6 @@ from backend.analysis.analyzer import analyze_bond_yield_async, MODEL_NAME
 from backend.common.db_operations import DBOperations
 from backend.analysis.result_processor import AnalysisResultProcessor
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 
@@ -354,4 +349,6 @@ async def main():
 
 
 if __name__ == "__main__":
+    from backend.common.logging_config import setup_logging
+    setup_logging()
     asyncio.run(main())
