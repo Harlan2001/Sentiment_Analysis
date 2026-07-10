@@ -2,6 +2,7 @@
 新因子自动发现模块
 相似度低于阈值时自动加入标准因子库，无需人工审核
 """
+import logging
 import pymysql
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -18,6 +19,8 @@ if str(project_root) not in sys.path:
 from backend.config.config import MYSQL_CONFIG  # noqa: E402
 from backend.factor.factor_management import add_new_factor  # noqa: E402
 from backend.factor.factor_similarity import get_similarity_engine  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 
 def _convert_numpy_types(obj):
@@ -126,16 +129,16 @@ class FactorDiscoveryManager:
 
                 result["action"] = "added_to_standard_library"
                 result["success"] = True
-                print(f"✅ 新因子已加入标准库: {factor_code} ({factor_name}), 相似度: {max_similarity:.3f}")
+                logger.info("新因子已加入标准库: %s (%s), 相似度: %.3f", factor_code, factor_name, max_similarity)
             else:
                 result["action"] = "already_exists"
                 result["success"] = False
-                print(f"⚠️ 因子已存在: {factor_code} ({factor_name})")
+                logger.debug("因子已存在: %s (%s)", factor_code, factor_name)
         else:
             # 高相似度，丢弃
             result["action"] = "discarded_duplicate"
             result["success"] = False
-            print(f"❌ 因子重复，已丢弃: {factor_code} ({factor_name}), 与 {best_match_code_str} 相似度: {max_similarity:.3f}")
+            logger.debug("因子重复已丢弃: %s (%s), 与 %s 相似度: %.3f", factor_code, factor_name, best_match_code_str, max_similarity)
 
         return result
 

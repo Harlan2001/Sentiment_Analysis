@@ -4,8 +4,10 @@
 """
 
 import json
+import logging
 import os
 import re
+import time
 from typing import Any, Dict, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import openai
@@ -19,6 +21,8 @@ from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
 from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.factor.factor_management import get_factor_prompt_text
+
+logger = logging.getLogger(__name__)
 
 # ========== 模型配置 ==========
 # 定义此分析器使用的模型短名
@@ -179,13 +183,16 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
     response_text = ""
     try:
         messages = [{"role": "user", "content": prompt}]
-        
+
+        t0 = time.monotonic()
         response = await async_chat_completion(
             model=provider_model,
             messages=messages,
             temperature=1.0,
             timeout=600
         )
+        elapsed = time.monotonic() - t0
+        logger.debug("kingstar API 调用完成, elapsed=%.2fs, model=%s, news_id=%d", elapsed, provider_model, news_id)
 
         response_text = response.choices[0].message.content
 
@@ -211,8 +218,8 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
         return result
 
     except json.JSONDecodeError as e:
-        print(f"JSON解析失败: {e}")
-        print(f"原始响应: {response_text}")
+        logger.warning("JSON解析失败: %s", e)
+        logger.debug("原始响应: %s", response_text[:500])
         return {
             "direction": "neutral",
             "horizon": "短期",
@@ -220,7 +227,7 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
             "factors": [],
         }
     except Exception as e:
-        print(f"kingstar API调用失败: {e}")
+        logger.error("kingstar API调用失败: %s", e, exc_info=True)
         return {
             "direction": "neutral",
             "horizon": "短期",

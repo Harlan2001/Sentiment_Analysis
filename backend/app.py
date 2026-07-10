@@ -5,12 +5,13 @@ from backend.common.logging_config import setup_logging
 setup_logging()
 
 import logging
+import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.common.database import DatabaseConfig, init_database
-from backend.vector_store import get_faiss_store
+from backend.common.vector_store import get_faiss_store
 from backend.config.config import MYSQL_CONFIG
 from backend.routers.ai_strategy import router as ai_strategy_router
 from backend.routers.strategy import router as strategy_router, start_strategy_services, stop_strategy_services
@@ -40,6 +41,16 @@ app.add_middleware(
 
 # 认证中间件（根据 AUTH_ENABLED 配置决定是否拦截）
 app.middleware("http")(auth_middleware)
+
+# 未处理异常日志中间件
+@app.middleware("http")
+async def log_unhandled_exceptions(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception:
+        logger.exception("未处理异常: %s %s", request.method, request.url.path)
+        raise
 
 app.include_router(auth_router)
 app.include_router(ai_strategy_router)
@@ -73,9 +84,13 @@ def startup_event():
 
 @app.on_event("startup")
 async def startup_services():
+    logger.info("正在启动策略推送服务...")
     await start_strategy_services()
+    logger.info("策略推送服务启动完成")
 
 
 @app.on_event("shutdown")
 async def shutdown_services():
+    logger.info("正在停止策略推送服务...")
     await stop_strategy_services()
+    logger.info("策略推送服务已停止")

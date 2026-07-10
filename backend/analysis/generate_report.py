@@ -16,7 +16,7 @@ from backend.config.config import (
     get_analysis_model_info,
     get_default_analysis_model_name,
 )
-from backend.task_logging import start_task_run, finish_task_run, add_task_event
+from backend.common.task_logging import start_task_run, finish_task_run, add_task_event
 from backend.common.database import init_database, DatabaseConfig, get_db_connection
 from backend.common.db_operations import DBOperations
 

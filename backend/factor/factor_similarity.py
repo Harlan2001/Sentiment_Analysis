@@ -2,6 +2,7 @@
 因子相似度计算引擎
 使用预训练模型计算因子语义相似度，防止创建语义重复的新因子。
 """
+import logging
 from typing import Any, Dict, List
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,8 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from backend.config.config import MODEL_DIR
 from backend.factor.factor_management import get_factors_from_db
+
+logger = logging.getLogger(__name__)
 
 
 # 添加项目根目录到路径
@@ -66,21 +69,21 @@ class FactorSimilarityEngine:
                     self.model = SentenceTransformer(
                         str(model_path), local_files_only=True
                     )
-                print("✅ 相似度模型加载成功")
+                logger.info("相似度模型加载成功")
             except ImportError:
-                print("⚠️  sentence-transformers未安装，使用备用方法")
+                logger.warning("sentence-transformers未安装，使用备用方法")
                 self.model = None
 
             # 加载标准因子
             self.standard_factors = get_factors_from_db()
-            print(f"✅ 加载 {len(self.standard_factors)} 个标准因子")
+            logger.info("加载 %d 个标准因子", len(self.standard_factors))
 
             # 预计算标准因子嵌入
             if self.model:
                 self._precompute_embeddings()
 
             self._initialized = True
-            print("✅ 相似度引擎初始化完成")
+            logger.info("相似度引擎初始化完成")
 
     def _precompute_embeddings(self):
         """预计算所有标准因子的文本嵌入"""
@@ -98,7 +101,7 @@ class FactorSimilarityEngine:
         # 批量计算嵌入（已归一化）
         embeddings = self.model.encode(factor_texts, normalize_embeddings=True)
         self.standard_embeddings = dict(zip(factor_codes, embeddings))
-        print(f"✅ 预计算 {len(self.standard_embeddings)} 个因子嵌入")
+        logger.info("预计算 %d 个因子嵌入", len(self.standard_embeddings))
 
     def calculate_similarity(
         self, new_factor_text: str, top_k: int = 1
@@ -173,7 +176,7 @@ class FactorSimilarityEngine:
         self.standard_factors = get_factors_from_db()
         if self.model:
             self._precompute_embeddings()
-        print(f"✅ 相似度引擎已重载，当前因子数: {len(self.standard_factors)}")
+        logger.info("相似度引擎已重载，当前因子数: %d", len(self.standard_factors))
 
 
 # 全局单例实例

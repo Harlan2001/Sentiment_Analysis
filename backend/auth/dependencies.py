@@ -15,6 +15,7 @@ PUBLIC_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/api/internal/pipeline/trigger",
 }
 
 

@@ -1,10 +1,13 @@
 import faiss
 import json
+import logging
 import os
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from backend.config.config import INDEX_PATH, ID_MAP_PATH, MODEL_DIR
 from backend.common.database import execute_query, execute_update, execute_batch
+
+logger = logging.getLogger(__name__)
 
 # 全局单例实例
 _faiss_store_instance = None
@@ -44,7 +47,7 @@ class FaissStore:
         self.loaded = True  # 只设一次
 
         if os.path.exists(INDEX_PATH) and os.path.exists(ID_MAP_PATH):
-            print("Loading FAISS index from disk...")
+            logger.info("Loading FAISS index from disk...")
             self.index = faiss.read_index(str(INDEX_PATH))
             with open(ID_MAP_PATH, "r", encoding="utf-8") as f:
                 self.id_map = json.load(f)

@@ -14,8 +14,8 @@ from backend.config.config import (
 )
 from backend.common.database import execute_query, get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.vector_store import get_faiss_store
-from backend.yield_db import get_yield_window_by_news_id
+from backend.common.vector_store import get_faiss_store
+from backend.common.yield_db import get_yield_window_by_news_id
 
 router = APIRouter(prefix="/api", tags=["news"])
 

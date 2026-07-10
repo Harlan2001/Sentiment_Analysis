@@ -54,13 +54,13 @@ def generate_latest_pdf() -> Optional[Tuple[str, str]]:
             if data.get("success"):
                 info = data["data"]
                 return info["file_path"], info["file_name"]
-        print(f"[PDF] 生成失败: HTTP {res.status_code}")
+        logger.error("[PDF] 生成失败: HTTP %d", res.status_code)
         return None
     except requests.exceptions.ConnectionError:
-        print("[PDF] 无法连接后端服务")
+        logger.error("[PDF] 无法连接后端服务")
         return None
     except Exception as e:
-        print(f"[PDF] 异常: {e}")
+        logger.error("[PDF] 异常: %s", e, exc_info=True)
         return None
 
 # ===================== 报告摘要 =====================
@@ -122,7 +122,7 @@ def build_summary(pdf_file_name: str) -> str:
             f"📄 完整分析请查看下方 PDF"
         )
     except Exception as e:
-        print(f"[摘要] 生成失败: {e}")
+        logger.debug("[摘要] 生成失败: %s", e)
         return f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
 
 # ===================== 飞书 API =====================
@@ -142,10 +142,10 @@ def get_tenant_token() -> Optional[str]:
         result = resp.json()
         if result.get("code") == 0:
             return result["tenant_access_token"]
-        print(f"[Token] 获取失败: {result}")
+        logger.error("[Token] 获取失败: %s", result)
         return None
     except Exception as e:
-        print(f"[Token] 异常: {e}")
+        logger.error("[Token] 异常: %s", e, exc_info=True)
         return None
 
 
@@ -156,7 +156,7 @@ def upload_pdf_to_im(token: str, pdf_path: str) -> Optional[str]:
     """
     pdf_file = Path(pdf_path)
     if not pdf_file.exists() or pdf_file.suffix.lower() != ".pdf":
-        print(f"[上传] 文件无效: {pdf_path}")
+        logger.error("[上传] 文件无效: %s", pdf_path)
         return None
 
     try:
@@ -172,10 +172,10 @@ def upload_pdf_to_im(token: str, pdf_path: str) -> Optional[str]:
         file_key = res.get("data", {}).get("file_key") if res.get("code") == 0 else None
         if file_key:
             return file_key
-        print(f"[上传] 失败: {res}")
+        logger.error("[上传] 失败: %s", res)
         return None
     except Exception as e:
-        print(f"[上传] 异常: {e}")
+        logger.error("[上传] 异常: %s", e, exc_info=True)
         return None
 
 
@@ -191,10 +191,10 @@ def send_text(token: str, chat_id: str, text: str) -> bool:
         )
         ok = resp.json().get("code") == 0
         if not ok:
-            print(f"[消息] 文本发送失败: {resp.text}")
+            logger.warning("[消息] 文本发送失败: %s", resp.text[:200])
         return ok
     except Exception as e:
-        print(f"[消息] 文本发送异常: {e}")
+        logger.error("[消息] 文本发送异常: %s", e, exc_info=True)
         return False
 
 
@@ -214,10 +214,10 @@ def send_file(token: str, chat_id: str, file_key: str) -> bool:
         )
         ok = resp.json().get("code") == 0
         if not ok:
-            print(f"[消息] 文件发送失败: {resp.text}")
+            logger.warning("[消息] 文件发送失败: %s", resp.text[:200])
         return ok
     except Exception as e:
-        print(f"[消息] 文件发送异常: {e}")
+        logger.error("[消息] 文件发送异常: %s", e, exc_info=True)
         return False
 
 # ===================== 主流程 =====================
@@ -226,7 +226,7 @@ def main():
     # 1. 生成 PDF
     result = generate_latest_pdf()
     if not result:
-        print("[主流程] PDF 生成失败，终止")
+        logger.error("[主流程] PDF 生成失败，终止")
         return
     pdf_path, pdf_name = result
 
@@ -240,13 +240,13 @@ def main():
     # 2. 获取 Token
     token = get_tenant_token()
     if not token:
-        print("[主流程] Token 获取失败，终止")
+        logger.error("[主流程] Token 获取失败，终止")
         return
 
     # 3. 上传 PDF 到飞书 IM
     file_key = upload_pdf_to_im(token, pdf_path)
     if not file_key:
-        print("[主流程] 文件上传失败，终止")
+        logger.error("[主流程] 文件上传失败，终止")
         return
 
     # 4. 发送报告摘要文本
@@ -257,7 +257,9 @@ def main():
     time.sleep(2)
     send_file(token, GROUP_ID, file_key)
 
-    print(f"[主流程] 推送完成: {pdf_name}")
+    logger.info("[主流程] 推送完成: %s", pdf_name)
 
 if __name__ == "__main__":
+    from backend.common.logging_config import setup_logging
+    setup_logging()
     main()

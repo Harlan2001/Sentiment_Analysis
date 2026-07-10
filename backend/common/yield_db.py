@@ -3,6 +3,7 @@
 支持高效的收益率查询，基于新闻 pub_time 作为基准
 """
 
+import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict
@@ -10,6 +11,8 @@ from pathlib import Path
 from backend.config.config import BOND_XLSX, PERIOD_MAP
 from backend.common.database import get_db_connection, execute_query
 from backend.common.db_operations import DBOperations
+
+logger = logging.getLogger(__name__)
 
 
 def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
@@ -20,11 +23,11 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
     - 已存在的日期/期限组合直接跳过
     - 只插入从未出现过的新日期/期限组合
     """
-    print(f"📊 开始从 {excel_path} 导入收益率数据...")
+    logger.info("开始从 %s 导入收益率数据...", excel_path)
 
     # 读取Excel
     df = pd.read_excel(excel_path)
-    print(f"Excel列名: {df.columns.tolist()}")
+    logger.debug("Excel列名: %s", df.columns.tolist())
 
     # 日期列处理
     date_col = df.columns[0]
@@ -41,7 +44,7 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
                 actual_period_map[col] = p
                 break
 
-    print(f"期限映射: {actual_period_map}")
+    logger.debug("期限映射: %s", actual_period_map)
 
     # 转长格式
     long_data = []
@@ -66,9 +69,9 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
             )
         conn.commit()
 
-    print(f"✅ 导入完成：{len(long_df)} 条记录")
-    print(f"   日期范围：{long_df['date'].min()} ~ {long_df['date'].max()}")
-    print(f"   期限数量：{long_df['period'].nunique()}")
+    logger.info("导入完成: %d 条记录, 日期范围 %s ~ %s, 期限数 %d",
+                len(long_df), long_df['date'].min(), long_df['date'].max(),
+                long_df['period'].nunique())
 
 
 def get_yield_window_by_news_pub_time(

@@ -1,19 +1,24 @@
 import argparse
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 import requests
 from backend.config.config import BOND_XLSX, MYSQL_CONFIG
 from backend.common.database import DatabaseConfig, init_database, get_db_connection
-from backend.yield_db import import_yield_data_from_excel
+from backend.common.yield_db import import_yield_data_from_excel
+
+logger = logging.getLogger("bond_downloader")
+
 
 def date_diff(end_date, start_date):
     """
     计算两个日期相差天数（和JS的dateDiff逻辑一致）
     """
-    fmt = "%Y-%m-%d"  # 根据你页面日期格式调整，通常是这个
+    fmt = "%Y-%m-%d"
     d1 = datetime.strptime(end_date, fmt)
     d2 = datetime.strptime(start_date, fmt)
     return (d1 - d2).days
+
 
 def download_history_excel(
     start_date,
@@ -35,7 +40,7 @@ def download_history_excel(
     """
     # 1. 校验时间不能超过1年
     if date_diff(end_date, start_date) >= 365:
-        print("❌ 下载时间段不能超过1年")
+        logger.error("下载时间段不能超过1年")
         return
 
     # 2. 拼接请求URL（和JS完全一样）
@@ -51,7 +56,7 @@ def download_history_excel(
 
     try:
         # 3. 发送请求下载文件
-        print("🔽 正在下载文件...")
+        logger.info("正在下载收益率Excel: %s ~ %s", start_date, end_date)
         response = requests.get(base_url, params=params, timeout=60)
         response.raise_for_status()
 
@@ -61,11 +66,11 @@ def download_history_excel(
         with open(output_path, "wb") as f:
             f.write(response.content)
 
-        print(f"✅ 下载完成！文件保存为：{output_path}")
+        logger.info("下载完成: %s", output_path)
         return output_path
 
     except Exception as e:
-        print(f"❌ 下载失败：{str(e)}")
+        logger.error("下载失败: %s", e, exc_info=True)
         raise
 
 
@@ -113,7 +118,7 @@ def update_yield_data(
     )
     if not downloaded_path:
         raise RuntimeError("yield excel download did not produce a file")
-    
+
     with get_db_connection() as conn:
         conn.commit()
 
@@ -146,7 +151,11 @@ def build_arg_parser():
 
 
 def main():
+    from backend.common.logging_config import setup_logging
+    setup_logging()
+
     args = build_arg_parser().parse_args()
+    logger.info("开始更新收益率数据 (days=%d)", args.days)
     update_yield_data(
         excel_path=args.excel_path,
         days=args.days,
@@ -154,6 +163,7 @@ def main():
         locale=args.locale,
         name_type=args.name_type,
     )
+    logger.info("收益率数据更新完成")
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@
     配合 backend/scheduler.py 实现每天 10:00 自动执行
 """
 
+import logging
 import os
 import re
 import sys
@@ -33,6 +34,8 @@ try:
     load_dotenv(BASE_DIR.parent / ".env")  # 项目根目录的 .env
 except ImportError:
     pass
+
+logger = logging.getLogger("push_pdf")
 
 
 # ====================== IP 自动检测 ======================
@@ -91,8 +94,7 @@ def generate_latest_pdf() -> tuple[str, str] | None:
         (file_path, file_name) 如果成功，None 如果失败
     """
     try:
-        print(f"[PDF生成] 本机 IP: {LOCAL_IP}")
-        print(f"[PDF生成] 正在通过前端生成最新预测报告...")
+        logger.info("正在通过前端生成最新预测报告... (本机IP: %s)", LOCAL_IP)
         res = requests.post(GENERATE_PDF_API, timeout=120)
         if res.status_code == 200:
             data = res.json()
@@ -101,19 +103,19 @@ def generate_latest_pdf() -> tuple[str, str] | None:
                 file_path = info["file_path"]
                 file_name = info["file_name"]
                 file_size = info["file_size_bytes"] / 1024
-                print(f"[PDF生成] ✅ {file_name} ({file_size:.1f} KB)")
+                logger.info("PDF生成成功: %s (%.1f KB)", file_name, file_size)
                 return file_path, file_name
             else:
-                print(f"[PDF生成] ❌ 失败: {data}")
+                logger.error("PDF生成失败，API返回: %s", data)
                 return None
         else:
-            print(f"[PDF生成] ❌ HTTP {res.status_code}: {res.text[:200]}")
+            logger.error("PDF生成失败，HTTP %d: %s", res.status_code, res.text[:200])
             return None
     except requests.exceptions.ConnectionError:
-        print(f"[PDF生成] ❌ 无法连接后端服务，请确保 main.py 已启动")
+        logger.error("PDF生成失败：无法连接后端服务，请确保 main.py 已启动")
         return None
     except Exception as e:
-        print(f"[PDF生成] ❌ 异常: {e}")
+        logger.error("PDF生成异常: %s", e, exc_info=True)
         return None
 
 
@@ -124,7 +126,7 @@ def push_to_feishu(file_name: str) -> bool:
     从文件名提取报告日期用于消息展示。
     """
     if not FEISHU_WEBHOOK:
-        print("[飞书推送] ❌ 未配置 FEISHU_WEBHOOK，请在 .env 中设置")
+        logger.warning("未配置 FEISHU_WEBHOOK，跳过推送")
         return False
 
     match = re.search(r"(\d{4}-\d{2}-\d{2})", file_name)
@@ -133,8 +135,7 @@ def push_to_feishu(file_name: str) -> bool:
     pdf_url = f"{SERVER_BASE_URL}/api/report/files/{file_name}"
     msg = f"📊 {date_str} 债券市场预测报告已生成\n\n📄 查看报告: {pdf_url}"
 
-    print(f"[飞书推送] SERVER_BASE_URL: {SERVER_BASE_URL}")
-    print(f"[飞书推送] PDF 链接: {pdf_url}")
+    logger.info("推送飞书消息，PDF链接: %s", pdf_url)
 
     try:
         res = requests.post(
@@ -144,36 +145,34 @@ def push_to_feishu(file_name: str) -> bool:
         )
         result = res.json()
         if result.get("code") == 0:
-            print(f"[飞书推送] ✅ 已推送到群聊")
+            logger.info("飞书推送成功")
             return True
         else:
-            print(f"[飞书推送] ❌ 失败: {result}")
+            logger.error("飞书推送失败: %s", result)
             return False
     except Exception as e:
-        print(f"[飞书推送] ❌ 异常: {e}")
+        logger.error("飞书推送异常: %s", e, exc_info=True)
         return False
 
 
 # ====================== 入口 ======================
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print(f"  飞书 PDF 推送")
-    print(f"  本机 IP: {LOCAL_IP}")
-    print(f"  时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60)
+    from backend.common.logging_config import setup_logging
+    setup_logging()
+
+    logger.info("=== 飞书 PDF 推送开始 (本机IP: %s) ===", LOCAL_IP)
 
     result = generate_latest_pdf()
     if not result:
-        print("\n[错误] PDF 生成失败，推送终止")
+        logger.error("PDF 生成失败，推送终止")
         sys.exit(1)
 
     file_path, file_name = result
     success = push_to_feishu(file_name)
 
-    print()
     if success:
-        print(f"✅ 完成: {file_name} 已推送到飞书")
+        logger.info("完成: %s 已推送到飞书", file_name)
     else:
-        print(f"❌ 失败: 推送未成功")
+        logger.error("推送未成功: %s", file_name)
         sys.exit(1)

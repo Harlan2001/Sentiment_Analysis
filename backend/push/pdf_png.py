@@ -149,12 +149,11 @@ def main():
             output_dir=args.output_dir,
             dpi=args.dpi,
         )
-        print(f"\n✅ 转换成功: {len(image_paths)} 张图片 → {args.output_dir}")
+        logger.info("转换成功: %d 张图片 → %s", len(image_paths), args.output_dir)
         for p in image_paths:
-            print(f"   {p}")
+            logger.debug("  %s", p)
     except Exception as e:
         logger.exception("PDF 转图片失败")
-        print(f"\n❌ 转换失败: {e}")
         sys.exit(1)
 
 
