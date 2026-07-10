@@ -182,7 +182,11 @@ def generate_prediction_pdf(
                 logger.info("已设置查询日期: %s", date_str)
 
             # ---------- 5. 等待数据加载 ----------
-            page.wait_for_load_state("networkidle", timeout=20000)
+            # 先用 load 等待初始渲染（避免 networkidle 因前端轮询永远等不到）
+            try:
+                page.wait_for_load_state("load", timeout=15000)
+            except PlaywrightTimeout:
+                logger.warning("页面 load 超时，继续执行")
 
             # 等待 loading 消失
             loading_selector = "text=加载预测数据..."
@@ -190,6 +194,12 @@ def generate_prediction_pdf(
                 page.wait_for_selector(loading_selector, state="detached", timeout=15000)
             except PlaywrightTimeout:
                 logger.warning("Loading 状态未检测到消失，继续执行")
+
+            # 等待报告标题出现（确保数据渲染完成）
+            try:
+                page.wait_for_selector("text=市场预测分析报告", timeout=10000)
+            except PlaywrightTimeout:
+                logger.warning("报告标题未检测到，继续执行")
 
             time.sleep(2)
 

@@ -9,12 +9,16 @@ from pathlib import Path
 import sys
 import json
 import time
+import logging
 import requests
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 # Windows GBK 兼容
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+logger = logging.getLogger(__name__)
 
 # ===================== 配置加载 =====================
 
@@ -225,6 +229,13 @@ def main():
         print("[主流程] PDF 生成失败，终止")
         return
     pdf_path, pdf_name = result
+
+    # 日期校验：仅当前一日报告才推送
+    report_date_str = pdf_name.replace(".pdf", "")
+    yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    if report_date_str != yesterday_str:
+        logger.info("报告日期校验未通过，当前最新报告日期: %s，期望日期: %s，跳过推送", report_date_str, yesterday_str)
+        return
 
     # 2. 获取 Token
     token = get_tenant_token()
