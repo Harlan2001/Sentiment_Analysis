@@ -549,8 +549,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    from backend.common.logging_config import setup_logging
+    setup_logging()
     main()

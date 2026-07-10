@@ -29,6 +29,11 @@ def _get_env_str(name: str) -> str:
 def _is_truthy(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+# ====================== 日志配置 ======================
+LOG_LEVEL = _get_env_str("LOG_LEVEL") or "INFO"
+LOG_DIR = _get_env_str("LOG_DIR") or str(BASE_DIR / "logs")
+LOG_MAX_DAYS = int(_get_env_str("LOG_MAX_DAYS") or "30")
+
 # ====================== 本地快照配置 ======================
 # 【临时兼容】SaaS 无法访问内网 API 时，使用本地快照文件替代实时 API 调用
 # 使用前需在内网环境运行 scripts/generate_snapshot.py 生成快照文件
