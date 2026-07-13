@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Loading } from '../UI'
 import { useYields, useNewsByDate, useNewsSources, useNewsDetail, useSearchNews, useLatestTradingDay } from '../../hooks/useNewsApi'
 import { storage } from '../../utils/helpers'
+import { API_PREFIX } from '../../constants'
 import YieldChart from './YieldChart'
 import NewsList from './NewsList'
 import NewsDetail from './NewsDetail'
@@ -96,7 +97,7 @@ const NewsPage: React.FC = () => {
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
       const response = await fetch(
-        `/api/news/${selectedNewsId}/yield?period=${yieldsType}&window_before=10&window_after=10`,
+        `${API_PREFIX}/news/${selectedNewsId}/yield?period=${yieldsType}&window_before=10&window_after=10`,
         { headers }
       )
       if (!response.ok) throw new Error('获取收益率特征失败')

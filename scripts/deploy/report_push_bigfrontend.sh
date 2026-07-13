@@ -1,15 +1,13 @@
 #!/bin/bash
-# Sentiment 定时任务（SAAS）：生成昨日交易日报告
+# Sentiment 定时任务（大前台）：生成昨日交易日报告 + 飞书推送
 # 建议执行时间：每天 09:00
-# 用法：./report_gen_saas.sh
-# 或在 crontab 中：0 9 * * * /data/sentiment-tasks/report_gen_saas.sh
-
-set -e
+# 用法：./report_push_bigfrontend.sh
+# 或在 crontab 中：0 9 * * * /opt/sentiment-tasks/report_push_bigfrontend.sh
 
 # 配置工作目录
 # 允许通过环境变量覆盖，便于测试/灰度验证
-WORKDIR="${WORKDIR:-/data/sentiment}"
-LOG_FILE="${LOG_FILE:-/data/sentiment/logs/sentiment-report.log}"
+WORKDIR="${WORKDIR:-/opt/sentiment}"
+LOG_FILE="${LOG_FILE:-/opt/sentiment/logs/sentiment-report.log}"
 
 # 如果 LOG_FILE 目录不存在，创建它；日志文件本身会在首次写入时自动创建
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -47,7 +45,7 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting PDF generation and Feishu push for $YESTERDAY." >> "$LOG_FILE"
 
-docker compose exec -T backend uv python -m backend.push.test_feishu \
+docker compose exec -T backend uv run python -m backend.push.feishu_daily_push \
   >> "$LOG_FILE" 2>&1
 
 push_exit_code=$?

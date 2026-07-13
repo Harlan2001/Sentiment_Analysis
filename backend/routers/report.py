@@ -6,12 +6,13 @@ from fastapi import HTTPException, Query, APIRouter
 from pathlib import Path
 from datetime import date
 from backend.common.database import get_db_connection
+from backend.config.config import API_PREFIX
 from backend.push.pdf_generator import generate_prediction_pdf
 import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/report", tags=["report"])
+router = APIRouter(prefix=f"{API_PREFIX}/report", tags=["report"])
 
 # ========== PDF 存储目录 ==========
 

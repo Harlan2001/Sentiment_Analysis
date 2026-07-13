@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.config.config import API_PREFIX
 from backend.macrosignal.macro_signal import get_macro_signal
 from backend.macrosignal.macro_signal_log import (
     build_success_log_row,
@@ -14,7 +15,7 @@ from backend.macrosignal.macro_signal_log import (
     insert_signal_logs,
 )
 
-router = APIRouter(prefix="/api/macro", tags=["macro"])
+router = APIRouter(prefix=f"{API_PREFIX}/macro", tags=["macro"])
 
 
 @router.get("/signal")

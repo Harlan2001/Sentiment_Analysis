@@ -34,8 +34,9 @@ import type {
   ChangeTriggerResponse,
 } from "./types";
 import { storage } from "./utils/helpers";
+import { API_PREFIX } from "./constants";
 
-const BASE = "/api";
+const BASE = API_PREFIX;
 
 /**
  * 获取认证请求头（如果已登录）
@@ -546,7 +547,7 @@ export async function fetchMacroSignalRequestLogs(
 // ========== Strategies ==========
 
 export async function fetchAllStrategies(): Promise<AllStrategiesResponse> {
-  const r = await fetch(`/api/ai-strategy-recommendation/strategies`, { headers: authHeaders() });
+  const r = await fetch(`${API_PREFIX}/ai-strategy-recommendation/strategies`, { headers: authHeaders() });
   if (!r.ok) throw new Error('策略列表读取失败');
   return r.json();
 }

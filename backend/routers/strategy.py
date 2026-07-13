@@ -9,6 +9,7 @@ import os
 
 from backend.strategy.strategy_push import get_strategy_push_service
 from backend.strategy.portfolio_strategy import get_portfolio_strategy_service
+from backend.config.config import API_PREFIX
 
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
@@ -17,7 +18,7 @@ kingstar_client = OpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL)
 strategy_push_service = get_strategy_push_service(kingstar_client)
 portfolio_strategy_service = get_portfolio_strategy_service(kingstar_client)
 
-router = APIRouter(prefix="/api/strategy", tags=["strategy"])
+router = APIRouter(prefix=f"{API_PREFIX}/strategy", tags=["strategy"])
 
 
 class StrategyTriggerRequest(BaseModel):

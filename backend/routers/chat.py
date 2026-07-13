@@ -14,7 +14,9 @@ from openai.types.chat import (
 )
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+from backend.config.config import API_PREFIX
+
+router = APIRouter(prefix=f"{API_PREFIX}/chat", tags=["chat"])
 
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 if not kingstar_API_KEY:

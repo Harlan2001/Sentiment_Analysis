@@ -5,17 +5,17 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from backend.auth.auth import verify_jwt_token
-from backend.config.config import AUTH_ENABLED
+from backend.config.config import API_PREFIX, AUTH_ENABLED
 
 # 不需要认证的路径
 PUBLIC_PATHS = {
-    "/api/auth/login",
-    "/api/auth/status",
+    f"{API_PREFIX}/auth/login",
+    f"{API_PREFIX}/auth/status",
     "/health",
     "/docs",
     "/openapi.json",
     "/redoc",
-    "/api/internal/pipeline/trigger",
+    f"{API_PREFIX}/internal/pipeline/trigger",
 }
 
 

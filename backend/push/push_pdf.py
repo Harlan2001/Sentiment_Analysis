@@ -76,8 +76,16 @@ SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "").rstrip("/") or \
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
 
-GENERATE_PDF_API = "http://127.0.0.1:8000/api/report/generate-prediction"
+GENERATE_PDF_API = f"http://127.0.0.1:8000{_get_api_prefix()}/report/generate-prediction"
 PDF_DIR = BASE_DIR / "data" / "pdf"
+
+# 动态获取前缀（延迟导入避免循环依赖）
+def _get_api_prefix() -> str:
+    try:
+        from backend.config.config import API_PREFIX
+        return API_PREFIX
+    except ImportError:
+        return "/sapi"
 
 
 # ====================== 核心函数 ======================
@@ -132,7 +140,7 @@ def push_to_feishu(file_name: str) -> bool:
     match = re.search(r"(\d{4}-\d{2}-\d{2})", file_name)
     date_str = match.group(1) if match else datetime.now().strftime("%Y-%m-%d")
 
-    pdf_url = f"{SERVER_BASE_URL}/api/report/files/{file_name}"
+    pdf_url = f"{SERVER_BASE_URL}{_get_api_prefix()}/report/files/{file_name}"
     msg = f"📊 {date_str} 债券市场预测报告已生成\n\n📄 查看报告: {pdf_url}"
 
     logger.info("推送飞书消息，PDF链接: %s", pdf_url)

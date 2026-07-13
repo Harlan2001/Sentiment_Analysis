@@ -140,6 +140,10 @@ CATEGORY_KEYS = [
 # 按债券类型分布键：AI 输出 distribution_by_type 必须包含的 2 个类型键
 TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
 
+# ====================== API 路由前缀 ======================
+# 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
+API_PREFIX = _get_env_str("API_PREFIX") or "/sapi"
+
 # ====================== 认证配置 ======================
 # 是否启用登录认证（true=需要登录，false=免登录）
 AUTH_ENABLED = _is_truthy(_get_env_str("AUTH_ENABLED") or "false")

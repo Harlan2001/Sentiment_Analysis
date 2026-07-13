@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error, Input, Loading } from './components/UI'
 import { storage } from './utils/helpers'
+import { API_PREFIX } from './constants'
 
 function authHeaders(): Record<string, string> {
   const token = storage.get<string>("auth_token");
@@ -10,7 +11,7 @@ function authHeaders(): Record<string, string> {
   return {};
 }
 
-const BASE = '/api/ai-strategy-recommendation'
+const BASE = `${API_PREFIX}/ai-strategy-recommendation`
 
 interface RecommendationTarget {
   code?: string

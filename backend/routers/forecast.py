@@ -4,8 +4,9 @@ import json
 from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
+from backend.config.config import API_PREFIX
 
-router = APIRouter(prefix="/api/forecast", tags=["forecast"])
+router = APIRouter(prefix=f"{API_PREFIX}/forecast", tags=["forecast"])
 
 
 @router.get("")

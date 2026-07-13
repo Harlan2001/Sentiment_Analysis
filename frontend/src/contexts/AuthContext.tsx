@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { storage } from '../utils/helpers'
+import { API_PREFIX } from '../constants'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers['Authorization'] = `Bearer ${savedToken}`
       }
 
-      const r = await fetch('/api/auth/status', { headers })
+      const r = await fetch(`${API_PREFIX}/auth/status`, { headers })
       const data = await r.json()
 
       if (!data.auth_enabled) {
@@ -109,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     try {
-      const r = await fetch('/api/auth/login', {
+      const r = await fetch(`${API_PREFIX}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

@@ -7,13 +7,13 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.analysis.analyzer import process_single_news_analysis
-from backend.config.config import MYSQL_CONFIG, get_default_analysis_model_name
+from backend.config.config import API_PREFIX, MYSQL_CONFIG, get_default_analysis_model_name
 from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.db_operations import DBOperations
 from backend.common.task_logging import add_task_event, finish_task_run, start_task_run
 from backend.common.vector_store import get_faiss_store
 
-router = APIRouter(prefix="/api", tags=["pipeline"])
+router = APIRouter(prefix=API_PREFIX, tags=["pipeline"])
 
 
 class AnalysisTriggerRequest(BaseModel):

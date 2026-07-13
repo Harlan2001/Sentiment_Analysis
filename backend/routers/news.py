@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query
 from backend.analysis.analyzer import process_single_news_analysis
 from backend.config.config import (
     ANALYSIS_MODEL_PRIORITY,
+    API_PREFIX,
     NEWS_SOURCES,
     get_default_analysis_model_name,
 )
@@ -17,7 +18,7 @@ from backend.common.db_operations import DBOperations
 from backend.common.vector_store import get_faiss_store
 from backend.common.yield_db import get_yield_window_by_news_id
 
-router = APIRouter(prefix="/api", tags=["news"])
+router = APIRouter(prefix=API_PREFIX, tags=["news"])
 
 
 def _priority_cases() -> str:

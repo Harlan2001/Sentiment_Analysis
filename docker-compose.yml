@@ -11,6 +11,8 @@ services:
       # ===== Python 运行时 =====
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+      # ===== API前缀 =====
+      - API_PREFIX=${API_PREFIX:-/sapi}
       # ===== Kingstar LLM API =====
       - kingstar_API_KEY=${kingstar_API_KEY}
       - kingstar_BASE_URL=${kingstar_BASE_URL}

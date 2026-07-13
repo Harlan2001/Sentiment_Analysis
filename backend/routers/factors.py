@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from backend.config.config import API_PREFIX
 from backend.factor.factor_management import get_factors_from_db
 
-router = APIRouter(prefix="/api", tags=["factors"])
+router = APIRouter(prefix=API_PREFIX, tags=["factors"])
 
 
 @router.get("/factors")

@@ -7,8 +7,9 @@ from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
 from backend.common.database import get_db_connection
+from backend.config.config import API_PREFIX
 
-router = APIRouter(prefix="/api/graph-augment", tags=["graph-augment"])
+router = APIRouter(prefix=f"{API_PREFIX}/graph-augment", tags=["graph-augment"])
 
 
 @router.get("/job-by-news/{news_id}")

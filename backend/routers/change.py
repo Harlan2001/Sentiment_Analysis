@@ -23,10 +23,11 @@ from backend.change.change_service import (
     snapshot_by_id,
     snapshot_by_version_time,
 )
+from backend.config.config import API_PREFIX
 
 logger = logging.getLogger("change_router")
 
-router = APIRouter(prefix="/api/change", tags=["change"])
+router = APIRouter(prefix=f"{API_PREFIX}/change", tags=["change"])
 
 
 # ============================================================
@@ -228,7 +229,7 @@ def compare_snapshots(request: CompareRequest = Body(default=CompareRequest())):
             old_snapshot = snapshot_by_id(all_items[1]["id"])
 
     if not new_snapshot:
-        raise HTTPException(status_code=404, detail="未找到快照数据，请先调用 /api/change/trigger 生成")
+        raise HTTPException(status_code=404, detail=f"未找到快照数据，请先调用 {API_PREFIX}/change/trigger 生成")
 
     if not old_snapshot:
         raise HTTPException(
