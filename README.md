@@ -73,16 +73,6 @@ cd ..
 - 前端：[http://localhost:5173](http://localhost:5173)
 - 后端：[http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-## 连接服务器
-
-ssh admin@10.253.50.112
-Kingstar2022!
-
-## 系统
-
-http://10.253.162.113:1080/ui/portal/#/login
-admin  
-Qwer!@#$124
 
 ## mysql
 db_config = {
