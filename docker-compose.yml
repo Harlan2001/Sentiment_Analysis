@@ -43,7 +43,7 @@ services:
       # ===== PDF & 飞书推送 =====
       - FEISHU_WEBHOOK=${FEISHU_WEBHOOK:-}
       - SERVER_BASE_URL=${SERVER_BASE_URL:-}
-      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-http://localhost:5173}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-http://frontend}
       - FRONTEND_USERNAME=${FRONTEND_USERNAME:-}
       - FRONTEND_PASSWORD=${FRONTEND_PASSWORD:-}
       # ===== 微信公众号推送 =====
@@ -56,7 +56,8 @@ services:
       - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
       - FEISHU_GROUP_ID=${FEISHU_GROUP_ID:-}
       # ===== 网络代理 =====
-      - OUTBOUND_PROXY_URL=${OUTBOUND_PROXY_URL:-}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
       - OUTBOUND_PROXY_ENABLED=${OUTBOUND_PROXY_ENABLED:-true}
       # ===== uv 包管理器缓存 =====
       - UV_CACHE_DIR=/tmp/uv-cache

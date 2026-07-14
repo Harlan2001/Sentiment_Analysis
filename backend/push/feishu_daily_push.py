@@ -7,6 +7,7 @@
 
 import json
 import os
+import sys
 import time
 import logging
 import requests
@@ -14,7 +15,8 @@ from datetime import datetime, timedelta, date
 from pathlib import Path
 from typing import Optional, Tuple
 
-from backend.common.database import get_db_connection
+from backend.common.database import get_db_connection, init_database, DatabaseConfig
+from backend.config.config import MYSQL_CONFIG
 from backend.push.pdf_generator import generate_prediction_pdf
 
 logger = logging.getLogger(__name__)
@@ -195,11 +197,14 @@ def send_file(token: str, chat_id: str, file_key: str) -> bool:
 
 
 def main():
+    # 0. 初始化数据库连接
+    init_database(DatabaseConfig(**MYSQL_CONFIG))
+
     # 1. 生成 PDF
     result = generate_latest_pdf()
     if not result:
         logger.error("[主流程] PDF 生成失败，终止")
-        return
+        sys.exit(1)
     pdf_path, pdf_name = result
 
     # 日期校验：仅前一日报告才推送
@@ -213,13 +218,13 @@ def main():
     token = get_tenant_token()
     if not token:
         logger.error("[主流程] Token 获取失败，终止")
-        return
+        sys.exit(1)
 
     # 3. 上传 PDF 到飞书 IM
     file_key = upload_pdf_to_im(token, pdf_path)
     if not file_key:
         logger.error("[主流程] 文件上传失败，终止")
-        return
+        sys.exit(1)
 
     # 4. 发送报告摘要文本
     summary = build_summary(pdf_name)

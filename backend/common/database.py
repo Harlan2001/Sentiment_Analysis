@@ -8,6 +8,10 @@ from typing import Optional, Any, Dict, List
 from contextlib import contextmanager
 from dbutils.pooled_db import PooledDB
 
+# 模块级变量（init_database() 调用前为 None）
+_db_config = None
+_db_pool = None
+
 
 class DatabaseConfig:
     """MySQL 数据库配置"""

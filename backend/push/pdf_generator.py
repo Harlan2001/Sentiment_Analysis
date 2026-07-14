@@ -7,9 +7,10 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 logger = logging.getLogger("pdf_generator")
 
-# 项目根目录
-BASE_DIR = Path(__file__).resolve().parent.parent
-PDF_DIR = BASE_DIR / "data" / "pdf"
+# 项目根目录 (backend/push/pdf_generator.py → backend → 项目根)
+# Docker 中代码挂载为 /app/backend (只读)，PDF 需输出到 /app/data/pdf (可写卷)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PDF_DIR = Path(os.getenv("PDF_OUTPUT_DIR", str(_PROJECT_ROOT / "data" / "pdf")))
 
 # ========== 配置 ==========
 # 默认使用 Vite 开发服务器地址（需同时运行 npm run dev）
@@ -84,9 +85,10 @@ def generate_prediction_pdf(
     """
     使用 Playwright 打开前端预测页面，生成 PDF 保存到 data/pdf/。
 
-    支持两种模式：
+    支持三种模式：
     1. 本地开发模式（默认）：连接到 http://localhost:5173/prediction（Vite dev server）
-    2. 生产 KS 平台模式：设置 FRONTEND_BASE_URL 和 FRONTEND_USERNAME/FRONTEND_PASSWORD
+    2. Docker 部署模式：设置 FRONTEND_BASE_URL=http://frontend，通过 Docker 网络访问 Nginx
+    3. 生产 KS 平台模式：设置 FRONTEND_BASE_URL 和 FRONTEND_USERNAME/FRONTEND_PASSWORD
 
     :param report_date: 报告日期，为 None 则不修改前端日期选择器，使用页面当前显示的日期。
     :param output_path: 可选，指定 PDF 输出路径，默认 data/pdf/{report_date}.pdf。
