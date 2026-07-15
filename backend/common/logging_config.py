@@ -2,12 +2,12 @@
 集中式日志配置模块。
 
 提供统一的日志管理，所有日志同时输出到控制台和文件（按天轮转）。
+Windows 多进程环境下 TimedRotatingFileHandler 重命名冲突 → 使用 SafeRotatingFileHandler 自动容错。
 
 导出：
-- setup_logging()          — 幂等地应用 ldaily 日志配置（dictConfig）
+- setup_logging()          — 幂等地应用日志配置（dictConfig）
 - get_uvicorn_log_config() — 返回 dictConfig 字典，供 uvicorn.run(log_config=...) 使用
 - add_logger_daily_file()  — 为指定 logger 附加独立的按天轮转日志文件
-                              （供 weixin_push 等需要独立日志的模块使用）
 
 默认值从 backend.config.config 的环境变量读取：
 - LOG_LEVEL:    日志级别，默认 INFO
@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import logging
 import logging.config
+import logging.handlers
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -28,15 +30,30 @@ STANDARD_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 STANDARD_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+class SafeRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """
+    Windows 多进程安全的轮转日志处理器。
+    当日志文件被其他进程占用导致重命名失败时，不抛异常、不中断请求。
+    """
+
+    def doRollover(self):
+        if not os.path.exists(self.baseFilename):
+            # 文件已被其他进程重命名，直接重建
+            self.stream = self._open()
+            return
+        try:
+            super().doRollover()
+        except PermissionError:
+            # Windows 多进程文件锁冲突 → 跳过本次轮转，不中断业务
+            self.stream = self._open()
+
+
 def _resolve_defaults(
     log_dir: Optional[str] = None,
     log_level: Optional[str] = None,
     log_max_days: Optional[int] = None,
 ) -> tuple[str, str, int]:
-    """使用 backend.config.config 中环境变量的值填充缺失参数。"""
-    # 延迟导入，避免模块级别的循环依赖
     from backend.config.config import LOG_DIR, LOG_LEVEL, LOG_MAX_DAYS  # noqa: E402
-
     return (
         log_dir or LOG_DIR,
         log_level or LOG_LEVEL,
@@ -66,7 +83,7 @@ def _build_log_config(log_dir: str, log_level: str, log_max_days: int) -> dict:
                 "stream": "ext://sys.stderr",
             },
             "app_file": {
-                "class": "logging.handlers.TimedRotatingFileHandler",
+                "class": "backend.common.logging_config.SafeRotatingFileHandler",
                 "level": log_level,
                 "formatter": "standard",
                 "filename": str(log_path / "app.log"),
@@ -76,7 +93,7 @@ def _build_log_config(log_dir: str, log_level: str, log_max_days: int) -> dict:
                 "encoding": "utf-8",
             },
             "error_file": {
-                "class": "logging.handlers.TimedRotatingFileHandler",
+                "class": "backend.common.logging_config.SafeRotatingFileHandler",
                 "level": "ERROR",
                 "formatter": "standard",
                 "filename": str(log_path / "error.log"),

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 
 // 简单的SVG图标组件
 interface IconProps {
@@ -61,8 +62,10 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { username, displayName, authEnabled, logout } = useAuth()
 
   const navigation = [
+    { name: '看板', href: '/dashboard', icon: ClipboardListIcon },
     { name: '新闻', href: '/news', icon: NewspaperIcon },
     { name: '数据', href: '/data', icon: DatabaseIcon },
     { name: '预测', href: '/prediction', icon: SparklesIcon },
@@ -83,16 +86,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-b border-gray-700 shadow-xl backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-lg font-bold">
+              <div className="w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-sm font-bold">
                 📊
               </div>
-              <span className="text-xl font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 债券市场智能分析
               </span>
             </div>
+
+            {/* 用户信息 + 登出 */}
+            {authEnabled && (
+              <div className="flex items-center space-x-2 ml-4">
+                <span className="text-[10px] text-gray-400">
+                  👤 {displayName || username || '未登录'}
+                </span>
+                <button
+                  onClick={() => {
+                    logout();
+                    window.location.href = '/login';
+                  }}
+                  data-track="logout"
+                  className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded border border-red-700/30 hover:bg-red-900/20 transition-colors"
+                >
+                  登出
+                </button>
+              </div>
+            )}
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-1">
@@ -102,13 +124,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   <Link
                     key={item.name}
                     to={item.href}
-                    className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`flex items-center px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                       isActive(item.href)
                         ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-purple-500/30'
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     }`}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
+                    <Icon className="w-3.5 h-3.5 mr-1.5" />
                     {item.name}
                   </Link>
                 )

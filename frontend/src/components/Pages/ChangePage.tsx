@@ -330,7 +330,7 @@ const ChangePage: React.FC = () => {
         setSelectedIds(ids);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败');
+      setError((err as Error)?.message || '加载失败');
     } finally {
       setLoading(false);
     }
@@ -345,7 +345,7 @@ const ChangePage: React.FC = () => {
       const res = await fetchChangeCompare(oldId, newId);
       setCompare(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '对比失败');
+      setError((err as Error)?.message || '对比失败');
     } finally {
       setComparing(false);
     }
@@ -373,7 +373,7 @@ const ChangePage: React.FC = () => {
       // 刷新列表
       await loadSnapshots();
     } catch (err) {
-      setTriggerMsg(err instanceof Error ? err.message : '触发失败');
+      setTriggerMsg((err as Error)?.message || '触发失败');
     } finally {
       setTriggering(false);
     }
@@ -392,7 +392,7 @@ const ChangePage: React.FC = () => {
 
   // --- 渲染 ---
 
-  if (loading) return <Loading message="正在加载快照列表..." />;
+  if (loading) return <Loading text="正在加载快照列表..." />;
 
   const diff = compare?.diff_summary;
   const hasStockChanges = diff && (diff.new_stocks > 0 || diff.removed_stocks > 0 || diff.rating_changes > 0);
@@ -423,6 +423,8 @@ const ChangePage: React.FC = () => {
               : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/20'
           }`}
           onClick={handleTrigger}
+          data-track="snapshot_compare"
+          data-target="manual_trigger"
         >
           {triggering ? '生成中...' : '🔄 手动生成快照'}
         </button>
@@ -449,7 +451,7 @@ const ChangePage: React.FC = () => {
               版本时间轴
               <span className="ml-1 text-gray-600">（点击选择两个版本对比）</span>
             </div>
-            {snapshots.map((item, idx) => {
+            {snapshots.map((item) => {
               const isSelected = item.id === selectedIds[0] || item.id === selectedIds[1];
               const isNewer = item.id === selectedIds[1];
               const isOlder = item.id === selectedIds[0];
@@ -482,7 +484,7 @@ const ChangePage: React.FC = () => {
           {/* 右：对比内容 */}
           <div className="space-y-4">
             {comparing ? (
-              <Loading message="正在对比..." />
+              <Loading text="正在对比..." />
             ) : !compare ? (
               <Empty message="请在左侧时间轴中选择两个版本进行对比" />
             ) : noChanges ? (

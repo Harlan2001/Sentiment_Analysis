@@ -108,7 +108,6 @@ def get_analysis_model_name_by_provider_model(provider_model: str) -> str:
 
 # ====================== 新闻源配置 ======================
 NEWS_SOURCES = {
-    "cls": "财联社", "wechat": "微信公众号",
     "wallstreetcn": "华尔街见闻", "yicai": "第一财经",
 }
 DEFAULT_NEWS_SOURCES = []

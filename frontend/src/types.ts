@@ -590,3 +590,289 @@ export interface ChangeTriggerResponse {
   skipped?: boolean;
   snapshot?: Record<string, unknown>;
 }
+
+// ========== Dashboard Types ==========
+
+export interface ServiceStatusItem {
+  ok: boolean;
+  latency_ms?: number;
+  loaded?: boolean;
+  ntotal?: number;
+  model_name?: string;
+  dim?: number;
+  error?: string;
+}
+
+export interface ServiceStatus {
+  mysql: ServiceStatusItem;
+}
+
+export interface TopCards {
+  news_total: number;
+  analyzed: number;
+  pending: number;
+  factor_total: number;
+  yield_days: number;
+}
+
+// Module A: News
+export interface SourceDistribution {
+  source: string;
+  name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface LatestPerSource {
+  source: string;
+  name: string;
+  latest_time: string | null;
+  status: 'ok' | 'yellow' | 'red';
+}
+
+export interface Trend7dItem {
+  date: string;
+  [sourceName: string]: { count: number; analyzed_count: number } | string;
+}
+
+export interface NewsModuleData {
+  total: number;
+  trend_7d: Trend7dItem[];
+  source_distribution: SourceDistribution[];
+  latest_per_source: LatestPerSource[];
+}
+
+// Module B: Analysis
+export interface ModelDistribution {
+  model: string;
+  count: number;
+  percentage: number;
+}
+
+export interface Direction7dItem {
+  date: string;
+  [direction: string]: number | string;
+}
+
+export interface AnalysisModuleData {
+  analyzed: number;
+  pending: number;
+  coverage_pct: number;
+  model_distribution: ModelDistribution[];
+  direction_7d: Direction7dItem[];
+  valid_analysis_pct: number;
+  timeliness_diff_hours: number | null;
+}
+
+// Module C: Factor
+export interface CategoryDistribution {
+  category: string;
+  count: number;
+}
+
+export interface TypeDistribution {
+  factor_type: string;
+  count: number;
+}
+
+export interface FactorTrend {
+  date: string;
+  count: number;
+}
+
+export interface FactorModuleData {
+  total: number;
+  category_distribution: CategoryDistribution[];
+  type_distribution: TypeDistribution[];
+  new_factors_7d: number;
+  new_factors_trend_7d: FactorTrend[];
+  association_coverage_pct: number;
+  update_timeliness_diff_minutes: number | null;
+}
+
+// Module D: Vector
+export interface VectorModuleData {
+  indexed_count: number;
+  pending_count: number;
+  coverage_pct: number;
+}
+
+// Module E: Yield
+export interface PeriodCompleteness {
+  period: string;
+  display_name: string;
+  count: number;
+}
+
+export interface LatestYield {
+  period: string;
+  display_name: string;
+  latest_date: string | null;
+  latest_value: number | null;
+  sparkline: number[];
+}
+
+export interface YieldModuleData {
+  date_min: string | null;
+  date_max: string | null;
+  coverage_days: number;
+  period_completeness: PeriodCompleteness[];
+  latest_yields: LatestYield[];
+}
+
+// Module F: Forecast
+export interface CoverageDay {
+  date: string;
+  has_report: boolean;
+}
+
+export interface ForecastModuleData {
+  total_reports: number;
+  latest_date: string | null;
+  coverage_30d: CoverageDay[];
+}
+
+// Dashboard Core Response
+export interface DashboardCoreData {
+  generated_at: string;
+  service_status: ServiceStatus;
+  top_cards: TopCards;
+  news: NewsModuleData;
+  analysis: AnalysisModuleData;
+  factor: FactorModuleData;
+  vector: VectorModuleData;
+  yield: YieldModuleData;
+  forecast: ForecastModuleData;
+}
+
+// ========== Behavior / Audit Types ==========
+
+export interface BehaviorStats {
+  active_users_today: number;
+  sessions_today: number;
+  avg_duration_7d: number;
+  top_page: string | null;
+  power_users?: number;
+  churn_risk_users?: number;
+  activity_trend?: ActivityTrendItem[];
+  hourly_heatmap?: HeatmapItem[];
+  page_distribution: { page_route: string; page_title: string; count: number }[];
+  page_avg_duration: { page_route: string; avg_sec: number }[];
+}
+
+export interface ActivityTrendItem {
+  date: string;
+  dau: number;
+  sessions: number;
+}
+
+export interface HeatmapItem {
+  hour: number;
+  day_of_week: number;
+  count: number;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  session_id: number;
+  user_id: number;
+  username: string;
+  page_route: string;
+  page_title: string;
+  enter_time: string;
+  leave_time: string | null;
+  duration_sec: number | null;
+  exit_type: string | null;
+  action_type?: string;
+  action_target?: string;
+  action_detail?: Record<string, unknown> | null;
+}
+
+export interface AuditLogResponse {
+  items: AuditLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  total_pages: number;
+}
+
+export interface PageVisitEvent {
+  page_route: string;
+  page_title?: string;
+  enter_time: string;
+  leave_time?: string;
+  duration_sec?: number;
+  exit_type?: string;
+  action_type?: string;
+  action_target?: string;
+  action_detail?: Record<string, unknown>;
+  client_ts?: string;
+}
+
+export interface BehaviorBatchResponse {
+  received: number;
+}
+
+// ========== User Profile Types ==========
+
+export interface RadarDimension {
+  dimension: string;
+  score: number;     // 0-100
+  value: number;
+  unit: string;
+}
+
+export interface UserPreferences {
+  top_pages: { route: string; title: string; affinity: number }[];
+  peak_slot: string;
+  peak_hour: number | null;
+  hour_distribution: Record<string, number>;
+  report_focused: boolean;
+  strategy_focused: boolean;
+  power_user: boolean;
+  churn_risk: number;
+}
+
+export interface UserBehaviorProfile {
+  id: number;
+  user_id: number;
+  username: string;
+  total_sessions: number;
+  total_page_views: number;
+  total_active_sec: number;
+  first_visit: string | null;
+  last_visit: string | null;
+  active_days_30d: number;
+  avg_session_sec: number;
+  avg_daily_pages_30d: number;
+  page_affinity: Record<string, number>;
+  peak_hour: number | null;
+  hour_distribution: Record<string, number>;
+  distinct_pages_30d: number;
+  advanced_feature_used: boolean;
+  is_power_user: boolean;
+  is_report_focused: boolean;
+  is_strategy_focused: boolean;
+  churn_risk_score: number;
+  computed_at: string | null;
+  profile_version: string;
+  updated_at: string | null;
+  radar?: RadarDimension[];
+  preferences?: UserPreferences;
+}
+
+export interface UserProfileListResponse {
+  profiles: UserBehaviorProfile[];
+  count: number;
+}
+
+export interface UserCompareDimension {
+  dimension: string;
+  label: string;
+  values: { user_id: number; username: string; value: number }[];
+}
+
+export interface UserCompareResponse {
+  profiles: UserBehaviorProfile[];
+  comparison: UserCompareDimension[];
+}

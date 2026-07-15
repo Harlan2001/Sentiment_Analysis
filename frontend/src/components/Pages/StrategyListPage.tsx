@@ -63,6 +63,8 @@ const StrategyCard: React.FC<{ item: StrategyItem; expanded: boolean; onToggle: 
         type="button"
         className="w-full p-4 text-left transition-colors hover:bg-gray-900/30"
         onClick={onToggle}
+        data-track="strategy_click"
+        data-target={`strategy_code:${item.id}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -164,7 +166,7 @@ const StrategyListPage: React.FC = () => {
       {error && <Error message={error} />}
 
       {loading ? (
-        <Loading message="正在加载策略列表..." />
+        <Loading text="正在加载策略列表..." />
       ) : (
         <>
           {/* 搜索和标签栏 */}
@@ -180,18 +182,22 @@ const StrategyListPage: React.FC = () => {
                       : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
                   onClick={() => { setActiveTab(tab.key); setExpandedId(null) }}
+                  data-track="strategy_filter"
+                  data-target={tab.key}
                 >
                   {tab.label}
                   <span className="ml-1.5 text-xs opacity-75">({tab.count})</span>
                 </button>
               ))}
             </div>
-            <Input
-              placeholder="搜索策略名称/ID/分类..."
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              className="sm:w-64"
-            />
+            <div data-track="strategy_search">
+              <Input
+                placeholder="搜索策略名称/ID/分类..."
+                value={searchText}
+                onChange={e => setSearchText(e.target.value)}
+                className="sm:w-64"
+              />
+            </div>
           </div>
 
           {/* 策略列表 */}

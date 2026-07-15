@@ -70,6 +70,9 @@ const NewsList: React.FC<NewsListProps> = ({
         <div
           key={item.id}
           onClick={() => onNewsSelect(item)}
+          data-track="news_click"
+          data-target={`news_id:${item.id}`}
+          data-detail={JSON.stringify({ title: (item.title || '').slice(0, 60), source: item.source })}
           className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
             (selectedNews?.id === item.id || selectedNewsId === item.id)
               ? 'border-purple-500 bg-purple-500/10'

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from '../UI'
 import { Loading, Error, Empty } from '../UI'
 import { useForecastReport, useForecastHistory } from '../../hooks/useForecastApi'
 import { formatDate } from '../../utils/helpers'
+import { logAction } from '../../utils/behaviorLogger'
 import type {
    ForecastReport,
    ForecastHistoryItem,
@@ -622,7 +623,11 @@ const PredictionPage: React.FC = () => {
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSelectedDate(v);
+                    if (v) logAction('date_select', '/prediction', v);
+                  }}
                   className="ml-2 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm"
                 />
               </div>
@@ -638,7 +643,7 @@ const PredictionPage: React.FC = () => {
               )}
             </div>
             
-            <Button onClick={() => refetchCurrent()}>
+            <Button onClick={() => { refetchCurrent(); logAction('report_view', '/prediction', selectedDate || undefined); }}>
               刷新数据
             </Button>
           </div>
@@ -649,6 +654,8 @@ const PredictionPage: React.FC = () => {
       <div className="flex space-x-1 p-1 bg-gray-800 rounded-lg no-print">
         <button
           onClick={() => setActiveTab('current')}
+          data-track="tab_switch"
+          data-target="current"
           className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'current'
               ? 'bg-purple-500 text-white'
@@ -659,6 +666,8 @@ const PredictionPage: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('history')}
+          data-track="tab_switch"
+          data-target="history"
           className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'history'
               ? 'bg-purple-500 text-white'

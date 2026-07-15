@@ -25,6 +25,7 @@ from backend.routers.graph_augment import router as graph_augment_router
 from backend.routers.report import router as report_router
 from backend.routers.change import router as change_router
 from backend.routers.auth import router as auth_router
+from backend.routers.dashboard import router as dashboard_router
 from backend.auth.dependencies import auth_middleware
 
 app = FastAPI(title="Bond Yield Backend")
@@ -64,6 +65,7 @@ app.include_router(chat_router)
 app.include_router(graph_augment_router)
 app.include_router(report_router)
 app.include_router(change_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")

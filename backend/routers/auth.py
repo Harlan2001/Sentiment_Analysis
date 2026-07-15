@@ -21,6 +21,7 @@ class LoginResponse(BaseModel):
     token: str | None = None
     username: str | None = None
     display_name: str | None = None
+    is_admin: bool = False
     message: str = ""
 
 
@@ -38,7 +39,7 @@ def login(body: LoginRequest):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT username, password, display_name, is_active FROM users WHERE username = %s",
+                "SELECT username, password, display_name, is_active, COALESCE(is_admin, 0) as is_admin FROM users WHERE username = %s",
                 (body.username,),
             )
             row = cursor.fetchone()
@@ -46,19 +47,20 @@ def login(body: LoginRequest):
         if not row:
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-        username, stored_password, display_name, is_active = row
+        username, stored_password, display_name, is_active, is_admin = row
         if not is_active:
             raise HTTPException(status_code=403, detail="账户已被禁用")
 
         if not check_password(body.password, stored_password):
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-        token = create_jwt_token(username)
+        token = create_jwt_token(username, bool(is_admin))
         return LoginResponse(
             success=True,
             token=token,
             username=username,
             display_name=display_name or username,
+            is_admin=bool(is_admin),
             message="登录成功",
         )
     finally:
@@ -75,6 +77,7 @@ def auth_status(request: Request):
         return {
             "auth_enabled": False,
             "authenticated": True,
+            "is_admin": True,  # 免登录模式下默认具有管理员权限
         }
 
     # 检查当前请求是否带有有效 token
@@ -92,6 +95,7 @@ def auth_status(request: Request):
             "auth_enabled": True,
             "authenticated": True,
             "username": payload["sub"],
+            "is_admin": payload.get("is_admin", False),
         }
     except Exception:
         return {

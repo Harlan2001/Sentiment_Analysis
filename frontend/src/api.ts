@@ -589,3 +589,117 @@ export async function triggerChangeSnapshot(force: boolean = false): Promise<Cha
   if (!r.ok) throw new Error('快照触发失败');
   return r.json();
 }
+
+// ========== Dashboard API ==========
+
+import type {
+  DashboardCoreData,
+  BehaviorStats,
+  AuditLogResponse,
+  PageVisitEvent,
+  BehaviorBatchResponse,
+  UserBehaviorProfile,
+  UserProfileListResponse,
+  UserCompareResponse,
+} from "./types";
+
+export async function fetchDashboardCore(): Promise<DashboardCoreData> {
+  const r = await fetch(`${BASE}/dashboard/core`, { headers: authHeaders() });
+  if (!r.ok) {
+    const text = await r.text().catch(() => '');
+    throw new Error(`服务器错误 ${r.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+  }
+  return r.json();
+}
+
+export async function fetchDashboardHistory(days: number = 7): Promise<any[]> {
+  const r = await fetch(`${BASE}/dashboard/history?days=${days}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('历史快照获取失败');
+  return r.json();
+}
+
+export async function triggerDashboardSnapshot(): Promise<{ success: boolean; snapshot_id: number | null }> {
+  const r = await fetch(`${BASE}/dashboard/snapshot`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!r.ok) throw new Error('快照生成失败');
+  return r.json();
+}
+
+export async function fetchBehaviorStats(days: number = 7): Promise<BehaviorStats> {
+  const r = await fetch(`${BASE}/dashboard/behavior-stats?days=${days}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('行为统计数据获取失败');
+  return r.json();
+}
+
+export async function fetchBehaviorLogs(params: {
+  user_id?: string;
+  page_route?: string;
+  action_type?: string;
+  start?: string;
+  end?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<AuditLogResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.user_id) searchParams.set('user_id', params.user_id);
+  if (params.page_route) searchParams.set('page_route', params.page_route);
+  if (params.action_type) searchParams.set('action_type', params.action_type);
+  if (params.start) searchParams.set('start', params.start);
+  if (params.end) searchParams.set('end', params.end);
+  searchParams.set('limit', String(params.limit || 100));
+  searchParams.set('offset', String(params.offset || 0));
+
+  const r = await fetch(`${BASE}/dashboard/behavior-logs?${searchParams}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('审计日志获取失败');
+  return r.json();
+}
+
+export async function postBehaviorBatch(events: PageVisitEvent[]): Promise<BehaviorBatchResponse> {
+  const r = await fetch(`${BASE}/dashboard/behavior/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ events }),
+  });
+  if (!r.ok) throw new Error('行为事件上报失败');
+  return r.json();
+}
+
+// ========== User Profile API ==========
+
+export async function fetchUserProfiles(sortBy: string = 'last_visit', order: string = 'desc'): Promise<UserProfileListResponse> {
+  const r = await fetch(`${BASE}/dashboard/behavior/profiles?sort_by=${sortBy}&order=${order}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('用户画像列表获取失败');
+  return r.json();
+}
+
+export async function fetchUserProfile(userId: number): Promise<UserBehaviorProfile> {
+  const r = await fetch(`${BASE}/dashboard/behavior/profile/${userId}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('用户画像获取失败');
+  return r.json();
+}
+
+export async function fetchUserCompare(userIds: number[]): Promise<UserCompareResponse> {
+  const r = await fetch(`${BASE}/dashboard/behavior/compare?user_ids=${userIds.join(',')}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('用户对比失败');
+  return r.json();
+}
+
+export async function triggerProfileCompute(userId: number): Promise<{ user_id: number; username: string; computed: boolean }> {
+  const r = await fetch(`${BASE}/dashboard/behavior/compute-profile/${userId}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!r.ok) throw new Error('画像计算触发失败');
+  return r.json();
+}
+
+export async function triggerAllProfilesCompute(): Promise<{ total_users: number; computed: number }> {
+  const r = await fetch(`${BASE}/dashboard/behavior/compute-all-profiles`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!r.ok) throw new Error('批量画像计算失败');
+  return r.json();
+}

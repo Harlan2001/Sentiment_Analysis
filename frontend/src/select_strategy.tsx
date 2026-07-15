@@ -214,7 +214,7 @@ const SelectStrategyPage: React.FC = () => {
   useEffect(() => {
     setInitialLoading(true)
     loadPageData()
-      .catch(err => setError(err instanceof Error ? err.message : '页面数据加载失败'))
+      .catch(err => setError((err as Error)?.message || '页面数据加载失败'))
       .finally(() => setInitialLoading(false))
   }, [])
 
@@ -233,7 +233,7 @@ const SelectStrategyPage: React.FC = () => {
       const historyRes = await fetchRecommendationHistory()
       setHistory(historyRes.items || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : '推荐生成失败')
+      setError((err as Error)?.message || '推荐生成失败')
     } finally {
       setLoading(false)
     }
@@ -274,7 +274,7 @@ const SelectStrategyPage: React.FC = () => {
       {error && <Error message={error} />}
 
       {initialLoading ? (
-        <Loading message="正在加载推荐缓存" />
+        <Loading text="正在加载推荐缓存" />
       ) : (
         <>
           <Card>

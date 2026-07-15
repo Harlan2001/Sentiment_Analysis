@@ -14,13 +14,14 @@ def check_password(password: str, stored_password: str) -> bool:
     return password == stored_password
 
 
-def create_jwt_token(username: str) -> str:
+def create_jwt_token(username: str, is_admin: bool = False) -> str:
     """签发 JWT 通行证"""
     now = int(time.time())
     payload = {
         "sub": username,
         "iat": now,
         "exp": now + JWT_EXPIRY_HOURS * 3600,
+        "is_admin": is_admin,
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
 

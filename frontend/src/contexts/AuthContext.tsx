@@ -9,6 +9,7 @@ interface AuthState {
   displayName: string | null
   token: string | null
   authEnabled: boolean
+  isAdmin: boolean
 }
 
 interface AuthContextType extends AuthState {
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName: null,
     token: null,
     authEnabled: false,
+    isAdmin: false,
   })
 
   // 应用启动时检查认证状态
@@ -49,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await r.json()
 
       if (!data.auth_enabled) {
-        // 免登录模式
+        // 免登录模式 — is_admin 由后端返回（免登录模式默认 true）
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -57,10 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: null,
           token: null,
           authEnabled: false,
+          isAdmin: data.is_admin === true,
         })
       } else if (data.authenticated && savedToken) {
         // 已认证
-        const savedUser = storage.get<{ username: string; displayName: string }>(USER_KEY)
+        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean }>(USER_KEY)
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -68,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: savedUser?.displayName || data.username || null,
           token: savedToken,
           authEnabled: true,
+          isAdmin: data.is_admin || savedUser?.isAdmin || false,
         })
       } else {
         // 需要登录
@@ -80,13 +84,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: null,
           token: null,
           authEnabled: true,
+          isAdmin: false,
         })
       }
     } catch {
       // API 不可用时的降级处理
       const savedToken = storage.get<string>(TOKEN_KEY)
       if (savedToken) {
-        const savedUser = storage.get<{ username: string; displayName: string }>(USER_KEY)
+        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean }>(USER_KEY)
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -94,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: savedUser?.displayName || null,
           token: savedToken,
           authEnabled: true,
+          isAdmin: savedUser?.isAdmin || false,
         })
       } else {
         setState({
@@ -103,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: null,
           token: null,
           authEnabled: false,
+          isAdmin: false,
         })
       }
     }
@@ -125,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.success && data.token) {
         storage.set(TOKEN_KEY, data.token)
-        storage.set(USER_KEY, { username: data.username, displayName: data.display_name })
+        storage.set(USER_KEY, { username: data.username, displayName: data.display_name, isAdmin: data.is_admin || false })
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -133,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: data.display_name,
           token: data.token,
           authEnabled: true,
+          isAdmin: data.is_admin || false,
         })
         return { success: true, message: '登录成功' }
       }
@@ -152,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       username: null,
       displayName: null,
       token: null,
+      isAdmin: false,
     }))
   }, [])
 
