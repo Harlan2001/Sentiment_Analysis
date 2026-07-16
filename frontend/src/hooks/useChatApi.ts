@@ -36,7 +36,7 @@ export const useChat = () => {
       
       return response
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '发送消息失败'
+      const errorMessage = (err as Error)?.message || '发送消息失败'
       setError(errorMessage)
       throw err
     } finally {
@@ -107,7 +107,7 @@ export const useStreamingChat = () => {
       
       return fullResponse
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '发送消息失败'
+      const errorMessage = (err as Error)?.message || '发送消息失败'
       setError(errorMessage)
       setIsStreaming(false)
       setCurrentMessage('')

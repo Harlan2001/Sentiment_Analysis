@@ -149,7 +149,7 @@ export function useGraphAugment({ newsId, newsContent, onComplete }: UseGraphAug
       setStatus('RUNNING')
       setStage('extract')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '启动任务失败')
+      setError((err as Error)?.message || '启动任务失败')
       setIsLoading(false)
     }
   }, [newsContent])

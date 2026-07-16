@@ -125,7 +125,7 @@ const StrategyListPage: React.FC = () => {
         setQuantCount(res.quant_total || 0)
         setTradingCount(res.trading_total || 0)
       })
-      .catch(err => setError(err instanceof Error ? err.message : '加载失败'))
+      .catch(err => setError((err as Error)?.message || '加载失败'))
       .finally(() => setLoading(false))
   }, [])
 

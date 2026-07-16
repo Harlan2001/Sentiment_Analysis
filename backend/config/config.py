@@ -145,6 +145,32 @@ TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
 # 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
 API_PREFIX = _get_env_str("API_PREFIX") or "/sapi"
 
+# ====================== 看板配置 ======================
+# 情感方向映射
+DIR_MAP = {"positive": "看涨", "negative": "看跌", "neutral": "中性"}
+
+# 债券期限列表（展示顺序）
+PERIOD_LIST = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
+
+# 页面路由 → 中文标题映射
+PAGE_TITLES = {
+    "/news": "新闻", "/factors": "因子", "/data": "数据", "/prediction": "预测",
+    "/agents": "Agent", "/select-strategy": "AI推荐", "/strategies": "策略",
+    "/change": "变动对比", "/macro-signal-logs": "信号日志", "/dashboard": "看板", "/login": "登录",
+}
+
+# 会话冷却时间（秒）：冷却时间内复用同一会话
+SESSION_COOLING_SEC = 10
+
+# 看板指标缓存有效期（秒）
+CACHE_TTL_SEC = 60
+
+# 行为日志保留天数（超过自动清理）
+BEHAVIOR_LOG_RETENTION_DAYS = 180
+
+# 行为日志默认查询天数（前端默认只显示最近N天）
+BEHAVIOR_LOG_DEFAULT_DAYS = 10
+
 # ====================== 认证配置 ======================
 # 是否启用登录认证（true=需要登录，false=免登录）
 AUTH_ENABLED = _is_truthy(_get_env_str("AUTH_ENABLED") or "false")
