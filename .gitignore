@@ -11,6 +11,8 @@ logs/
 
 *.gz
 
+/data/pdf/
+
 # SQLite / database files
 *.db
 

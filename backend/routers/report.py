@@ -31,14 +31,15 @@ def _ensure_pdf_storage() -> Path:
 @router.post("/generate-prediction")
 async def api_generate_prediction_pdf(
     report_date: str = Query(None, description="报告日期 (YYYY-MM-DD)，不传则使用数据库中最新报告日期"),
-    frontend_url: str = Query(None, description="前端地址，默认使用环境变量 FRONTEND_BASE_URL"),
 ):
     """
     生成指定日期的预测报告 PDF 并保存到 data/pdf/ 目录。
 
+    直接从数据库 forecast_report 表读取数据，本地渲染 HTML 后导出 PDF，
+    无需依赖前端页面。
+
     参数:
         report_date: 报告日期 (YYYY-MM-DD)，不传则从数据库查询最新报告日期
-        frontend_url: 前端基地址，不传则使用环境变量 FRONTEND_BASE_URL 或默认值
     """
     try:
         parsed_date: date | None = None
@@ -64,12 +65,10 @@ async def api_generate_prediction_pdf(
                         detail="forecast_report 表为空，无法确定报告日期，请手动指定 report_date 参数",
                     )
 
-        # 生成 PDF — 在独立线程中运行 Playwright（sync API），
-        # 避免 Windows ProactorEventLoop 不支持子进程的问题
+        # 生成 PDF（同步操作，用 to_thread 避免阻塞事件循环）
         pdf_path, actual_trade_date = await asyncio.to_thread(
             generate_prediction_pdf,
             report_date=parsed_date,
-            frontend_url=frontend_url,
         )
 
         return {
@@ -84,6 +83,8 @@ async def api_generate_prediction_pdf(
         }
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("PDF 生成 API 异常: %s", e)
         raise HTTPException(status_code=500, detail=f"PDF 生成失败: {str(e)}")

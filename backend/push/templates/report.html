@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AI 债券市场智能分析报告</title>
+<style>
+  /* ========== 页面基础 ========== */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+    font-family: "PingFang SC", "Microsoft YaHei", "SimSun", serif;
+    font-size: 10.5pt;
+    line-height: 1.8;
+  }
+
+  /* ========== 报告标题 ========== */
+  .report-title {
+    text-align: center !important;
+    padding: 0 0 20px 0 !important;
+    margin: 0 0 16px 0 !important;
+    border-bottom: 3px double #1e3a5f !important;
+    page-break-after: avoid;
+  }
+  .report-title h1 {
+    font-size: 22pt !important;
+    font-weight: 800 !important;
+    color: #1e3a5f !important;
+    margin: 0 0 8px 0 !important;
+    line-height: 1.3 !important;
+    letter-spacing: 2px !important;
+  }
+  .report-title .report-date {
+    font-size: 12pt !important;
+    color: #4b5563 !important;
+    margin: 0 0 4px 0 !important;
+  }
+  .report-title .report-meta {
+    font-size: 9pt !important;
+    color: #9ca3af !important;
+    margin: 0 !important;
+  }
+
+  /* ========== 一级章节标题 ========== */
+  .section-title {
+    font-size: 16pt !important;
+    font-weight: 700 !important;
+    color: #1e3a5f !important;
+    margin: 22px 0 8px 0 !important;
+    padding: 0 0 8px 0 !important;
+    border-bottom: 2px solid #1e40af !important;
+    page-break-after: avoid;
+  }
+
+  /* ========== 二级子标题 ========== */
+  .sub-title {
+    font-size: 13pt !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+    margin: 16px 0 6px 0 !important;
+    padding: 0 0 4px 0 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    page-break-after: avoid;
+  }
+
+  /* ========== 小标题（分析理由/假设条件等） ========== */
+  .minor-title {
+    font-size: 11pt !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    margin: 10px 0 4px 0 !important;
+  }
+
+  /* ========== 正文段落 ========== */
+  .content-text {
+    color: #374151 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.8 !important;
+    text-align: justify !important;
+  }
+
+  /* ========== 卡片容器 ========== */
+  .card {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 4px !important;
+    padding: 14px 16px !important;
+    margin: 0 0 16px 0 !important;
+    page-break-inside: avoid;
+  }
+
+  /* ========== 报告信息头部 ========== */
+  .info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .info-header h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+  }
+  .info-header .meta {
+    font-size: 9pt;
+    color: #6b7280;
+  }
+
+  /* ========== 预测概率卡片网格 ========== */
+  .prediction-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 10px !important;
+    margin: 12px 0 !important;
+  }
+  .prediction-card {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+    page-break-inside: avoid;
+  }
+  .prediction-card h4 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 10px;
+  }
+  .prob-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 10px;
+  }
+  .prob-box {
+    text-align: center;
+    padding: 10px 8px;
+    border-radius: 6px;
+  }
+  .prob-box.up {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+  }
+  .prob-box.down {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+  }
+  .prob-label {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-bottom: 2px;
+  }
+  .prob-value {
+    font-size: 16pt;
+    font-weight: 700;
+  }
+  .prob-value.green { color: #059669; }
+  .prob-value.red { color: #dc2626; }
+  .prob-bp {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .confidence-bar-wrap {
+    margin: 8px 0;
+  }
+  .confidence-bar-bg {
+    width: 100%;
+    background: #e5e7eb;
+    border-radius: 9999px;
+    height: 8px;
+  }
+  .confidence-bar-fill {
+    background: #2563eb;
+    height: 8px;
+    border-radius: 9999px;
+  }
+  .confidence-text {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .direction-row {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 8px;
+    font-size: 10pt;
+  }
+  .direction-row .label { color: #6b7280; }
+  .direction-row .value { font-weight: 600; }
+  .direction-row .value.bullish { color: #059669; }
+  .direction-row .value.bearish { color: #dc2626; }
+
+  /* ========== 情景分析网格 ========== */
+  .scenario-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    margin: 12px 0 !important;
+  }
+  .scenario-card {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+    page-break-inside: avoid;
+  }
+  .scenario-card h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 6px;
+  }
+  .scenario-card .prob-tag {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-bottom: 6px;
+  }
+  .scenario-card .trigger {
+    font-size: 9pt;
+    color: #6b7280;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .scenario-card .desc {
+    font-size: 9.5pt;
+    color: #374151;
+    line-height: 1.6;
+  }
+
+  /* ========== 列表 ========== */
+  .content-list {
+    padding-left: 20px !important;
+    margin: 4px 0 !important;
+  }
+  .content-list li {
+    color: #374151 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.7 !important;
+  }
+
+  /* ========== 水印 ========== */
+  body::after {
+    content: "内部资料 · 注意保密" !important;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100% !important; height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: rgba(160, 160, 160, 0.10) !important;
+    font-size: 36px !important;
+    font-weight: 400 !important;
+    transform: rotate(-35deg) !important;
+    pointer-events: none !important;
+    z-index: 9999 !important;
+    font-family: "Microsoft YaHei", sans-serif !important;
+    letter-spacing: 6px !important;
+    white-space: pre !important;
+    overflow: hidden !important;
+  }
+
+  /* ========== 免责声明 ========== */
+  .disclaimer {
+    margin-top: 32px !important;
+    padding: 14px 0 0 0 !important;
+    border-top: 1px solid #d1d5db !important;
+    page-break-inside: avoid;
+  }
+  .disclaimer h4 {
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+    margin: 0 0 6px 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  .disclaimer p {
+    font-size: 9pt !important;
+    color: #6b7280 !important;
+    line-height: 1.6 !important;
+    margin: 2px 0 !important;
+    text-align: left !important;
+  }
+
+  /* ========== 分割线 ========== */
+  .divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 10px 0;
+  }
+
+  /* ========== 分页控制 ========== */
+  .page-break { page-break-after: always; }
+
+  /* ========== 强调 ========== */
+  strong, b { color: #111827; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  报告主标题 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="report-title">
+  <h1>AI 债券市场智能分析报告</h1>
+  <p class="report-date">报告日期：{{ trade_date }}</p>
+  <p class="report-meta">模型：{{ model_name }} ｜ 版本：{{ prompt_version }} ｜ 生成时间：{{ created_at }}</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  报告信息头部 + 报告摘要 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="info-header">
+    <div>
+      <h3>{{ trade_date }} 市场预测分析报告</h3>
+      <p class="meta">模型: {{ model_name }} | 版本: {{ prompt_version }}</p>
+    </div>
+    <div style="text-align:right;">
+      <p class="meta">生成时间</p>
+      <p class="meta" style="color:#374151;">{{ created_at }}</p>
+    </div>
+  </div>
+
+  {% if summary %}
+  <div class="minor-title">报告摘要</div>
+  <p class="content-text">{{ summary }}</p>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  市场概览 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if market_overview %}
+<h2 class="section-title">🌍 市场概览</h2>
+
+{% if market_overview._raw %}
+<div class="content-text" style="white-space: pre-line;">{{ market_overview._raw }}</div>
+
+{% else %}
+{% if market_overview.概述 %}
+<div class="sub-title">概述</div>
+<p class="content-text">{{ market_overview.概述 }}</p>
+{% endif %}
+
+{% if market_overview.市场情绪 %}
+<div class="sub-title">市场情绪</div>
+<p class="content-text">{{ market_overview.市场情绪 }}</p>
+{% endif %}
+
+{% if market_overview.主要驱动因素 %}
+<div class="sub-title">主要驱动因素</div>
+<ul class="content-list">
+  {% for item in market_overview.主要驱动因素 %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if market_overview.风险点 %}
+<div class="sub-title">风险点</div>
+<ul class="content-list">
+  {% for item in market_overview.风险点 %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  技术分析 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if technical_analysis %}
+<h2 class="section-title">📊 技术分析</h2>
+
+{% if technical_analysis._raw %}
+<div class="content-text" style="white-space: pre-line;">{{ technical_analysis._raw }}</div>
+
+{% else %}
+{% if technical_analysis.分位数 %}
+<div class="sub-title">分位数分析</div>
+<p class="content-text">{{ technical_analysis.分位数 }}</p>
+{% endif %}
+
+{% if technical_analysis.动能分析 %}
+<div class="sub-title">动能分析</div>
+<p class="content-text">{{ technical_analysis.动能分析 }}</p>
+{% endif %}
+
+{% if technical_analysis.支撑压力 %}
+<div class="sub-title">支撑压力位</div>
+<p class="content-text">{{ technical_analysis.支撑压力 }}</p>
+{% endif %}
+
+{% if technical_analysis.曲线形态 %}
+<div class="sub-title">曲线形态</div>
+<p class="content-text">{{ technical_analysis.曲线形态 }}</p>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  因子分析 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if factor_analysis %}
+<h2 class="section-title">🔍 因子分析</h2>
+
+{% if factor_analysis._raw %}
+<div class="content-text" style="white-space: pre-line;">{{ factor_analysis._raw }}</div>
+
+{% else %}
+{% if factor_analysis.宏观因子 %}
+<div class="sub-title">宏观因子</div>
+<p class="content-text">{{ factor_analysis.宏观因子 }}</p>
+{% endif %}
+
+{% if factor_analysis.政策因子 %}
+<div class="sub-title">政策因子</div>
+<p class="content-text">{{ factor_analysis.政策因子 }}</p>
+{% endif %}
+
+{% if factor_analysis.流动性分析 %}
+<div class="sub-title">流动性分析</div>
+<p class="content-text">{{ factor_analysis.流动性分析 }}</p>
+{% endif %}
+
+{% if factor_analysis.外部因素 %}
+<div class="sub-title">外部因素</div>
+<p class="content-text">{{ factor_analysis.外部因素 }}</p>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  预测结果 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if predictions %}
+<h2 class="section-title">🎯 预测结果</h2>
+
+<div class="prediction-grid">
+  {% for p in predictions %}
+  <div class="prediction-card">
+    <h4>{{ p.title }}</h4>
+
+    <div class="prob-grid">
+      <div class="prob-box up">
+        <p class="prob-label">上涨概率</p>
+        <p class="prob-value {% if p.上涨概率 > p.下跌概率 %}green{% else %}red{% endif %}">{{ "%.1f"|format(p.上涨概率 * 100) }}%</p>
+        <p class="prob-bp">+{{ "%.1f"|format(p.上涨基点) }} BP</p>
+      </div>
+      <div class="prob-box down">
+        <p class="prob-label">下跌概率</p>
+        <p class="prob-value {% if p.下跌概率 > p.上涨概率 %}red{% else %}green{% endif %}">{{ "%.1f"|format(p.下跌概率 * 100) }}%</p>
+        <p class="prob-bp">{{ "%.1f"|format(p.下跌基点) }} BP</p>
+      </div>
+    </div>
+
+    {% if p.置信度 is not none %}
+    <div class="minor-title">置信度</div>
+    <div class="confidence-bar-wrap">
+      <div class="confidence-bar-bg">
+        <div class="confidence-bar-fill" style="width: {{ "%.0f"|format(p.置信度 * 100) }}%;"></div>
+      </div>
+    </div>
+    <p class="confidence-text">{{ "%.0f"|format(p.置信度 * 100) }}%</p>
+    {% endif %}
+
+    {% if p.分析理由 %}
+    <div class="minor-title">分析理由</div>
+    <p class="content-text">{{ p.分析理由 }}</p>
+    {% endif %}
+
+    {% if p.假设条件 %}
+    <div class="minor-title">假设条件</div>
+    <ul class="content-list">
+      {% for a in p.假设条件 %}
+      <li>{{ a }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="direction-row">
+      <span class="label">方向判断</span>
+      <span class="value {% if p.上涨概率 > p.下跌概率 %}bullish{% else %}bearish{% endif %}">
+        {{ "看涨" if p.上涨概率 > p.下跌概率 else "看跌" }}
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  情景分析 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if scenarios %}
+<h2 class="section-title">🔮 情景分析</h2>
+
+<div class="scenario-grid">
+  {% for s in scenarios %}
+  <div class="scenario-card">
+    <h4>{{ s.icon }} {{ s.title }}</h4>
+    <p class="prob-tag">概率：{{ "%.1f"|format(s.概率 * 100) }}%</p>
+
+    {% if s.触发条件 %}
+    <p class="trigger"><strong>触发条件：</strong>{{ s.触发条件 }}</p>
+    {% endif %}
+
+    <p class="desc">{{ s.描述 }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  策略建议 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if strategy %}
+<h2 class="section-title">💡 策略建议</h2>
+
+{% if strategy._raw %}
+<div class="content-text" style="white-space: pre-line;">{{ strategy._raw }}</div>
+
+{% else %}
+{% if strategy.利率债 %}
+<div class="sub-title">利率债</div>
+<p class="content-text">{{ strategy.利率债 }}</p>
+{% endif %}
+
+{% if strategy.信用债 %}
+<div class="sub-title">信用债</div>
+<p class="content-text">{{ strategy.信用债 }}</p>
+{% endif %}
+
+{% if strategy.久期管理 %}
+<div class="sub-title">久期管理</div>
+<p class="content-text">{{ strategy.久期管理 }}</p>
+{% endif %}
+
+{% if strategy.杠杆策略 %}
+<div class="sub-title">杠杆策略</div>
+<p class="content-text">{{ strategy.杠杆策略 }}</p>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  风险提示 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+{% if risk_warnings %}
+<h2 class="section-title">⚠️ 风险提示</h2>
+
+{% if risk_warnings._raw %}
+<div class="content-text" style="white-space: pre-line;">{{ risk_warnings._raw }}</div>
+
+{% else %}
+{% if risk_warnings.主要风险 %}
+<div class="sub-title">主要风险</div>
+<ul class="content-list">
+  {% for item in risk_warnings.主要风险 %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if risk_warnings.关键指标 %}
+<div class="sub-title">关键监测指标</div>
+<ul class="content-list">
+  {% for item in risk_warnings.关键指标 %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if risk_warnings.重点事件 %}
+<div class="sub-title">近期重点事件</div>
+<ul class="content-list">
+  {% for item in risk_warnings.重点事件 %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  免责声明 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="disclaimer">
+  <h4>【免责声明】</h4>
+  <p>本报告基于公开数据和模型分析生成，仅供专业投资者参考，不构成任何投资建议或承诺。</p>
+  <p>报告中的预测结果基于历史数据和特定模型假设，实际市场走势可能与预测存在偏差。</p>
+  <p>投资者应根据自身风险承受能力独立做出投资决策，并自行承担投资风险。</p>
+  <h4 style="margin-top: 6px;">【交易风险提示】</h4>
+  <p>债券投资面临利率风险、信用风险、流动性风险等多种风险因素。过往表现不代表未来收益，请谨慎投资。</p>
+</div>
+
+</body>
+</html>

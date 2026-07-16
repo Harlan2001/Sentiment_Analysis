@@ -60,11 +60,11 @@ MYSQL_AUTOCOMMIT=true
 PYTHONUNBUFFERED=1
 ```
 
-## 5. 两种部署模式
+## 5. 三种部署模式
 
-### 模式 A：快速部署（每周代码更新，1 分钟）
+### 模式 A：后端代码更新（依赖未变，最常见）
 
-代码变了但 `pyproject.toml` / `uv.lock` 没变时，**只传代码文件**，不重打镜像：
+后端代码变了但 `pyproject.toml` / `uv.lock` 没变时，**只传代码文件**，不重打镜像：
 
 ```bash
 # 大前台
@@ -82,9 +82,39 @@ PYTHONUNBUFFERED=1
 2. 传输 `deploy/*.sh` 定时任务脚本
 3. `docker compose restart backend`
 
-### 模式 B：镜像重建（依赖/前端变更，几周一次）
+### 模式 B：前端更新（构建机 build → 传镜像 → 服务器 load）
 
-`pyproject.toml` / `uv.lock` 或前端源码变更时，重打完整镜像：
+前端源码变更时，**只重建前端镜像**，后端不动：
+
+```bash
+# === 1. 本地构建（WSL / 开发机）===
+cd /path/to/sentiment
+docker compose build --no-cache frontend
+
+# === 2. 导出并传输 ===
+docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
+
+# 大前台
+scp sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/
+
+# Saas（经跳板机）
+scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
+    sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment/
+
+# === 3. 服务器加载镜像并重启 ===
+ssh admin@10.253.50.112
+cd /opt/sentiment
+gunzip -c sentiment-frontend.tar.gz | docker load   # ← 这一步容易忘！
+docker compose up -d frontend
+```
+
+关键三步不能漏：**build → save & scp → gunzip -c | docker load → up -d**。
+
+> **注意**：前端没有 volume 挂载，任何时候改前端源码都要走这个流程。后端 `pyproject.toml` / `uv.lock` 没变就别 rebuild 后端镜像，省时间。
+
+### 模式 C：完整镜像重建（依赖变更 / 大版本）
+
+`pyproject.toml` / `uv.lock` 或前端 `package*.json` 变更时，重打两个镜像：
 
 ```bash
 # 大前台
@@ -98,12 +128,12 @@ PYTHONUNBUFFERED=1
 ```
 
 脚本做的事：
-1. 本地 `docker compose build`（利用层缓存，不 `--no-cache`）
+1. 本地 `docker compose build --no-cache`
 2. `docker save` → gzip → scp 到服务器
 3. 传输 `deploy/*.sh` 定时任务脚本
-4. 服务器 `docker load` → `docker compose up -d --force-recreate`
+4. 服务器 `gunzip -c | docker load` → `docker compose up -d --force-recreate`
 
-> **注意**：日常使用不要加 `--no-cache`，只在依赖未更新但构建出问题时才加。
+> **注意**：前端镜像构建必须加 `--no-cache`。Docker 层缓存有时检测不到 `COPY . .` 的文件变化（尤其在 WSL / 跨文件系统场景），导致构建出的 JS bundle 仍是旧代码。
 
 ## 6. 目录结构
 
@@ -155,7 +185,7 @@ PYTHONUNBUFFERED=1
 
 ```bash
 cd /path/to/sentiment
-docker compose build
+docker compose build --no-cache
 ```
 
 ### 7.2 传输镜像 + 代码到服务器
@@ -265,10 +295,11 @@ docker system prune -f    # 全面清理
 
 | 场景 | 命令 |
 |------|------|
-| 代码更新（大前台） | `./scripts/deploy.sh bigfrontend` |
-| 代码更新（Saas） | `./scripts/deploy.sh saas` |
-| 代码更新（双服务器） | `./scripts/deploy.sh both` |
-| 依赖更新（大前台） | `./scripts/deploy-image.sh bigfrontend` |
-| 依赖更新（Saas） | `./scripts/deploy-image.sh saas` |
-| 依赖更新（双服务器） | `./scripts/deploy-image.sh both` |
+| 后端代码更新（大前台） | `./scripts/deploy.sh bigfrontend` |
+| 后端代码更新（Saas） | `./scripts/deploy.sh saas` |
+| 后端代码更新（双服务器） | `./scripts/deploy.sh both` |
+| 前端更新 | 看模式 B：build → save & scp → gunzip \| docker load → up -d |
+| 完整镜像重建（大前台） | `./scripts/deploy-image.sh bigfrontend` |
+| 完整镜像重建（Saas） | `./scripts/deploy-image.sh saas` |
+| 完整镜像重建（双服务器） | `./scripts/deploy-image.sh both` |
 | 首次部署 | 见第 7 节 |

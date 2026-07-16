@@ -115,10 +115,10 @@ echo "  完整镜像重建 & 传输"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================"
 
-# 1. 构建镜像（不带 --no-cache，利用 Docker 层缓存）
+# 1. 构建镜像（用 --build-arg 破坏源码层缓存，保留 npm ci 层缓存）
 echo ""
 echo "=== [构建] 构建镜像 ==="
-docker compose build --progress=plain
+docker compose build --build-arg CACHEBUST="$(date +%s)" --progress=plain
 
 # 2. 导出镜像
 echo ""

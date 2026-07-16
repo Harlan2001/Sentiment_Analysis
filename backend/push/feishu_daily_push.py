@@ -8,7 +8,6 @@
 import json
 import os
 import sys
-import time
 import logging
 import requests
 from datetime import datetime, timedelta, date
@@ -70,6 +69,7 @@ def _safe_get(pred: dict, key: str, default=None):
 def build_summary(pdf_file_name: str) -> str:
     """从 forecast_report 表中提取报告摘要，生成推送文本。"""
     date_str = pdf_file_name.replace(".pdf", "")
+    fallback = f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
 
     try:
         with get_db_connection() as conn:
@@ -80,13 +80,13 @@ def build_summary(pdf_file_name: str) -> str:
             )
             row = cur.fetchone()
             if not row:
-                return f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
+                return fallback
 
             pred = row[0]
             if isinstance(pred, str):
                 pred = json.loads(pred)
             if not isinstance(pred, dict):
-                return f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
+                return fallback
 
             summary = _safe_get(pred, "报告摘要", "")
             summary_str = str(summary).strip() if summary else "—"
@@ -97,8 +97,8 @@ def build_summary(pdf_file_name: str) -> str:
                 f"📄 完整分析请查看下方 PDF"
             )
     except Exception as e:
-        logger.debug("[摘要] 生成失败: %s", e)
-        return f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
+        logger.warning("[摘要] 生成失败: %s", e)
+        return fallback
 
 
 # ===================== 飞书 API =====================
@@ -230,8 +230,7 @@ def main():
     summary = build_summary(pdf_name)
     send_text(token, GROUP_ID, summary)
 
-    # 5. 短暂延迟后发送 PDF 文件
-    time.sleep(2)
+    # 5. 发送 PDF 文件
     send_file(token, GROUP_ID, file_key)
 
     logger.info("[主流程] 推送完成: %s", pdf_name)

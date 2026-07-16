@@ -40,24 +40,20 @@ services:
       - AUTH_ENABLED=${AUTH_ENABLED:-false}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - JWT_EXPIRY_HOURS=${JWT_EXPIRY_HOURS:-24}
-      # ===== PDF & 飞书推送 =====
-      - FEISHU_WEBHOOK=${FEISHU_WEBHOOK:-}
-      - SERVER_BASE_URL=${SERVER_BASE_URL:-}
-      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-http://frontend}
-      - FRONTEND_USERNAME=${FRONTEND_USERNAME:-}
-      - FRONTEND_PASSWORD=${FRONTEND_PASSWORD:-}
+      # ===== 飞书自建应用推送 =====
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - FEISHU_GROUP_ID=${FEISHU_GROUP_ID:-}
       # ===== 微信公众号推送 =====
       - WECHAT_APPID=${WECHAT_APPID:-}
       - WECHAT_USERNAME=${WECHAT_USERNAME:-}
       - WECHAT_PASSWORD=${WECHAT_PASSWORD:-}
       - ARTICLE_AUTHOR=${ARTICLE_AUTHOR:-AI量化系统}
-      # ===== 飞书自建应用推送 =====
-      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
-      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
-      - FEISHU_GROUP_ID=${FEISHU_GROUP_ID:-}
       # ===== 网络代理 =====
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=frontend,backend,localhost,127.0.0.1,.local
+      - no_proxy=frontend,backend,localhost,127.0.0.1,.local
       - OUTBOUND_PROXY_ENABLED=${OUTBOUND_PROXY_ENABLED:-true}
       # ===== uv 包管理器缓存 =====
       - UV_CACHE_DIR=/tmp/uv-cache
