@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# 快速部署脚本（在构建机上执行）
-# 只传后端代码 + 重启容器，不传完整镜像
+# 后端代码快速部署脚本（在构建机上执行）
+# 传输后端代码 + docker-compose + 环境变量 + 定时任务脚本，然后重启容器
 #
 # 用法：
-#   ./scripts/deploy.sh bigfrontend   # 部署到大前台
-#   ./scripts/deploy.sh saas          # 部署到 Saas（京东云，需跳板机）
-#   ./scripts/deploy.sh both          # 同时部署两个服务器
+#   ./scripts/deploy_backend.sh bigfrontend   # 部署到大前台
+#   ./scripts/deploy_backend.sh saas          # 部署到 Saas（京东云，需跳板机）
+#   ./scripts/deploy_backend.sh both          # 同时部署两个服务器
 # =============================================================================
 set -e
 
@@ -53,41 +53,56 @@ deploy_to() {
     echo "  目标: $TARGET → $SERVER_USER@$SERVER_HOST"
     echo "──────────────────────────────────────"
 
-    # --- 传输后端代码 ---
+    # --- 构建部署包 ---
     echo ""
-    echo "  [1/3] 传输后端代码..."
+    echo "  [1/4] 构建部署包..."
 
-    RSYNC_OPTS="-avz --delete --exclude='__pycache__/' --exclude='*.pyc' --exclude='.DS_Store'"
+    local TMPDIR
+    TMPDIR="$(mktemp -d)"
 
-    if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        tar -czf /tmp/sentiment-code.tar.gz main.py backend/
-        $SCP_CMD /tmp/sentiment-code.tar.gz "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-        $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" \
-            "cd ${SERVER_PATH} && tar -xzf sentiment-code.tar.gz && rm sentiment-code.tar.gz"
-        rm -f /tmp/sentiment-code.tar.gz
-    else
-        rsync $RSYNC_OPTS main.py backend/ "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-    fi
-    echo "  ✓ 代码传输完成"
+    # 后端代码 + docker-compose
+    cp -r main.py backend/ docker-compose.yml "$TMPDIR/"
 
-    # --- 传输定时任务脚本 ---
+    # 环境变量文件（release/{target}.env → .env）
+    cp "release/${TARGET}.env" "$TMPDIR/.env"
+
+    # 定时任务脚本（去掉环境后缀，如 analysis_fallback_bigfrontend.sh → analysis_fallback.sh）
+    mkdir -p "$TMPDIR/scripts"
+    for f in scripts/deploy/*_${TARGET}.sh; do
+        local basename="${f##*/}"
+        local newname="${basename%_${TARGET}.sh}.sh"
+        cp "$f" "$TMPDIR/scripts/$newname"
+    done
+
+    echo "  ✓ 部署包构建完成"
+
+    # --- 传输 ---
     echo ""
-    echo "  [2/3] 传输定时任务脚本..."
+    echo "  [2/4] 传输部署包..."
 
-    if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        tar -czf /tmp/sentiment-cron.tar.gz -C deploy/ .
-        $SCP_CMD /tmp/sentiment-cron.tar.gz "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-        $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" \
-            "cd ${SERVER_PATH} && tar -xzf sentiment-cron.tar.gz && rm sentiment-cron.tar.gz"
-        rm -f /tmp/sentiment-cron.tar.gz
-    else
-        rsync -avz deploy/ "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-    fi
-    echo "  ✓ 定时任务脚本传输完成"
+    local TARBALL="/tmp/sentiment-deploy-${TARGET}.tar.gz"
+    tar -czf "$TARBALL" -C "$TMPDIR" .
+    $SCP_CMD "$TARBALL" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
+    rm -f "$TARBALL"
+    rm -rf "$TMPDIR"
+
+    echo "  ✓ 传输完成"
+
+    # --- 解包 ---
+    echo ""
+    echo "  [3/4] 解包部署文件..."
+
+    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+cd ${SERVER_PATH}
+tar -xzf sentiment-deploy-${TARGET}.tar.gz
+rm sentiment-deploy-${TARGET}.tar.gz
+REMOTE_EOF
+
+    echo "  ✓ 解包完成"
 
     # --- 重启后端 ---
     echo ""
-    echo "  [3/3] 重启后端..."
+    echo "  [4/4] 重启后端..."
 
     $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
@@ -105,7 +120,7 @@ REMOTE_EOF
 TARGET="${1:-bigfrontend}"
 
 echo "========================================"
-echo "  Sentiment 快速部署"
+echo "  Sentiment 后端代码部署"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================"
 

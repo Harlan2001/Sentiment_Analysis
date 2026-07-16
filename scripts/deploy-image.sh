@@ -1,7 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# 完整镜像重建脚本（在构建机上执行）
-# 仅在 pyproject.toml / uv.lock 或前端依赖变更时使用
+# 完整镜像部署脚本（在构建机上执行）
+# 构建前后端镜像 → 导出 → 传输 → 服务器 load 并重启
+# 同时传输 docker-compose + 环境变量 + 定时任务脚本
 #
 # 用法：
 #   ./scripts/deploy-image.sh bigfrontend  # 部署到大前台
@@ -31,6 +32,9 @@ USER[saas]="root"
 SERVER_PATH[saas]="/data/sentiment"
 IS_SAAS[saas]="true"
 
+BE_TAR="sentiment-backend.tar.gz"
+FE_TAR="sentiment-frontend.tar.gz"
+
 # ======================== 部署函数 ========================
 deploy_images_to() {
     local TARGET="$1"
@@ -53,48 +57,74 @@ deploy_images_to() {
     echo "  目标: $TARGET → $SERVER_USER@$SERVER_HOST"
     echo "──────────────────────────────────────"
 
-    # --- 传输镜像 ---
+    # --- 构建配置文件包 ---
     echo ""
-    echo "  传输镜像..."
+    echo "  [1/5] 构建配置文件包..."
 
-    $SCP_CMD sentiment-backend.tar.gz sentiment-frontend.tar.gz \
+    local TMPDIR
+    TMPDIR="$(mktemp -d)"
+
+    # 环境变量文件（release/{target}.env → .env）
+    cp "release/${TARGET}.env" "$TMPDIR/.env"
+
+    # docker-compose
+    cp docker-compose.yml "$TMPDIR/"
+
+    # 定时任务脚本（去掉环境后缀）
+    mkdir -p "$TMPDIR/scripts"
+    for f in scripts/deploy/*_${TARGET}.sh; do
+        local basename="${f##*/}"
+        local newname="${basename%_${TARGET}.sh}.sh"
+        cp "$f" "$TMPDIR/scripts/$newname"
+    done
+
+    local CONFIG_TAR="/tmp/sentiment-config-${TARGET}.tar.gz"
+    tar -czf "$CONFIG_TAR" -C "$TMPDIR" .
+    rm -rf "$TMPDIR"
+
+    echo "  ✓ 配置文件包构建完成"
+
+    # --- 传输镜像 + 配置文件 ---
+    echo ""
+    echo "  [2/5] 传输镜像和配置文件..."
+
+    $SCP_CMD "$BE_TAR" "$FE_TAR" "$CONFIG_TAR" \
         "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
 
-    echo "  ✓ 镜像传输完成 (后端: $(du -h sentiment-backend.tar.gz | cut -f1), 前端: $(du -h sentiment-frontend.tar.gz | cut -f1))"
+    rm -f "$CONFIG_TAR"
 
-    # --- 传输定时任务脚本 ---
+    echo "  ✓ 传输完成 (后端: $(du -h $BE_TAR | cut -f1), 前端: $(du -h $FE_TAR | cut -f1))"
+
+    # --- 加载镜像 + 解包配置 ---
     echo ""
-    echo "  传输定时任务脚本..."
-
-    if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        tar -czf /tmp/sentiment-cron.tar.gz -C deploy/ .
-        $SCP_CMD /tmp/sentiment-cron.tar.gz "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-        $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" \
-            "cd ${SERVER_PATH} && tar -xzf sentiment-cron.tar.gz && rm sentiment-cron.tar.gz"
-        rm -f /tmp/sentiment-cron.tar.gz
-    else
-        rsync -avz deploy/ "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
-    fi
-    echo "  ✓ 定时任务脚本传输完成"
-
-    # --- 加载镜像 ---
-    echo ""
-    echo "  加载镜像..."
+    echo "  [3/5] 加载镜像..."
 
     $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  加载后端镜像..."
-gunzip -c sentiment-backend.tar.gz | docker load
+gunzip -c ${BE_TAR} | docker load
 echo "  加载前端镜像..."
-gunzip -c sentiment-frontend.tar.gz | docker load
-rm -f sentiment-backend.tar.gz sentiment-frontend.tar.gz
+gunzip -c ${FE_TAR} | docker load
+rm -f ${BE_TAR} ${FE_TAR}
 REMOTE_EOF
 
     echo "  ✓ 镜像加载完成"
 
+    # --- 解包配置文件 ---
+    echo ""
+    echo "  [4/5] 解包配置文件..."
+
+    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+cd ${SERVER_PATH}
+tar -xzf sentiment-config-${TARGET}.tar.gz
+rm sentiment-config-${TARGET}.tar.gz
+REMOTE_EOF
+
+    echo "  ✓ 配置文件解包完成"
+
     # --- 重启服务 ---
     echo ""
-    echo "  重启服务..."
+    echo "  [5/5] 重启服务..."
 
     $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
@@ -111,7 +141,7 @@ REMOTE_EOF
 TARGET="${1:-bigfrontend}"
 
 echo "========================================"
-echo "  完整镜像重建 & 传输"
+echo "  完整镜像部署"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================"
 
@@ -123,11 +153,11 @@ docker compose build --build-arg CACHEBUST="$(date +%s)" --progress=plain
 # 2. 导出镜像
 echo ""
 echo "=== [导出] 导出镜像 ==="
-docker save sentiment-backend:latest | gzip > sentiment-backend.tar.gz
-docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
+docker save sentiment-backend:latest | gzip > "$BE_TAR"
+docker save sentiment-frontend:latest | gzip > "$FE_TAR"
 
-echo "  后端镜像: $(du -h sentiment-backend.tar.gz | cut -f1)"
-echo "  前端镜像: $(du -h sentiment-frontend.tar.gz | cut -f1)"
+echo "  后端镜像: $(du -h $BE_TAR | cut -f1)"
+echo "  前端镜像: $(du -h $FE_TAR | cut -f1)"
 
 # 3. 部署到目标服务器
 echo ""
@@ -151,9 +181,9 @@ case "$TARGET" in
 esac
 
 # 清理本地镜像文件
-rm -f sentiment-backend.tar.gz sentiment-frontend.tar.gz
+rm -f "$BE_TAR" "$FE_TAR"
 
 echo ""
 echo "========================================"
-echo "  镜像重建 & 部署完成"
+echo "  镜像部署完成"
 echo "========================================"
