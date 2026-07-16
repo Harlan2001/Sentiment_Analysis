@@ -50,10 +50,12 @@ def get_outbound_proxy_url() -> Optional[str]:
         return None
     return _get_env_str("OUTBOUND_PROXY_URL") or _get_env_str("HTTPS_PROXY") or _get_env_str("HTTP_PROXY")
 
-def get_requests_proxies() -> Optional[Dict[str, str]]:
+def get_requests_proxies() -> Optional[Dict[str, Optional[str]]]:
     proxy = get_outbound_proxy_url()
     if not proxy:
-        return None
+        # 必须显式设为 None，不能返回 None — requests 库在 proxies=None 时会
+        # 回退到环境变量 HTTP_PROXY / HTTPS_PROXY，导致代理开关不生效
+        return {"http": None, "https": None}
     return {"http": proxy, "https": proxy}
 
 # OpenAI 客户端

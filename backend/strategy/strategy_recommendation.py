@@ -21,7 +21,7 @@ from requests import HTTPError
 from openai import AsyncOpenAI
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from backend.config.config import get_analysis_model_info, get_default_analysis_model_name
+from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, get_requests_proxies, create_openai_async_http_client
 from backend.common.database import get_db_connection
 
 # 【临时兼容】SaaS 本地快照模式配置
@@ -37,7 +37,8 @@ if not _config.USE_LOCAL_SNAPSHOT and not kingstar_API_KEY:
     raise ValueError("kingstar_API_KEY environment variable is not set.")
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
-async_client = AsyncOpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL) if kingstar_API_KEY and kingstar_BASE_URL else None
+async_client = AsyncOpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL,
+                              http_client=create_openai_async_http_client()) if kingstar_API_KEY and kingstar_BASE_URL else None
 
 STRATEGY_LIST_PATH = "/v1/strategy/follow_price_point_strategy/list"
 BOND_LIST_PATH = "/v1/bondBasisInfo/query"
@@ -97,6 +98,7 @@ def _post_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, st
         json=payload,
         headers=headers,
         timeout=DEFAULT_HTTP_TIMEOUT,
+        proxies=get_requests_proxies(),
     )
     try:
         response.raise_for_status()
@@ -393,6 +395,7 @@ def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> L
             params=params,
             headers=headers,
             timeout=DEFAULT_HTTP_TIMEOUT,
+            proxies=get_requests_proxies(),
         )
         response.raise_for_status()
         result = response.json()

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 import requests
-from backend.config.config import BOND_XLSX, MYSQL_CONFIG
+from backend.config.config import BOND_XLSX, MYSQL_CONFIG, get_requests_proxies
 from backend.common.database import DatabaseConfig, init_database, get_db_connection
 from backend.common.yield_db import import_yield_data_from_excel
 
@@ -57,7 +57,7 @@ def download_history_excel(
     try:
         # 3. 发送请求下载文件
         logger.info("正在下载收益率Excel: %s ~ %s", start_date, end_date)
-        response = requests.get(base_url, params=params, timeout=60)
+        response = requests.get(base_url, params=params, timeout=60, proxies=get_requests_proxies())
         response.raise_for_status()
 
         # 4. 保存Excel文件

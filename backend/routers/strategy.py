@@ -9,11 +9,12 @@ import os
 
 from backend.strategy.strategy_push import get_strategy_push_service
 from backend.strategy.portfolio_strategy import get_portfolio_strategy_service
-from backend.config.config import API_PREFIX
+from backend.config.config import API_PREFIX, create_openai_http_client
 
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
-kingstar_client = OpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL)
+kingstar_client = OpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL,
+                          http_client=create_openai_http_client())
 
 strategy_push_service = get_strategy_push_service(kingstar_client)
 portfolio_strategy_service = get_portfolio_strategy_service(kingstar_client)

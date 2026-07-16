@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-from backend.config.config import get_analysis_model_info, get_default_analysis_model_name
+from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, create_openai_http_client
 from backend.common.database import get_db_connection
 
 logger = logging.getLogger("change_router")
@@ -34,7 +34,8 @@ def _get_llm_client():
     global _openai_client
     if _openai_client is None:
         from openai import OpenAI
-        _openai_client = OpenAI(api_key=_kingstar_API_KEY, base_url=_kingstar_BASE_URL)
+        _openai_client = OpenAI(api_key=_kingstar_API_KEY, base_url=_kingstar_BASE_URL,
+                                 http_client=create_openai_http_client())
     return _openai_client
 
 

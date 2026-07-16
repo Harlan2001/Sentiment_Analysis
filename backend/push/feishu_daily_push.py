@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from backend.common.database import get_db_connection, init_database, DatabaseConfig
-from backend.config.config import MYSQL_CONFIG
+from backend.config.config import MYSQL_CONFIG, get_requests_proxies
 from backend.push.pdf_generator import generate_prediction_pdf
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ def get_tenant_token() -> Optional[str]:
     try:
         resp = requests.post(FEISHU_TOKEN_URL, json={
             "app_id": APP_ID, "app_secret": APP_SECRET
-        }, timeout=10)
+        }, timeout=10, proxies=get_requests_proxies())
         result = resp.json()
         if result.get("code") == 0:
             return result["tenant_access_token"]
@@ -139,6 +139,7 @@ def upload_pdf_to_im(token: str, pdf_path: str) -> Optional[str]:
                 files={"file": (pdf_file.name, f, "application/pdf")},
                 data={"file_name": pdf_file.name, "file_type": "pdf"},
                 timeout=120,
+                proxies=get_requests_proxies(),
             )
         res = resp.json()
         file_key = res.get("data", {}).get("file_key") if res.get("code") == 0 else None
@@ -160,6 +161,7 @@ def send_text(token: str, chat_id: str, text: str) -> bool:
             params={"receive_id_type": "chat_id"},
             json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text})},
             timeout=30,
+            proxies=get_requests_proxies(),
         )
         ok = resp.json().get("code") == 0
         if not ok:
@@ -183,6 +185,7 @@ def send_file(token: str, chat_id: str, file_key: str) -> bool:
                 "content": json.dumps({"file_key": file_key}),
             },
             timeout=30,
+            proxies=get_requests_proxies(),
         )
         ok = resp.json().get("code") == 0
         if not ok:
