@@ -44,9 +44,16 @@ function actionLabel(type: string): string {
 }
 
 export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) => {
+  // 默认日期范围：最近10天
+  const defaultStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 10);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   // 日期范围选择器状态
   const [dateRangeOpen, setDateRangeOpen] = useState(false);
-  const [dateStart, setDateStart] = useState('');
+  const [dateStart, setDateStart] = useState(defaultStart);
   const [dateEnd, setDateEnd] = useState('');
 
   const [logFilter, setLogFilter] = useState<{
@@ -55,7 +62,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
     action_type?: string;
     limit?: number;
     offset?: number;
-  }>({ limit: 100, offset: 0 });
+  }>({ limit: 30, offset: 0 });
 
   const actualFilter = {
     ...logFilter,
@@ -248,7 +255,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
   const handlePageChange = (direction: 'prev' | 'next') => {
     setLogFilter(prev => ({
       ...prev,
-      offset: Math.max(0, (prev.offset || 0) + (direction === 'next' ? (prev.limit || 100) : -(prev.limit || 100))),
+      offset: Math.max(0, (prev.offset || 0) + (direction === 'next' ? (prev.limit || 30) : -(prev.limit || 30))),
     }));
   };
 
@@ -497,13 +504,13 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
             {/* 分页 */}
             <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
               <div className="flex items-center space-x-2">
-                <span>共 {logData?.total || 0} 条，每页 {logFilter.limit || 100} 条</span>
+                <span>共 {logData?.total || 0} 条，每页 {logFilter.limit || 30} 条</span>
                 <span className="text-gray-600">|</span>
-                <span>日志保留 180 天</span>
+                <span>默认最近10天，日志保留 180 天</span>
               </div>
               {logData && logData.total > 0 && (
                 <div className="flex items-center space-x-3">
-                  <span>第 {(logFilter.offset || 0) / (logFilter.limit || 100) + 1}/{Math.max(1, Math.ceil(logData.total / (logFilter.limit || 100)))} 页</span>
+                  <span>第 {(logFilter.offset || 0) / (logFilter.limit || 30) + 1}/{Math.max(1, Math.ceil(logData.total / (logFilter.limit || 30)))} 页</span>
                   <div className="space-x-2">
                     <button
                       className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40"
@@ -512,7 +519,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
                     >上一页</button>
                     <button
                       className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40"
-                      disabled={(logFilter.offset || 0) + (logFilter.limit || 100) >= (logData?.total || 0)}
+                      disabled={(logFilter.offset || 0) + (logFilter.limit || 30) >= (logData?.total || 0)}
                       onClick={() => handlePageChange('next')}
                     >下一页</button>
                   </div>
