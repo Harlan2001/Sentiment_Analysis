@@ -17,7 +17,7 @@ WORKDIR /app
 # 系统依赖：编译器 + Playwright/Chromium 运行时库
 RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
     sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true && \
-    apt-get update && apt-get install -y \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     wget \
@@ -38,6 +38,8 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sourc
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    libcurl4 \
+    libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户

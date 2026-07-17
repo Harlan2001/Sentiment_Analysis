@@ -263,11 +263,12 @@ def generate_prediction_pdf(
             launch_kwargs: dict = dict(
                 headless=True,
                 args=["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox",
-                      "--disable-dev-shm-usage", "--disable-crashpad-for-testing"],
+                      "--disable-dev-shm-usage", "--disable-features=Crashpad"],
             )
-            if "headless_shell" not in _CHROMIUM_EXECUTABLE:
-                launch_kwargs["channel"] = None  # 全量 chrome 不需要 channel
             launch_kwargs["executable_path"] = _CHROMIUM_EXECUTABLE
+            # 阻止 Playwright 尝试通过 channel 查找系统浏览器，
+            # 明确使用 executable_path 指定的 Chromium
+            launch_kwargs["channel"] = None
 
             browser = p.chromium.launch(**launch_kwargs)
             context = browser.new_context(
