@@ -15,6 +15,8 @@ from backend.config.config import (
     NEWS_SOURCES,
     PERIOD_LIST,
     PERIOD_MAP,
+    PERIOD_REVERSE_MAP,
+    FACTOR_CATEGORY_MAP,
     CACHE_TTL_SEC,
     BEHAVIOR_LOG_RETENTION_DAYS,
 )
@@ -159,7 +161,10 @@ def build_factor_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
 
     return {
         "total": total,
-        "category_distribution": [{"category": k, "count": v} for k, v in sorted(cat.items(), key=lambda x: -x[1])],
+        "category_distribution": [
+            {"category": k, "display_name": FACTOR_CATEGORY_MAP.get(k, k), "count": v}
+            for k, v in sorted(cat.items(), key=lambda x: -x[1])
+        ],
         "type_distribution": [{"factor_type": k, "count": v} for k, v in typ.items()],
         "new_factors_7d": n7,
         "new_factors_trend_7d": [{"date": fmt_dt(d), "count": c} for d, c in tr],
@@ -195,7 +200,7 @@ def build_yield_module() -> Dict[str, Any]:
         lv = float(v[-1][1]) if v else None
         sp.append({
             "period": dbp,
-            "display_name": PERIOD_MAP.get(dbp, dbp),
+            "display_name": PERIOD_REVERSE_MAP.get(dbp, dbp),
             "latest_date": fmt_dt(ld),
             "latest_value": lv,
             "sparkline": [float(x) for _, x in reversed(v)],
@@ -205,7 +210,7 @@ def build_yield_module() -> Dict[str, Any]:
         "date_max": fmt_dt(r[1]) if r and r[1] else None,
         "coverage_days": r[2] if r else 0,
         "period_completeness": [
-            {"period": x, "display_name": PERIOD_MAP.get(x, x), "count": c} for x, c in p
+            {"period": x, "display_name": PERIOD_REVERSE_MAP.get(x, x), "count": c} for x, c in p
         ],
         "latest_yields": sp,
     }
