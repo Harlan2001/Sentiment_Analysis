@@ -30,8 +30,7 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sourc
     libdrm2 \
     libdbus-1-3 \
     libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
+    libxcomposite1 libxdamage1 \
     libxfixes3 \
     libxrandr2 \
     libgbm1 \
@@ -40,6 +39,9 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sourc
     libcairo2 \
     libcurl4 \
     libxshmfence1 \
+    # WeasyPrint PDF 渲染依赖
+    libgdk-pixbuf-2.0-0 \
+    libpangoft2-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户

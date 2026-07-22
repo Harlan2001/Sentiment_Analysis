@@ -8,6 +8,10 @@
   @page {
     size: A4;
     margin: 2cm;
+    @bottom-center {
+      content: "第 " counter(page) " 页 / 共 " counter(pages) " 页";
+      font-size: 9px;
+    }
   }
 
   * {

@@ -35,14 +35,11 @@ if not kingstar_API_KEY:
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
 # 创建异步客户端
-async_client_kwargs = {
-    "api_key": kingstar_API_KEY,
-    "base_url": kingstar_BASE_URL,
-}
-async_http_client = create_openai_async_http_client()
-if async_http_client is not None:
-    async_client_kwargs["http_client"] = async_http_client
-async_client = AsyncOpenAI(**async_client_kwargs)
+async_client = AsyncOpenAI(
+    api_key=kingstar_API_KEY,
+    base_url=kingstar_BASE_URL,
+    http_client=create_openai_async_http_client(),
+)
 
 # API调用重试装饰器：最多重试3次，指数退避（1s, 2s, 4s）
 @retry(
