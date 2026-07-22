@@ -34,6 +34,16 @@ export const CATEGORY_COLORS: Record<string, string> = {
   INDUSTRY: '#06b6d4',
 };
 
+// 因子类别中文映射（与后端 config.py FACTOR_CATEGORY_MAP 保持一致）
+export const CATEGORY_NAME_MAP: Record<string, string> = {
+  POLICY: '政策',
+  MACRO: '宏观',
+  LIQUIDITY: '流动性',
+  RISK: '风险',
+  SENTIMENT: '情绪',
+  INDUSTRY: '行业',
+};
+
 // 期限色阶（用于收益率sparkline）
 export const PERIOD_COLORS = [
   '#60a5fa', '#818cf8', '#a78bfa', '#c084fc',

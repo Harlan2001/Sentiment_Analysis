@@ -92,6 +92,16 @@ PERIOD_MAP = {
 }
 PERIOD_REVERSE_MAP = {v: k for k, v in PERIOD_MAP.items()}
 
+# 因子分类中文映射（数据库英文 → 前端展示中文）
+FACTOR_CATEGORY_MAP = {
+    "POLICY": "政策",
+    "MACRO": "宏观",
+    "LIQUIDITY": "流动性",
+    "RISK": "风险",
+    "SENTIMENT": "情绪",
+    "INDUSTRY": "行业",
+}
+
 # ====================== 分析模型配置 ======================
 ANALYSIS_MODEL_PRIORITY = ["doubao", "deepseek", "qwen", "default"]
 

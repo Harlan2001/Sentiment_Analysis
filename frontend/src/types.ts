@@ -667,6 +667,7 @@ export interface AnalysisModuleData {
 // Module C: Factor
 export interface CategoryDistribution {
   category: string;
+  display_name: string;
   count: number;
 }
 

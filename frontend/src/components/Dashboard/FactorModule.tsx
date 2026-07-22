@@ -5,7 +5,7 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { FactorModuleData } from '../../types';
 import { PanelTitle, MetricCard, ProgressBar, TimelinessLabel } from './Widgets';
-import { CATEGORY_COLORS, ALERT } from './constants';
+import { CATEGORY_COLORS, CATEGORY_NAME_MAP, ALERT } from './constants';
 
 interface Props { data: FactorModuleData; }
 
@@ -28,7 +28,8 @@ export const FactorModule: React.FC<Props> = ({ data }) => {
       },
       labelLine: { lineStyle: { color: '#4b5563' } },
       data: data.category_distribution?.map(d => ({
-        name: d.category, value: d.count,
+        name: d.display_name || CATEGORY_NAME_MAP[d.category] || d.category,
+        value: d.count,
         itemStyle: { color: CATEGORY_COLORS[d.category] || '#6b7280' },
       })) || [],
     }],
