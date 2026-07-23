@@ -14,7 +14,6 @@ from backend.config.config import (
     DIR_MAP,
     NEWS_SOURCES,
     PERIOD_LIST,
-    PERIOD_MAP,
     PERIOD_REVERSE_MAP,
     FACTOR_CATEGORY_MAP,
     CACHE_TTL_SEC,
@@ -23,6 +22,14 @@ from backend.config.config import (
 from backend.tools.dashboard import fmt_dt, fmt_dt2, pct, safe_one
 
 cache_lock = threading.Lock()
+
+
+def _route_title(route: str) -> str:
+    """路由 → 中文标题（兜底映射，避免 SQL 中硬编码）"""
+    from backend.config.config import PAGE_TITLES
+    if route in ('/', '/news'):
+        return '新闻'
+    return PAGE_TITLES.get(route, route)
 
 
 # ============================================================
@@ -71,17 +78,20 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
         "SELECT DATE(pub_time)d,source,COUNT(*)c FROM news "
         "WHERE pub_time>=DATE_SUB(NOW(),INTERVAL 7 DAY) GROUP BY d,source ORDER BY d"
     )
-    s = execute_query("SELECT source,COUNT(*)c FROM news GROUP BY source ORDER BY c DESC")
+    # 一次查询同时获取来源分布 + 最新采集时间
+    s = execute_query(
+        "SELECT source,COUNT(*)c,MAX(pub_time) FROM news GROUP BY source ORDER BY c DESC"
+    )
     lt = []
-    for k, n in NEWS_SOURCES.items():
-        r = execute_query("SELECT MAX(pub_time) FROM news WHERE source=%s", (k,), one=True)
-        v = r[0] if r and r[0] else None
+    for source, cnt, max_pub in s:
+        name = NEWS_SOURCES.get(source, source)
+        v = max_pub
         st = "ok"
         if v is None:
             st = "red"
         elif (datetime.now() - v).total_seconds() / 3600 > 24:
             st = "yellow"
-        lt.append({"source": k, "name": n, "latest_time": fmt_dt2(v), "status": st})
+        lt.append({"source": source, "name": name, "latest_time": fmt_dt2(v), "status": st})
 
     from backend.tools.dashboard import assemble_trend
     return {
@@ -89,7 +99,7 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
         "trend_7d": assemble_trend(t, NEWS_SOURCES),
         "source_distribution": [
             {"source": x, "name": NEWS_SOURCES.get(x, x), "count": c, "percentage": pct(c, total)}
-            for x, c in s
+            for x, c, _ in s
         ],
         "latest_per_source": lt,
     }
@@ -241,23 +251,53 @@ def build_forecast_module(report_total: int) -> Dict[str, Any]:
 # ============================================================
 # 缓存（加锁防穿透）
 # ============================================================
-def read_cache() -> Optional[Dict[str, Any]]:
+_cache_table_ready = False
+_cache_table_lock = threading.Lock()
+
+_CACHE_TABLE_DDL = """CREATE TABLE IF NOT EXISTS `dashboard_metric_cache` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `calc_time` datetime NOT NULL,
+  `cache_type` varchar(50) NOT NULL DEFAULT 'core',
+  `metrics_json` longtext,
+  `service_status` longtext,
+  PRIMARY KEY (`id`),
+  KEY `idx_cache_hit` (`cache_type`, `calc_time` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
+
+
+def _ensure_cache_table() -> None:
+    global _cache_table_ready
+    if _cache_table_ready:
+        return
+    with _cache_table_lock:
+        if _cache_table_ready:
+            return
+        try:
+            execute_update(_CACHE_TABLE_DDL)
+        except Exception:
+            pass
+        _cache_table_ready = True
+
+
+def read_cache(cache_type: str = "core") -> Optional[Dict[str, Any]]:
     """读取缓存：查询 CACHE_TTL_SEC 秒内生成的指标快照"""
+    _ensure_cache_table()
     row = execute_query(
-        "SELECT core_metrics FROM dashboard_metric_cache "
-        "WHERE calc_time>=DATE_SUB(NOW(),INTERVAL %s SECOND) ORDER BY calc_time DESC LIMIT 1",
-        (CACHE_TTL_SEC,), one=True,
+        "SELECT metrics_json FROM dashboard_metric_cache "
+        "WHERE cache_type=%s AND calc_time>=DATE_SUB(NOW(),INTERVAL %s SECOND) ORDER BY calc_time DESC LIMIT 1",
+        (cache_type, CACHE_TTL_SEC), one=True,
     )
     if row and row[0]:
         return json.loads(row[0]) if isinstance(row[0], str) else row[0]
     return None
 
 
-def write_cache(data: Dict[str, Any]) -> None:
-    """写入缓存：将全量指标 JSON 存入缓存表"""
+def write_cache(data: Dict[str, Any], cache_type: str = "core") -> None:
+    """写入缓存：将指标 JSON 存入缓存表"""
+    _ensure_cache_table()
     execute_update(
-        "INSERT INTO dashboard_metric_cache (calc_time,core_metrics,service_status) VALUES (NOW(),%s,'{}')",
-        (json.dumps(data, default=str),),
+        "INSERT INTO dashboard_metric_cache (calc_time, cache_type, metrics_json, service_status) VALUES (NOW(),%s,%s,'{}')",
+        (cache_type, json.dumps(data, default=str)),
     )
 
 
@@ -428,3 +468,339 @@ def peak_slot_label(h: Optional[int]) -> str:
     if 18 <= h < 22:
         return "晚间"
     return "深夜"
+
+
+# ============================================================
+# Token 使用统计
+# ============================================================
+
+def get_token_overview(manager_department: str = "", manager_company: str = "") -> Dict[str, Any]:
+    """Token 消耗全局汇总（今日/本月/总计，按 call_source 维度）；manager 参数非空时仅本部门+本公司"""
+    dept_join = ""
+    conds = []
+    cond_params: List[Any] = []
+    if manager_department:
+        dept_join = "JOIN users u ON u.id=l.user_id"
+        conds.append("u.department = %s")
+        cond_params.append(manager_department)
+        if manager_company:
+            conds.append("u.company = %s")
+            cond_params.append(manager_company)
+    dept_cond = (" AND " + " AND ".join(conds)) if conds else ""
+
+    today_total = safe_one(
+        f"SELECT COALESCE(SUM(l.total_tokens),0) FROM llm_usage_log l {dept_join} WHERE DATE(l.created_at)=CURDATE() AND l.success=1 {dept_cond}",
+        *cond_params,
+    )
+    month_total = safe_one(
+        f"SELECT COALESCE(SUM(l.total_tokens),0) FROM llm_usage_log l {dept_join} WHERE YEAR(l.created_at)=YEAR(CURDATE()) AND MONTH(l.created_at)=MONTH(CURDATE()) AND l.success=1 {dept_cond}",
+        *cond_params,
+    )
+    all_total = safe_one(
+        f"SELECT COALESCE(SUM(l.total_tokens),0) FROM llm_usage_log l {dept_join} WHERE l.success=1 {dept_cond}",
+        *cond_params,
+    )
+    today_calls = safe_one(
+        f"SELECT COUNT(*) FROM llm_usage_log l {dept_join} WHERE DATE(l.created_at)=CURDATE() {dept_cond}",
+        *cond_params,
+    )
+    today_users = safe_one(
+        f"SELECT COUNT(DISTINCT l.user_id) FROM llm_usage_log l {dept_join} WHERE DATE(l.created_at)=CURDATE() AND l.user_id>0 AND l.success=1 {dept_cond}",
+        *cond_params,
+    )
+    today_failed = safe_one(
+        f"SELECT COUNT(*) FROM llm_usage_log l {dept_join} WHERE DATE(l.created_at)=CURDATE() AND l.success=0 {dept_cond}",
+        *cond_params,
+    )
+
+    by_source_rows = execute_query(
+        f"""SELECT l.call_source, COALESCE(SUM(l.total_tokens),0) AS t, COUNT(*) AS c
+        FROM llm_usage_log l {dept_join} WHERE DATE(l.created_at)=CURDATE() AND l.success=1 {dept_cond}
+        GROUP BY l.call_source ORDER BY t DESC""",
+        *cond_params,
+    )
+    by_source = [
+        {"source": r[0], "tokens": int(r[1]), "calls": r[2]}
+        for r in by_source_rows
+    ]
+
+    return {
+        "today_tokens": today_total,
+        "month_tokens": month_total,
+        "all_tokens": all_total,
+        "today_calls": today_calls,
+        "today_users": today_users,
+        "today_failed": today_failed,
+        "by_source": by_source,
+    }
+
+
+def get_token_trend(days: int = 7, manager_department: str = "", manager_company: str = "") -> List[Dict[str, Any]]:
+    """Token 消耗趋势（按天 + 按模型堆叠）；manager 参数非空时仅本部门+本公司"""
+    dept_join = ""
+    conds = []
+    cond_params: List[Any] = [days]
+    if manager_department:
+        dept_join = "JOIN users u ON u.id=l.user_id"
+        conds.append("u.department = %s")
+        cond_params.append(manager_department)
+        if manager_company:
+            conds.append("u.company = %s")
+            cond_params.append(manager_company)
+    dept_cond = (" AND " + " AND ".join(conds)) if conds else ""
+
+    rows = execute_query(
+        f"""SELECT DATE(l.created_at)d, l.model_name, COALESCE(SUM(l.total_tokens),0)t
+        FROM llm_usage_log l {dept_join} WHERE l.success=1 AND l.created_at>=DATE_SUB(CURDATE(),INTERVAL %s DAY) {dept_cond}
+        GROUP BY d, l.model_name ORDER BY d""",
+        tuple(cond_params),
+    )
+    # 组装为 [{date, doubao: N, deepseek: N, qwen: N, total: N}, ...]
+    bucket: Dict[str, Dict[str, int]] = {}
+    for d, model, t in rows:
+        ds = fmt_dt(d)
+        bucket.setdefault(ds, {})[model or "unknown"] = int(t)
+    result = []
+    for ds in sorted(bucket):
+        entry = {"date": ds, **bucket[ds]}
+        entry["total"] = sum(bucket[ds].values())
+        result.append(entry)
+    return result
+
+
+def get_token_by_model(days: int = 7, manager_department: str = "", manager_company: str = "") -> List[Dict[str, Any]]:
+    """各模型用量分布；manager 参数非空时仅本部门+本公司"""
+    dept_join = ""
+    conds = []
+    cond_params: List[Any] = [days]
+    if manager_department:
+        dept_join = "JOIN users u ON u.id=l.user_id"
+        conds.append("u.department = %s")
+        cond_params.append(manager_department)
+        if manager_company:
+            conds.append("u.company = %s")
+            cond_params.append(manager_company)
+    dept_cond = (" AND " + " AND ".join(conds)) if conds else ""
+
+    rows = execute_query(
+        f"""SELECT l.model_name, COALESCE(SUM(l.total_tokens),0)t, COUNT(*)c
+        FROM llm_usage_log l {dept_join} WHERE l.success=1 AND l.created_at>=DATE_SUB(CURDATE(),INTERVAL %s DAY) {dept_cond}
+        GROUP BY l.model_name ORDER BY t DESC""",
+        tuple(cond_params),
+    )
+    total = sum(int(r[1]) for r in rows) or 1
+    return [
+        {"model": r[0] or "unknown", "tokens": int(r[1]), "calls": r[2],
+         "percentage": round(int(r[1]) / total * 100, 1)}
+        for r in rows
+    ]
+
+
+def get_user_token_list(
+    sort_by: str = "month_tokens",
+    order: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+    manager_department: str = "",
+    manager_company: str = "",
+) -> Dict[str, Any]:
+    """全员 Token 消耗列表（分页、排序、搜索）；manager 参数不为空时仅该部门+公司"""
+    allowed_sort = {"month_tokens", "today_tokens", "total_tokens", "total_calls", "active_days", "last_active"}
+    if sort_by not in allowed_sort:
+        sort_by = "month_tokens"
+    order_dir = "DESC" if order.lower() == "desc" else "ASC"
+
+    conds = []
+    search_params: List[Any] = []
+    if search:
+        conds.append("u.username LIKE %s")
+        search_params.append(f"%{search}%")
+    if manager_department:
+        conds.append("u.department = %s")
+        search_params.append(manager_department)
+        if manager_company:
+            conds.append("u.company = %s")
+            search_params.append(manager_company)
+    search_cond = (" AND " + " AND ".join(conds)) if conds else ""
+
+    # 子查询：聚合每个用户的 Token 数据
+    count_sql = f"""SELECT COUNT(DISTINCT u.id) FROM users u
+        WHERE u.is_active=1 {search_cond}"""
+    total = safe_one(count_sql, *search_params)
+
+    query = f"""SELECT u.id, u.username, u.display_name, COALESCE(u.role,'user') AS role,
+        u.department, u.employee_no, u.is_admin, COALESCE(u.company,'') AS company,
+        COALESCE(t.today_tokens,0) AS today_tokens,
+        COALESCE(t.month_tokens,0) AS month_tokens,
+        COALESCE(t.total_tokens,0) AS total_tokens,
+        COALESCE(t.total_calls,0) AS total_calls,
+        COALESCE(t.active_days,0) AS active_days_30d,
+        t.last_active
+    FROM users u
+    LEFT JOIN (
+        SELECT user_id,
+            COALESCE(SUM(CASE WHEN DATE(created_at)=CURDATE() THEN total_tokens ELSE 0 END),0) AS today_tokens,
+            COALESCE(SUM(CASE WHEN YEAR(created_at)=YEAR(CURDATE()) AND MONTH(created_at)=MONTH(CURDATE()) THEN total_tokens ELSE 0 END),0) AS month_tokens,
+            COALESCE(SUM(total_tokens),0) AS total_tokens,
+            COUNT(*) AS total_calls,
+            COUNT(DISTINCT CASE WHEN created_at>=DATE_SUB(CURDATE(),INTERVAL 30 DAY) THEN DATE(created_at) END) AS active_days,
+            MAX(created_at) AS last_active
+        FROM llm_usage_log WHERE success=1 AND user_id>0
+        GROUP BY user_id
+    ) t ON t.user_id=u.id
+    WHERE u.is_active=1 {search_cond}
+    ORDER BY {sort_by} {order_dir}
+    LIMIT %s OFFSET %s"""
+
+    params = tuple(search_params) + (limit, offset)
+    rows = execute_query(query, params)
+
+    items = []
+    for r in rows:
+        items.append({
+            "user_id": r[0],
+            "username": r[1],
+            "display_name": r[2] or r[1],
+            "role": r[3],
+            "department": r[4],
+            "employee_no": r[5],
+            "is_admin": bool(r[6]),
+            "company": r[7] or None,
+            "today_tokens": int(r[8]),
+            "month_tokens": int(r[9]),
+            "total_tokens": int(r[10]),
+            "total_calls": r[11],
+            "active_days_30d": r[12],
+            "last_active": r[13].isoformat() if r[13] and hasattr(r[13], 'isoformat') else (str(r[13]) if r[13] else None),
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "total_pages": (total + limit - 1) // limit if total > 0 else 0,
+    }
+
+
+def get_leader_overview(manager_department: str = "", manager_company: str = "") -> Dict[str, Any]:
+    """领导看板全局汇总（总用户数/今日活跃/今日Token/本月Token/用户分层）；manager 参数非空时仅本部门+本公司"""
+    conds = []
+    cond_params: List[Any] = []
+    if manager_department:
+        conds.append("u.department = %s")
+        cond_params.append(manager_department)
+        if manager_company:
+            conds.append("u.company = %s")
+            cond_params.append(manager_company)
+    dept_cond = (" AND " + " AND ".join(conds)) if conds else ""
+
+    total_users = safe_one(
+        f"SELECT COUNT(*) FROM users u WHERE u.is_active=1 AND u.id>0 {dept_cond}",
+        *cond_params,
+    )
+    active_today = safe_one(
+        f"""SELECT COUNT(DISTINCT v.user_id) FROM user_page_view v
+        JOIN users u ON u.id=v.user_id
+        WHERE DATE(v.enter_time)=CURDATE() {dept_cond}""",
+        *cond_params,
+    )
+    today_tokens = safe_one(
+        f"""SELECT COALESCE(SUM(l.total_tokens),0) FROM llm_usage_log l
+        JOIN users u ON u.id=l.user_id
+        WHERE DATE(l.created_at)=CURDATE() AND l.success=1 AND l.user_id>0 {dept_cond}""",
+        *cond_params,
+    )
+    month_tokens = safe_one(
+        f"""SELECT COALESCE(SUM(l.total_tokens),0) FROM llm_usage_log l
+        JOIN users u ON u.id=l.user_id
+        WHERE YEAR(l.created_at)=YEAR(CURDATE()) AND MONTH(l.created_at)=MONTH(CURDATE())
+        AND l.success=1 AND l.user_id>0 {dept_cond}""",
+        *cond_params,
+    )
+
+    # 用户分层：复用 user_behavior_profile 的 is_power_user 和 churn_risk_score
+    power_users = safe_one(
+        f"""SELECT COUNT(*) FROM user_behavior_profile p
+        JOIN users u ON u.id=p.user_id
+        WHERE p.is_power_user=1 {dept_cond}""",
+        *cond_params,
+    )
+    churn_users = safe_one(
+        f"""SELECT COUNT(*) FROM user_behavior_profile p
+        JOIN users u ON u.id=p.user_id
+        WHERE p.churn_risk_score>0.5 {dept_cond}""",
+        *cond_params,
+    )
+
+    # 活跃用户（30天内有活跃）
+    active_30d = safe_one(
+        f"""SELECT COUNT(DISTINCT v.user_id) FROM user_page_view v
+        JOIN users u ON u.id=v.user_id
+        WHERE v.enter_time>=DATE_SUB(CURDATE(),INTERVAL 30 DAY) {dept_cond}""",
+        *cond_params,
+    )
+
+    return {
+        "total_users": total_users,
+        "active_today": active_today,
+        "active_30d": active_30d,
+        "today_tokens": today_tokens,
+        "month_tokens": month_tokens,
+        "power_users": power_users,
+        "churn_risk_users": churn_users,
+    }
+
+
+def get_department_behavior_stats(department: str, company: str = "", days: int = 7) -> Dict[str, Any]:
+    """部门行为统计 — 经理视角；仅统计本部门+本公司用户"""
+    conds = ["u.department = %s"]
+    cond_params: List[Any] = [department]
+    if company:
+        conds.append("u.company = %s")
+        cond_params.append(company)
+    dcond = "AND " + " AND ".join(conds)
+
+    active_today = safe_one(
+        f"SELECT COUNT(DISTINCT v.user_id) FROM user_page_view v JOIN users u ON u.id=v.user_id WHERE DATE(v.enter_time)=CURDATE() {dcond}", *cond_params)
+    sessions_today = safe_one(
+        f"SELECT COUNT(*) FROM user_session s JOIN users u ON u.id=s.user_id WHERE DATE(s.login_time)=CURDATE() {dcond}", *cond_params)
+    avg_duration = int(safe_one(
+        f"SELECT COALESCE(AVG(s.duration_sec),0) FROM user_session s JOIN users u ON u.id=s.user_id WHERE s.login_time>=DATE_SUB(NOW(),INTERVAL %s DAY) AND s.duration_sec>0 {dcond}", days, *cond_params))
+    dept_size = safe_one(
+        "SELECT COUNT(*) FROM users WHERE is_active=1 AND department=%s AND id>0"
+        + (" AND company=%s" if company else ""),
+        department, *([company] if company else []))
+
+    trend_rows = execute_query(
+        f"SELECT DATE(s.login_time)d, COUNT(DISTINCT s.user_id)dau, COUNT(*)sessions FROM user_session s JOIN users u ON u.id=s.user_id WHERE s.login_time>=DATE_SUB(CURDATE(),INTERVAL %s DAY) {dcond} GROUP BY d ORDER BY d", (days, *cond_params))
+    activity_trend = [{"date": str(r[0]), "dau": r[1], "sessions": r[2]} for r in trend_rows]
+
+    heatmap_rows = execute_query(
+        f"SELECT HOUR(v.enter_time)h, DAYOFWEEK(v.enter_time)dow, COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY h,dow ORDER BY dow,h", (days, *cond_params))
+    heatmap = [{"hour": r[0], "day_of_week": r[1], "count": r[2]} for r in heatmap_rows]
+
+    page_dist = [{"page_route": r[0], "page_title": r[1] or _route_title(r[0]), "count": r[2]} for r in execute_query(
+        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' ELSE v.page_route END AS route, "
+        f"COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id "
+        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY route ORDER BY c DESC", (days, *cond_params))]
+
+    page_avg = [{"page_route": r[0], "avg_sec": round(float(r[1]),0) if r[1] else 0} for r in execute_query(
+        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' ELSE v.page_route END AS route, AVG(v.duration_sec) "
+        f"FROM user_page_view v JOIN users u ON u.id=v.user_id "
+        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) AND v.duration_sec>0 {dcond} GROUP BY route ORDER BY 2 DESC", (days, *cond_params))]
+
+    power_users = safe_one(
+        f"SELECT COUNT(*) FROM user_behavior_profile p JOIN users u ON u.id=p.user_id WHERE p.is_power_user=1 {dcond}", *cond_params)
+    churn_users = safe_one(
+        f"SELECT COUNT(*) FROM user_behavior_profile p JOIN users u ON u.id=p.user_id WHERE p.churn_risk_score>0.5 {dcond}", *cond_params)
+
+    return {
+        "department": department, "dept_size": dept_size,
+        "active_users_today": active_today, "sessions_today": sessions_today,
+        "avg_duration_7d": avg_duration,
+        "power_users": power_users, "churn_risk_users": churn_users,
+        "activity_trend": activity_trend, "hourly_heatmap": heatmap,
+        "page_distribution": page_dist, "page_avg_duration": page_avg,
+    }

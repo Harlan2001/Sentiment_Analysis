@@ -1,13 +1,12 @@
 /**
  * 单用户画像面板：雷达图 + 偏好细节 + 用户对比
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useUserProfiles, useUserProfile, useUserCompare } from '../../hooks/useSimpleBehavior';
-import { triggerProfileCompute } from '../../api';
-import type { UserBehaviorProfile } from '../../types';
+import { triggerProfileCompute, fetchActiveUsers } from '../../api';
+import type { UserBehaviorProfile, ActiveUser } from '../../types';
 import { MetricCard } from './Widgets';
-import { pageTitle } from '../../utils/pageTitle';
 
 // 页面路由中文映射
 // ========== 雷达图（hover单个维度显示该维度详情）==========
@@ -207,18 +206,249 @@ function ComparePanel({ userIds, onClose }: { userIds: number[]; onClose: () => 
   );
 }
 
+// ========== 搜索下拉选择器 ==========
+function UserSearchSelect({
+  users,
+  selectedUserId,
+  onSelect,
+  placeholder = '搜索用户...',
+}: {
+  users: ActiveUser[];
+  selectedUserId: number | null;
+  onSelect: (userId: number) => void;
+  placeholder?: string;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = query
+    ? users.filter(u =>
+        u.username.toLowerCase().includes(query.toLowerCase()) ||
+        u.display_name.toLowerCase().includes(query.toLowerCase()) ||
+        (u.department && u.department.toLowerCase().includes(query.toLowerCase()))
+      )
+    : users;
+
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-56">
+      <div
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between px-3 py-1.5 rounded-lg border border-gray-600/50 bg-gray-700/40 cursor-pointer hover:border-gray-500 transition-colors"
+      >
+        {selectedUser ? (
+          <span className="text-sm text-gray-200">{selectedUser.display_name}</span>
+        ) : (
+          <span className="text-sm text-gray-500">选择用户...</span>
+        )}
+        <svg className={`w-4 h-4 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-600/50 rounded-lg shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-gray-700">
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={placeholder}
+                autoFocus
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-700/50 border border-gray-600/30 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                onKeyDown={e => {
+                  if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+                  if (e.key === 'Enter' && filtered.length > 0) {
+                    onSelect(filtered[0].id);
+                    setOpen(false);
+                    setQuery('');
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-gray-500 text-center">无匹配用户</div>
+            ) : (
+              filtered.map(u => (
+                <button
+                  key={u.id}
+                  onClick={() => { onSelect(u.id); setOpen(false); setQuery(''); }}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors hover:bg-gray-700/50 flex items-center justify-between ${
+                    u.id === selectedUserId ? 'bg-blue-600/20 text-blue-300' : 'text-gray-300'
+                  }`}
+                >
+                  <span>{u.display_name}</span>
+                  <span className="text-[11px] text-gray-500">{u.department || u.role}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ========== 多选搜索下拉（对比用） ==========
+function MultiUserSelect({
+  users,
+  selectedIds,
+  onToggle,
+  max = 3,
+}: {
+  users: ActiveUser[];
+  selectedIds: number[];
+  onToggle: (userId: number) => void;
+  max?: number;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = query
+    ? users.filter(u =>
+        u.username.toLowerCase().includes(query.toLowerCase()) ||
+        u.display_name.toLowerCase().includes(query.toLowerCase()) ||
+        (u.department && u.department.toLowerCase().includes(query.toLowerCase()))
+      )
+    : users;
+
+  const selectedUsers = users.filter(u => selectedIds.includes(u.id));
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-56">
+      <div
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between px-3 py-1.5 rounded-lg border border-gray-600/50 bg-gray-700/40 cursor-pointer hover:border-gray-500 transition-colors min-h-[32px]"
+      >
+        {selectedUsers.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {selectedUsers.map(u => (
+              <span key={u.id} className="text-[11px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-300 border border-green-700/30">
+                {u.display_name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-gray-500">选择对比用户...</span>
+        )}
+        <svg className={`w-4 h-4 text-gray-500 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-600/50 rounded-lg shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-gray-700">
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="搜索用户..."
+                autoFocus
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-700/50 border border-gray-600/30 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setQuery(''); } }}
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-gray-500 text-center">无匹配用户</div>
+            ) : (
+              filtered.map(u => {
+                const isSelected = selectedIds.includes(u.id);
+                const disabled = !isSelected && selectedIds.length >= max;
+                return (
+                  <button
+                    key={u.id}
+                    onClick={() => { if (!disabled) onToggle(u.id); }}
+                    disabled={disabled}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                      disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-700/50 cursor-pointer'
+                    } ${isSelected ? 'bg-green-600/20 text-green-300' : 'text-gray-300'}`}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 text-[10px] ${
+                      isSelected ? 'bg-green-600/40 border-green-500/50 text-green-300' : 'border-gray-500/50'
+                    }`}>
+                      {isSelected ? '✓' : ''}
+                    </span>
+                    <span>{u.display_name}</span>
+                    <span className="text-[11px] text-gray-500 ml-auto">{u.department || u.role}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {selectedIds.length > 0 && (
+            <div className="border-t border-gray-700 px-2 py-1.5 flex justify-between items-center">
+              <span className="text-[11px] text-gray-500">已选 {selectedIds.length}/{max}</span>
+              <button
+                onClick={() => selectedIds.forEach(id => onToggle(id))}
+                className="text-[11px] text-gray-400 hover:text-gray-200"
+              >清除</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ========== 用户画像主面板 ==========
 export const UserProfilePanel: React.FC = () => {
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [compareUserIds, setCompareUserIds] = useState<number[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [computing, setComputing] = useState(false);
 
-  const { data: profileList, isLoading: listLoading } = useUserProfiles('last_visit', 'desc', true);
+  const { data: profileList } = useUserProfiles('last_visit', 'desc', true);
   const { data: profile, isLoading: profileLoading, refetch: refetchProfile } = useUserProfile(
     selectedUserId,
     selectedUserId !== null
   );
+
+  // 加载活跃用户列表（自动跟随 users 表变化）
+  useEffect(() => {
+    let cancelled = false;
+    fetchActiveUsers()
+      .then(data => { if (!cancelled) { setActiveUsers(data.users); setUsersLoading(false); } })
+      .catch(() => { if (!cancelled) setUsersLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSelectUser = (userId: number) => {
     setSelectedUserId(userId);
@@ -250,56 +480,35 @@ export const UserProfilePanel: React.FC = () => {
     }
   };
 
+  // 合并活跃用户和画像数据用于对比选择
+  const profileUserIds = new Set((profileList?.profiles || []).map(p => p.user_id));
+  const compareCandidates = activeUsers.filter(u => profileUserIds.has(u.id));
+
   return (
     <div className="space-y-4">
-      {/* 用户选择区 — 紧凑一行：用户标签 + 对比操作 */}
+      {/* 用户选择区 — 搜索下拉 + 对比操作 */}
       <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-3">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-[11px] text-gray-500 flex-shrink-0">用户</span>
-          {listLoading ? (
+          {usersLoading ? (
             <span className="text-gray-600 text-xs">加载中...</span>
           ) : (
-            (profileList?.profiles || []).map(p => (
-              <button
-                key={p.user_id}
-                onClick={() => handleSelectUser(p.user_id)}
-                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-all ${
-                  selectedUserId === p.user_id
-                    ? 'bg-blue-600/30 border-blue-400/50 text-blue-300 ring-1 ring-blue-500/30'
-                    : 'bg-gray-700/40 border-gray-600/30 text-gray-400 hover:text-gray-200 hover:border-gray-500'
-                }`}
-              >
-                {p.username}
-                {p.is_power_user && <span className="text-[10px]">💪</span>}
-              </button>
-            ))
-          )}
-          {(!profileList?.profiles || profileList.profiles.length === 0) && !listLoading && (
-            <span className="text-gray-600 text-xs">暂无用户画像，请先触发计算</span>
+            <UserSearchSelect
+              users={activeUsers}
+              selectedUserId={selectedUserId}
+              onSelect={handleSelectUser}
+            />
           )}
 
           {/* 分隔 + 对比操作 */}
           <span className="text-gray-700 mx-1">|</span>
           <span className="text-[11px] text-gray-500 flex-shrink-0">对比</span>
-          {(profileList?.profiles || []).map(p => (
-            <label
-              key={`cmp-${p.user_id}`}
-              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border cursor-pointer transition-all ${
-                compareUserIds.includes(p.user_id)
-                  ? 'bg-green-900/30 border-green-600/50 text-green-300'
-                  : 'bg-gray-700/30 border-gray-600/20 text-gray-500 hover:text-gray-400'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={compareUserIds.includes(p.user_id)}
-                onChange={() => handleToggleCompare(p.user_id)}
-                disabled={!compareUserIds.includes(p.user_id) && compareUserIds.length >= 3}
-                className="sr-only"
-              />
-              {p.username}
-            </label>
-          ))}
+          <MultiUserSelect
+            users={activeUsers}
+            selectedIds={compareUserIds}
+            onToggle={handleToggleCompare}
+            max={3}
+          />
           {compareUserIds.length >= 2 && (
             <>
               <button
@@ -387,7 +596,7 @@ export const UserProfilePanel: React.FC = () => {
       {!selectedUserId && (
         <div className="text-center text-gray-600 py-16">
           <div className="text-4xl mb-3">👤</div>
-          <div className="text-sm">请从上方选择一个用户查看行为画像</div>
+          <div className="text-sm">请从上方下拉框搜索选择一个用户查看行为画像</div>
           <div className="text-xs text-gray-700 mt-1">画像包含雷达图、活跃度、功能偏好和流失风险评估</div>
         </div>
       )}

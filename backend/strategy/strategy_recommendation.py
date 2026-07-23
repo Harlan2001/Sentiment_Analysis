@@ -12,7 +12,8 @@ AI目标与策略推荐服务。
 import json
 import os
 import re
-from datetime import date, datetime, time, timedelta
+import time
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import openai
@@ -23,6 +24,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, get_requests_proxies, create_openai_async_http_client
 from backend.common.database import get_db_connection
+from backend.common.llm_logger import log_llm_usage
 
 # 【临时兼容】SaaS 本地快照模式配置
 # 通过 config 模块动态读取，而非模块级导入，以便快照脚本能在运行时覆盖
@@ -110,7 +112,7 @@ def _post_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, st
 
 
 def _day_range(target_date: date) -> tuple[datetime, datetime]:
-    start = datetime.combine(target_date, time.min)
+    start = datetime.combine(target_date, datetime.min.time())
     end = start + timedelta(days=1)
     return start, end
 
@@ -602,18 +604,51 @@ JSON格式要求：
 }}
 """
     try:
+        t0 = time.time()
         response = await async_chat_completion(
             model=provider_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             timeout=600,
         )
+        latency_ms = int((time.time() - t0) * 1000)
+
+        # 记录 Token 消耗
+        if response.usage:
+            log_llm_usage(
+                call_source="strategy",
+                model_name=selected_model_name,
+                provider_model=provider_model,
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                success=True,
+                latency_ms=latency_ms,
+            )
     except openai.APIError as exc:
+        latency_ms = int((time.time() - t0) * 1000) if 't0' in dir() else None
+        log_llm_usage(
+            call_source="strategy",
+            model_name=selected_model_name,
+            provider_model=provider_model,
+            success=False,
+            error_message=f"APIError: {exc.status_code or 'N/A'}, {exc.message}",
+            latency_ms=latency_ms,
+        )
         raise RuntimeError(
             f"AI API 调用失败 (model={selected_model_name}, provider_model={provider_model}): "
             f"status_code={exc.status_code or 'N/A'}, message={exc.message}"
         ) from exc
     except Exception as exc:
+        latency_ms = int((time.time() - t0) * 1000) if 't0' in dir() else None
+        log_llm_usage(
+            call_source="strategy",
+            model_name=selected_model_name,
+            provider_model=provider_model,
+            success=False,
+            error_message=str(exc),
+            latency_ms=latency_ms,
+        )
         raise RuntimeError(
             f"AI API 调用发生未知异常 (model={selected_model_name}, provider_model={provider_model}): {exc}"
         ) from exc

@@ -1,5 +1,11 @@
 /**
  * 开发者可视化看板主页面
+ * 权限模型：
+ *   系统监控(数据看板) — admin + manager
+ *   系统监控(Token监控) — admin only
+ *   用户管理           — admin only
+ *   部门概览           — manager only（部门行为+Token数据）
+ *   我的使用           — 所有登录用户
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,14 +21,25 @@ import { ForecastModule } from '../Dashboard/ForecastModule';
 import { BehaviorPanel } from '../Dashboard/BehaviorPanel';
 import { UserProfilePanel } from '../Dashboard/UserProfilePanel';
 import { HistorySnapshot } from '../Dashboard/HistorySnapshot';
+import TokenOverviewPanel from '../Dashboard/TokenOverviewPanel';
+import UserTokenPanel from '../Dashboard/UserTokenPanel';
+import DeptOverviewPanel from '../Dashboard/DeptOverviewPanel';
+import MyUsagePage from '../Pages/MyUsagePage';
 
-type TabKey = 'monitor' | 'audit';
-type AuditSubTab = 'overview' | 'profile';
+type TabKey = 'monitor' | 'audit' | 'dept' | 'myusage';
+type AuditSubTab = 'overview' | 'profile' | 'token';
+type MonitorSection = 'data' | 'token';
 
 const DashboardPage: React.FC = () => {
-  const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabKey>('monitor');
+  const { isAdmin, role } = useAuth();
+  const isManager = role === 'manager';
+  const canViewMonitor = isAdmin || isManager;
+
+  // 默认Tab：admin→监控，manager→部门概览，user→我的使用
+  const defaultTab: TabKey = isAdmin ? 'monitor' : isManager ? 'dept' : 'myusage';
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   const [auditSubTab, setAuditSubTab] = useState<AuditSubTab>('overview');
+  const [monitorSection, setMonitorSection] = useState<MonitorSection>('data');
   const [behaviorDays, setBehaviorDays] = useState(7);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -42,37 +59,47 @@ const DashboardPage: React.FC = () => {
     return '—';
   }, [dataUpdatedAt]);
 
+  // 部门概览Tab仅manager可见（非admin）
+  const showDeptTab = isManager;
+
   return (
     <div className="space-y-4">
-      {/* 顶部栏：标题 + 主Tab + 刷新 同行排列 */}
+      {/* 顶部栏：标题 + 主Tab + 刷新 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-white">🔧 开发者可视化看板</h1>
+          <h1 className="text-xl font-bold text-white">🔧 可视化看板</h1>
 
-          {/* 主Tab — 与标题同行 */}
           <div className="flex rounded-lg bg-gray-800/80 border border-gray-700/50 overflow-hidden">
-            <button
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeTab === 'monitor'
-                  ? 'bg-blue-600/40 text-blue-300'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
-              }`}
-              onClick={() => setActiveTab('monitor')}
-              data-track="tab_switch"
-              data-target="monitor"
-            >系统监控</button>
+            {canViewMonitor && (
+              <button
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === 'monitor' ? 'bg-blue-600/40 text-blue-300' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
+                }`}
+                onClick={() => setActiveTab('monitor')}
+              >系统监控</button>
+            )}
             {isAdmin && (
               <button
                 className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
-                  activeTab === 'audit'
-                    ? 'bg-blue-600/40 text-blue-300'
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
+                  activeTab === 'audit' ? 'bg-blue-600/40 text-blue-300' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
                 }`}
                 onClick={() => setActiveTab('audit')}
-                data-track="tab_switch"
-                data-target="audit"
               >用户管理</button>
             )}
+            {showDeptTab && (
+              <button
+                className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
+                  activeTab === 'dept' ? 'bg-green-600/40 text-green-300' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
+                }`}
+                onClick={() => setActiveTab('dept')}
+              >部门概览</button>
+            )}
+            <button
+              className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
+                activeTab === 'myusage' ? 'bg-yellow-600/40 text-yellow-300' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/50'
+              }`}
+              onClick={() => setActiveTab('myusage')}
+            >我的使用</button>
           </div>
         </div>
 
@@ -86,59 +113,74 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* 系统监控 Tab */}
-      {activeTab === 'monitor' && (
-        isLoading ? (
-          <div className="text-center py-16 text-gray-400"><div className="animate-spin w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-3" />加载看板数据...</div>
-        ) : isError ? (
-          <div className="text-center py-16 text-red-400">⚠️ 数据加载失败: {(error as Error)?.message || '未知错误'}<br /><button onClick={handleRefresh} className="mt-3 text-sm text-blue-400 hover:text-blue-300">点击重试</button></div>
-        ) : coreData ? (
-          <>
-            <TopSummaryCards cards={coreData.top_cards} />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-              <NewsModule data={coreData.news} />
-              <AnalysisModule data={coreData.analysis} />
-              <FactorModule data={coreData.factor} />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              <YieldModule data={coreData.yield} />
-              <div className="flex flex-col gap-4">
-                <VectorModule data={coreData.vector} />
-                <ForecastModule data={coreData.forecast} />
-              </div>
-            </div>
-            <HistorySnapshot />
-          </>
-        ) : null
+      {activeTab === 'monitor' && canViewMonitor && (
+        <>
+          <div className="flex rounded-lg bg-gray-800/60 border border-gray-700/50 overflow-hidden w-fit">
+            <button
+              className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+                monitorSection === 'data' ? 'bg-blue-600/40 text-blue-300' : 'text-gray-500 hover:text-gray-300'
+              }`}
+              onClick={() => setMonitorSection('data')}
+            >📊 数据看板</button>
+            {isAdmin && (
+              <button
+                className={`px-4 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
+                  monitorSection === 'token' ? 'bg-purple-600/40 text-purple-300' : 'text-gray-500 hover:text-gray-300'
+                }`}
+                onClick={() => setMonitorSection('token')}
+              >🪙 Token监控</button>
+            )}
+          </div>
+
+          {monitorSection === 'data' && (
+            isLoading ? (
+              <div className="text-center py-16 text-gray-400"><div className="animate-spin w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-3" />加载看板数据...</div>
+            ) : isError ? (
+              <div className="text-center py-16 text-red-400">⚠️ 数据加载失败: {(error as Error)?.message || '未知错误'}<br /><button onClick={handleRefresh} className="mt-3 text-sm text-blue-400 hover:text-blue-300">点击重试</button></div>
+            ) : coreData ? (
+              <>
+                <TopSummaryCards cards={coreData.top_cards} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                  <NewsModule data={coreData.news} />
+                  <AnalysisModule data={coreData.analysis} />
+                  <FactorModule data={coreData.factor} />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                  <YieldModule data={coreData.yield} />
+                  <div className="flex flex-col gap-4">
+                    <VectorModule data={coreData.vector} />
+                    <ForecastModule data={coreData.forecast} />
+                  </div>
+                </div>
+                <HistorySnapshot />
+              </>
+            ) : null
+          )}
+
+          {monitorSection === 'token' && isAdmin && (
+            <TokenOverviewPanel />
+          )}
+        </>
       )}
 
-      {/* 用户行为管理 Tab */}
+      {/* 用户管理 Tab — admin only */}
       {activeTab === 'audit' && isAdmin && (
         <>
-          {/* 子Tab + 时间选择 — 紧凑一行 */}
           <div className="flex items-center justify-between">
             <div className="flex rounded-lg bg-gray-800/60 border border-gray-700/50 overflow-hidden">
               <button
-                className={`px-4 py-1.5 text-xs font-medium transition-colors ${
-                  auditSubTab === 'overview'
-                    ? 'bg-green-600/30 text-green-300'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
+                className={`px-4 py-1.5 text-xs font-medium transition-colors ${auditSubTab === 'overview' ? 'bg-green-600/30 text-green-300' : 'text-gray-500 hover:text-gray-300'}`}
                 onClick={() => setAuditSubTab('overview')}
-                data-track="tab_switch"
-                data-target="behavior_overview"
               >📊 行为总览</button>
               <button
-                className={`px-4 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
-                  auditSubTab === 'profile'
-                    ? 'bg-green-600/30 text-green-300'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
+                className={`px-4 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${auditSubTab === 'profile' ? 'bg-green-600/30 text-green-300' : 'text-gray-500 hover:text-gray-300'}`}
                 onClick={() => setAuditSubTab('profile')}
-                data-track="tab_switch"
-                data-target="behavior_profile"
               >👤 用户画像</button>
+              <button
+                className={`px-4 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${auditSubTab === 'token' ? 'bg-yellow-600/30 text-yellow-300' : 'text-gray-500 hover:text-gray-300'}`}
+                onClick={() => setAuditSubTab('token')}
+              >🪙 Token消耗</button>
             </div>
-
             {auditSubTab === 'overview' && (
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-gray-500">范围:</span>
@@ -158,11 +200,23 @@ const DashboardPage: React.FC = () => {
           {auditSubTab === 'overview' && (
             <BehaviorPanel stats={behaviorStats} statsLoading={behaviorLoading} days={behaviorDays} />
           )}
-
           {auditSubTab === 'profile' && (
             <UserProfilePanel />
           )}
+          {auditSubTab === 'token' && (
+            <UserTokenPanel />
+          )}
         </>
+      )}
+
+      {/* 部门概览 Tab — manager only */}
+      {activeTab === 'dept' && showDeptTab && (
+        <DeptOverviewPanel />
+      )}
+
+      {/* 我的使用 Tab — 所有登录用户 */}
+      {activeTab === 'myusage' && (
+        <MyUsagePage embedded />
       )}
     </div>
   );

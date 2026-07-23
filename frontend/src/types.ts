@@ -834,6 +834,15 @@ export interface UserPreferences {
   churn_risk: number;
 }
 
+export interface ActiveUser {
+  id: number;
+  username: string;
+  display_name: string;
+  department: string | null;
+  company: string | null;
+  role: string;
+}
+
 export interface UserBehaviorProfile {
   id: number;
   user_id: number;
@@ -876,4 +885,61 @@ export interface UserCompareDimension {
 export interface UserCompareResponse {
   profiles: UserBehaviorProfile[];
   comparison: UserCompareDimension[];
+}
+
+// ========== Token Usage Types ==========
+
+export interface TokenOverview {
+  today_tokens: number;
+  month_tokens: number;
+  all_tokens: number;
+  today_calls: number;
+  today_users: number;
+  today_failed: number;
+  by_source: { source: string; tokens: number; calls: number }[];
+}
+
+export interface TokenTrendItem {
+  date: string;
+  total: number;
+  [modelName: string]: number | string;
+}
+
+export interface TokenTrendResponse {
+  trend: TokenTrendItem[];
+}
+
+export interface TokenModelDist {
+  model: string;
+  tokens: number;
+  calls: number;
+  percentage: number;
+}
+
+export interface TokenByModelResponse {
+  models: TokenModelDist[];
+}
+
+export interface UserTokenItem {
+  user_id: number;
+  username: string;
+  display_name: string;
+  role: string;
+  department: string | null;
+  employee_no: string | null;
+  is_admin: boolean;
+  today_tokens: number;
+  month_tokens: number;
+  total_tokens: number;
+  total_calls: number;
+  active_days_30d: number;
+  last_active: string | null;
+}
+
+export interface UserTokenListResponse {
+  items: UserTokenItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  total_pages: number;
 }

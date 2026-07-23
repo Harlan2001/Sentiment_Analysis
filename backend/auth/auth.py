@@ -14,7 +14,7 @@ def check_password(password: str, stored_password: str) -> bool:
     return password == stored_password
 
 
-def create_jwt_token(username: str, is_admin: bool = False) -> str:
+def create_jwt_token(username: str, is_admin: bool = False, role: str = "user") -> str:
     """签发 JWT 通行证"""
     now = int(time.time())
     payload = {
@@ -22,6 +22,7 @@ def create_jwt_token(username: str, is_admin: bool = False) -> str:
         "iat": now,
         "exp": now + JWT_EXPIRY_HOURS * 3600,
         "is_admin": is_admin,
+        "role": role,
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
 

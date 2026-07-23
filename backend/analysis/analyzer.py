@@ -19,6 +19,7 @@ from backend.config.config import (
 )
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
+from backend.common.llm_logger import log_llm_usage
 from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.factor.factor_management import get_factor_prompt_text
 
@@ -215,6 +216,23 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
         json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
 
         result = json.loads(json_str)
+
+        # 记录 Token 消耗（不影响分析结果）
+        try:
+            usage = response.usage
+            log_llm_usage(
+                call_source="analysis",
+                model_name=selected_model_name,
+                provider_model=provider_model,
+                prompt_tokens=usage.prompt_tokens if usage and usage.prompt_tokens else 0,
+                completion_tokens=usage.completion_tokens if usage and usage.completion_tokens else 0,
+                total_tokens=usage.total_tokens if usage and usage.total_tokens else 0,
+                success=True,
+                latency_ms=int(elapsed * 1000),
+            )
+        except Exception:
+            logger.exception("Token 日志记录失败（不影响分析）")
+
         return result
 
     except json.JSONDecodeError as e:

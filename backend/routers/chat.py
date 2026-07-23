@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import json
+import time
 from typing import Any, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat import (
@@ -15,6 +16,7 @@ from openai.types.chat import (
 from pydantic import BaseModel
 
 from backend.config.config import API_PREFIX, create_openai_http_client
+from backend.common.llm_logger import TokenLogger
 
 router = APIRouter(prefix=f"{API_PREFIX}/chat", tags=["chat"])
 
@@ -40,7 +42,20 @@ class ChatRequest(BaseModel):
 
 
 @router.post("")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, req: Request):
+    # 获取当前用户信息（免登录模式下为 anonymous/system）
+    username = getattr(req.state, 'username', 'anonymous')
+    user_id = 0
+    if username and username != 'anonymous':
+        r = None
+        try:
+            from backend.common.database import execute_query
+            r = execute_query("SELECT id FROM users WHERE username=%s", (username,), one=True)
+        except Exception:
+            pass
+        if r:
+            user_id = r[0]
+
     system_message: ChatCompletionSystemMessageParam = {"role": "system", "content": CHAT_SYSTEM_PROMPT}
     messages: list[
         ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam
@@ -67,13 +82,28 @@ async def chat(request: ChatRequest):
         else:
             messages.append({"role": "user", "content": msg.content})
 
+    model_name = "doubao"
+    provider_model = "volcengine/doubao-seed-2-0-code-preview-260215"
+    tlog = TokenLogger(call_source="chat", model_name=model_name, provider_model=provider_model,
+                       user_id=user_id, username=username or "anonymous")
+
     try:
+        tlog.start()
         response = kingstar_client.chat.completions.create(
-            model="volcengine/doubao-seed-2-0-code-preview-260215",
+            model=provider_model,
             messages=messages,
             temperature=0.7,
         )
         content = _extract_message_content(response.choices[0].message)
+
+        # 记录 Token 消耗
+        if response.usage:
+            tlog.log_success(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+            )
+
         if request.stream:
             def event_stream():
                 yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
@@ -95,6 +125,7 @@ async def chat(request: ChatRequest):
             "stream": False,
         }
     except Exception as exc:
+        tlog.log_failure(str(exc))
         if request.stream:
             def error_stream():
                 yield f"data: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"

@@ -58,14 +58,20 @@ def get_requests_proxies() -> Optional[Dict[str, Optional[str]]]:
         return {"http": None, "https": None}
     return {"http": proxy, "https": proxy}
 
-# OpenAI 客户端
-def create_openai_http_client() -> Optional[httpx.Client]:
-    proxy_url = get_outbound_proxy_url()
-    return httpx.Client(proxy=proxy_url) if proxy_url else None
+# OpenAI 客户端超时配置（trust_env=False 防止 httpx 读取系统环境变量中的代理）
+_HTTPX_TIMEOUT = httpx.Timeout(120.0, connect=30.0)
 
-def create_openai_async_http_client() -> Optional[httpx.AsyncClient]:
+def create_openai_http_client() -> httpx.Client:
     proxy_url = get_outbound_proxy_url()
-    return httpx.AsyncClient(proxy=proxy_url) if proxy_url else None
+    if proxy_url:
+        return httpx.Client(proxy=proxy_url, timeout=_HTTPX_TIMEOUT)
+    return httpx.Client(trust_env=False, timeout=_HTTPX_TIMEOUT)
+
+def create_openai_async_http_client() -> httpx.AsyncClient:
+    proxy_url = get_outbound_proxy_url()
+    if proxy_url:
+        return httpx.AsyncClient(proxy=proxy_url, timeout=_HTTPX_TIMEOUT)
+    return httpx.AsyncClient(trust_env=False, timeout=_HTTPX_TIMEOUT)
 
 # ====================== 数据库配置 ======================
 # 复用工具函数读取环境变量，消除重复逻辑
@@ -167,6 +173,7 @@ PAGE_TITLES = {
     "/news": "新闻", "/factors": "因子", "/data": "数据", "/prediction": "预测",
     "/agents": "Agent", "/select-strategy": "AI推荐", "/strategies": "策略",
     "/change": "变动对比", "/macro-signal-logs": "信号日志", "/dashboard": "看板", "/login": "登录",
+    "/my-usage": "我的使用",  # 兼容历史行为数据
 }
 
 # 会话冷却时间（秒）：冷却时间内复用同一会话

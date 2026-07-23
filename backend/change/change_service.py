@@ -11,12 +11,14 @@
 import json
 import os
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, create_openai_http_client
 from backend.common.database import get_db_connection
+from backend.common.llm_logger import log_llm_usage
 
 logger = logging.getLogger("change_router")
 
@@ -27,16 +29,11 @@ DEFAULT_MODEL = get_default_analysis_model_name()
 _kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 _kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
-_openai_client = None
-
 
 def _get_llm_client():
-    global _openai_client
-    if _openai_client is None:
-        from openai import OpenAI
-        _openai_client = OpenAI(api_key=_kingstar_API_KEY, base_url=_kingstar_BASE_URL,
-                                 http_client=create_openai_http_client())
-    return _openai_client
+    from openai import OpenAI
+    return OpenAI(api_key=_kingstar_API_KEY, base_url=_kingstar_BASE_URL,
+                   http_client=create_openai_http_client())
 
 
 # ============================================================
@@ -435,15 +432,41 @@ JSON 格式：
 """
 
     client = _get_llm_client()
-    response = client.chat.completions.create(
-        model=provider_model,
-        messages=[
-            {"role": "system", "content": "你是严格输出 JSON 的中国债券市场策略分析师。"},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.4,
-        timeout=600,
-    )
+    t0 = time.time()
+    try:
+        response = client.chat.completions.create(
+            model=provider_model,
+            messages=[
+                {"role": "system", "content": "你是严格输出 JSON 的中国债券市场策略分析师。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.4,
+            timeout=600,
+        )
+        latency_ms = int((time.time() - t0) * 1000)
+
+        if response.usage:
+            log_llm_usage(
+                call_source="change",
+                model_name=selected_model,
+                provider_model=provider_model,
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                success=True,
+                latency_ms=latency_ms,
+            )
+    except Exception as exc:
+        latency_ms = int((time.time() - t0) * 1000)
+        log_llm_usage(
+            call_source="change",
+            model_name=selected_model,
+            provider_model=provider_model,
+            success=False,
+            error_message=str(exc),
+            latency_ms=latency_ms,
+        )
+        raise
 
     raw = response.choices[0].message.content or ""
     return extract_json(raw)

@@ -8,6 +8,7 @@ import type { BehaviorStats, AuditLogEntry } from '../../types';
 import { useBehaviorLogs } from '../../hooks/useSimpleBehavior';
 import { MetricCard } from './Widgets';
 import { pageTitle } from '../../utils/pageTitle';
+import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP } from '../../config/labels';
 
 interface Props {
   stats: BehaviorStats | undefined;
@@ -19,28 +20,8 @@ interface Props {
 const DOW_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => `${i}:00`);
 
-// 行为类型中文映射
-const ACTION_LABELS: Record<string, string> = {
-  page_enter: '进入页面',
-  page_leave: '离开页面',
-  tab_switch: '切换标签',
-  date_select: '选择日期',
-  report_view: '查看报告',
-  news_click: '点击新闻',
-  news_scroll: '新闻滚动',
-  factor_filter: '筛选因子',
-  strategy_click: '点击策略',
-  strategy_search: '搜索策略',
-  snapshot_compare: '对比快照',
-  chart_interact: '图表交互',
-  download: '下载',
-  export: '导出',
-  logout: '登出',
-  idle_timeout: '空闲超时',
-};
-
 function actionLabel(type: string): string {
-  return ACTION_LABELS[type] || type;
+  return getActionLabel(type);
 }
 
 export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) => {
@@ -138,7 +119,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
         textStyle: { color: '#e5e7eb', fontSize: 12 },
       },
       legend: {
-        data: ['DAU', '会话数'],
+        data: ['日活', '会话数'],
         textStyle: { color: '#9ca3af', fontSize: 10 },
         top: 0,
       },
@@ -152,7 +133,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
       yAxis: [
         {
           type: 'value',
-          name: 'DAU',
+          name: '日活',
           axisLabel: { color: '#9ca3af', fontSize: 10 },
           splitLine: { lineStyle: { color: '#1f2937' } },
         },
@@ -165,7 +146,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
       ],
       series: [
         {
-          name: 'DAU',
+          name: '日活',
           type: 'line',
           data: trend.map(t => t.dau),
           smooth: true,
@@ -262,7 +243,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
   // 导出CSV
   const handleExportCSV = () => {
     if (!logData?.items?.length) return;
-    const headers = ['时间', '用户', '页面', '操作', '目标', '停留时长(s)', '离开方式'];
+    const headers = ['时间', '用户', '页面', '操作', '目标', '停留时长(秒)', '离开方式'];
     const rows = logData.items.map(item => [
       item.enter_time,
       item.username,
@@ -373,7 +354,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
           >
             <option value="">全部页面</option>
             {['/news', '/factors', '/data', '/prediction', '/agents', '/strategies', '/change', '/dashboard'].map(r => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>{pageTitle(r)}</option>
             ))}
           </select>
           <select
@@ -382,7 +363,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
             defaultValue=""
           >
             <option value="">全部操作</option>
-            {Object.entries(ACTION_LABELS).map(([k, v]) => (
+            {Object.entries(ACTION_LABEL_MAP).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
@@ -482,15 +463,13 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
                         </span>
                       </td>
                       <td className="text-gray-400 py-1.5 px-2 max-w-[120px] truncate" title={item.action_target || ''}>
-                        {item.action_target || '—'}
+                        {getActionTargetLabel(item.action_target || '') || '—'}
                       </td>
                       <td className="text-right text-gray-400 py-1.5 px-2">
-                        {item.duration_sec ? `${item.duration_sec}s` : '—'}
+                        {item.duration_sec ? `${item.duration_sec}秒` : '—'}
                       </td>
                       <td className="text-gray-500 py-1.5 px-2">
-                        {item.exit_type === 'navigation' ? '导航切换' :
-                         item.exit_type === 'idle_timeout' ? '空闲超时' :
-                         item.exit_type === 'close' ? '关闭页面' : '—'}
+                        {getExitTypeLabel(item.exit_type || '') || '—'}
                       </td>
                     </tr>
                   ))}

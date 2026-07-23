@@ -18,6 +18,33 @@ def admin_check(request: Request) -> bool:
     return True
 
 
+def manager_check(request: Request) -> dict:
+    """校验管理员/经理权限，返回 {'department': str, 'company': str}
+    - admin: department='', company=''（查看全部）
+    - manager: 返回本部门+本公司
+    """
+    role = getattr(request.state, "role", "user")
+    if role == "admin":
+        return {"department": "", "company": ""}
+    if role == "manager":
+        return _get_manager_context(request)
+    raise HTTPException(403, detail="需要管理员或经理权限")
+
+
+def _get_manager_context(request: Request) -> dict:
+    """获取当前 manager 的部门+公司"""
+    username = getattr(request.state, "username", "")
+    if not username:
+        raise HTTPException(403, detail="无法识别用户身份")
+    row = execute_query(
+        "SELECT department, COALESCE(company,'') FROM users WHERE username=%s AND role='manager'",
+        (username,), one=True,
+    )
+    if not row or not row[0]:
+        raise HTTPException(403, detail="经理未分配部门，请联系管理员")
+    return {"department": row[0], "company": row[1] or ""}
+
+
 def fmt_dt(value: Any, fmt: str = "%Y-%m-%d") -> Optional[str]:
     """日期格式化为字符串"""
     return value.strftime(fmt) if hasattr(value, "strftime") else str(value) if value else None

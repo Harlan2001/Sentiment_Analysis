@@ -30,6 +30,7 @@ async def auth_middleware(request: Request, call_next):
         # 免登录模式：默认赋予管理员权限
         request.state.username = "dev"
         request.state.is_admin = True
+        request.state.role = "admin"
         return await call_next(request)
 
     # 公开路径跳过认证
@@ -57,6 +58,7 @@ async def auth_middleware(request: Request, call_next):
         payload = verify_jwt_token(token)
         request.state.username = payload["sub"]
         request.state.is_admin = payload.get("is_admin", False)
+        request.state.role = payload.get("role", "user")
     except Exception:
         return JSONResponse(status_code=401, content={"detail": "登录已过期，请重新登录"})
 

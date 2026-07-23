@@ -22,6 +22,7 @@ class LoginResponse(BaseModel):
     username: str | None = None
     display_name: str | None = None
     is_admin: bool = False
+    role: str = "user"
     message: str = ""
 
 
@@ -39,7 +40,7 @@ def login(body: LoginRequest):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT username, password, display_name, is_active, COALESCE(is_admin, 0) as is_admin FROM users WHERE username = %s",
+                "SELECT username, password, display_name, is_active, COALESCE(is_admin, 0) as is_admin, COALESCE(role, 'user') as role FROM users WHERE username = %s",
                 (body.username,),
             )
             row = cursor.fetchone()
@@ -47,20 +48,21 @@ def login(body: LoginRequest):
         if not row:
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-        username, stored_password, display_name, is_active, is_admin = row
+        username, stored_password, display_name, is_active, is_admin, role = row
         if not is_active:
             raise HTTPException(status_code=403, detail="账户已被禁用")
 
         if not check_password(body.password, stored_password):
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-        token = create_jwt_token(username, bool(is_admin))
+        token = create_jwt_token(username, bool(is_admin), role)
         return LoginResponse(
             success=True,
             token=token,
             username=username,
             display_name=display_name or username,
             is_admin=bool(is_admin),
+            role=role or "user",
             message="登录成功",
         )
     finally:
@@ -96,6 +98,7 @@ def auth_status(request: Request):
             "authenticated": True,
             "username": payload["sub"],
             "is_admin": payload.get("is_admin", False),
+            "role": payload.get("role", "user"),
         }
     except Exception:
         return {

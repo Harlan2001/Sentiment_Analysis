@@ -668,6 +668,12 @@ export async function postBehaviorBatch(events: PageVisitEvent[]): Promise<Behav
 
 // ========== User Profile API ==========
 
+export async function fetchActiveUsers(): Promise<{ users: { id: number; username: string; display_name: string; department: string | null; role: string }[] }> {
+  const r = await fetch(`${BASE}/dashboard/users/active`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('活跃用户列表获取失败');
+  return r.json();
+}
+
 export async function fetchUserProfiles(sortBy: string = 'last_visit', order: string = 'desc'): Promise<UserProfileListResponse> {
   const r = await fetch(`${BASE}/dashboard/behavior/profiles?sort_by=${sortBy}&order=${order}`, { headers: authHeaders() });
   if (!r.ok) throw new Error('用户画像列表获取失败');
@@ -701,5 +707,50 @@ export async function triggerAllProfilesCompute(): Promise<{ total_users: number
     headers: authHeaders(),
   });
   if (!r.ok) throw new Error('批量画像计算失败');
+  return r.json();
+}
+
+// ========== Token Usage API ==========
+
+import type {
+  TokenOverview,
+  TokenTrendResponse,
+  TokenByModelResponse,
+  UserTokenListResponse,
+} from "./types";
+
+export async function fetchTokenOverview(): Promise<TokenOverview> {
+  const r = await fetch(`${BASE}/dashboard/token/overview`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Token概览获取失败');
+  return r.json();
+}
+
+export async function fetchTokenTrend(days: number = 7): Promise<TokenTrendResponse> {
+  const r = await fetch(`${BASE}/dashboard/token/trend?days=${days}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Token趋势获取失败');
+  return r.json();
+}
+
+export async function fetchTokenByModel(days: number = 7): Promise<TokenByModelResponse> {
+  const r = await fetch(`${BASE}/dashboard/token/by-model?days=${days}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Token模型分布获取失败');
+  return r.json();
+}
+
+export async function fetchUserTokenList(params: {
+  sort_by?: string;
+  order?: string;
+  limit?: number;
+  offset?: number;
+  search?: string;
+} = {}): Promise<UserTokenListResponse> {
+  const sp = new URLSearchParams();
+  if (params.sort_by) sp.set('sort_by', params.sort_by);
+  if (params.order) sp.set('order', params.order);
+  sp.set('limit', String(params.limit || 50));
+  sp.set('offset', String(params.offset || 0));
+  if (params.search) sp.set('search', params.search);
+  const r = await fetch(`${BASE}/dashboard/token/users?${sp}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('用户Token列表获取失败');
   return r.json();
 }

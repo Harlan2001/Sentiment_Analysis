@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Request
 from pydantic import BaseModel
 
 from backend.common.database import execute_query, execute_update, get_db_connection
@@ -18,6 +18,7 @@ from backend.config.config import (
 )
 from backend.tools.dashboard import (
     admin_check,
+    manager_check,
     fmt_dt,
     fmt_dt2,
     page_title,
@@ -39,6 +40,12 @@ from backend.dashboard.dashboard_service import (
     compute_user_profile,
     profile_row_to_dict,
     peak_slot_label,
+    get_token_overview,
+    get_token_trend,
+    get_token_by_model,
+    get_user_token_list,
+    get_leader_overview,
+    get_department_behavior_stats,
 )
 
 router = APIRouter(prefix=f"{API_PREFIX}/dashboard", tags=["dashboard"])
@@ -233,6 +240,11 @@ def trigger_cleanup_behavior_logs(days: int = Query(180, ge=30, le=365), _a=Depe
 @router.get("/behavior-stats")
 def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check)):
     """行为统计：活跃用户、会话数、页面访问排行、平均停留时长 + 7日趋势 + 时段热力图"""
+    from backend.dashboard.dashboard_service import read_cache, write_cache
+    cache_key = f"behavior_{days}"
+    cached = read_cache(cache_key)
+    if cached:
+        return cached
     # 活跃趋势
     trend_rows = execute_query("""
         SELECT DATE(login_time)d,COUNT(DISTINCT user_id)dau,COUNT(*)sessions
@@ -251,7 +263,7 @@ def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check
     power_users = safe_one("SELECT COUNT(*) FROM user_behavior_profile WHERE is_power_user=1")
     churn_users = safe_one("SELECT COUNT(*) FROM user_behavior_profile WHERE churn_risk_score>0.5")
 
-    return {
+    result = {
         "active_users_today": safe_one(
             "SELECT COUNT(DISTINCT user_id) FROM user_page_view WHERE DATE(enter_time)=CURDATE()"
         ),
@@ -273,12 +285,11 @@ def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check
         "activity_trend": activity_trend,
         "hourly_heatmap": heatmap,
         "page_distribution": [
-            {"page_route": r[0], "page_title": r[1] or page_title(r[0]), "count": r[2]}
+            {"page_route": r[0], "page_title": page_title(r[0]), "count": r[1]}
             for r in execute_query("""
                 SELECT CASE WHEN page_route IN ('/','/news') THEN '/news' ELSE page_route END AS route,
-                CASE WHEN page_route IN ('/','/news') THEN '新闻' ELSE page_title END AS title,
                 COUNT(*)c FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
-                GROUP BY route, title ORDER BY c DESC""", (days,))
+                GROUP BY route ORDER BY c DESC""", (days,))
         ],
         "page_avg_duration": [
             {"page_route": r[0], "avg_sec": round(float(r[1]), 0) if r[1] else 0}
@@ -288,6 +299,9 @@ def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check
                 AND duration_sec>0 GROUP BY route ORDER BY 2 DESC""", (days,))
         ],
     }
+    result["_ts"] = datetime.now().isoformat()
+    write_cache(result, cache_key)
+    return result
 
 
 # ============================================================
@@ -356,6 +370,28 @@ def get_behavior_logs(
 # ============================================================
 # 用户画像接口（管理员）
 # ============================================================
+@router.get("/users/active")
+def get_active_users(_a=Depends(admin_check)):
+    """获取所有活跃用户列表（用于画像选择器等下拉框）"""
+    rows = execute_query(
+        """SELECT id, username, display_name, department, role, COALESCE(company,'') as company
+        FROM users WHERE is_active=1 ORDER BY id"""
+    )
+    return {
+        "users": [
+            {
+                "id": r[0],
+                "username": r[1],
+                "display_name": r[2] or r[1],
+                "department": r[3],
+                "role": r[4],
+                "company": r[5] or None,
+            }
+            for r in rows
+        ]
+    }
+
+
 @router.get("/behavior/profiles")
 def get_behavior_profiles(
     sort_by: str = Query("last_visit"),
@@ -495,3 +531,187 @@ def trigger_all_profiles_compute(_a=Depends(admin_check)):
         except Exception:
             pass
     return {"total_users": len(users), "computed": done}
+
+
+# ============================================================
+# Token 使用统计接口（Task 1: 系统监控 | Task 2: 用户管理）
+# ============================================================
+
+@router.get("/token/overview")
+def token_overview(dep=Depends(manager_check)):
+    """Token 消耗全局汇总（今日/本月/总计 + 按来源分组）；经理仅看本部门+本公司"""
+    from backend.dashboard.dashboard_service import read_cache, write_cache
+    cache_key = f"token_{dep['department']}_{dep['company']}"
+    cached = read_cache(cache_key)
+    if cached:
+        return cached
+    data = get_token_overview(manager_department=dep["department"], manager_company=dep["company"])
+    data["_ts"] = datetime.now().isoformat()
+    write_cache(data, cache_key)
+    return data
+
+
+@router.get("/token/trend")
+def token_trend(days: int = Query(7, ge=1, le=90), dep=Depends(manager_check)):
+    """Token 消耗趋势（按天 + 按模型堆叠）；经理仅看本部门+本公司"""
+    return {"trend": get_token_trend(days, manager_department=dep["department"], manager_company=dep["company"])}
+
+
+@router.get("/token/by-model")
+def token_by_model(days: int = Query(7, ge=1, le=90), dep=Depends(manager_check)):
+    """各模型 Token 用量分布；经理仅看本部门+本公司"""
+    return {"models": get_token_by_model(days, manager_department=dep["department"], manager_company=dep["company"])}
+
+
+@router.get("/token/users")
+def token_users(
+    sort_by: str = Query("month_tokens"),
+    order: str = Query("desc"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    search: str = Query(""),
+    dep=Depends(manager_check),
+):
+    """全员 Token 消耗列表（分页、排序、搜索）— 管理员/经理可见；经理仅看本部门+本公司"""
+    return get_user_token_list(
+        sort_by=sort_by,
+        order=order,
+        limit=limit,
+        offset=offset,
+        search=search,
+        manager_department=dep["department"],
+        manager_company=dep["company"],
+    )
+
+
+@router.get("/usage/overview")
+def leader_overview(dep=Depends(manager_check)):
+    """部门概览全局汇总 — 管理员/经理可见；经理仅看本部门+本公司"""
+    return get_leader_overview(manager_department=dep["department"], manager_company=dep["company"])
+
+
+@router.get("/usage/behavior")
+def dept_behavior(days: int = Query(7, ge=1, le=90), dep=Depends(manager_check)):
+    """部门行为统计 — 经理可见；包含活跃趋势、时段热力、页面分布、停留排行"""
+    if not dep["department"]:
+        raise HTTPException(400, "管理员请使用 /dashboard/behavior-stats 接口")
+    return get_department_behavior_stats(department=dep["department"], company=dep["company"], days=days)
+
+
+# ============================================================
+# 个人使用看板接口（Task 4: 所有登录用户可见）
+# ============================================================
+
+@router.get("/my-usage/overview")
+def my_usage_overview(request: Request):
+    """当前用户 Token 消耗汇总（今日/本月/总计）"""
+    username = getattr(request.state, 'username', None)
+    if not username or username == 'anonymous':
+        return {"today_tokens": 0, "month_tokens": 0, "total_tokens": 0, "total_calls": 0}
+
+    from backend.dashboard.dashboard_service import safe_one
+    today = safe_one(
+        "SELECT COALESCE(SUM(total_tokens),0) FROM llm_usage_log WHERE username=%s AND DATE(created_at)=CURDATE() AND success=1",
+        username,
+    )
+    month = safe_one(
+        "SELECT COALESCE(SUM(total_tokens),0) FROM llm_usage_log WHERE username=%s AND YEAR(created_at)=YEAR(CURDATE()) AND MONTH(created_at)=MONTH(CURDATE()) AND success=1",
+        username,
+    )
+    total = safe_one(
+        "SELECT COALESCE(SUM(total_tokens),0) FROM llm_usage_log WHERE username=%s AND success=1",
+        username,
+    )
+    calls = safe_one(
+        "SELECT COUNT(*) FROM llm_usage_log WHERE username=%s AND success=1",
+        username,
+    )
+    today_calls = safe_one(
+        "SELECT COUNT(*) FROM llm_usage_log WHERE username=%s AND DATE(created_at)=CURDATE()",
+        username,
+    )
+    return {
+        "today_tokens": today,
+        "month_tokens": month,
+        "total_tokens": total,
+        "total_calls": calls,
+        "today_calls": today_calls,
+    }
+
+
+@router.get("/my-usage/trend")
+def my_usage_trend(request: Request, days: int = Query(7, ge=1, le=90)):
+    """当前用户 Token 消耗趋势（按天）"""
+    username = getattr(request.state, 'username', None)
+    if not username or username == 'anonymous':
+        return {"trend": []}
+
+    rows = execute_query(
+        """SELECT DATE(created_at)d, model_name, COALESCE(SUM(total_tokens),0)t
+        FROM llm_usage_log WHERE username=%s AND success=1
+        AND created_at>=DATE_SUB(CURDATE(),INTERVAL %s DAY)
+        GROUP BY d, model_name ORDER BY d""",
+        (username, days),
+    )
+    bucket: dict = {}
+    for d, model, t in rows:
+        ds = d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)
+        bucket.setdefault(ds, {})[model or "unknown"] = int(t)
+    result = []
+    for ds in sorted(bucket):
+        entry = {"date": ds, **bucket[ds]}
+        entry["total"] = sum(bucket[ds].values())
+        result.append(entry)
+    return {"trend": result}
+
+
+@router.get("/my-usage/behavior")
+def my_usage_behavior(request: Request):
+    """当前用户行为统计（功能使用分布 + 时段分布）"""
+    username = getattr(request.state, 'username', None)
+    if not username or username == 'anonymous':
+        return {"page_distribution": [], "hour_distribution": {}}
+
+    # 功能使用分布（近30天页面访问）
+    page_rows = execute_query(
+        """SELECT page_route, COUNT(*)c FROM user_page_view
+        WHERE username=%s AND enter_time>=DATE_SUB(NOW(),INTERVAL 30 DAY)
+        GROUP BY page_route ORDER BY c DESC""",
+        (username,),
+    )
+    total_pv = sum(r[1] for r in page_rows) or 1
+    page_dist = [
+        {"route": r[0], "title": page_title(r[0]), "count": r[1],
+         "percentage": round(r[1] / total_pv * 100, 1)}
+        for r in page_rows[:10]
+    ]
+
+    # 时段分布（近30天）
+    hour_rows = execute_query(
+        """SELECT HOUR(enter_time)h, COUNT(*)c FROM user_page_view
+        WHERE username=%s AND enter_time>=DATE_SUB(NOW(),INTERVAL 30 DAY)
+        GROUP BY h ORDER BY h""",
+        (username,),
+    )
+    hour_dist = {str(r[0]): r[1] for r in hour_rows}
+
+    # 模型使用偏好（近30天，仅 chat 来源）
+    model_rows = execute_query(
+        """SELECT model_name, COALESCE(SUM(total_tokens),0)t FROM llm_usage_log
+        WHERE username=%s AND success=1 AND call_source='chat'
+        AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)
+        GROUP BY model_name ORDER BY t DESC""",
+        (username,),
+    )
+    model_total = sum(r[1] for r in model_rows) or 1
+    model_prefs = [
+        {"model": r[0] or "unknown", "tokens": int(r[1]),
+         "percentage": round(int(r[1]) / model_total * 100, 1)}
+        for r in model_rows
+    ]
+
+    return {
+        "page_distribution": page_dist,
+        "hour_distribution": hour_dist,
+        "model_preferences": model_prefs,
+    }

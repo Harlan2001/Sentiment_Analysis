@@ -6,6 +6,7 @@ import re
 import json
 import logging
 import os
+import time
 import argparse
 from typing import Any, Dict, List, Optional
 from datetime import datetime
@@ -19,6 +20,7 @@ from backend.config.config import (
 from backend.common.task_logging import start_task_run, finish_task_run, add_task_event
 from backend.common.database import init_database, DatabaseConfig, get_db_connection
 from backend.common.db_operations import DBOperations
+from backend.common.llm_logger import log_llm_usage
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -247,7 +249,7 @@ def construct_enhanced_prompt(
 
 def call_llm(prompt: str) -> str:
     """
-    调用大模型生成预测结果。
+    调用大模型生成预测结果，同时记录 Token 消耗。
 
     Args:
         prompt: 输入提示词。
@@ -255,6 +257,7 @@ def call_llm(prompt: str) -> str:
     Returns:
         LLM 返回的 JSON 字符串。
     """
+    t0 = time.time()
     try:
         client_kwargs: Dict[str, Any] = {
             "api_key": KINGSTAR_API_KEY,
@@ -275,15 +278,39 @@ def call_llm(prompt: str) -> str:
             max_tokens=8000,
         )
 
+        latency_ms = int((time.time() - t0) * 1000)
         choice = response.choices[0]
         if choice.finish_reason == "length":
             logger.warning("大模型返回被截断（finish_reason=length），max_tokens 可能不足")
 
         content = choice.message.content or ""
+
+        # 记录 Token 消耗
+        if response.usage:
+            log_llm_usage(
+                call_source="analysis",
+                model_name=MODEL_NAME,
+                provider_model=MODEL_PROVIDER_MODEL,
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                success=True,
+                latency_ms=latency_ms,
+            )
+
         return _extract_json_content(content)
 
     except Exception as e:
+        latency_ms = int((time.time() - t0) * 1000)
         logger.error("大模型调用失败: %s", e)
+        log_llm_usage(
+            call_source="analysis",
+            model_name=MODEL_NAME,
+            provider_model=MODEL_PROVIDER_MODEL,
+            success=False,
+            error_message=str(e),
+            latency_ms=latency_ms,
+        )
         return ""
 
 
