@@ -1,8 +1,10 @@
 """
-PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 + WeasyPrint 本地渲染生成 PDF。
+PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 + Playwright 本地渲染生成 PDF。
 
 数据流：
-  数据库 forecast_report.prediction (JSON) → Jinja2 模板渲染 HTML → WeasyPrint HTML(string=html).write_pdf()
+  数据库 forecast_report.prediction (JSON) → Jinja2 模板渲染 HTML → Playwright headless Chromium → PDF
+
+依赖：playwright + Chromium（`playwright install chromium`）
 """
 import json
 import logging
@@ -11,7 +13,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import HTML
 
 from backend.common.database import get_db_connection
 
@@ -218,16 +219,32 @@ def generate_prediction_pdf(
     html = _build_report_html(report)
     logger.info("HTML 已生成 (%.1f KB)", len(html.encode("utf-8")) / 1024)
 
-    # 3. WeasyPrint 渲染 HTML → PDF
+    # 3. Playwright headless Chromium 渲染 HTML → PDF
     try:
-        doc = HTML(string=html).render()
-        output = Path(output_path)
-        doc.write_pdf(target=output)
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:
+        raise RuntimeError(
+            "PDF 生成不可用：playwright 未安装。"
+            "请执行 `pip install playwright && playwright install chromium`"
+        ) from e
 
-        file_size_kb = output.stat().st_size / 1024
-        logger.info("PDF 生成成功: %s (%.1f KB)", output, file_size_kb)
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html, wait_until="networkidle")
+            page.pdf(
+                path=output_path,
+                format="A4",
+                margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
+                print_background=True,
+            )
+            browser.close()
 
-        return str(output), trade_date_str
+        file_size_kb = Path(output_path).stat().st_size / 1024
+        logger.info("PDF 生成成功: %s (%.1f KB)", output_path, file_size_kb)
+
+        return str(output_path), trade_date_str
 
     except Exception as e:
         logger.exception("PDF 生成失败: %s", e)

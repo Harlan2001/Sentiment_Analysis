@@ -59,19 +59,19 @@ def get_requests_proxies() -> Optional[Dict[str, Optional[str]]]:
     return {"http": proxy, "https": proxy}
 
 # OpenAI 客户端
-# 始终返回 Client 实例：代理启用时走代理，禁用时显式传 proxy={} 防止
+# 始终返回 Client 实例：代理启用时走代理，禁用时用 trust_env=False 防止
 # httpx 回退读取环境变量 HTTP_PROXY / HTTPS_PROXY
 def create_openai_http_client() -> httpx.Client:
     proxy_url = get_outbound_proxy_url()
     if proxy_url:
         return httpx.Client(proxy=proxy_url, timeout=120.0)
-    return httpx.Client(proxy={}, timeout=120.0)
+    return httpx.Client(trust_env=False, timeout=120.0)
 
 def create_openai_async_http_client() -> httpx.AsyncClient:
     proxy_url = get_outbound_proxy_url()
     if proxy_url:
         return httpx.AsyncClient(proxy=proxy_url, timeout=120.0)
-    return httpx.AsyncClient(proxy={}, timeout=120.0)
+    return httpx.AsyncClient(trust_env=False, timeout=120.0)
 
 # ====================== 数据库配置 ======================
 # 复用工具函数读取环境变量，消除重复逻辑

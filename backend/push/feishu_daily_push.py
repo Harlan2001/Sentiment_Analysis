@@ -14,11 +14,11 @@ from datetime import datetime, timedelta, date
 from pathlib import Path
 from typing import Optional, Tuple
 
+logger = logging.getLogger(__name__)
+
 from backend.common.database import get_db_connection, init_database, DatabaseConfig
 from backend.config.config import MYSQL_CONFIG, get_requests_proxies
 from backend.push.pdf_generator import generate_prediction_pdf
-
-logger = logging.getLogger(__name__)
 
 # ===================== 配置 =====================
 

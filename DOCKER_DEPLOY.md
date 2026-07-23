@@ -1,6 +1,6 @@
 # Docker 部署指南
 
-> 前端 Nginx + 后端 FastAPI 双容器部署。**代码通过 volume 挂载，日常更新只传文件不重打镜像。**
+> 前端 Nginx + 后端 FastAPI 双容器部署。后端代码通过 volume 挂载，日常更新只传文件不重打镜像。
 
 ## 1. 部署架构
 
@@ -9,8 +9,8 @@
 │   frontend      │────►│   backend       │
 │   Nginx :80     │     │   FastAPI :8000 │
 │                 │     │                 │
-│                 │     │ main.py ←volume │
-│        (不挂载)  │     │ backend/←volume │
+│        (不挂载)  │     │ main.py ←volume │
+│                 │     │ backend/←volume │
 └─────────────────┘     └────────┬────────┘
                                  │
                ┌─────────────────┼─────────────────┐
@@ -20,8 +20,8 @@
 ```
 
 - 前端 Nginx 负责静态资源和 `/api/*`、`/health` 反向代理
-- 后端代码通过 `:ro` 只读 volume 挂载，更新代码 = scp 文件 + restart
-- 前端不挂 volume，变动较少时走镜像重建
+- 后端代码通过 `:ro` 只读 volume 挂载，更新代码 = 传文件 + restart
+- 前端不挂 volume，变动时走镜像重建
 
 ## 2. 部署目标
 
@@ -45,11 +45,19 @@
 
 ## 4. 环境变量
 
-服务器上 `.env` 文件（与 `docker-compose.yml` 同目录）：
+环境变量分两层管理：
+
+- **`release/{target}.env`**（构建机）— 各目标服务器的完整配置，部署时自动复制到服务器并重命名为 `.env`
+- **服务器 `.env`** — `docker-compose.yml` 同级目录，Docker Compose 自动加载
+
+`release/bigfrontend.env` / `release/saas.env` 示例（完整列表见 `docker-compose.yml`）：
 
 ```env
+# ===== Kingstar LLM API =====
 kingstar_API_KEY=sk-xxx
 kingstar_BASE_URL=https://api.kingstarinfotech.cn/dmx/openai/v1
+
+# ===== MySQL 数据库 =====
 MYSQL_HOST=10.253.50.134
 MYSQL_PORT=3306
 MYSQL_USER=root
@@ -57,8 +65,20 @@ MYSQL_PASSWORD=123456
 MYSQL_DATABASE=Sentiment_analysis
 MYSQL_CHARSET=utf8mb4
 MYSQL_AUTOCOMMIT=true
+
+# ===== 分析模型 =====
+ANALYSIS_MODEL_NAME=doubao
+
+# ===== 网络代理 =====
+OUTBOUND_PROXY_ENABLED=true
+HTTP_PROXY=http://172.18.0.11:8889
+HTTPS_PROXY=http://172.18.0.11:8889
+
+# ===== 运行时 =====
 PYTHONUNBUFFERED=1
 ```
+
+> **注意**：`HTTP_PROXY` / `HTTPS_PROXY` 是操作系统级环境变量，httpx 和 requests 库会自动读取。如果 `OUTBOUND_PROXY_ENABLED=false` 但容器内仍设置了这两个变量，OpenAI SDK 仍会走代理。确保两边同步关闭或通过 `proxy={}` 在代码层防御（已修复）。
 
 ## 5. 三种部署模式
 
@@ -68,18 +88,18 @@ PYTHONUNBUFFERED=1
 
 ```bash
 # 大前台
-./scripts/deploy.sh bigfrontend
+./scripts/deploy_backend.sh bigfrontend
 
 # Saas
-./scripts/deploy.sh saas
+./scripts/deploy_backend.sh saas
 
 # 双服务器
-./scripts/deploy.sh both
+./scripts/deploy_backend.sh both
 ```
 
 脚本做的事：
-1. rsync/scp `main.py` + `backend/` 到服务器
-2. 传输 `deploy/*.sh` 定时任务脚本
+1. 打包 `main.py` + `backend/` + `docker-compose.yml` + `release/{target}.env` + 定时任务脚本
+2. scp 到服务器并解包
 3. `docker compose restart backend`
 
 ### 模式 B：前端更新（构建机 build → 传镜像 → 服务器 load）
@@ -87,34 +107,26 @@ PYTHONUNBUFFERED=1
 前端源码变更时，**只重建前端镜像**，后端不动：
 
 ```bash
-# === 1. 本地构建（WSL / 开发机）===
-cd /path/to/sentiment
-docker compose build --no-cache frontend
-
-# === 2. 导出并传输 ===
-docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
-
 # 大前台
-scp sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/
+./scripts/deploy_frontend.sh bigfrontend
 
-# Saas（经跳板机）
-scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
-    sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment/
+# Saas
+./scripts/deploy_frontend.sh saas
 
-# === 3. 服务器加载镜像并重启 ===
-ssh admin@10.253.50.112
-cd /opt/sentiment
-gunzip -c sentiment-frontend.tar.gz | docker load   # ← 这一步容易忘！
-docker compose up -d frontend
+# 双服务器
+./scripts/deploy_frontend.sh both
 ```
 
-关键三步不能漏：**build → save & scp → gunzip -c | docker load → up -d**。
+脚本做的事：
+1. `docker compose build --no-cache frontend`
+2. `docker save → gzip → scp` 到服务器
+3. 服务器 `gunzip -c | docker load` → `docker compose up -d frontend`
 
-> **注意**：前端没有 volume 挂载，任何时候改前端源码都要走这个流程。后端 `pyproject.toml` / `uv.lock` 没变就别 rebuild 后端镜像，省时间。
+> **注意**：前端镜像构建必须加 `--no-cache`。Docker 层缓存有时检测不到 `COPY . .` 的文件变化（尤其在 WSL / 跨文件系统场景），导致构建出的 JS bundle 仍是旧代码。
 
 ### 模式 C：完整镜像重建（依赖变更 / 大版本）
 
-`pyproject.toml` / `uv.lock` 或前端 `package*.json` 变更时，重打两个镜像：
+`pyproject.toml` / `uv.lock` 或前端依赖变更时，重打两个镜像：
 
 ```bash
 # 大前台
@@ -128,12 +140,10 @@ docker compose up -d frontend
 ```
 
 脚本做的事：
-1. 本地 `docker compose build --no-cache`
+1. 本地 `docker compose build`（前后端镜像）
 2. `docker save` → gzip → scp 到服务器
-3. 传输 `deploy/*.sh` 定时任务脚本
+3. 传输 `release/{target}.env` + `docker-compose.yml` + 定时任务脚本
 4. 服务器 `gunzip -c | docker load` → `docker compose up -d --force-recreate`
-
-> **注意**：前端镜像构建必须加 `--no-cache`。Docker 层缓存有时检测不到 `COPY . .` 的文件变化（尤其在 WSL / 跨文件系统场景），导致构建出的 JS bundle 仍是旧代码。
 
 ## 6. 目录结构
 
@@ -151,13 +161,21 @@ docker compose up -d frontend
 │   ├── Dockerfile           # 前端镜像
 │   ├── nginx.conf
 │   └── src/                 # 前端源码
+├── release/
+│   ├── bigfrontend.env      # 大前台环境变量
+│   └── saas.env             # Saas 环境变量
 ├── scripts/
-│   ├── deploy.sh            # 快速部署
-│   └── deploy-image.sh      # 镜像重建部署
-└── deploy/
-    ├── yield_update.sh      # Cron: 收益率更新
-    ├── report_gen.sh        # Cron: 报告生成
-    └── analysis_fallback.sh # Cron: 分析兜底
+│   ├── deploy_backend.sh    # 模式 A：后端代码快速部署
+│   ├── deploy_frontend.sh   # 模式 B：前端镜像部署
+│   ├── deploy-image.sh      # 模式 C：完整镜像重建部署
+│   └── deploy/
+│       ├── yield_update_bigfrontend.sh    # Cron: 收益率更新
+│       ├── yield_update_saas.sh
+│       ├── report_push_bigfrontend.sh     # Cron: 报告生成 & 推送
+│       ├── report_push_saas.sh
+│       ├── analysis_fallback_bigfrontend.sh  # Cron: 分析兜底
+│       └── analysis_fallback_saas.sh
+└── data/                    # 示例数据（不部署到服务器）
 ```
 
 ### 服务器
@@ -166,16 +184,16 @@ docker compose up -d frontend
 /opt/sentiment/          ← 大前台
 /data/sentiment/         ← Saas
 ├── docker-compose.yml
-├── .env                        # 生产环境变量
-├── main.py                     ← volume 挂载
-├── backend/                    ← volume 挂载
+├── .env                        # 生产环境变量（由 release/{target}.env 复制而来）
+├── main.py                     ← volume 挂载（:ro）
+├── backend/                    ← volume 挂载（:ro）
 ├── data/                       ← 数据持久化
 ├── logs/                       ← 日志
 ├── models/                     ← ML 模型
-├── sentiment-backend.tar.gz    ← 传输的镜像文件
-├── sentiment-frontend.tar.gz
-├── yield_update.sh
-├── report_gen.sh
+├── sentiment-backend.tar.gz    ← 模式 B/C 传输的镜像文件（部署后删除）
+├── sentiment-frontend.tar.gz   ← 模式 B/C 传输的镜像文件（部署后删除）
+├── yield_update.sh             ← 从 scripts/deploy/*_{target}.sh 重命名
+├── report_push.sh
 └── analysis_fallback.sh
 ```
 
@@ -188,22 +206,24 @@ cd /path/to/sentiment
 docker compose build --no-cache
 ```
 
-### 7.2 传输镜像 + 代码到服务器
+### 7.2 导出并传输镜像
 
 ```bash
-# 镜像
 docker save sentiment-backend:latest | gzip > sentiment-backend.tar.gz
 docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
+```
 
+```bash
 # === 大前台 ===
 scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/
 scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/
+scp release/bigfrontend.env admin@10.253.50.112:/opt/sentiment/.env
 scp -r main.py backend/ admin@10.253.50.112:/opt/sentiment/
 
 # === Saas（经跳板机）===
 scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
     sentiment-backend.tar.gz sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment/
-# ... 同理传 docker-compose.yml、代码等
+# ... 同理传 docker-compose.yml、.env、代码等
 ```
 
 ### 7.3 服务器加载镜像并启动
@@ -240,12 +260,14 @@ curl http://localhost:8000/health
 # 每天 19:00 — 收益率数据更新
 0 19 * * * /opt/sentiment/yield_update.sh
 
-# 每天 09:00 — 生成昨日交易日报告
-0 9 * * * /opt/sentiment/report_gen.sh
+# 每天 09:00 — 生成并推送报告
+0 9 * * * /opt/sentiment/report_push.sh
 
 # 每天 23:00 — 分析补偿兜底
 0 23 * * * /opt/sentiment/analysis_fallback.sh
 ```
+
+脚本文件在构建机 `scripts/deploy/` 目录，按服务器区分后缀（`_bigfrontend.sh` / `_saas.sh`），部署时自动去掉后缀复制到服务器。**不同服务器的 Cron 内容完全一样**，因为脚本名已统一。
 
 ## 9. 日常运维
 
@@ -259,8 +281,8 @@ docker compose logs --tail=100 backend
 ### 重启服务
 
 ```bash
-docker compose restart            # 快速重启
-docker compose up -d --force-recreate  # 完全重建
+docker compose restart                     # 快速重启
+docker compose up -d --force-recreate      # 完全重建
 ```
 
 ### 停止服务
@@ -295,10 +317,12 @@ docker system prune -f    # 全面清理
 
 | 场景 | 命令 |
 |------|------|
-| 后端代码更新（大前台） | `./scripts/deploy.sh bigfrontend` |
-| 后端代码更新（Saas） | `./scripts/deploy.sh saas` |
-| 后端代码更新（双服务器） | `./scripts/deploy.sh both` |
-| 前端更新 | 看模式 B：build → save & scp → gunzip \| docker load → up -d |
+| 后端代码更新（大前台） | `./scripts/deploy_backend.sh bigfrontend` |
+| 后端代码更新（Saas） | `./scripts/deploy_backend.sh saas` |
+| 后端代码更新（双服务器） | `./scripts/deploy_backend.sh both` |
+| 前端更新（大前台） | `./scripts/deploy_frontend.sh bigfrontend` |
+| 前端更新（Saas） | `./scripts/deploy_frontend.sh saas` |
+| 前端更新（双服务器） | `./scripts/deploy_frontend.sh both` |
 | 完整镜像重建（大前台） | `./scripts/deploy-image.sh bigfrontend` |
 | 完整镜像重建（Saas） | `./scripts/deploy-image.sh saas` |
 | 完整镜像重建（双服务器） | `./scripts/deploy-image.sh both` |
