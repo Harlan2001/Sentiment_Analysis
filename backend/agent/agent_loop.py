@@ -18,10 +18,40 @@ from openai import OpenAI
 
 from backend.agent.tools import TOOL_DEFINITIONS
 from backend.agent.tool_executor import TOOL_EXECUTORS
+from backend.common.llm_logger import log_llm_usage
 
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 5
+
+
+def _log_token(
+    response,
+    call_source: str = "chat",
+    model_name: str = "doubao",
+    provider_model: str = "",
+    user_id: int = 0,
+    username: str = "system",
+    success: bool = True,
+    latency_ms: int = 0,
+) -> None:
+    """从 OpenAI response 提取 usage 并记录"""
+    try:
+        usage = response.usage
+        log_llm_usage(
+            call_source=call_source,
+            model_name=model_name,
+            provider_model=provider_model,
+            user_id=user_id,
+            username=username,
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            total_tokens=usage.total_tokens if usage else 0,
+            success=success,
+            latency_ms=latency_ms,
+        )
+    except Exception:
+        logger.exception("Token 日志记录失败（不影响 Agent 流程）")
 
 
 def _sse(data: dict) -> str:
@@ -35,6 +65,9 @@ async def run_agent_loop(
     client: OpenAI,
     model: str,
     max_tool_rounds: int = MAX_TOOL_ROUNDS,
+    model_name: str = "doubao",
+    user_id: int = 0,
+    username: str = "system",
 ) -> AsyncGenerator[str, None]:
     """
     运行 Agent 循环，异步产出 SSE 事件字符串。
@@ -51,6 +84,12 @@ async def run_agent_loop(
         模型标识符，如 volcengine/doubao-seed-2-0-code-preview-260215
     max_tool_rounds : int
         最大工具调用轮数，防止死循环
+    model_name : str
+        模型短名（如 doubao），用于 token 日志
+    user_id : int
+        调用用户ID
+    username : str
+        调用用户名
     """
     # 构建完整消息列表
     full_messages: list[dict] = [
@@ -75,6 +114,8 @@ async def run_agent_loop(
                 temperature=0.7,
                 stream=False,
             )
+            _log_token(response, call_source="chat", model_name=model_name,
+                       provider_model=model, user_id=user_id, username=username)
 
             choice = response.choices[0]
             finish_reason = choice.finish_reason
@@ -199,6 +240,8 @@ async def run_agent_loop(
             temperature=0.7,
             stream=False,
         )
+        _log_token(response, call_source="chat", model_name=model_name,
+                   provider_model=model, user_id=user_id, username=username)
         content = response.choices[0].message.content or ""
         yield _sse({"type": "content", "content": content})
         usage = response.usage

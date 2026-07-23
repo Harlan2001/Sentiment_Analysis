@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from backend.agent.agent_loop import run_agent_loop
 from backend.config.config import API_PREFIX, create_openai_http_client
-from backend.common.llm_logger import TokenLogger
+from backend.common.database import execute_query
 
 router = APIRouter(prefix=f"{API_PREFIX}/chat", tags=["chat"])
 
@@ -59,8 +59,19 @@ class ChatRequest(BaseModel):
 
 # ── 路由 ──
 @router.post("")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, req: Request):
     """统一的 Agent 对话接口，支持 SSE 流式和非流式两种模式。"""
+
+    # 解析用户身份
+    username = getattr(req.state, 'username', 'anonymous')
+    user_id = 0
+    if username and username != 'anonymous':
+        try:
+            r = execute_query("SELECT id FROM users WHERE username=%s", (username,), one=True)
+            if r:
+                user_id = r[0]
+        except Exception:
+            pass
 
     if request.stream:
         async def event_stream():
@@ -69,6 +80,9 @@ async def chat(request: ChatRequest):
                 system_prompt=CHAT_SYSTEM_PROMPT,
                 client=kingstar_client,
                 model=CHAT_MODEL,
+                model_name="doubao",
+                user_id=user_id,
+                username=username or "anonymous",
             ):
                 yield sse_event
 
@@ -92,6 +106,9 @@ async def chat(request: ChatRequest):
         system_prompt=CHAT_SYSTEM_PROMPT,
         client=kingstar_client,
         model=CHAT_MODEL,
+        model_name="doubao",
+        user_id=user_id,
+        username=username or "anonymous",
     ):
         if sse_event.startswith("data: ") and not sse_event.startswith("data: [DONE]"):
             try:
