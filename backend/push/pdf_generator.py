@@ -2,7 +2,9 @@
 PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 + Playwright 本地渲染生成 PDF。
 
 数据流：
-  数据库 forecast_report.prediction (JSON) → Jinja2 模板渲染 HTML → Playwright page.set_content() → page.pdf()
+  数据库 forecast_report.prediction (JSON) → Jinja2 模板渲染 HTML → Playwright headless Chromium → PDF
+
+依赖：playwright + Chromium（`playwright install chromium`）
 """
 import json
 import logging
@@ -11,7 +13,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from playwright.sync_api import sync_playwright
 
 from backend.common.database import get_db_connection
 
@@ -218,101 +219,32 @@ def generate_prediction_pdf(
     html = _build_report_html(report)
     logger.info("HTML 已生成 (%.1f KB)", len(html.encode("utf-8")) / 1024)
 
-    # 3. Playwright 渲染 HTML → PDF
+    # 3. Playwright headless Chromium 渲染 HTML → PDF
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:
+        raise RuntimeError(
+            "PDF 生成不可用：playwright 未安装。"
+            "请执行 `pip install playwright && playwright install chromium`"
+        ) from e
+
     try:
         with sync_playwright() as p:
-            # 自动检测 Chromium 可执行文件路径（跨平台兼容）
-            import platform as _platform
-            _system = _platform.system()
-
-            # 查找 Playwright 浏览器安装目录
-            _pw_base = os.getenv("PLAYWRIGHT_BROWSERS_PATH")
-            if not _pw_base:
-                if _system == "Windows":
-                    _pw_base = os.path.expandvars(r"%LOCALAPPDATA%\ms-playwright")
-                else:
-                    _pw_base = os.path.expanduser("~/.cache/ms-playwright")
-            _pw_base = Path(_pw_base)
-
-            # 平台相关：可执行文件名后缀和目录名
-            if _system == "Windows":
-                _exe_suffix, _chrome_dir = ".exe", "chrome-win"
-            elif _system == "Darwin":
-                _exe_suffix, _chrome_dir = "", "chrome-mac"
-            else:
-                _exe_suffix, _chrome_dir = "", "chrome-linux"
-
-            _CHROMIUM_EXECUTABLE = None
-            for _prefix in ("chromium-", "chromium_headless_shell-"):
-                for _candidate in sorted(_pw_base.glob(f"{_prefix}*"), reverse=True):
-                    for _name in (f"chrome{_exe_suffix}", f"headless_shell{_exe_suffix}"):
-                        _exe = _candidate / _chrome_dir / _name
-                        if _exe.exists():
-                            _CHROMIUM_EXECUTABLE = str(_exe)
-                            break
-                    if _CHROMIUM_EXECUTABLE:
-                        break
-                if _CHROMIUM_EXECUTABLE:
-                    break
-
-            if _CHROMIUM_EXECUTABLE is None:
-                raise RuntimeError(
-                    "未找到 Playwright Chromium 浏览器，请运行: playwright install chromium"
-                )
-
-            launch_kwargs: dict = dict(
-                headless=True,
-                args=["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox",
-                      "--disable-dev-shm-usage", "--disable-crashpad-for-testing"],
-            )
-            if "headless_shell" not in _CHROMIUM_EXECUTABLE:
-                launch_kwargs["channel"] = None  # 全量 chrome 不需要 channel
-            launch_kwargs["executable_path"] = _CHROMIUM_EXECUTABLE
-
-            browser = p.chromium.launch(**launch_kwargs)
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 1800},
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/125.0.0.0 Safari/537.36"
-                ),
-                java_script_enabled=False,
-                ignore_https_errors=True,
-            )
-            page = context.new_page()
-
-            # 加载本地 HTML
-            page.set_content(html, wait_until="load")
-            logger.info("页面渲染完成")
-
-            # 模拟打印媒体（触发 @media print 样式）
-            page.emulate_media(media="print")
-
-            # 生成 PDF
-            pdf_bytes = page.pdf(
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html, wait_until="networkidle")
+            page.pdf(
+                path=output_path,
                 format="A4",
+                margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
                 print_background=True,
-                margin={"top": "2cm", "right": "2cm", "bottom": "2cm", "left": "2cm"},
-                display_header_footer=True,
-                header_template=" ",
-                footer_template=(
-                    '<div style="font-size:9px;color:#999;text-align:center;width:100%;'
-                    'padding:2px 0;">'
-                    '第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页'
-                    '</div>'
-                ),
             )
-
-            # 保存文件
-            output = Path(output_path)
-            output.write_bytes(pdf_bytes)
-
-            file_size_kb = len(pdf_bytes) / 1024
-            logger.info("PDF 生成成功: %s (%.1f KB)", output, file_size_kb)
-
             browser.close()
-            return output, trade_date_str
+
+        file_size_kb = Path(output_path).stat().st_size / 1024
+        logger.info("PDF 生成成功: %s (%.1f KB)", output_path, file_size_kb)
+
+        return str(output_path), trade_date_str
 
     except Exception as e:
         logger.exception("PDF 生成失败: %s", e)

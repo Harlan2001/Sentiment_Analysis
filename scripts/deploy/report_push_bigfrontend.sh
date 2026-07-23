@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sentiment 定时任务（大前台）：生成昨日交易日报告 + 飞书推送
+# Sentiment 定时任务（大前台）：生成昨日交易日报告（不推送飞书）
 # 建议执行时间：每天 09:00
 # 用法：./report_push_bigfrontend.sh
 # 或在 crontab 中：0 9 * * * /opt/sentiment-tasks/report_push_bigfrontend.sh
@@ -38,21 +38,5 @@ if [ $exit_code -eq 0 ]; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Report generation completed successfully for $YESTERDAY." >> "$LOG_FILE"
 else
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Report generation failed with exit code $exit_code for $YESTERDAY." >> "$LOG_FILE"
-  exit 1
-fi
-
-# ========== PDF 生成 + 飞书推送 ==========
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting PDF generation and Feishu push for $YESTERDAY." >> "$LOG_FILE"
-
-docker compose exec -T backend uv run python -m backend.push.feishu_daily_push \
-  >> "$LOG_FILE" 2>&1
-
-push_exit_code=$?
-
-if [ $push_exit_code -eq 0 ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] PDF generation and Feishu push completed successfully for $YESTERDAY." >> "$LOG_FILE"
-else
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] PDF generation or Feishu push failed with exit code $push_exit_code for $YESTERDAY." >> "$LOG_FILE"
   exit 1
 fi

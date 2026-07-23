@@ -1,3 +1,6 @@
+"""
+预测报告 PDF 生成 & 文件下载路由。
+"""
 from __future__ import annotations
 
 import asyncio

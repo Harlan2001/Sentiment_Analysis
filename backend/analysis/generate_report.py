@@ -259,14 +259,11 @@ def call_llm(prompt: str) -> str:
     """
     t0 = time.time()
     try:
-        client_kwargs: Dict[str, Any] = {
-            "api_key": KINGSTAR_API_KEY,
-            "base_url": KINGSTAR_BASE_URL,
-        }
-        http_client = create_openai_http_client()
-        if http_client is not None:
-            client_kwargs["http_client"] = http_client
-        client = OpenAI(**client_kwargs)
+        client = OpenAI(
+            api_key=KINGSTAR_API_KEY,
+            base_url=KINGSTAR_BASE_URL,
+            http_client=create_openai_http_client(),
+        )
 
         response = client.chat.completions.create(
             model=MODEL_PROVIDER_MODEL,

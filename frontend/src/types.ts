@@ -219,6 +219,108 @@ export interface ChatResponseWithTools extends ChatResponse {
   tool_result?: ToolResultPayload;
 }
 
+// ========== Agent / Skill System Types ==========
+
+/** SSE 事件类型 */
+export type SSEEventType =
+  | 'thinking'
+  | 'content'
+  | 'tool_call'
+  | 'tool_executing'
+  | 'tool_result'
+  | 'done'
+  | 'error';
+
+export interface SSEContentEvent {
+  type: 'content';
+  content: string;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface SSEToolCallEvent {
+  type: 'tool_call';
+  tool_calls: ToolCall[];
+}
+
+export interface SSEToolExecutingEvent {
+  type: 'tool_executing';
+  tool_call_id: string;
+  tool_name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface SSEToolResultEvent {
+  type: 'tool_result';
+  tool_call_id: string;
+  tool_name: string;
+  result?: unknown;
+  error?: string;
+  duration_ms?: number;
+}
+
+export interface SSEDoneEvent {
+  type: 'done';
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface SSEErrorEvent {
+  type: 'error';
+  message: string;
+  code?: string;
+}
+
+export interface SSEThinkingEvent {
+  type: 'thinking';
+}
+
+export type SSEEvent =
+  | SSEThinkingEvent
+  | SSEContentEvent
+  | SSEToolCallEvent
+  | SSEToolExecutingEvent
+  | SSEToolResultEvent
+  | SSEDoneEvent
+  | SSEErrorEvent;
+
+/** 工具调用结果（UI 中使用） */
+export interface ToolCallResult {
+  toolCallId: string;
+  toolName: string;
+  toolDisplayName: string;
+  toolIcon: string;
+  input: Record<string, unknown>;
+  output?: unknown;
+  error?: string;
+  durationMs?: number;
+  status: 'pending' | 'executing' | 'success' | 'error';
+  collapsed: boolean;
+}
+
+/** Agent Skill 定义（欢迎界面展示用） */
+export interface AgentSkill {
+  name: string;
+  description: string;
+  icon: string;
+  category: 'news' | 'analysis' | 'data' | 'market';
+}
+
+/** 扩展的聊天消息（Agent 专用） */
+export interface AgentMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  toolCalls?: ToolCall[];
+  toolResults?: ToolCallResult[];
+}
+
 // ========== Factor Candidate Types ==========
 
 export interface FactorCandidate {

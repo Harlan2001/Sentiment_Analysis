@@ -4,8 +4,15 @@
 !backend/**
 !pyproject.toml
 !uv.lock
-# 排除不需要的
-backend/__pycache__/
-backend/**/__pycache__/
-.venv/
+# ===== 清理所有层级 =====
 **/__pycache__/
+**/.venv/
+**/.pytest_cache/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/*.egg
+# ===== 系统文件 =====
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini

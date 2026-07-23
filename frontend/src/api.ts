@@ -288,33 +288,30 @@ export interface ChatResponse {
   };
 }
 
-// ========== Forecast Report API ==========
-
-export async function fetchForecastReport(date?: string): Promise<ForecastResponse> {
-  const params = date ? `?date=${date}` : '';
-  const r = await fetch(`${BASE}/forecast${params}`, { headers: authHeaders() });
-  return r.json();
-}
-
-export async function fetchForecastHistory(limit: number = 30): Promise<ForecastHistoryResponse> {
-  const r = await fetch(`${BASE}/forecast/history?limit=${limit}`, { headers: authHeaders() });
-  return r.json();
+/** 流式回调接口（新版，类型化 SSE 事件） */
+export interface StreamCallbacks {
+  onThinking?: () => void;
+  onContent?: (content: string) => void;
+  onToolCall?: (toolCalls: { id: string; name: string; arguments: Record<string, unknown> }[]) => void;
+  onToolExecuting?: (toolCallId: string, toolName: string, args: Record<string, unknown>) => void;
+  onToolResult?: (
+    toolCallId: string,
+    toolName: string,
+    result: unknown | null,
+    error: string | null,
+    durationMs?: number
+  ) => void;
+  onDone?: (usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => void;
+  onError?: (message: string, code?: string) => void;
 }
 
 /**
- * 发送聊天消息（流式输出）
- * @param messages 消息历史
- * @param onChunk 每收到一个chunk时的回调
- * @param onDone 完成时的回调
- * @param onError 错误时的回调
- * @param enableTools 是否启用工具调用
+ * 发送聊天消息（新版流式，支持类型化 SSE 事件）
+ * 支持 thinking / content / tool_call / tool_executing / tool_result / done / error 事件
  */
 export async function sendChatMessageStream(
-  messages: ChatMessage[],
-  onChunk: (content: string) => void,
-  onDone: () => void,
-  onError: (error: string) => void,
-  enableTools: boolean = false
+  messages: { role: string; content: string }[],
+  callbacks: StreamCallbacks
 ): Promise<void> {
   try {
     const response = await fetch(`${BASE}/chat`, {
@@ -326,7 +323,6 @@ export async function sendChatMessageStream(
       body: JSON.stringify({
         messages,
         stream: true,
-        enable_tools: enableTools,
       }),
     });
 
@@ -351,32 +347,72 @@ export async function sendChatMessageStream(
       buffer = lines.pop() || "";
 
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6);
-          if (data === "[DONE]") {
-            onDone();
-            return;
-          }
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.content) {
-              onChunk(parsed.content);
-            }
-            if (parsed.error) {
-              onError(parsed.error);
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") {
+          return; // done 事件已由 SSE done 事件处理
+        }
+        try {
+          const parsed = JSON.parse(data);
+          switch (parsed.type) {
+            case "thinking":
+              callbacks.onThinking?.();
+              break;
+            case "content":
+              callbacks.onContent?.(parsed.content);
+              break;
+            case "tool_call":
+              callbacks.onToolCall?.(parsed.tool_calls);
+              break;
+            case "tool_executing":
+              callbacks.onToolExecuting?.(
+                parsed.tool_call_id,
+                parsed.tool_name,
+                parsed.arguments
+              );
+              break;
+            case "tool_result":
+              callbacks.onToolResult?.(
+                parsed.tool_call_id,
+                parsed.tool_name,
+                parsed.result ?? null,
+                parsed.error ?? null,
+                parsed.duration_ms
+              );
+              break;
+            case "done":
+              callbacks.onDone?.(parsed.usage);
               return;
-            }
-          } catch (e) {
-            // 忽略解析错误
+            case "error":
+              callbacks.onError?.(parsed.message, parsed.code);
+              return;
           }
+        } catch (_e) {
+          // 忽略解析错误
         }
       }
     }
-
-    onDone();
   } catch (error) {
-    onError(error instanceof Error ? error.message : "未知错误");
+    callbacks.onError?.(error instanceof Error ? error.message : "未知错误", "NETWORK_ERROR");
   }
+}
+
+/**
+ * @deprecated 使用新版 sendChatMessageStream(messages, callbacks) 替代。
+ * 旧版兼容包装，将 5 参数转为回调对象。
+ */
+export async function sendChatMessageStreamLegacy(
+  messages: ChatMessage[],
+  onChunk: (content: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+  _enableTools: boolean = false
+): Promise<void> {
+  return sendChatMessageStream(messages, {
+    onContent: (content) => onChunk(content),
+    onDone: () => onDone(),
+    onError: (message) => onError(message),
+  });
 }
 
 /**
@@ -395,11 +431,23 @@ export async function sendChatMessage(
     body: JSON.stringify({
       messages,
       stream: false,
-      enable_tools: enableTools,
     }),
   });
 
   return response.json();
+}
+
+// ========== Forecast Report API ==========
+
+export async function fetchForecastReport(date?: string): Promise<ForecastResponse> {
+  const params = date ? `?date=${date}` : '';
+  const r = await fetch(`${BASE}/forecast${params}`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchForecastHistory(limit: number = 30): Promise<ForecastHistoryResponse> {
+  const r = await fetch(`${BASE}/forecast/history?limit=${limit}`, { headers: authHeaders() });
+  return r.json();
 }
 
 // ========== Factor Candidates API ==========
