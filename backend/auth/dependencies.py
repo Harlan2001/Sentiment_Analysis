@@ -27,8 +27,8 @@ async def auth_middleware(request: Request, call_next):
     - 公开路径（login/health等）始终放行
     """
     if not AUTH_ENABLED:
-        # 免登录模式：默认赋予管理员权限
-        request.state.username = "dev"
+        # 免登录模式：所有使用归入 admin 账户，方便 Token 统计
+        request.state.username = "admin"
         request.state.is_admin = True
         request.state.role = "admin"
         return await call_next(request)

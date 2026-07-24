@@ -36,10 +36,20 @@ def _get_manager_context(request: Request) -> dict:
     username = getattr(request.state, "username", "")
     if not username:
         raise HTTPException(403, detail="无法识别用户身份")
-    row = execute_query(
-        "SELECT department, COALESCE(company,'') FROM users WHERE username=%s AND role='manager'",
-        (username,), one=True,
-    )
+    try:
+        row = execute_query(
+            "SELECT department, COALESCE(company,'') FROM users WHERE username=%s AND role='manager'",
+            (username,), one=True,
+        )
+    except Exception:
+        # 兼容 company 列不存在的情况
+        row = execute_query(
+            "SELECT department FROM users WHERE username=%s AND role='manager'",
+            (username,), one=True,
+        )
+        if row and row[0]:
+            return {"department": row[0], "company": ""}
+        raise HTTPException(403, detail="经理未分配部门，请联系管理员")
     if not row or not row[0]:
         raise HTTPException(403, detail="经理未分配部门，请联系管理员")
     return {"department": row[0], "company": row[1] or ""}
