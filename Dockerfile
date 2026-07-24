@@ -1,7 +1,7 @@
 # ============================================================
 # 阶段 1：构建阶段（包含编译器，最终镜像不保留）
 # ============================================================
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 # 安装 uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -54,7 +54,7 @@ RUN find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null ||
 # ============================================================
 # 阶段 2：运行阶段（仅运行时依赖，无编译器）
 # ============================================================
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

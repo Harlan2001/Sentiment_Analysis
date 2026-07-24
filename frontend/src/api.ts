@@ -802,3 +802,33 @@ export async function fetchUserTokenList(params: {
   if (!r.ok) throw new Error('用户Token列表获取失败');
   return r.json();
 }
+
+// ========== Macro Data API ==========
+
+import type {
+  MacroIndicatorsResponse,
+  MacroDataResponse,
+} from "./types";
+
+export async function fetchMacroIndicators(): Promise<MacroIndicatorsResponse> {
+  const r = await fetch(`${BASE}/macro-data/indicators`, { headers: authHeaders() })
+  if (!r.ok) throw new Error('获取指标列表失败')
+  return r.json()
+}
+
+export async function fetchMacroData(
+  zbcodes: string[],
+  start?: string,
+  end?: string,
+): Promise<MacroDataResponse> {
+  const params = new URLSearchParams()
+  params.set('zbcode', zbcodes.join(','))
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+
+  const r = await fetch(`${BASE}/macro-data/data?${params.toString()}`, {
+    headers: authHeaders(),
+  })
+  if (!r.ok) throw new Error('获取宏观数据失败')
+  return r.json()
+}

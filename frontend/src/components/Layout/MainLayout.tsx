@@ -75,6 +75,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { name: '策略', href: '/strategies', icon: StrategyIcon },
     { name: '变动对比', href: '/change', icon: ChangeIcon },
     { name: '信号日志', href: '/macro-signal-logs', icon: ClipboardListIcon },
+    { name: '宏观数据', href: '/macro-data', icon: DatabaseIcon },
   ]
 
   const isActive = (path: string) => {

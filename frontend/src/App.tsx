@@ -1,7 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/Layout/MainLayout'
-import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage } from './components/Pages'
+import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage } from './components/Pages'
 import { useAuth } from './contexts/AuthContext'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
 import { Loading } from './components/UI/Loading'
@@ -38,6 +38,7 @@ function ProtectedRoutes() {
           <Route path="/strategies" element={<StrategyListPage />} />
           <Route path="/change" element={<ChangePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/macro-data" element={<MacroDataPage />} />
           <Route path="*" element={<Navigate to="/news" replace />} />
         </Routes>
       </MainLayout>
@@ -70,6 +71,7 @@ function ProtectedRoutes() {
         <Route path="/strategies" element={<StrategyListPage />} />
         <Route path="/change" element={<ChangePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/macro-data" element={<MacroDataPage />} />
         <Route path="*" element={<Navigate to="/news" replace />} />
       </Routes>
     </MainLayout>

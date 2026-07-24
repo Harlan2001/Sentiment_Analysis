@@ -28,7 +28,7 @@
 
 ### 后端
 
-- Python 3.11
+- Python 3.12
 - [uv](https://docs.astral.sh/uv/)（包管理与虚拟环境）
 
 ### 前端
