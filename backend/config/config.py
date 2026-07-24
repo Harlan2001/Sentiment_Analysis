@@ -174,6 +174,7 @@ PAGE_TITLES = {
     "/agents": "Agent", "/select-strategy": "AI推荐", "/strategies": "策略",
     "/change": "变动对比", "/macro-signal-logs": "信号日志", "/dashboard": "看板", "/login": "登录",
     "/my-usage": "我的使用",  # 兼容历史行为数据
+    "/macro-data": "宏观数据",
 }
 
 # 会话冷却时间（秒）：冷却时间内复用同一会话

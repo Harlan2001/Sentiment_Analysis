@@ -1045,3 +1045,50 @@ export interface UserTokenListResponse {
   offset: number;
   total_pages: number;
 }
+
+// ========== Macro Data Types ==========
+
+/** 宏观指标元数据 */
+export interface MacroIndicator {
+  code: string;
+  name: string;
+  category: 'strong' | 'medium' | 'weak' | 'precious' | 'bond' | 'general';
+  desc: string;
+}
+
+/** 指标分类 */
+export interface MacroCategory {
+  key: string;
+  label: string;
+}
+
+/** /sapi/macro-data/indicators 响应 */
+export interface MacroIndicatorsResponse {
+  indicators: MacroIndicator[];
+  categories: MacroCategory[];
+  total: number;
+}
+
+/** 单条宏观数据点 */
+export interface MacroDataPoint {
+  datestr: string;
+  value: number | null;
+}
+
+/** 单个指标的时序数据 */
+export interface MacroDataSeries {
+  zbcode: string;
+  name: string;
+  category: string;
+  data: MacroDataPoint[];
+}
+
+/** /sapi/macro-data/data 响应 */
+export interface MacroDataResponse {
+  indicators: MacroDataSeries[];
+  query: {
+    zbcode: string;
+    start: string | null;
+    end: string | null;
+  };
+}
