@@ -781,7 +781,7 @@ def get_department_behavior_stats(department: str, company: str = "", days: int 
         f"SELECT HOUR(v.enter_time)h, DAYOFWEEK(v.enter_time)dow, COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY h,dow ORDER BY dow,h", (days, *cond_params))
     heatmap = [{"hour": r[0], "day_of_week": r[1], "count": r[2]} for r in heatmap_rows]
 
-    page_dist = [{"page_route": r[0], "page_title": r[1] or _route_title(r[0]), "count": r[2]} for r in execute_query(
+    page_dist = [{"page_route": r[0], "page_title": _route_title(r[0]), "count": r[1]} for r in execute_query(
         f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' ELSE v.page_route END AS route, "
         f"COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id "
         f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY route ORDER BY c DESC", (days, *cond_params))]
