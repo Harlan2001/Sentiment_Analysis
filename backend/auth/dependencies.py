@@ -10,6 +10,7 @@ from backend.config.config import API_PREFIX, AUTH_ENABLED
 # 不需要认证的路径
 PUBLIC_PATHS = {
     f"{API_PREFIX}/auth/login",
+    f"{API_PREFIX}/auth/login/phone",
     f"{API_PREFIX}/auth/status",
     "/health",
     "/docs",

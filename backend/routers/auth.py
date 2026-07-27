@@ -16,6 +16,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PhoneLoginRequest(BaseModel):
+    phone: str
+
+
 class LoginResponse(BaseModel):
     success: bool
     token: str | None = None
@@ -54,6 +58,45 @@ def login(body: LoginRequest):
 
         if not check_password(body.password, stored_password):
             raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+        token = create_jwt_token(username, bool(is_admin), role)
+        return LoginResponse(
+            success=True,
+            token=token,
+            username=username,
+            display_name=display_name or username,
+            is_admin=bool(is_admin),
+            role=role or "user",
+            message="登录成功",
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/login/phone", response_model=LoginResponse)
+def login_by_phone(body: PhoneLoginRequest):
+    """手机号快捷登录：手机号存在且用户启用即可登录"""
+    if not AUTH_ENABLED:
+        return LoginResponse(
+            success=True,
+            message="免登录模式已启用",
+        )
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT username, display_name, is_active, COALESCE(is_admin, 0) as is_admin, COALESCE(role, 'user') as role FROM users WHERE phone = %s",
+                (body.phone,),
+            )
+            row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=401, detail="手机号未注册")
+
+        username, display_name, is_active, is_admin, role = row
+        if not is_active:
+            raise HTTPException(status_code=403, detail="账户已被禁用")
 
         token = create_jwt_token(username, bool(is_admin), role)
         return LoginResponse(

@@ -15,6 +15,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<{ success: boolean; message: string }>
+  loginByPhone: (phone: string) => Promise<{ success: boolean; message: string }>
   logout: () => void
 }
 
@@ -159,6 +160,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const loginByPhone = useCallback(async (phone: string) => {
+    try {
+      const r = await fetch(`${API_PREFIX}/auth/login/phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail: '登录失败' }))
+        return { success: false, message: err.detail || '登录失败' }
+      }
+
+      const data = await r.json()
+
+      if (data.success && data.token) {
+        storage.set(TOKEN_KEY, data.token)
+        storage.set(USER_KEY, { username: data.username, displayName: data.display_name, isAdmin: data.is_admin || false, role: data.role || 'user' })
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          username: data.username,
+          displayName: data.display_name,
+          token: data.token,
+          authEnabled: true,
+          isAdmin: data.is_admin || false,
+          role: data.role || 'user',
+        })
+        return { success: true, message: '登录成功' }
+      }
+
+      return { success: false, message: data.message || '登录失败' }
+    } catch (err) {
+      return { success: false, message: '网络错误，请检查连接' }
+    }
+  }, [])
+
   const logout = useCallback(() => {
     storage.remove(TOKEN_KEY)
     storage.remove(USER_KEY)
@@ -174,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, loginByPhone, logout }}>
       {children}
     </AuthContext.Provider>
   )
