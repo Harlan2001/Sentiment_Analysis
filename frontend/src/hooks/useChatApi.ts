@@ -227,6 +227,13 @@ export const useAgentChat = () => {
 
   const abortRef = useRef<AbortController | null>(null)
 
+  // 用 ref 持有 streaming 内容快照，避免在 setStreaming updater 里嵌套 setMessages
+  const streamSnapRef = useRef<{
+    content: string
+    toolCalls: ToolCall[]
+    toolResults: ToolCallResult[]
+  }>({ content: '', toolCalls: [], toolResults: [] })
+
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isProcessing) return
 
@@ -237,7 +244,8 @@ export const useAgentChat = () => {
     setThinking(false)
     setError(null)
 
-    // 初始化流式状态
+    // 初始化流式状态 & 快照
+    streamSnapRef.current = { content: '', toolCalls: [], toolResults: [] }
     setStreaming({
       content: '',
       thinking: true,
@@ -257,6 +265,7 @@ export const useAgentChat = () => {
           setStreaming(prev => prev ? { ...prev, thinking: true } : null)
         },
         onContent: (chunk) => {
+          streamSnapRef.current.content += chunk
           setStreaming(prev =>
             prev
               ? { ...prev, content: prev.content + chunk, thinking: false }
@@ -273,6 +282,8 @@ export const useAgentChat = () => {
             status: 'pending' as const,
             collapsed: true,
           }))
+          streamSnapRef.current.toolCalls = toolCalls
+          streamSnapRef.current.toolResults = tcResults
           setStreaming(prev =>
             prev
               ? { ...prev, toolCalls: toolCalls, toolResults: tcResults, thinking: false }
@@ -293,35 +304,32 @@ export const useAgentChat = () => {
         onToolResult: (toolCallId, toolName, result, err, durationMs) => {
           setStreaming(prev => {
             if (!prev) return null
-            return {
-              ...prev,
-              toolResults: prev.toolResults.map(tr =>
-                tr.toolCallId === toolCallId
-                  ? {
-                      ...tr,
-                      status: err ? ('error' as const) : ('success' as const),
-                      output: result ?? undefined,
-                      error: err ?? undefined,
-                      durationMs: durationMs ?? 0,
-                    }
-                  : tr
-              ),
-            }
+            const updated = prev.toolResults.map(tr =>
+              tr.toolCallId === toolCallId
+                ? {
+                    ...tr,
+                    status: err ? ('error' as const) : ('success' as const),
+                    output: result ?? undefined,
+                    error: err ?? undefined,
+                    durationMs: durationMs ?? 0,
+                  }
+                : tr
+            )
+            streamSnapRef.current.toolResults = updated
+            return { ...prev, toolResults: updated }
           })
         },
         onDone: () => {
-          setStreaming(prev => {
-            if (!prev) return null
-            // 将流式内容固化为最终消息
-            const assistantMsg: AgentMessage = {
-              role: 'assistant',
-              content: prev.content,
-              toolCalls: prev.toolCalls.length > 0 ? prev.toolCalls : undefined,
-              toolResults: prev.toolResults.length > 0 ? prev.toolResults : undefined,
-            }
-            setMessages(prev2 => [...prev2, assistantMsg])
-            return null
-          })
+          // 从 ref 快照构建最终消息（避免在 setStreaming updater 内嵌套 setMessages）
+          const snap = streamSnapRef.current
+          const assistantMsg: AgentMessage = {
+            role: 'assistant',
+            content: snap.content,
+            toolCalls: snap.toolCalls.length > 0 ? snap.toolCalls : undefined,
+            toolResults: snap.toolResults.length > 0 ? snap.toolResults : undefined,
+          }
+          setMessages(prev => [...prev, assistantMsg])
+          setStreaming(null)
           setIsProcessing(false)
           setThinking(false)
         },

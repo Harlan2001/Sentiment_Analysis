@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentiment-cli"
+version = "0.1.0"
+description = "Agent-native CLI wrapping the Bond Yield / Sentiment Analysis backend over HTTP"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Proprietary" }
+authors = [{ name = "KingStar" }]
+keywords = ["agent-native", "cli", "openapi", "bond", "sentiment", "cli-anything"]
+# Zero third-party runtime dependencies: standard library only.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+# SSH relay for `sentiment batch bond-download --ssh` (ChinaBond egress only
+# works from the server). Optional: keep the base CLI dependency-free.
+ssh = ["paramiko>=3.0"]
+
+[project.scripts]
+sentiment = "sentiment_cli.cli:main"
+
+[tool.setuptools]
+packages = ["sentiment_cli"]
+
+[tool.setuptools.package-data]
+sentiment_cli = ["data/openapi.json", "SKILL.md"]
+
+[tool.pytest.ini_options]
+addopts = "-v --tb=short"
+testpaths = ["tests"]

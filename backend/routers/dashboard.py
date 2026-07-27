@@ -199,7 +199,7 @@ def post_behavior_batch(body: BehaviorBatchRequest, request: Request):
                         evt.page_title or page_title(evt.page_route),
                         evt.enter_time, evt.leave_time, evt.duration_sec, evt.exit_type,
                         evt.action_type or "page_enter", evt.action_target,
-                        json.dumps(evt.action_detail, ensure_ascii=False) if evt.action_detail else None,
+                        json.dumps(evt.action_detail, ensure_ascii=False) if evt.action_detail else '{}',
                         evt.client_ts or evt.enter_time,
                     ),
                 )

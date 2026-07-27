@@ -1,0 +1,10 @@
+# local secrets / env (holds the KingStar gateway key — never commit)
+.env
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/

@@ -18,18 +18,3 @@ CREATE TABLE IF NOT EXISTS macro_indicator_data (
     INDEX idx_name (name),
     INDEX idx_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='宏观经济指标数据表';
-
--- 如果表已存在但没有 category/description 列，执行以下 ALTER：
--- ALTER TABLE macro_indicator_data ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT NULL COMMENT '分类' AFTER value;
--- ALTER TABLE macro_indicator_data ADD COLUMN IF NOT EXISTS description VARCHAR(200) DEFAULT NULL COMMENT '指标描述' AFTER category;
--- ALTER TABLE macro_indicator_data ADD INDEX IF NOT EXISTS idx_category (category);
-
--- 注意：MySQL 5.7 不支持 ADD COLUMN IF NOT EXISTS，需先检查列是否存在：
--- SET @dbname = 'Sentiment_analysis';
--- SET @exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME='macro_indicator_data' AND COLUMN_NAME='category');
--- SET @sql = IF(@exists=0, 'ALTER TABLE macro_indicator_data ADD COLUMN category VARCHAR(20) DEFAULT NULL COMMENT ''分类'' AFTER value', 'SELECT ''column exists''');
--- PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
--- 示例：为已导入数据手动标注分类
--- UPDATE macro_indicator_data SET category = 'strong' WHERE zbcode IN ('A010101', 'A010301');
--- UPDATE macro_indicator_data SET category = 'medium' WHERE zbcode IN ('A010401', 'A010601');
