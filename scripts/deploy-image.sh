@@ -45,11 +45,11 @@ deploy_images_to() {
     local SCP_CMD
 
     if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        SSH_CMD="ssh -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
-        SCP_CMD="scp -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
+        SSH_CMD=(ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
+        SCP_CMD=(scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
     else
-        SSH_CMD="ssh"
-        SCP_CMD="scp"
+        SSH_CMD=(ssh)
+        SCP_CMD=(scp)
     fi
 
     echo ""
@@ -88,7 +88,7 @@ deploy_images_to() {
     echo ""
     echo "  [2/5] 传输镜像和配置文件..."
 
-    $SCP_CMD "$BE_TAR" "$FE_TAR" "$CONFIG_TAR" \
+    "${SCP_CMD[@]}" "$BE_TAR" "$FE_TAR" "$CONFIG_TAR" \
         "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
 
     rm -f "$CONFIG_TAR"
@@ -99,7 +99,7 @@ deploy_images_to() {
     echo ""
     echo "  [3/5] 加载镜像..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  加载后端镜像..."
 gunzip -c ${BE_TAR} | docker load
@@ -114,7 +114,7 @@ REMOTE_EOF
     echo ""
     echo "  [4/5] 解包配置文件..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 tar -xzf sentiment-config-${TARGET}.tar.gz
 rm sentiment-config-${TARGET}.tar.gz
@@ -126,7 +126,7 @@ REMOTE_EOF
     echo ""
     echo "  [5/5] 重启服务..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 docker compose up -d --force-recreate
 echo ""

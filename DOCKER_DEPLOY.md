@@ -145,57 +145,6 @@ PYTHONUNBUFFERED=1
 3. 传输 `release/{target}.env` + `docker-compose.yml` + 定时任务脚本
 4. 服务器 `gunzip -c | docker load` → `docker compose up -d --force-recreate`
 
-## 6. 目录结构
-
-### 构建机（你的开发机）
-
-```
-.
-├── docker-compose.yml       # 编排文件
-├── Dockerfile               # 后端镜像
-├── pyproject.toml           # Python 项目配置
-├── uv.lock                  # 依赖锁定文件
-├── main.py
-├── backend/
-├── frontend/
-│   ├── Dockerfile           # 前端镜像
-│   ├── nginx.conf
-│   └── src/                 # 前端源码
-├── release/
-│   ├── bigfrontend.env      # 大前台环境变量
-│   └── saas.env             # Saas 环境变量
-├── scripts/
-│   ├── deploy_backend.sh    # 模式 A：后端代码快速部署
-│   ├── deploy_frontend.sh   # 模式 B：前端镜像部署
-│   ├── deploy-image.sh      # 模式 C：完整镜像重建部署
-│   └── deploy/
-│       ├── yield_update_bigfrontend.sh    # Cron: 收益率更新
-│       ├── yield_update_saas.sh
-│       ├── report_push_bigfrontend.sh     # Cron: 报告生成 & 推送
-│       ├── report_push_saas.sh
-│       ├── analysis_fallback_bigfrontend.sh  # Cron: 分析兜底
-│       └── analysis_fallback_saas.sh
-└── data/                    # 示例数据（不部署到服务器）
-```
-
-### 服务器
-
-```
-/opt/sentiment/          ← 大前台
-/data/sentiment/         ← Saas
-├── docker-compose.yml
-├── .env                        # 生产环境变量（由 release/{target}.env 复制而来）
-├── main.py                     ← volume 挂载（:ro）
-├── backend/                    ← volume 挂载（:ro）
-├── data/                       ← 数据持久化
-├── logs/                       ← 日志
-├── models/                     ← ML 模型
-├── sentiment-backend.tar.gz    ← 模式 B/C 传输的镜像文件（部署后删除）
-├── sentiment-frontend.tar.gz   ← 模式 B/C 传输的镜像文件（部署后删除）
-├── yield_update.sh             ← 从 scripts/deploy/*_{target}.sh 重命名
-├── report_push.sh
-└── analysis_fallback.sh
-```
 
 ## 7. 首次部署
 

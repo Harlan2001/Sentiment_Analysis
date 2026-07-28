@@ -46,7 +46,7 @@ def generate_latest_pdf() -> Optional[Tuple[str, str]]:
             report_date = row[0] if isinstance(row[0], date) else row[0]
 
         pdf_path, _actual_trade_date = generate_prediction_pdf(report_date=report_date)
-        return str(pdf_path), pdf_path.name
+        return str(pdf_path), os.path.basename(pdf_path)
     except Exception as e:
         logger.error("[PDF] 生成失败: %s", e, exc_info=True)
         return None

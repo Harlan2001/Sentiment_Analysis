@@ -9,6 +9,7 @@ PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 +
 import json
 import logging
 import os
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
@@ -21,6 +22,7 @@ logger = logging.getLogger("pdf_generator")
 # 项目根目录 (backend/push/pdf_generator.py → backend → 项目根)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PDF_DIR = Path(os.getenv("PDF_OUTPUT_DIR", str(_PROJECT_ROOT / "data" / "pdf")))
+FONTS_DIR = _PROJECT_ROOT / "data" / "fonts"
 
 # Jinja2 模板环境
 _TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -166,7 +168,12 @@ def _build_report_html(report: dict) -> str:
 
     # ── 渲染模板 ──
     template = _jinja_env.get_template("report.html")
+
+    # 构造字体目录的 file:// URL（正斜杠，适配所有平台）
+    fonts_url = f"file:///{str(FONTS_DIR.resolve()).replace(os.sep, '/')}"
+
     html = template.render(
+        fonts_dir=fonts_url,
         trade_date=trade_date,
         created_at=created_at,
         model_name=report["model_name"],
@@ -232,13 +239,27 @@ def generate_prediction_pdf(
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.set_content(html, wait_until="networkidle")
-            page.pdf(
-                path=output_path,
-                format="A4",
-                margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
-                print_background=True,
-            )
+
+            # 写 HTML 到临时文件，再用 file:// URL 加载。
+            # page.set_content() 使用 about:blank 源，无法访问系统字体；
+            # file:// 协议下 Chromium 可以正常读取 @font-face 引用的字体文件。
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".html", encoding="utf-8", delete=False
+            ) as tmp:
+                tmp.write(html)
+                tmp_path = tmp.name
+
+            try:
+                page.goto(f"file:///{tmp_path.replace(os.sep, '/')}", wait_until="networkidle")
+                page.pdf(
+                    path=output_path,
+                    format="A4",
+                    margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
+                    print_background=True,
+                )
+            finally:
+                os.unlink(tmp_path)
+
             browser.close()
 
         file_size_kb = Path(output_path).stat().st_size / 1024

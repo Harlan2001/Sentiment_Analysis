@@ -60,11 +60,11 @@ deploy_to() {
     local SSH_CMD
 
     if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        SCP_CMD="scp -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
-        SSH_CMD="ssh -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
+        SCP_CMD=(scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
+        SSH_CMD=(ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
     else
-        SCP_CMD="scp"
-        SSH_CMD="ssh"
+        SCP_CMD=(scp)
+        SSH_CMD=(ssh)
     fi
 
     echo ""
@@ -76,14 +76,14 @@ deploy_to() {
     echo ""
     echo "  [1/2] 传输镜像..."
 
-    $SCP_CMD "$IMAGE_TAR" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
+    "${SCP_CMD[@]}" "$IMAGE_TAR" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
     echo "  ✓ 传输完成"
 
     # --- 加载镜像并重启 ---
     echo ""
     echo "  [2/2] 加载镜像并重启前端..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  加载镜像..."
 gunzip -c ${IMAGE_TAR} | docker load

@@ -4,6 +4,21 @@
 <meta charset="utf-8">
 <title>AI 债券市场智能分析报告</title>
 <style>
+  /* ========== 字体声明 ========== */
+  /* Noto Sans SC 字体文件放在 data/fonts/ 下，通过绝对 file:// URL 加载 */
+  @font-face {
+    font-family: "Noto Sans SC";
+    src: url("{{ fonts_dir }}/NotoSansSC-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "Noto Sans SC";
+    src: url("{{ fonts_dir }}/NotoSansSC-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+  }
+
   /* ========== 页面基础 ========== */
   @page {
     size: A4;
@@ -25,7 +40,7 @@
   html, body {
     background: #ffffff !important;
     color: #1f2937 !important;
-    font-family: "PingFang SC", "Microsoft YaHei", "SimSun", serif;
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "SimSun", serif;
     font-size: 10.5pt;
     line-height: 1.8;
   }
@@ -276,7 +291,7 @@
     transform: rotate(-35deg) !important;
     pointer-events: none !important;
     z-index: 9999 !important;
-    font-family: "Microsoft YaHei", sans-serif !important;
+    font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif !important;
     letter-spacing: 6px !important;
     white-space: pre !important;
     overflow: hidden !important;

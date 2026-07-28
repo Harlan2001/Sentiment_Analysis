@@ -41,11 +41,11 @@ deploy_to() {
     local SCP_CMD
 
     if [ "${IS_SAAS[$TARGET]}" = "true" ]; then
-        SSH_CMD="ssh -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
-        SCP_CMD="scp -o ProxyCommand='ssh -p 2222 root@114.67.114.200 -W %h:%p'"
+        SSH_CMD=(ssh -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
+        SCP_CMD=(scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p")
     else
-        SSH_CMD="ssh"
-        SCP_CMD="scp"
+        SSH_CMD=(ssh)
+        SCP_CMD=(scp)
     fi
 
     echo ""
@@ -74,6 +74,10 @@ deploy_to() {
         cp "$f" "$TMPDIR/scripts/$newname"
     done
 
+    # 清理编译缓存
+    find "$TMPDIR" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+    find "$TMPDIR" -type f -name '*.pyc' -delete 2>/dev/null || true
+
     echo "  ✓ 部署包构建完成"
 
     # --- 传输 ---
@@ -82,7 +86,7 @@ deploy_to() {
 
     local TARBALL="/tmp/sentiment-deploy-${TARGET}.tar.gz"
     tar -czf "$TARBALL" -C "$TMPDIR" .
-    $SCP_CMD "$TARBALL" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
+    "${SCP_CMD[@]}" "$TARBALL" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
     rm -f "$TARBALL"
     rm -rf "$TMPDIR"
 
@@ -92,7 +96,7 @@ deploy_to() {
     echo ""
     echo "  [3/4] 解包部署文件..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 tar -xzf sentiment-deploy-${TARGET}.tar.gz
 rm sentiment-deploy-${TARGET}.tar.gz
@@ -104,7 +108,7 @@ REMOTE_EOF
     echo ""
     echo "  [4/4] 重启后端..."
 
-    $SSH_CMD "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
+    "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  重启容器..."
 docker compose restart backend
