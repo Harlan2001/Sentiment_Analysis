@@ -9,6 +9,7 @@ Agent 循环模块
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -176,7 +177,7 @@ async def run_agent_loop(
                     t_start = time.monotonic()
                     if executor:
                         try:
-                            result = executor(**arguments)
+                            result = await asyncio.to_thread(executor, **arguments)
                         except Exception as exc:
                             logger.exception("工具 %s 执行异常", tool_name)
                             result = {"error": f"工具执行失败: {str(exc)}"}

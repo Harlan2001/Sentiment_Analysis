@@ -29,13 +29,39 @@ kingstar_client = OpenAI(
 CHAT_MODEL = os.getenv("CHAT_MODEL_NAME") or "volcengine/doubao-seed-2-0-code-preview-260215"
 
 # ── 系统提示词 ──
-CHAT_SYSTEM_PROMPT = """你是一个专业的中国债券市场智能分析助手。
+def _build_system_prompt() -> str:
+    from backend.agent.spec import load_spec, filter_agent_operations
 
-你可以使用工具（Skills）来获取实时数据：
-- 新闻搜索与分析：按日期、关键词搜索新闻；查看新闻详情；搜索语义相似的历史新闻
-- 因子分析：列出所有影响因子；查询特定因子关联的新闻
-- 宏观信号：计算因子的存在性/方向性信号（带时间衰减加权）
-- 收益率数据：获取历史国债收益率曲线
+    spec = load_spec()
+    agent_ops = filter_agent_operations(spec)
+
+    group_tools: dict[str, list[str]] = {}
+    for op in agent_ops:
+        tool_name = f"{op.group}_{op.name}".replace("-", "_")
+        group_tools.setdefault(op.group, []).append(tool_name)
+
+    group_descriptions = {
+        "news": "新闻搜索与分析：按日期/来源搜索新闻、查看新闻详情和AI分析、"
+                "搜索语义相似新闻、查看新闻关联的收益率变化",
+        "factors": "因子分析：列出所有影响因子、按类别过滤"
+                   "（POLICY/MACRO/LIQUIDITY/RISK/SENTIMENT/INDUSTRY）",
+        "forecast": "行情预测：获取最新预测报告、查看历史预测记录",
+        "macro": "宏观信号：计算因子的存在性/方向性信号（带时间衰减加权）、查看信号计算日志",
+        "strategy": "策略快照：获取当前策略配置快照",
+        "recommend": "AI策略推荐：获取最新AI投资策略推荐、查看推荐历史、列出可用策略",
+        "change": "变动监控：查看策略变动快照时间线",
+        "graph": "知识图谱：查询新闻关联的知识图谱增强数据",
+    }
+
+    groups_text = []
+    for gname in sorted(group_tools):
+        desc = group_descriptions.get(gname, f"{gname} 相关数据查询")
+        groups_text.append(f"- {desc}（工具: {', '.join(group_tools[gname])}）")
+
+    return f"""你是一个专业的中国债券市场智能分析助手。
+
+你可以使用工具来获取实时数据：
+{chr(10).join(groups_text)}
 
 回复要求：
 1. **必须先调用工具**获取真实数据，再回答用户问题——不要凭空编造数据
@@ -44,6 +70,8 @@ CHAT_SYSTEM_PROMPT = """你是一个专业的中国债券市场智能分析助�
 4. 使用 "→" 符号展示因果逻辑链
 5. 保持客观中立，不做具体投资建议
 6. 如果工具返回空结果或无数据，如实告知用户"""
+
+CHAT_SYSTEM_PROMPT = _build_system_prompt()
 
 
 # ── 请求模型 ──

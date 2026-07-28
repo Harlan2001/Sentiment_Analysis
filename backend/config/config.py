@@ -108,8 +108,9 @@ ANALYSIS_MODEL_PRIORITY = ["doubao", "deepseek", "qwen", "default"]
 # 简化注册表
 ANALYSIS_MODEL_REGISTRY = {
     "doubao": {"provider_model": "volcengine/doubao-seed-2-0-code-preview-260215", "description": "豆包模型", "enabled": True},
-    "deepseek": {"provider_model": "aliyun/deepseek-v4-pro", "description": "DeepSeek 模型", "enabled": True},
+    "deepseek": {"provider_model": "deepseek/deepseek-v4-pro", "description": "DeepSeek 模型", "enabled": True},
     "qwen": {"provider_model": "aliyun/qwen3.6-flash", "description": "Qwen 模型", "enabled": True},
+    "glm": {"provider_model": "aliyun/glm-5.2", "description": "智谱 模型", "enabled": True}
 }
 
 def get_default_analysis_model_name() -> str:

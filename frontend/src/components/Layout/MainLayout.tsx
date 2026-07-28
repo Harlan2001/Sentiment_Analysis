@@ -107,7 +107,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <button
                   onClick={() => {
                     logout();
-                    window.location.href = '/login';
+                    window.location.href = import.meta.env.BASE_URL + 'login';
                   }}
                   data-track="logout"
                   className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded border border-red-700/30 hover:bg-red-900/20 transition-colors"
