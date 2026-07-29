@@ -1,7 +1,6 @@
-"""Apply the isolated AI strategy history schema migration.
+"""Apply the AI strategy history schema migration to the project business database.
 
-This script intentionally rejects the existing business database name. It is a
-manual, explicit operation and is never called by application startup.
+This script is a manual, explicit operation and is never called by application startup.
 """
 
 from __future__ import annotations
@@ -23,22 +22,19 @@ MIGRATIONS = {
 
 def _connection_settings() -> dict[str, object]:
     required = {
-        "host": "AI_STRATEGY_HISTORY_MYSQL_HOST",
-        "user": "AI_STRATEGY_HISTORY_MYSQL_USER",
-        "password": "AI_STRATEGY_HISTORY_MYSQL_PASSWORD",
-        "database": "AI_STRATEGY_HISTORY_MYSQL_DATABASE",
+        "host": "MYSQL_HOST",
+        "user": "MYSQL_USER",
+        "password": "MYSQL_PASSWORD",
+        "database": "MYSQL_DATABASE",
     }
     values = {field: os.getenv(variable, "").strip() for field, variable in required.items()}
     missing = [variable for field, variable in required.items() if not values[field]]
     if missing:
-        raise RuntimeError("Missing history database configuration: " + ", ".join(missing))
-    business_database = os.getenv("MYSQL_DATABASE", "").strip()
-    if business_database and values["database"] == business_database:
-        raise RuntimeError("Refusing to apply history migration to MYSQL_DATABASE")
+        raise RuntimeError("Missing database configuration: " + ", ".join(missing))
     return {
         **values,
-        "port": int(os.getenv("AI_STRATEGY_HISTORY_MYSQL_PORT", "3306")),
-        "charset": os.getenv("AI_STRATEGY_HISTORY_MYSQL_CHARSET", "utf8mb4").strip() or "utf8mb4",
+        "port": int(os.getenv("MYSQL_PORT", "3306")),
+        "charset": os.getenv("MYSQL_CHARSET", "utf8mb4").strip() or "utf8mb4",
         "autocommit": False,
     }
 
@@ -59,7 +55,7 @@ def main() -> None:
             for statement in _statements(MIGRATIONS[direction]):
                 cursor.execute(statement)
         connection.commit()
-    print(f"Applied AI strategy history {direction} migration to the configured isolated schema.")
+    print(f"Applied AI strategy history {direction} migration to the project database.")
 
 
 if __name__ == "__main__":

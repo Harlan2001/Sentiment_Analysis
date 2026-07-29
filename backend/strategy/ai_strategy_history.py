@@ -1,15 +1,16 @@
-﻿"""独立历史会话库，不复用项目业务库连接池。"""
+﻿"""独立历史会话库，复用项目业务库连接池。"""
 
 from __future__ import annotations
 
 import json
-import os
 from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Iterator
 
 import pymysql
 from pymysql.cursors import DictCursor
+
+from backend.config.config import MYSQL_CONFIG
 
 
 class HistoryStoreConfigurationError(RuntimeError):
@@ -43,29 +44,14 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 class AiStrategyHistoryRepository:
-    """面向独立 MySQL schema 的会话、消息与版本仓储。"""
+    """AI 策略会话、消息与版本仓储，复用项目业务库连接。"""
 
     def __init__(self, settings: dict[str, Any]):
         self._settings = settings
 
     @classmethod
     def from_environment(cls) -> "AiStrategyHistoryRepository":
-        key_map = {
-            "host": "AI_STRATEGY_HISTORY_MYSQL_HOST",
-            "user": "AI_STRATEGY_HISTORY_MYSQL_USER",
-            "password": "AI_STRATEGY_HISTORY_MYSQL_PASSWORD",
-            "database": "AI_STRATEGY_HISTORY_MYSQL_DATABASE",
-        }
-        values = {key: os.getenv(name, "").strip() for key, name in key_map.items()}
-        missing = [name for key, name in key_map.items() if not values[key]]
-        if missing:
-            raise HistoryStoreConfigurationError("历史库未配置，缺少 " + ", ".join(missing))
-        try:
-            values["port"] = int(os.getenv("AI_STRATEGY_HISTORY_MYSQL_PORT", "3306"))
-        except ValueError as exc:
-            raise HistoryStoreConfigurationError("AI_STRATEGY_HISTORY_MYSQL_PORT 必须为整数") from exc
-        values["charset"] = os.getenv("AI_STRATEGY_HISTORY_MYSQL_CHARSET", "utf8mb4").strip() or "utf8mb4"
-        return cls(values)
+        return cls(dict(MYSQL_CONFIG))
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:

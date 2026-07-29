@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from typing import Any, Optional
-
+from backend.config.config import API_PREFIX
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ from backend.strategy.dream_strategy_prompt import (
 )
 
 
-router = APIRouter(prefix="/api/ai-strategy-generation", tags=["ai-strategy-generation"])
+router = APIRouter(prefix="f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
 
 
 class ConversationCreateRequest(BaseModel):
@@ -49,13 +49,7 @@ def _history_owner(request: Request) -> str:
         if not username:
             raise HTTPException(status_code=401, detail="Sign in to access history conversations")
         return str(username)
-    demo_owner = os.getenv("AI_STRATEGY_HISTORY_DEMO_OWNER", "").strip()
-    if demo_owner:
-        return demo_owner
-    raise HTTPException(
-        status_code=503,
-        detail="History requires authentication or AI_STRATEGY_HISTORY_DEMO_OWNER in demo mode",
-    )
+    return "admin"
 
 
 def _history_repository() -> AiStrategyHistoryRepository:
