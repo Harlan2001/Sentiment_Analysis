@@ -127,12 +127,14 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   label?: string
   error?: string
   helperText?: string
+  containerClassName?: string
 }
 
 const Textarea: React.FC<TextareaProps> = ({
   label,
   error,
   helperText,
+  containerClassName = '',
   className = '',
   ...props
 }) => {
@@ -143,7 +145,7 @@ const Textarea: React.FC<TextareaProps> = ({
   `
   
   return (
-    <div className="space-y-1">
+    <div className={`space-y-1 ${containerClassName}`}>
       {label && (
         <label className="block text-sm font-medium text-gray-300">
           {label}

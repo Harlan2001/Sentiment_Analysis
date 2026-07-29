@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { format, subDays, addDays } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
@@ -11,6 +12,7 @@ import NewsDetail from './NewsDetail'
 import type { YieldPoint, NewsItem } from '../../types'
 
 const NewsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   // 默认日期：使用当前日期作为初始值，获取最新交易日后会更新
   const today = format(new Date(), 'yyyy-MM-dd')
   const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd')
@@ -25,6 +27,20 @@ const NewsPage: React.FC = () => {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedDateForNews, setSelectedDateForNews] = useState<string | null>(null)
+
+  React.useEffect(() => {
+    const newsId = Number(searchParams.get('newsId'))
+    setSelectedNewsId(Number.isSafeInteger(newsId) && newsId > 0 ? newsId : null)
+  }, [searchParams])
+
+  const closeNewsDetail = useCallback(() => {
+    setSelectedNewsId(null)
+    if (searchParams.has('newsId')) {
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.delete('newsId')
+      setSearchParams(nextSearchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
   
   // 收益率期限选项
   const yieldPeriods = ['3月', '6月', '1年', '2年', '3年', '5年', '7年', '10年', '30年']
@@ -401,7 +417,7 @@ const NewsPage: React.FC = () => {
               ) : selectedNewsDetail ? (
                 <NewsDetail
                   news={selectedNewsDetail}
-                  onClose={() => setSelectedNewsId(null)}
+                  onClose={closeNewsDetail}
                   onNewsSelect={(newsId) => setSelectedNewsId(newsId)}
                   selectedModelName={selectedModel}
                 />
