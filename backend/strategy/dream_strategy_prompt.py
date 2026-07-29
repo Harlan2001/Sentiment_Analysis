@@ -6,10 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from backend.strategy.sentiment_context import (
-    MarketContextScope,
-    build_sentiment_strategy_context,
-)
+from backend.strategy.sentiment_context import MarketContextScope, build_sentiment_strategy_context
+
 
 TEMPLATE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -75,9 +73,7 @@ def _resolve_instrument(requirement: str) -> InstrumentDefinition:
 
     normalized = "".join(requirement.upper().split())
     for instrument in INSTRUMENTS:
-        if any(
-            keyword.upper() in normalized for keyword in instrument.request_keywords
-        ):
+        if any(keyword.upper() in normalized for keyword in instrument.request_keywords):
             return instrument
     return DEFAULT_INSTRUMENT
 
@@ -112,9 +108,7 @@ def _format_yields(yield_curve: list[dict[str, Any]], scope: MarketContextScope)
     )
 
 
-def _sentiment_guidance(
-    counts: dict[str, int], scope: MarketContextScope
-) -> tuple[str, str]:
+def _sentiment_guidance(counts: dict[str, int], scope: MarketContextScope) -> tuple[str, str]:
     if not scope.directional_trade_guidance:
         return (
             f"已仅按{scope.label}检索新闻；原有方向标签不直接等同于{scope.label}多空。",
@@ -123,10 +117,7 @@ def _sentiment_guidance(
     if counts["positive"] > counts["negative"]:
         return f"利多{scope.label}信号占优", "将新闻仅用于方向确认或降低开仓阈值"
     if counts["negative"] > counts["positive"]:
-        return (
-            f"利空{scope.label}信号占优",
-            "将新闻仅用于空头方向确认、提高开仓阈值或风险降级",
-        )
+        return f"利空{scope.label}信号占优", "将新闻仅用于空头方向确认、提高开仓阈值或风险降级"
     return f"利多与利空{scope.label}信号均衡或不足", "不以新闻形成方向，必要时暂停交易"
 
 
@@ -140,7 +131,7 @@ def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
 [EXECUTION RULES]
 - Continue the existing DreamStrategy session and directly generate a complete strategy response now.
 - The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
-- If important execution parameters are missing, ask concise follow-up questions instead of inventing defaults. When the user supplies them, use those additions to generate the next strategy response in this same session.
+- Do not ask follow-up questions or list missing parameters. When information is absent, choose conservative, conventional defaults and state those defaults briefly in the strategy summary.
 - Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
 - If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies.
 - Return the complete strategy code, concise logic summary, and backtest result in the same language as the user request.
@@ -169,19 +160,13 @@ def apply_user_edited_requirement(system_draft_prompt: str, edited_prompt: str) 
         raise ValueError("News references, scope, and audit text are protected")
 
     requirement = "\n".join(
-        line.rstrip()
-        for line in edited_prompt[
-            edited_start + len(EDITABLE_SECTION_START) : edited_end
-        ]
-        .strip()
-        .splitlines()
+        line.rstrip() for line in edited_prompt[edited_start + len(EDITABLE_SECTION_START):edited_end].strip().splitlines()
     ).strip()
     if not requirement:
         raise ValueError("Strategy requirement must not be empty")
     if len(requirement) > 2000:
         raise ValueError("Strategy requirement must not exceed 2000 characters")
     return f"{draft_prefix}\n{requirement}\n{draft_suffix}"
-
 
 def build_dream_strategy_prompt(
     requirement: str,
@@ -194,9 +179,7 @@ def build_dream_strategy_prompt(
     if not normalized_requirement:
         raise ValueError("策略需求不能为空")
     instrument = _resolve_instrument(normalized_requirement)
-    context = build_sentiment_strategy_context(
-        lookback_days, model_name, instrument.market_scope
-    )
+    context = build_sentiment_strategy_context(lookback_days, model_name, instrument.market_scope)
     counts = context["news_sentiment"]["counts"]
     conclusion, action = _sentiment_guidance(counts, instrument.market_scope)
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -207,9 +190,7 @@ def build_dream_strategy_prompt(
         "FREQUENCY": DEFAULT_FREQUENCY,
         "MARKET_SCOPE": instrument.market_scope.label,
         "MARKET_TECHNICAL_STATE": TECHNICAL_STATE,
-        "YIELD_CURVE_SUMMARY": _format_yields(
-            context["yield_curve"], instrument.market_scope
-        ),
+        "YIELD_CURVE_SUMMARY": _format_yields(context["yield_curve"], instrument.market_scope),
         "REPORT_GENERATED_AT": context["generated_at"],
         "WINDOW_START": context["window_start"].strftime("%Y-%m-%d %H:%M"),
         "WINDOW_END": context["reference_time"].strftime("%Y-%m-%d %H:%M"),
@@ -218,15 +199,11 @@ def build_dream_strategy_prompt(
         "DIRECTIONAL_EVENT_COUNT": str(counts["positive"] + counts["negative"]),
         "POSITIVE_EVENT_COUNT": str(counts["positive"]),
         "NEGATIVE_EVENT_COUNT": str(counts["negative"]),
-        "SHORT_HORIZON_COUNT": str(
-            context["news_sentiment"]["horizons"].get("短期", 0)
-        ),
+        "SHORT_HORIZON_COUNT": str(context["news_sentiment"]["horizons"].get("短期", 0)),
         "REPRESENTATIVE_EVENTS": _format_events(context["events"]),
         "POSITIVE_FACTORS": _format_factors(context["factors"]["positive"]),
         "NEGATIVE_FACTORS": _format_factors(context["factors"]["negative"]),
-        "YIELD_CURVE_DETAIL": _format_yields(
-            context["yield_curve"], instrument.market_scope
-        ),
+        "YIELD_CURVE_DETAIL": _format_yields(context["yield_curve"], instrument.market_scope),
         "SENTIMENT_CONCLUSION": conclusion,
         "SENTIMENT_STRATEGY_ACTION": action,
     }

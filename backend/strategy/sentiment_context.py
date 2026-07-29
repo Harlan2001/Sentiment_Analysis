@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from backend.common.database import get_db_connection
 from backend.config.config import get_default_analysis_model_name
 
+
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_LOOKBACK_DAYS = 30
 YIELD_PERIODS = ("1Y", "5Y", "10Y", "30Y")
@@ -42,30 +43,19 @@ def _direction_counts(rows: list[tuple[str, int]]) -> dict[str, int]:
 def _direction_label(direction: str, scope: MarketContextScope) -> str:
     normalized = (direction or "neutral").lower()
     if not scope.directional_trade_guidance:
-        return {"positive": "正向情绪标注", "negative": "负向情绪标注"}.get(
-            normalized, "中性"
-        )
-    return {
-        "positive": f"利多{scope.label}",
-        "negative": f"利空{scope.label}",
-        "neutral": "中性",
-    }.get(normalized, "中性")
+        return {"positive": "正向情绪标注", "negative": "负向情绪标注"}.get(normalized, "中性")
+    return {"positive": f"利多{scope.label}", "negative": f"利空{scope.label}", "neutral": "中性"}.get(normalized, "中性")
 
 
-def _reference_usage(
-    direction: str, scope: MarketContextScope, in_sentiment_window: bool
-) -> str:
+def _reference_usage(direction: str, scope: MarketContextScope, in_sentiment_window: bool) -> str:
     """Explain whether a saved reference is directional evidence or background only."""
-    window_label = (
-        "当前统计窗口" if in_sentiment_window else f"{MAX_LOOKBACK_DAYS}日补充背景"
-    )
+    window_label = "当前统计窗口" if in_sentiment_window else f"{MAX_LOOKBACK_DAYS}日补充背景"
     normalized = (direction or "neutral").lower()
     if not scope.directional_trade_guidance:
         return f"{window_label}的{scope.label}背景；不直接作为标的多空依据"
     if normalized in {"positive", "negative"} and in_sentiment_window:
         return "用于方向确认与风险过滤；不单独触发交易"
     return f"{window_label}的市场背景与风险提示；不单独触发交易"
-
 
 def _compact_text(value: Any, limit: int = 56) -> str:
     text = " ".join(str(value or "").split())
@@ -84,9 +74,7 @@ def _build_synthesis(news_counts: dict[str, int], scope: MarketContextScope) -> 
         )
     directional_total = news_counts["positive"] + news_counts["negative"]
     if directional_total == 0:
-        return (
-            "当前范围没有方向明确的新闻；不以新闻形成交易方向，等待价格和技术信号确认。"
-        )
+        return "当前范围没有方向明确的新闻；不以新闻形成交易方向，等待价格和技术信号确认。"
     if news_counts["positive"] > news_counts["negative"]:
         return f"利多{scope.label}信号占优；仅在价格确认后考虑使用与趋势一致的仓位。"
     if news_counts["negative"] > news_counts["positive"]:
@@ -119,22 +107,15 @@ def _build_prompt(
     yield_curve: list[dict[str, Any]],
     scope: MarketContextScope,
 ) -> str:
-    event_text = (
-        "\n".join(
-            f"- {item['pub_time']:%m-%d %H:%M} | {item['title']} | "
-            f"{_direction_label(item['direction'], scope)}/{item['horizon']} | {item['reason']}"
-            for item in events
-        )
-        or "- 当前统计窗口及30日补充范围内暂无与标的匹配的新闻。"
-    )
-    yield_text = (
-        "；".join(
-            f"{item['period']} {item['value']:.2f}%（5日{item['change_5d_bp']:+.0f}bp）"
-            for item in yield_curve
-        )
-        if scope.include_yield_curve
-        else "本标的不使用债券收益率曲线；价格和技术数据由策略运行时读取。"
-    )
+    event_text = "\n".join(
+        f"- {item['pub_time']:%m-%d %H:%M} | {item['title']} | "
+        f"{_direction_label(item['direction'], scope)}/{item['horizon']} | {item['reason']}"
+        for item in events
+    ) or "- 当前统计窗口及30日补充范围内暂无与标的匹配的新闻。"
+    yield_text = "；".join(
+        f"{item['period']} {item['value']:.2f}%（5日{item['change_5d_bp']:+.0f}bp）"
+        for item in yield_curve
+    ) if scope.include_yield_curve else "本标的不使用债券收益率曲线；价格和技术数据由策略运行时读取。"
     return (
         "【Sentiment -> 策略 AI 市场情报】\n"
         f"标的情报范围：{scope.label}；产生时点：{reference_time:%Y-%m-%d %H:%M}；"
@@ -164,9 +145,7 @@ def build_sentiment_strategy_context(
     scope_sql, scope_params = _scope_filter(scope)
     with get_db_connection() as conn:
         cur = conn.cursor()
-        cur.execute(
-            f"SELECT MAX(n.pub_time) FROM news n WHERE 1=1{scope_sql}", scope_params
-        )
+        cur.execute(f"SELECT MAX(n.pub_time) FROM news n WHERE 1=1{scope_sql}", scope_params)
         reference_time = cur.fetchone()[0]
         if reference_time is None:
             # Keep the requested instrument scope empty instead of failing the
@@ -204,24 +183,10 @@ def build_sentiment_strategy_context(
                FROM news n LEFT JOIN analysis a ON a.news_id=n.id AND a.model=%s
                WHERE n.pub_time>%s AND n.pub_time<=%s{scope_sql}
                ORDER BY in_sentiment_window DESC, n.pub_time DESC LIMIT 3""",
-            (
-                window_start,
-                selected_model,
-                reference_window_start,
-                reference_time,
-                *scope_params,
-            ),
+            (window_start, selected_model, reference_window_start, reference_time, *scope_params),
         )
         events = []
-        for (
-            news_id,
-            title,
-            pub_time,
-            direction,
-            horizon,
-            reason,
-            in_sentiment_window,
-        ) in cur.fetchall():
+        for news_id, title, pub_time, direction, horizon, reason, in_sentiment_window in cur.fetchall():
             normalized_direction = (direction or "neutral").lower()
             if normalized_direction not in {"positive", "negative", "neutral"}:
                 normalized_direction = "neutral"
@@ -234,11 +199,8 @@ def build_sentiment_strategy_context(
                     "direction": normalized_direction,
                     "direction_label": _direction_label(normalized_direction, scope),
                     "horizon": horizon or "未标注",
-                    "reason": _compact_text(reason)
-                    or "该新闻尚无当前模型的方向分析，仅作为可追溯市场背景。",
-                    "usage": _reference_usage(
-                        normalized_direction, scope, is_current_window
-                    ),
+                    "reason": _compact_text(reason) or "该新闻尚无当前模型的方向分析，仅作为可追溯市场背景。",
+                    "usage": _reference_usage(normalized_direction, scope, is_current_window),
                 }
             )
         cur.execute(
@@ -260,15 +222,7 @@ def build_sentiment_strategy_context(
         )
         positive_factors: list[dict[str, Any]] = []
         negative_factors: list[dict[str, Any]] = []
-        for (
-            code,
-            name,
-            category,
-            factor_type,
-            event_count,
-            net_direction,
-            latest_event_time,
-        ) in cur.fetchall():
+        for code, name, category, factor_type, event_count, net_direction, latest_event_time in cur.fetchall():
             item = {
                 "code": code,
                 "name": name or code,
@@ -284,10 +238,7 @@ def build_sentiment_strategy_context(
 
         grouped_yields: dict[str, list[tuple[Any, float]]] = defaultdict(list)
         if scope.include_yield_curve:
-            cur.execute(
-                "SELECT MAX(date) FROM yield_data WHERE date<=%s",
-                (reference_time.date(),),
-            )
+            cur.execute("SELECT MAX(date) FROM yield_data WHERE date<=%s", (reference_time.date(),))
             latest_yield_date = cur.fetchone()[0]
             if latest_yield_date is not None:
                 placeholders = ",".join(["%s"] * len(YIELD_PERIODS))
@@ -295,11 +246,7 @@ def build_sentiment_strategy_context(
                     f"""SELECT period, date, value FROM yield_data
                         WHERE period IN ({placeholders}) AND date<=%s AND date>=%s
                         ORDER BY period, date""",
-                    (
-                        *YIELD_PERIODS,
-                        latest_yield_date,
-                        latest_yield_date - timedelta(days=14),
-                    ),
+                    (*YIELD_PERIODS, latest_yield_date, latest_yield_date - timedelta(days=14)),
                 )
                 for period, value_date, value in cur.fetchall():
                     grouped_yields[period].append((value_date, float(value)))
@@ -311,14 +258,7 @@ def build_sentiment_strategy_context(
             continue
         value_date, value = rows[-1]
         baseline = rows[-6][1] if len(rows) >= 6 else rows[0][1]
-        yield_curve.append(
-            {
-                "period": period,
-                "date": value_date,
-                "value": value,
-                "change_5d_bp": round((value - baseline) * 100, 1),
-            }
-        )
+        yield_curve.append({"period": period, "date": value_date, "value": value, "change_5d_bp": round((value - baseline) * 100, 1)})
 
     prompt = _build_prompt(
         reference_time,
