@@ -6,23 +6,23 @@
 
 - Python 3.11 或更高版本；项目依赖由 `uv.lock` 锁定。
 - Node.js 20 或更高版本；前端依赖由 `frontend/package-lock.json` 锁定。
-- 可访问的业务 MySQL，以及 DreamStrategy 服务（仅确认生成阶段需要）。
-- 业务库账号至少应能读写用户、新闻、分析、因子、收益率及 AI 策略历史数据。
+- 可访问的业务 MySQL、独立 AI 策略历史 MySQL，以及 DreamStrategy 服务（仅确认生成阶段需要）。
+- 历史库的数据库账号必须有建表/读写权限；业务库账号至少应能读取用户、新闻、分析、因子和收益率数据。
 
 ## 2. 环境变量
 
 1. 复制 `.env.example` 为 `.env`。
 2. 从部署负责人或密钥管理系统取得真实值；不要将 `.env`、密码、JWT 密钥或 Dream 地址写入 Git、日志或截图。
-3. `MYSQL_DATABASE` 为业务库，AI 策略历史表（`ai_strategy_conversations`、`ai_strategy_messages`、`ai_strategy_versions`）直接建在同一库中，无需额外配置。
+3. `MYSQL_DATABASE` 是现有业务库；`AI_STRATEGY_HISTORY_MYSQL_DATABASE` 必须是不同的独立 schema。
 4. 共享环境应设置 `AUTH_ENABLED=true`，并为 `JWT_SECRET_KEY` 配置随机密钥。
 
 `DREAM_PORTAL_CONFIG_URL` 和 `DREAM_TEMPLATE_ID` 缺失时，用户仍可创建提示词草稿；点击“确认发送并生成策略”会返回明确配置错误，且不会产生策略版本。
 
 ## 3. 数据库迁移
 
-AI 策略历史表直接建在业务库 `MYSQL_DATABASE` 中，无需独立 schema。
+所有 AI 策略历史迁移都只能在 `AI_STRATEGY_HISTORY_MYSQL_DATABASE` 执行，禁止在业务库执行。
 
-### 新建历史表
+### 新建空历史库
 
 执行基础迁移一次：
 
@@ -30,7 +30,7 @@ AI 策略历史表直接建在业务库 `MYSQL_DATABASE` 中，无需独立 sche
 uv run python scripts/apply_ai_strategy_history_migration.py
 ```
 
-它会创建 `ai_strategy_conversations`、`ai_strategy_messages`、`ai_strategy_versions` 三张表，已包含提示词快照与回测指标字段。
+它会创建 `ai_strategy_conversations`、`ai_strategy_messages`、`ai_strategy_versions` 三张表，已包含提示词快照与回测指标字段。脚本会拒绝把历史迁移执行到 `MYSQL_DATABASE`。
 
 ### 已部署早期历史库
 
