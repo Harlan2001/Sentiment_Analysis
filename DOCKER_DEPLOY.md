@@ -135,7 +135,7 @@ PYTHONUNBUFFERED=1
 # Saas
 ./scripts/deploy-image.sh saas
 
-# 双服务器
+# 双服务器1
 ./scripts/deploy-image.sh both
 ```
 
