@@ -9,6 +9,12 @@ from contextlib import contextmanager
 from dbutils.pooled_db import PooledDB
 
 
+# Module-level defaults keep direct imports and diagnostic scripts from failing
+# before the FastAPI startup hook creates the connection pool.
+_db_config: Optional["DatabaseConfig"] = None
+_db_pool: Optional[PooledDB] = None
+
+
 class DatabaseConfig:
     """MySQL 数据库配置"""
     def __init__(

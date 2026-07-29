@@ -1,0 +1,1660 @@
+////////////////////////////////////////////////////////////////////////////////
+// DreamServer行情接口定义
+// 版本 1.0.1.25
+// 最后更新日期 2022/08/11
+////////////////////////////////////////////////////////////////////////////////
+
+
+syntax = "proto3";
+
+import "common.proto";
+
+package bitfin.dreamserver.protobuf;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 通用数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// K线周期
+enum CandlePeriod
+{
+	// 占位
+	CP_UNKNOWN = 0;
+	// 1分
+	CP_ONE_MINUTE = 60;
+	// 2分
+	CP_TWO_MINUTES = 120;
+	// 3分
+	CP_THREE_MINUTES = 180;
+	// 5分
+	CP_FIVE_MINUTES = 300;
+	// 10分
+	CP_TEN_MINUTES = 600;
+	// 15分
+	CP_FIFTEEN_MINUTES = 900;
+	// 30分
+	CP_THIRTY_MINUTES = 1800;
+	// 1小时
+	CP_ONE_HOUR = 3600;
+	// 2小时
+	CP_TWO_HOURS = 7200;
+	// 3小时
+	CP_THREE_HOURS = 10800;
+	// 4小时
+	CP_FOUR_HOURS = 14400;
+	// 1日
+	CP_ONE_DAY = 86400;
+	// 1周
+	CP_ONE_WEEK = 604800;
+	// 1月
+	CP_ONE_MONTH = 2592000;
+	// 3月
+	CP_THREE_MONTHS = 7776000;
+	// 6月
+	CP_SIX_MONTHS = 15552000;
+	// 1年
+	CP_ONE_YEAR = 31104000;
+}
+
+
+// K线对齐类型
+enum CandleAlignType
+{
+	// 标准
+	CAT_STANDARD = 0;
+	// 国内股票算法
+	CAT_DOMESTIC_STOCK = 1;
+	// 国内期货算法
+	CAT_DOMESTIC_FUTURE = 2;
+}
+
+
+// K线复权类型
+enum CandleAdjustType
+{
+	// 不复权
+	CAT_NONE = 0;
+	// 前复权
+	CAT_FORWORD = 1;
+	// 后复权
+	CAT_BACKWORD = 2;
+}
+
+
+// 排序方向
+enum SortDirection
+{
+	// 升序
+	SD_ASC = 0;
+	// 降序
+	SD_DEC = 1;
+}
+
+
+// 买卖方向
+enum BuySellDirection
+{
+	// 未知
+	BSD_UNKNOWN = 0;
+	// 买
+	BSD_BUY = 1;
+	// 卖
+	BSD_SELL = 2;
+}
+
+
+// 多空方向
+enum LongShortDirection
+{
+	// 未知
+	LSD_UNKNOWN = 0;
+	// 多
+	LSD_LONG = 1;
+	// 空
+	LSD_SHORT = 2;
+}
+
+
+// 开平方向
+enum OpenCloseDirection
+{
+	// 未知
+	OCD_UNKNOWN = 0;
+	// 开
+	OCD_OPEN = 1;
+	// 平
+	OCD_CLOSE = 2;
+}
+
+
+// 内外盘标志
+enum InsideOutsideFlag
+{
+	// 未知
+	IOF_UNKNOWN = 0;
+	// 内盘（卖盘）
+	IOF_INSIDE = 1;
+	// 外盘（买盘）
+	IOF_OUTSIDE = 2;
+};
+
+
+// 成交性质
+enum TradeNature
+{
+	// 未知
+	TN_UNKNOWN = 0;
+	// 多开
+	TN_LONG_OPEN = 1;
+	// 空开
+	TN_SHORT_OPEN = 2;
+	// 双开
+	TN_DOUBLE_OPEN = 3;
+	// 多平
+	TN_LONG_CLOSE = 4;
+	// 空平
+	TN_SHORT_CLOSE = 5;
+	// 双平
+	TN_DOUBLE_CLOSE = 6;
+	// 多换
+	TN_LONG_CHANGE = 7;
+	// 空换
+	TN_SHORT_CHANGE = 8;
+};
+
+
+// 市场分类
+// 编码定义：商品类型(1位数字) + 分类编号(3位数字)
+// 商品类型：通用(1)，股票(2)，期货(3)，期权(4)，外汇(5)，现货(6)
+// 分类编：编号(001-999)
+enum MarketCategory
+{
+	// 占位
+	MC_UNKNOWN = 0;
+
+	// 国内股票
+	MC_DOMESTIC_STOCK = 2001;
+	// 港股
+	MC_HONGKONG_STOCK = 2002;
+	// 美股
+	MC_AMERICAN_STOCK = 2003;
+
+	// 国内期货
+	MC_DOMESTIC_FUTURE = 3001;
+	// 国外期货
+	MC_FOREIGN_FUTURE = 3002;
+	// 数字货币期货
+	MC_CRYPTOCURRENCY_FUTURE = 3003;
+
+	// 国内股票期权
+	MC_DOMESTIC_STOCK_OPTION = 4001;
+	// 国内期货期权
+	MC_DOMESTIC_FUTURE_OPTION = 4002;
+
+	// 货币外汇
+	MC_CURRENCY_FOREX = 5001;
+	// 数字货币外汇
+	MC_CRYPTOCURRENCY_FOREX = 5002;
+
+	// 国内现货
+	MC_DOMESTIC_SPOT = 6001;
+};
+
+
+// 商品类型
+enum CommodityType
+{
+	// 股票(.S)
+	CT_STOCK = 0;
+	// 期货(.F)
+	CT_FUTURE = 1;
+	// 期权(.O)
+	CT_OPTION = 2;
+	// 外汇(.FX)
+	CT_FOREX = 3;
+	// 现货(.SP)
+	CT_SPOT = 4;
+}
+
+
+// 商品列表字段
+// 编码定义：商品类型(1位数字) + 字段类型(1位数字) + 字段编号(2位数字)
+// 商品类型：通用(1)，股票(2)，期货(3)，期权(4)，外汇(5)，现货(6)
+// 字段类型：信息(1)，行情(2)，财务(3)，其它(4)
+// 字段编号：编号(01-99)
+enum CommodityListField
+{
+	// 占位
+	CLF_UNKNOWN = 0;
+
+	// 商品键值
+	CLF_KEY = 1101;
+	// 商品显示代码
+	CLF_DISPLAY_CODE = 1102;
+	// 商品名称
+	CLF_NAME = 1103;
+	// 商品拼音简称
+	CLF_PY_NAME = 1104;
+	// 价格小数位数
+	CLF_PRECISION = 1105;
+	// 最小变动价位
+	CLF_PRICE_TICK = 1106;
+	// 交易时间段
+	CLF_TRADING_TIMES = 1107;
+	// K线对齐类型
+	CLF_CANDLE_ALIGN_TYPE = 1108;
+	// 时区
+	CLF_TIME_ZONE = 1109;
+	// 币种
+	CLF_CURRENCY = 1110;
+
+	// 时间戳
+	CLF_TIMESTAMP = 1201;
+	// 所属交易日期
+	CLF_TRADING_DAY = 1202;
+	// 最新价
+	CLF_LAST_PRICE = 1203;
+	// 申买价一
+	CLF_BID_PRICE1 = 1204;
+	// 申买量一
+	CLF_BID_VOLUME1 = 1205;
+	// 申卖价一
+	CLF_ASK_PRICE1 = 1206;
+	// 申卖量一
+	CLF_ASK_VOLUME1 = 1207;
+	// 开盘价
+	CLF_OPEN_PRICE = 1208;
+	// 最高价
+	CLF_HIGHEST_PRICE = 1209;
+	// 最低价
+	CLF_LOWEST_PRICE = 1210;
+	// 现手
+	CLF_VOLUME = 1211;
+	// 总成交量
+	CLF_TOTAL_VOLUME = 1212;
+	// 现额
+	CLF_TURNOVER = 1213;
+	// 总成交金额
+	CLF_TOTAL_TURNOVER = 1214;
+	// 昨收盘
+	CLF_PRE_CLOSE_PRICE = 1215;
+	// 收盘价
+	CLF_CLOSE_PRICE = 1216;
+	// 涨停板价
+	CLF_UPPER_LIMIT_PRICE = 1217;
+	// 跌停板价
+	CLF_LOWER_LIMIT_PRICE = 1218;
+	// 均价
+	CLF_AVERAGE_PRICE = 1219;
+	// 涨跌额（当日）
+	CLF_CHANGE = 1220;
+	// 涨跌幅（当日%）
+	CLF_CHANGE_PERCENT = 1221;
+	// 买卖方向
+	CLF_DIRECTION = 1222;
+	// 成交性质
+	CLF_NATURE = 1223;
+	// 内盘（卖盘）
+	CLF_INSIDE = 1224;
+	// 外盘（买盘）
+	CLF_OUTSIDE = 1225;
+	// 内外盘标志
+	CLF_INT_OUT_FLAG = 1226;
+	// 振幅（当日%）
+	CLF_AMPLITUDE = 1227;
+	// 委比（%）
+	CLF_ORDER_RATIO = 1228;
+	// 委差
+	CLF_ORDER_DIFF = 1229;
+	// 量比
+	CLF_VOLUME_RATIO = 1230;
+	// 最新成交手数
+	CLF_LAST_TRADE_VOLUME = 1231;
+
+	// 股票类型（股票专有）
+	CLF_STOCK_TYPE = 2101;
+	// 股票状态（股票专有）
+	CLF_STOCK_STATUS = 2102;
+	// 上市日（YYYYMMDD）（股票专有）
+	CLF_LIST_DATE = 2103;
+	// 总股本（股票专有）
+	CLF_TOTAL_STOCK = 2104;
+	// 流通股（股票专有）
+	CLF_CIRCULATION_STOCK = 2105;
+	// 净资产（股票专有）
+	CLF_NET_ASSET = 2106;
+	// 净利润（股票专有）
+	CLF_NET_PROFIT = 2107;
+
+	// 总市值（股票专有）
+	CLF_TOTAL_VALUE = 2208;
+	// 流通市值（股票专有）
+	CLF_CIRCULATION_MARKET_VALUE = 2209;
+	// 市盈率PE（股票专有）
+	CLF_PRICE_EARNING_RATIO = 2210;
+	// 市净率PBV（股票专有）
+	CLF_PRICE_BOOK_VALUE_RATIO = 2211;
+	// 换手率（当日%）（股票专有）
+	CLF_TURNOVER_RATE = 2212;
+
+	// 期货类型（期货专有）
+	CLF_FUTURE_TYPE = 3101;
+	// 产品代码（期货专有）
+	CLF_PRODUCT_CODE = 3102;
+	// 产品名称（期货专有）
+	CLF_PRODUCT_NAME = 3103;
+	// 市价单最大下单量（期货专有）
+	CLF_MAX_MARKET_ORDER_VOLUME = 3104;
+	// 市价单最小下单量（期货专有）
+	CLF_MIN_MARKET_ORDER_VOLUME = 3105;
+	// 限价单最大下单量（期货专有）
+	CLF_MAX_LIMIT_ORDER_VOLUME = 3106;
+	// 限价单最小下单量（期货专有）
+	CLF_MIN_LIMIT_ORDER_VOLUME = 3107;
+	// 合约数量乘数（期货专有）
+	CLF_VOLUME_MULTIPLE = 3108;
+	// 创建日（YYYYMMDD）（期货专有）
+	CLF_CREATE_DATE = 3109;
+	// 上市日（YYYYMMDD）（期货专有）
+	CLF_OPEN_DATE = 3110;
+	// 到期日（YYYYMMDD）（期货专有）
+	CLF_EXPIRE_DATE = 3111;
+	// 开始交割日（YYYYMMDD）（期货专有）
+	CLF_START_DELIV_DATE = 3112;
+	// 结束交割日（YYYYMMDD）（期货专有）
+	CLF_END_DELIV_DATE = 3113;
+	// 合约状态（期货专有）
+	CLF_FUTURE_STATUS = 3114;
+	// 持仓类型（期货专有）
+	CLF_POSITION_TYPE = 3115;
+	// 持仓日期类型（期货专有）
+	CLF_POSITION_DATE_TYPE = 3116;
+	// 多头保证金率（期货专有）
+	CLF_LONG_MARGIN_RATIO = 3117;
+	// 空头保证金率（期货专有）
+	CLF_SHORT_MARGIN_RATIO = 3118;
+	// 保证金算法（期货专有）
+	CLF_MARGIN_TYPE = 3119;
+	// 主力合约类型（期货专有）
+	CLF_MAIN_TYPE = 3120;
+	// 产品排序权重（期货专有）
+	CLF_PRODUCT_SORT_WEIGHT = 3121;
+	// 基础货币（数字货币专有）
+	CLF_BASE_CURRENCY = 3122;
+	// 报价货币（数字货币专有）
+	CLF_QUOTE_CURRENCY = 3123;
+
+	// 昨持仓量（期货、期权专有）
+	CLF_PRE_OPEN_INTEREST = 3201;
+	// 仓差（期货、期权专有）
+	CLF_OPEN_INTEREST = 3202;
+	// 总持仓量（期货、期权专有）
+	CLF_TOTAL_OPEN_INTEREST = 3203;
+	// 日增仓（期货、期权专有）
+	CLF_DAILY_OPEN_INTEREST_DIFF = 3204;
+	// 开仓（期货、期权专有）
+	CLF_OPEN_POSITION = 3205;
+	// 平仓（期货、期权专有）
+	CLF_CLOSE_POSITION = 3206;
+	// 昨结算价（期货、期权专有）
+	CLF_PRE_SETTLEMENT_PRICE = 3207;
+	// 结算价（期货、期权专有）
+	CLF_SETTLEMENT_PRICE = 3208;
+	// 昨虚实度（期货、期权专有）
+	CLF_PRE_DELTA = 3209;
+	// 今虚实度（期货、期权专有）
+	CLF_DELTA = 3210;
+
+	// 计算指标1（期货、期权专有）
+	CLF_FUTURE_CALC1 = 3401;
+	// 计算指标2（期货、期权专有）
+	CLF_FUTURE_CALC2 = 3402;
+	// 计算指标3（期货、期权专有）
+	CLF_FUTURE_CALC3 = 3403;
+	// 计算指标4（期货、期权专有）
+	CLF_FUTURE_CALC4 = 3404;
+	// 计算指标5（期货、期权专有）
+	CLF_FUTURE_CALC5 = 3405;
+	// 计算指标6（期货、期权专有）
+	CLF_FUTURE_CALC6 = 3406;
+	// 计算指标7（期货、期权专有）
+	CLF_FUTURE_CALC7 = 3407;
+	// 计算指标8（期货、期权专有）
+	CLF_FUTURE_CALC8 = 3408;
+	// 计算指标9（期货、期权专有）
+	CLF_FUTURE_CALC9 = 3409;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 股票数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 股票类型
+enum StockType
+{
+	// 深圳A股
+	ST_SHEN_ZHEN_A = 0;
+	// 深圳B股
+	ST_SHEN_ZHEN_B = 1;
+	// 中小板股
+	ST_ZHONG_XIAO_BAN = 2;
+	// 深圳开放式基金
+	ST_SHEN_ZHEN_KAI_FANG_SHI_JI_JIN = 3;
+	// 深圳封闭式基金
+	ST_SHEN_ZHEN_FENG_BI_SHI_JI_JIN = 4;
+	// 深圳权证
+	ST_SHEN_ZHEN_QUAN_ZHENG = 5;
+	// 深圳债券
+	ST_SHEN_ZHEN_ZHAI_QUAN = 6;
+	// 深圳指数
+	ST_SHEN_ZHEN_ZHI_SHU = 7;
+	// 深圳其他类别
+	ST_SHEN_ZHEN_QI_TA = 8;
+	// 上海A股
+	ST_SHANG_HAI_AGU = 9;
+	// 上海B股
+	ST_SHANG_HAI_BGU = 10;
+	// 上海开放式基金
+	ST_SHANG_HAI_KAI_FANG_SHI_JI_JIN = 11;
+	// 上海封闭式基金
+	ST_SHANG_HAI_FENG_BI_SHI_JI_JIN = 12;
+	// 上海权证
+	ST_SHANG_HAI_QUAN_ZHENG = 13;
+	// 上海债券
+	ST_SHANG_HAI_ZHAI_QUAN = 14;
+	// 上海指数
+	ST_SHANG_HAI_ZHI_SHU = 15;
+	// 上海其他
+	ST_SHANG_HAI_QI_TA = 16;
+	// 三板
+	ST_SAN_BAN = 17;
+	// 创业板股
+	ST_CHUANG_YE_BAN_GU = 18;
+	// 深圳LOF基金
+	ST_SHEN_ZHEN_LOF_JI_JIN = 19;
+	// 上海交易型基金
+	ST_SHANG_HAI_JIAO_YI_XING_JI_JIN = 20;
+	// 深圳国债
+	ST_SHEN_ZHEN_GUO_ZHAI = 21;
+	// 深圳企债
+	ST_SHEN_ZHEN_QI_ZHAI = 22;
+	// 深圳可转债
+	ST_SHEN_ZHEN_KE_ZHUAN_ZHAI = 23;
+	// 深圳回购（该类型包括深圳逆回购数据）
+	ST_SHEN_ZHEN_HUI_GOU = 24;
+	// 上海国债
+	ST_SHANG_HAI_GUO_ZHAI = 25;
+	// 上海企债
+	ST_SHANG_HAI_QI_ZHAI = 26;
+	// 上海可转债
+	ST_SHANG_HAI_KE_ZHUAN_ZHAI = 27;
+	// 上海回购（该类型包括上海逆回购数据）
+	ST_SHANG_HAI_HUI_GOU = 30;
+	// 创新层-协议转让
+	ST_CHUANG_XIN_CENG_XIE_YI_ZHUAN_RANG = 31;
+	// 创新层-做市转让
+	ST_CHUANG_XIN_CENG_ZUO_SHI_ZHUAN_RANG = 32;
+	// 基础层-协议转让
+	ST_JI_CHU_CENG_XIE_YI_ZHUAN_RANG = 33;
+	// 基础层-做市转让
+	ST_JI_CHU_CENG_ZUO_SHI_ZHUAN_RANG = 34;
+	// 其它层-协议转让
+	ST_QI_TA_CENG_XIE_YI_ZHUAN_RANG = 35;
+	// 其它层-做市转让
+	ST_QI_TA_CENG_ZUO_SHI_ZHUAN_RANG = 36;
+	// 竞价转让
+	ST_JING_JIA_ZHUAN_RANG = 37;
+	// 其他转让
+	ST_QI_TA_ZHUAN_RANG = 38;
+	// 优先股(也属于协议转让范围)
+	ST_YOU_XIAN_GU = 39;
+	// 两网及退市A股
+	ST_LIANG_WANG_JI_TUI_SHI_A = 40;
+	// 两网及退市B股
+	ST_LIANG_WANG_JI_TUI_SHI_B = 41;
+	// 三板指数
+	ST_SAN_BAN_ZHI_SHU = 42;
+	// 上海ETF基金期权
+	ST_SHANG_HAI_ETFJI_JIN_QI_QUAN = 60;
+	// 上海A股期权
+	ST_SHANG_HAI_AGU_QI_QUAN = 61;
+	// 深圳期权
+	ST_SHEN_ZHEN_QI_QUAN = 62;
+	// 深圳退市
+	ST_SHEN_ZHEN_TUI_SHI = 64;
+	// 上海退市
+	ST_SHANG_HAI_TUI_SHI = 65;
+	// 上海警示
+	ST_SHANG_HAI_JING_SHI = 66;
+	// 板块
+	ST_BAN_KUAI = 71;
+	// 场外基金
+	ST_CHANG_WAI_JI_JIN = 80;
+	// 深港通
+	ST_SHEN_GANG_TONG = 98;
+	// 沪港通
+	ST_HU_GANG_TONG = 99;
+
+	// 港股
+	ST_HONGKONG_STOCK = 200;
+	// 港股指数
+	ST_HONGKONG_INDEX = 201;
+
+	// 美股
+	ST_AMERICAN_STOCK = 300;
+	// 美股指数
+	ST_AMERICAN_INDEX = 301;
+}
+
+
+// 股票状态
+enum StockStatus
+{
+	// 未上市
+	ST_UNLISTED = 0;
+	// 暂停上市
+	ST_SUSPEND_LISTING = 1;
+	// 上市
+	ST_LISTED = 2;
+	// 配股
+	ST_RIGHT_ISSUE = 3;
+	// 停牌
+	ST_PAUSE = 4;
+	// 退市
+	ST_DELISTED = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 期货数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 期货类型
+enum FutureType
+{
+	// 普通合约
+	FT_NORMAL = 0;
+	// 指数合约
+	FT_INDEX = 1;
+	// 主连合约
+	FT_MAIN = 2;
+	// 近月合约
+	FT_NEARBY = 3;
+}
+
+
+// 期货状态
+enum FutureStatus
+{
+	// 未上市
+	FS_NOT_START = 0;
+	// 上市
+	FS_STARTED = 1;
+	// 停牌
+	FS_PAUSE = 2;
+	// 到期
+	FS_EXPIRED = 3;
+}
+
+
+// 期货持仓类型
+enum FuturePositionType
+{
+	// 净持仓
+	FPT_NET = 0;
+	// 综合持仓
+	FPT_GROSS = 1;
+}
+
+
+// 期货持仓日期类型
+enum FuturePositionDateType
+{
+	// 使用历史持仓
+	FPDT_USE_HISTORY = 0;
+	// 不使用历史持仓
+	FPDT_NO_USE_HISTORY = 1;
+}
+
+
+// 期货保证金类型
+enum FutureMarginType
+{
+	// 普通
+	FMT_NORMAL_MARGIN = 0;
+	// 大额单边保证金
+	FMT_MAX_MARGIN_SIDE = 1;
+}
+
+
+// 期货主力合约类型
+enum FutureMainType
+{
+	// 非主力合约
+	FMT_NONE = 0;
+	// 次主力合约
+	FMT_SUB = 1;
+	// 主力合约
+	FMT_MAIN = 2;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 期权数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 期权类型
+enum OptionType
+{
+	// 普通
+	OT_NORMAL = 0;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 外汇数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 外汇类型
+enum ForexType
+{
+	// 普通
+	FXT_NORMAL = 0;
+	// 币币交易
+	FXT_CRYPTO_CRYPTO = 1;
+	// 法币交易
+	FXT_CRYPTO_FIAT = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 现货数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 现货类型
+enum SpotType
+{
+	// 普通
+	SPT_NORMAL = 0;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 股票消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// TODO:
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 期货消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+// TODO:
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 期权消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// TODO:
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 外汇消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// TODO:
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 现货消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// TODO:
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 通用消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 商品键值
+message CommodityKey
+{
+	// 商品类型
+	CommodityType type = 1;
+	// 交易所代码
+	string exchange_code = 2;
+	// 商品代码
+	string code = 3;
+}
+
+
+// 商品信息
+message CommodityInfo
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 商品显示代码
+	string display_code = 2;
+	// 商品名称
+	string name = 3;
+	// 商品拼音简称
+	string py_name = 4;
+	// 价格小数位数
+	int32 precision = 5;
+	// 最小变动价位
+	double price_tick = 6;
+	// 交易时间段
+	repeated int32 trading_times = 7;
+	// K线对齐类型
+	CandleAlignType candle_align_type = 8;
+	// 时区
+	int32 time_zone = 9;
+	// 币种
+	string currency = 10;
+
+	// 股票类型（股票专有）
+	StockType stock_type = 100;
+	// 股票状态（股票专有）
+	StockStatus stock_status = 101;
+	// 上市日（YYYYMMDD）（股票专有）
+	int32 list_date = 102;
+	// 总股本（股票专有）
+	int64 total_stock = 103;
+	// 流通股（股票专有）
+	int64 circulation_stock = 104;
+	// 净资产（股票专有）
+	double net_asset = 105;
+	// 净利润（股票专有）
+	double net_profit = 106;
+
+	// 期货类型（期货专有）
+	FutureType future_type = 200;
+	// 产品代码（期货专有）
+	string product_code = 201;
+	// 产品名称（期货专有）
+	string product_name = 202;
+	// 市价单最大下单量（期货专有）
+	double max_market_order_volume = 203;
+	// 市价单最小下单量（期货专有）
+	double min_market_order_volume = 204;
+	// 限价单最大下单量（期货专有）
+	double max_limit_order_volume = 205;
+	// 限价单最小下单量（期货专有）
+	double min_limit_order_volume = 206;
+	// 合约数量乘数（期货专有）
+	double volume_multiple = 207;
+	// 创建日（YYYYMMDD）（期货专有）
+	int32 create_date = 208;
+	// 上市日（YYYYMMDD）（期货专有）
+	int32 open_date = 209;
+	// 到期日（YYYYMMDD）（期货专有）
+	int32 expire_date = 210;
+	// 开始交割日（YYYYMMDD）（期货专有）
+	int32 start_deliv_date = 211;
+	// 结束交割日（YYYYMMDD）（期货专有）
+	int32 end_deliv_date = 212;
+	// 合约状态（期货专有）
+	FutureStatus future_status = 213;
+	// 持仓类型（期货专有）
+	FuturePositionType position_type = 214;
+	// 持仓日期类型（期货专有）
+	FuturePositionDateType position_date_type = 215;
+	// 多头保证金率（期货专有）
+	double long_margin_ratio = 216;
+	// 空头保证金率（期货专有）
+	double short_margin_ratio = 217;
+	// 保证金算法（期货专有）
+	FutureMarginType margin_type = 218;
+	// 主力合约类型（期货专有）
+	FutureMainType main_type = 219;
+	// 产品排序权重（期货专有）
+	int32 product_sort_weight = 220;
+	// 基础货币（数字货币专有）
+	string base_currency = 221;
+	// 报价货币（数字货币专有）
+	string quote_currency = 222;
+
+	// 期权类型（期权专有）
+	OptionType option_type = 300;
+
+	// 外汇类型（外汇专有）
+	ForexType forex_type = 400;
+
+	// 现货类型（现货专有）
+	SpotType spot_type = 500;
+}
+
+
+// 商品列表项
+// 编码定义：商品类型(1位数字) + 字段类型(1位数字) + 字段编号(2位数字)
+// 商品类型：通用(1)，股票(2)，期货(3)，期权(4)，外汇(5)，现货(6)
+// 字段类型：信息(1)，行情(2)，财务(3)，其它(4)
+// 字段编号：编号(01-99)
+message CommodityListItem
+{
+	// 商品键值
+	CommodityKey key = 1101;
+	// 商品显示代码
+	string display_code = 1102;
+	// 商品名称
+	string name = 1103;
+	// 商品拼音简称
+	string py_name = 1104;
+	// 价格小数位数
+	int32 precision = 1105;
+	// 最小变动价位
+	double price_tick = 1106;
+	// 交易时间段
+	repeated int32 trading_times = 1107;
+	// K线对齐类型
+	CandleAlignType candle_align_type = 1108;
+	// 时区
+	int32 time_zone = 1109;
+	// 币种
+	string currency = 1110;
+
+	// 时间戳
+	int64 timestamp = 1201;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 1202;
+	// 最新价
+	double last_price = 1203;
+	// 申买价一
+	double bid_price1= 1204;
+	// 申买量一
+	double bid_volume1 = 1205;
+	// 申卖价一
+	double ask_price1 = 1206;
+	// 申卖量一
+	double ask_volume1 = 1207;
+	// 开盘价
+	double open_price = 1208;
+	// 最高价
+	double highest_price = 1209;
+	// 最低价
+	double lowest_price = 1210;
+	// 现手
+	double volume = 1211;
+	// 总成交量
+	double total_volume = 1212;
+	// 现额
+	double turnover = 1213;
+	// 总成交金额
+	double total_turnover = 1214;
+	// 昨收盘
+	double pre_close_price = 1215;
+	// 收盘价
+	double close_price = 1216;
+	// 涨停板价
+	double upper_limit_price = 1217;
+	// 跌停板价
+	double lower_limit_price = 1218;
+	// 均价
+	double average_price = 1219;
+	// 涨跌额（当日）
+	double change = 1220;
+	// 涨跌幅（当日%）
+	double change_percent = 1221;
+	// 买卖方向
+	BuySellDirection direction = 1222;
+	// 成交性质
+	TradeNature nature = 1223;
+	// 内盘（卖盘）
+	int64 inside = 1224;
+	// 外盘（买盘）
+	int64 outside = 1225;
+	// 内外盘标志
+	InsideOutsideFlag int_out_flag = 1226;
+	// 振幅（当日%）
+	double amplitude = 1227;
+	// 委比（%）
+	double order_ratio = 1228;
+	// 委差
+	int32 order_diff = 1229;
+	// 量比
+	double volume_ratio = 1230;
+	// 最新成交手数
+	double last_trade_volume = 1231;
+
+	// 股票类型（股票专有）
+	StockType stock_type = 2101;
+	// 股票状态（股票专有）
+	StockStatus stock_status = 2102;
+	// 上市日（YYYYMMDD）（股票专有）
+	int32 list_date = 2103;
+	// 总股本（股票专有）
+	int64 total_stock = 2104;
+	// 流通股（股票专有）
+	int64 circulation_stock = 2105;
+	// 净资产（股票专有）
+	double net_asset = 2106;
+	// 净利润（股票专有）
+	double net_profit = 2107;
+
+	// 总市值（股票专有）
+	double total_value = 2208;
+	// 流通市值（股票专有）
+	double circulation_market_value = 2209;
+	// 市盈率PE（股票专有）
+	double price_earning_ratio = 2210;
+	// 市净率PBV（股票专有）
+	double price_book_value_ratio = 2211;
+	// 换手率（当日%）（股票专有）
+	double turnover_rate = 2212;
+
+	// 期货类型（期货专有）
+	FutureType future_type = 3101;
+	// 产品代码（期货专有）
+	string product_code = 3102;
+	// 产品名称（期货专有）
+	string product_name = 3103;
+	// 市价单最大下单量（期货专有）
+	double max_market_order_volume = 3104;
+	// 市价单最小下单量（期货专有）
+	double min_market_order_volume = 3105;
+	// 限价单最大下单量（期货专有）
+	double max_limit_order_volume = 3106;
+	// 限价单最小下单量（期货专有）
+	double min_limit_order_volume = 3107;
+	// 合约数量乘数（期货专有）
+	double volume_multiple = 3108;
+	// 创建日（YYYYMMDD）（期货专有）
+	int32 create_date = 3109;
+	// 上市日（YYYYMMDD）（期货专有）
+	int32 open_date = 3110;
+	// 到期日（YYYYMMDD）（期货专有）
+	int32 expire_date = 3111;
+	// 开始交割日（YYYYMMDD）（期货专有）
+	int32 start_deliv_date = 3112;
+	// 结束交割日（YYYYMMDD）（期货专有）
+	int32 end_deliv_date = 3113;
+	// 合约状态（期货专有）
+	FutureStatus future_status = 3114;
+	// 持仓类型（期货专有）
+	FuturePositionType position_type = 3115;
+	// 持仓日期类型（期货专有）
+	FuturePositionDateType position_date_type = 3116;
+	// 多头保证金率（期货专有）
+	double long_margin_ratio = 3117;
+	// 空头保证金率（期货专有）
+	double short_margin_ratio = 3118;
+	// 保证金算法（期货专有）
+	FutureMarginType margin_type = 3119;
+	// 主力合约类型（期货专有）
+	FutureMainType main_type = 3120;
+	// 产品排序权重（期货专有）
+	int32 product_sort_weight = 3121;
+	// 基础货币（数字货币专有）
+	string base_currency = 3122;
+	// 报价货币（数字货币专有）
+	string quote_currency = 3123;
+
+	// 昨持仓量（期货、期权专有）
+	int64 pre_open_interest = 3201;
+	// 仓差（期货、期权专有）
+	int64 open_interest = 3202;
+	// 总持仓量（期货、期权专有）
+	int64 total_open_interest = 3203;
+	// 日增仓（期货、期权专有）
+	int64 daily_open_interest_diff = 3204;
+	// 开仓（期货、期权专有）
+	int64 open_position = 3205;
+	// 平仓（期货、期权专有）
+	int64 close_position = 3206;
+	// 昨结算价（期货、期权专有）
+	double pre_settlement_price = 3207;
+	// 结算价（期货、期权专有）
+	double settlement_price = 3208;
+	// 昨虚实度（期货、期权专有）
+	double pre_delta = 3209;
+	// 今虚实度（期货、期权专有）
+	double delta = 3210;
+
+	// 计算指标1（期货、期权专有）
+	double future_calc1 = 3401;
+	// 计算指标2（期货、期权专有）
+	double future_calc2 = 3402;
+	// 计算指标3（期货、期权专有）
+	double future_calc3 = 3403;
+	// 计算指标4（期货、期权专有）
+	double future_calc4 = 3404;
+	// 计算指标5（期货、期权专有）
+	double future_calc5 = 3405;
+	// 计算指标6（期货、期权专有）
+	double future_calc6 = 3406;
+	// 计算指标7（期货、期权专有）
+	double future_calc7 = 3407;
+	// 计算指标8（期货、期权专有）
+	double future_calc8 = 3408;
+	// 计算指标9（期货、期权专有）
+	double future_calc9 = 3409;
+}
+
+
+// 商品Tick数据
+message CommodityTickData
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 时间戳
+	int64 timestamp = 2;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 3;
+	// 最新价
+	double last_price = 4;
+	// 申买价
+	repeated double bid_prices = 5;
+	// 申买量
+	repeated double bid_volumes = 6;
+	// 申卖价
+	repeated double ask_prices = 7;
+	// 申卖量
+	repeated double ask_volumes = 8;
+	// 开盘价
+	double open_price = 9;
+	// 最高价
+	double highest_price = 10;
+	// 最低价
+	double lowest_price = 11;
+	// 现手
+	double volume = 12;
+	// 总成交量
+	double total_volume = 13;
+	// 现额
+	double turnover = 14;
+	// 总成交金额
+	double total_turnover = 15;
+	// 昨收盘
+	double pre_close_price = 16;
+	// 收盘价
+	double close_price = 17;
+	// 涨停板价
+	double upper_limit_price = 18;
+	// 跌停板价
+	double lower_limit_price = 19;
+	// 均价
+	double average_price = 20;
+	// 涨跌额（当日）
+	double change = 21;
+	// 涨跌幅（当日%）
+	double change_percent = 22;
+	// 买卖方向
+	BuySellDirection direction = 23;
+	// 成交性质
+	TradeNature nature = 24;
+	// 内盘（卖盘）
+	int64 inside = 25;
+	// 外盘（买盘）
+	int64 outside = 26;
+	// 内外盘标志
+	InsideOutsideFlag int_out_flag = 27;
+	// 振幅（当日%）
+	double amplitude = 28;
+	// 委比（%）
+	double order_ratio = 29;
+	// 委差
+	int32 order_diff = 30;
+	// 量比
+	double volume_ratio = 31;
+	// 最新成交手数
+	double last_trade_volume = 32;
+
+	// 总市值（股票专有）
+	double total_value = 107;
+	// 流通市值（股票专有）
+	double circulation_market_value = 108;
+	// 市盈率PE（股票专有）
+	double price_earning_ratio = 109;
+	// 市净率PBV（股票专有）
+	double price_book_value_ratio = 110;
+	// 换手率（当日%）（股票专有）
+	double turnover_rate = 111;
+
+	// 昨持仓量（期货、期权专有）
+	int64 pre_open_interest = 200;
+	// 仓差（期货、期权专有）
+	int64 open_interest = 201;
+	// 总持仓量（期货、期权专有）
+	int64 total_open_interest = 202;
+	// 开仓（期货、期权专有）
+	int64 open_position = 203;
+	// 平仓（期货、期权专有）
+	int64 close_position = 204;
+	// 日增仓（期货、期权专有）
+	int64 daily_open_interest_diff = 205;
+	// 昨结算价（期货、期权专有）
+	double pre_settlement_price = 206;
+	// 结算价（期货、期权专有）
+	double settlement_price = 207;
+	// 昨虚实度（期货、期权专有）
+	double pre_delta = 208;
+	// 今虚实度（期货、期权专有）
+	double delta = 209;
+}
+
+
+// 商品K线数据
+message CommodityCandleData
+{
+	// 时间戳
+	int64 timestamp = 1;
+	// 显示时间戳
+	int64 display_timestamp = 2;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 3;
+	// 开盘价
+	double open = 4;
+	// 最高价
+	double high = 5;
+	// 最低价
+	double low = 6;
+	// 收盘价
+	double close = 7;
+	// 现手
+	double volume = 8;
+	// 当日总成交量
+	double total_volume = 9;
+	// 现额
+	double turnover = 10;
+	// 当日总成交金额
+	double total_turnover = 11;
+	// 换手率（股票专有）
+	double turnover_rate = 12;
+	// 仓差（期货、期权专有）
+	int64 open_interest = 13;
+	// 总持仓量（期货、期权专有）
+	int64 total_open_interest = 14;
+};
+
+
+// 商品分时数据
+message CommodityMinuteData
+{
+	// 时间戳
+	int64 timestamp = 1;
+	// 显示时间戳
+	int64 display_timestamp = 2;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 3;
+	// 价格
+	double price = 4;
+	// 均价
+	double average_price = 5;
+	// 现手
+	double volume = 6;
+	// 当日总成交量
+	double total_volume = 7;
+	// 涨跌额（当日）
+	double change = 8;
+	// 涨跌幅（当日%）
+	double change_percent = 9;
+	// 昨收盘
+	double pre_close_price = 10;
+
+	// 仓差（期货、期权专有）
+	int64 open_interest = 11;
+	// 总持仓量（期货、期权专有）
+	int64 total_open_interest = 12;
+	// 昨结算价（期货、期权专有）
+	double pre_settlement_price = 13;
+};
+
+
+// 商品成交明细数据
+message CommodityTradeDetailData
+{
+	// 时间戳
+	int64 timestamp = 1;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 2;
+	// 价格
+	double price = 3;
+	// 现手
+	double volume = 4;
+	// 当日总成交量
+	double total_volume = 5;
+	// 昨收盘
+	double pre_close_price = 6;
+	// 买卖方向
+	BuySellDirection direction = 7;
+	// 成交性质
+	TradeNature nature = 8;
+
+	// 仓差（期货、期权专有）
+	int64 open_interest = 9;
+	// 当日总持仓量（期货、期权专有）
+	int64 total_open_interest = 10;
+	// 昨结算价（期货、期权专有）
+	double pre_settlement_price = 11;
+};
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 接口定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 接口编码定义：协议类型(0) + 消息类型(0) + 商品类型(0) + 消息编号(000)
+// 协议类型：请求/应答(1)，定阅/应答(2)，推送(3)，
+// 消息类型：通用(1)，行情((2))，交易(3)，资讯(4)
+// 商品类型：通用(1)，股票(2)，期货(3)，期权(4)，外汇(5)，现货(6)
+// 消息编号：编号(001-999)
+enum MarketInterface
+{
+	// 占位
+	MI_UNKNOWN = 0;
+
+	// 取商品信息
+	MI_GET_COMMODITY_INFO = 121001;
+	// 取商品列表
+	MI_GET_COMMODITY_LIST = 121002;
+	// 取商品K线数据
+	MI_GET_CANDLE_DATA = 121003;
+	// 取商品分时数据
+	MI_GET_MINUTE_DATA = 121004;
+	// 取商品成交明细数据
+	MI_GET_TRADE_DETAIL_DATA = 121005;
+	// 取商品Tick数据
+	MI_GET_TICK_DATA = 121006;
+
+	// 定阅商品Tick数据
+	MI_SUBSCRIBE_TICK_DATA = 221001;
+	// 取消定阅商品Tick数据
+	MI_UNSUBSCRIBE_TICK_DATA = 221002;
+
+	// 推送商品Tick数据
+	MI_PUSH_TICK_DATA = 321001;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品信息（请求消息）
+message GetCommodityInfoRequest
+{
+	// 市场分类
+	MarketCategory category = 1;
+	// 本地商品信息时间戳
+	int64 timestamp = 2;
+	// 商品键值（可选，只返回指定的商品数据）
+	repeated CommodityKey keys = 3;
+}
+
+
+// 取商品信息（返回消息）
+message GetCommodityInfoResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 市场分类
+	MarketCategory category = 2;
+	// 商品信息时间戳
+	int64 timestamp = 3;
+	// 商品信息列表
+	repeated CommodityInfo infos = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品列表（请求消息）
+message GetCommodityListRequest
+{
+	// 市场分类
+	MarketCategory category = 1;
+	// 字段列表
+	repeated CommodityListField fields = 2;
+	// 排序字段
+	CommodityListField sort_by = 3;
+	// 排序方向
+	SortDirection sort_direction = 4;
+	// 开始位置（从0开始，包含）
+	int32 start_pos = 5;
+	// 结束位置（从0开始，不包含）（可选，不指定时返回从指定开始位置之后的所有数据）
+	int32 end_pos = 6;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 7;
+
+	// 过滤条件：查询关键字（可选，在商品显示代码、商品名称、商品拼音简称中匹配）
+	repeated string keywords = 8;
+	// 过滤条件：商品键值（可选）
+	repeated CommodityKey keys = 9;
+	// 过滤条件：交易所代码（可选）
+	repeated string exchange_codes = 10;
+
+	// 过滤条件：股票类型（可选，股票专有）
+	repeated StockType stock_types = 101;
+
+	// 过滤条件：期货类型（可选，期货专有）
+	repeated FutureType future_types = 201;
+	// 过滤条件：产品代码（可选，期货专有）
+	repeated string product_codes = 202;
+	// 过滤条件：主力合约类型（可选，期货专有）
+	repeated FutureMainType main_types = 203;
+	// 过滤条件：是否只显示本时间段可交易合约（可选，期货专有）
+	bool show_trading_product_only = 204;
+}
+
+
+// 取商品列表（返回消息）
+message GetCommodityListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 市场分类（请求参数）
+	MarketCategory category = 2;
+	// 字段列表（请求参数）
+	repeated CommodityListField fields = 3;
+	// 排序字段（请求参数）
+	CommodityListField sort_by = 4;
+	// 排序方向（请求参数）
+	SortDirection sort_direction = 5;
+	// 开始位置（请求参数）
+	int32 start_pos = 6;
+	// 结束位置（请求参数）
+	int32 end_pos = 7;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 8;
+	// 数据列表
+	repeated CommodityListItem items = 9;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品K线数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品K线数据（请求消息）
+//
+// 数量最小值为1，最大值为5000
+//
+// 开始时间戳、结束时间戳、数量组合使用说明：
+// 不指定参数：取最新100条数据
+// 数量（N）：取最新N条数据
+// 开始时间戳：取开始时间戳之后（包含）的100条数据
+// 结束时间戳：取结束时间戳之前（包含）的100条数据
+// 开始时间戳 + 数量（N）：取开始时间戳之后（包含）的N条数据
+// 结束时间戳 + 数量（N）：取结束时间戳之前（包含）的N条数据
+// 开始时间戳 + 结束时间戳：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回5000条数据
+// 开始时间戳 + 结束时间戳 + 数量（N）：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回N条数据
+//
+// 返回结果按时间戳升序排列
+message GetCandleDataRequest
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 周期
+	CandlePeriod period = 2;
+	// 复权类型（股票专用）（可选）
+	CandleAdjustType adjust = 3;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 4;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 5;
+	// 数量（可选）
+	int32 count = 6;
+}
+
+
+// 取商品K线数据（返回消息）
+message GetCandleDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 周期
+	CandlePeriod period = 3;
+	// 复权类型（股票专用）（请求参数）
+	CandleAdjustType adjust = 4;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 5;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 6;
+	// 数量（请求参数）
+	int32 count = 7;
+	// K线列表
+	repeated CommodityCandleData candles = 8;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品分时数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品分时数据（请求消息）
+//
+// 日期：默认为最后交易日
+// 天数：指定日期之前（包含）的天数，默认为1天，最大10天
+// 开始时间戳：如果指定开始时间戳，只返回开始时间戳之后（包含）的数据
+// 结束时间戳：如果指定结束时间戳，只返回结束时间戳之前（包含）的数据
+//
+// 返回结果按时间戳升序排列
+message GetMinuteDataRequest
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 日期（YYYYMMDD）（可选）
+	int32 date = 2;
+	// 天数（可选）
+	int32 day_count = 3;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 4;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 5;
+}
+
+
+// 取商品分时数据（返回消息）
+message GetMinuteDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 日期（YYYYMMDD）
+	int32 date = 3;
+	// 天数（请求参数）
+	int32 day_count = 4;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 5;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 6;
+	// 分时数据列表
+	repeated CommodityMinuteData minutes = 7;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品成交明细数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品成交明细数据（请求消息）
+//
+// 数量最小值为1，最大值为5000
+//
+// 开始时间戳、结束时间戳、数量组合使用说明：
+// 不指定参数：取最新100条数据
+// 数量（N）：取最新N条数据
+// 开始时间戳：取开始时间戳之后（包含）的100条数据
+// 结束时间戳：取结束时间戳之前（包含）的100条数据
+// 开始时间戳 + 数量（N）：取开始时间戳之后（包含）的N条数据
+// 结束时间戳 + 数量（N）：取结束时间戳之前（包含）的N条数据
+// 开始时间戳 + 结束时间戳：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回5000条数据
+// 开始时间戳 + 结束时间戳 + 数量（N）：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回N条数据
+//
+// 返回结果按时间戳升序排列
+message GetTradeDetailDataRequest
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 2;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 3;
+	// 数量（可选）
+	int32 count = 4;
+}
+
+
+// 取商品成交明细数据（返回消息）
+message GetTradeDetailDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 3;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 4;
+	// 数量（请求参数）
+	int32 count = 5;
+	// 成交明细数据
+	repeated CommodityTradeDetailData trade_details = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取商品Tick数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取商品Tick数据（请求消息）
+//
+// 数量最小值为1，最大值为5000
+//
+// 开始时间戳、结束时间戳、数量组合使用说明：
+// 不指定参数：取最新100条数据
+// 数量（N）：取最新N条数据
+// 开始时间戳：取开始时间戳之后（包含）的100条数据
+// 结束时间戳：取结束时间戳之前（包含）的100条数据
+// 开始时间戳 + 数量（N）：取开始时间戳之后（包含）的N条数据
+// 结束时间戳 + 数量（N）：取结束时间戳之前（包含）的N条数据
+// 开始时间戳 + 结束时间戳：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回5000条数据
+// 开始时间戳 + 结束时间戳 + 数量（N）：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回N条数据
+//
+// 返回结果按时间戳升序排列
+message GetTickDataRequest
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 2;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 3;
+	// 数量（可选）
+	int32 count = 4;
+}
+
+
+// 取商品Tick数据（返回消息）
+message GetTickDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 3;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 4;
+	// 数量（请求参数）
+	int32 count = 5;
+	// Tick数据
+	repeated CommodityTickData ticks = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 定阅商品Tick数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅商品Tick数据（请求消息）
+message SubscribeTickDataRequest
+{
+	// 商品键值列表
+	repeated CommodityKey keys = 1;
+}
+
+
+// 定阅商品Tick数据（返回消息）
+message SubscribeTickDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取消定阅商品Tick数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取消定阅商品Tick数据（请求消息）
+message UnsubscribeTickDataRequest
+{
+	// 商品键值列表
+	repeated CommodityKey keys = 1;
+}
+
+
+// 取消定阅商品Tick数据（返回消息）
+message UnsubscribeTickDataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送商品Tick数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送商品Tick数据（推送消息）
+message PushTickData
+{
+	// 商品Tick数据
+	repeated CommodityTickData ticks = 1;
+}
