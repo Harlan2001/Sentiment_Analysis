@@ -1,0 +1,65 @@
+-- Execute only in AI_STRATEGY_HISTORY_MYSQL_DATABASE, never in the existing business schema.
+CREATE TABLE ai_strategy_conversations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner_username VARCHAR(128) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  instrument VARCHAR(255) NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  remote_template_id VARCHAR(128) NULL,
+  remote_session_id VARCHAR(128) NULL,
+  current_local_version_no INT UNSIGNED NOT NULL DEFAULT 0,
+  last_message_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ai_strategy_conversations_owner_updated (owner_username, updated_at),
+  KEY idx_ai_strategy_conversations_owner_status (owner_username, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ai_strategy_messages (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  conversation_id BIGINT UNSIGNED NOT NULL,
+  owner_username VARCHAR(128) NOT NULL,
+  sequence_no INT UNSIGNED NOT NULL,
+  role VARCHAR(16) NOT NULL,
+  content MEDIUMTEXT NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'pending',
+  remote_message_id VARCHAR(128) NULL,
+  generated_prompt MEDIUMTEXT NULL,
+  references_json JSON NULL,
+  system_draft_prompt MEDIUMTEXT NULL,
+  user_edited_prompt MEDIUMTEXT NULL,
+  final_sent_prompt MEDIUMTEXT NULL,
+  context_json JSON NULL,
+  elapsed_seconds DECIMAL(10, 3) NULL,
+  public_error_message TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_ai_strategy_messages_sequence (conversation_id, sequence_no),
+  KEY idx_ai_strategy_messages_owner_conversation (owner_username, conversation_id),
+  CONSTRAINT fk_ai_strategy_messages_conversation FOREIGN KEY (conversation_id) REFERENCES ai_strategy_conversations (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ai_strategy_versions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  conversation_id BIGINT UNSIGNED NOT NULL,
+  owner_username VARCHAR(128) NOT NULL,
+  source_message_id BIGINT UNSIGNED NOT NULL,
+  local_version_no INT UNSIGNED NOT NULL,
+  remote_template_version_id VARCHAR(128) NULL,
+  remote_template_version_no INT NULL,
+  name VARCHAR(255) NOT NULL,
+  description MEDIUMTEXT NOT NULL,
+  code LONGTEXT NOT NULL,
+  backtest_passed BOOLEAN NULL,
+  backtest_exit_code INT NULL,
+  backtest_summary MEDIUMTEXT NULL,
+  backtest_metrics_json JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_ai_strategy_versions_local (conversation_id, local_version_no),
+  KEY idx_ai_strategy_versions_owner_conversation (owner_username, conversation_id),
+  CONSTRAINT fk_ai_strategy_versions_conversation FOREIGN KEY (conversation_id) REFERENCES ai_strategy_conversations (id) ON DELETE CASCADE,
+  CONSTRAINT fk_ai_strategy_versions_message FOREIGN KEY (source_message_id) REFERENCES ai_strategy_messages (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

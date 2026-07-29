@@ -79,7 +79,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   ]
 
   const isActive = (path: string) => {
-    return location.pathname === path || (path === '/news' && location.pathname === '/')
+    return location.pathname === path || (path === '/news' && location.pathname === '/') || (path === '/strategies' && location.pathname.startsWith('/ai-strategy-generation'))
   }
 
   return (

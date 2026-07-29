@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error, Input, Loading } from './components/UI'
+import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error as ErrorUI, Input, Loading } from './components/UI'
 import { storage } from './utils/helpers'
 import { API_PREFIX } from './constants'
 
@@ -271,7 +271,7 @@ const SelectStrategyPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {error && <Error message={error} />}
+      {error && <ErrorUI message={error} />}
 
       {initialLoading ? (
         <Loading text="正在加载推荐缓存" />

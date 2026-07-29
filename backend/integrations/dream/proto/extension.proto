@@ -1,0 +1,2291 @@
+////////////////////////////////////////////////////////////////////////////////
+// DreamServer扩展接口定义
+// 版本 1.0.1.27
+// 最后更新日期 2025/12/04
+////////////////////////////////////////////////////////////////////////////////
+
+
+syntax = "proto3";
+
+import "common.proto";
+import "market.proto";
+import "trade.proto";
+
+package bitfin.dreamserver.protobuf;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 策略数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 策略图表技术指标类型
+enum StrategyChartTechnicalType
+{
+	// 主图指标
+	SCTT_MAIN = 0;
+	// 附图指标
+	SCTT_SUB = 1;
+}
+
+
+// 策略执行状态
+enum StrategyExecutionStatus
+{
+	// 停止信号
+	ASES_STOP_SIGNAL = 0;
+	// 开始信号
+	ASES_START_SIGNAL = 1;
+	// 停止交易
+	ASES_STOP_TRADE = 2;
+	// 开始交易
+	ASES_START_TRADE = 3;
+	// 交易设置修改
+	ASES_SETTINGS_CHANGED = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// AI助手数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// AI助手版本
+enum AssistantVersion
+{
+	// 默认
+	AV_DEFAULT = 0;
+	// Python V1
+	AV_PYTHON_V1 = 1;
+	// Python V2
+	AV_PYTHON_V2 = 2;
+	// DSL V1
+	AV_DSL_V1 = 3;
+}
+
+
+// AI助手模型类型
+enum AssistantModel
+{
+	// 默认
+	AM_DEFAULT = 0;
+	// DeepseekV3模型
+	AM_DEEPSEEK_V3 = 1;
+	// DeepseekR1模型
+	AM_DEEPSEEK_R1 = 2;
+}
+
+
+// AI助手场景类型
+enum AssistantScene
+{
+	// 默认
+	AS_DEFAULT = 0;
+	// 帮助
+	AS_HELP = 1;
+	// 代码生成
+	AS_CODE_GENERATION = 2;
+	// 代码检查
+	AS_CODE_REVIEW = 3;
+	// 代码转换
+	AS_CODE_CONVERT = 4;
+}
+
+
+// AI助手语言
+enum AssistantLang
+{
+	// 默认
+	AL_DEFAULT = 0;
+	// 中文
+	AL_CHINESE = 1;
+	// 日文
+	AL_JAPANESE = 2;
+	// 英文
+	AL_ENGLISH = 3;
+}
+
+
+// AI助手角色
+enum AssistantRole
+{
+	// 默认
+	AR_DEFAULT = 0;
+	// 用户
+	AR_USER = 1;
+	// 助手
+	AR_ASSISTANT = 2;
+	// 系统
+	AR_SYSTEM = 3;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// AI策略V2数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// AI策略V2阶段
+enum AiStrategyV2Stage
+{
+	// 无
+	ASV2S_NONE = 0;
+	// 开发
+	ASV2S_DEVELOPMENT = 1;
+	// 演示
+	ASV2S_DEMO = 2;
+	// 实盘
+	ASV2S_LIVE = 3;
+}
+
+
+// AI策略V2状态
+enum AiStrategyV2Status
+{
+	// 无
+	ASV2ST_NONE = 0;
+	// 停止
+	ASV2ST_STOPPED = 1;
+	// 启动
+	ASV2ST_RUNNING = 2;
+	// 出错
+	ASV2ST_ERROR = 3;
+	// 存档
+	ASV2ST_ARCHIVED = 4;
+}
+
+
+// AI策略V2聊天消息角色
+enum AiStrategyV2ChatRole
+{
+	// 无
+	ASV2CR_NONE = 0;
+	// 用户
+	ASV2CR_USER = 1;
+	// 助手
+	ASV2CR_ASSISTANT = 2;
+	// 系统
+	ASV2CR_SYSTEM = 3;
+}
+
+
+// AI策略V2聊天内容类型
+enum AiStrategyV2ChatContentType
+{
+	// 无
+	ASV2CCT_NONE = 0;
+	// 普通文本
+	ASV2CCT_TEXT = 1;
+	// JSON
+	ASV2CCT_JSON = 2;
+	// Markdown
+	ASV2CCT_MARKDOWN = 3;
+	// 策略结果
+	ASV2CCT_STRATEGY_RESULT = 4;
+	// 错误
+	ASV2CCT_ERROR = 5;
+}
+
+
+// AI策略V2聊天策略生成状态
+enum AiStrategyV2ChatStrategyGenerationStatus
+{
+	// 无
+	ASV2CSGS_NONE = 0;
+	// 正在生成
+	ASV2CSGS_GENERATING = 1;
+	// 正在检查
+	ASV2CSGS_CHECKING = 2;
+	// 重新生成
+	ASV2CSGS_REGENERATING = 3;
+	// 生成完成
+	ASV2CSGS_COMPLETED = 4;
+	// 生成出错
+	ASV2CSGS_ERROR = 5;
+}
+
+
+// AI策略V2模板操作类型
+enum AiStrategyV2TemplateActionType
+{
+	// 无
+	ASV2TAT_NONE = 0;
+	// 创建
+	ASV2TAT_CREATE = 1;
+	// 修改
+	ASV2TAT_UPDATE = 2;
+	// 回滚
+	ASV2TAT_ROLLBACK = 3;
+	// 复制
+	ASV2TAT_COPY = 4;
+}
+
+// AI策略V2模板参数类型
+enum AiStrategyV2TemplateParameterType
+{
+	// 无
+	ASV2TPT_NONE = 0;
+	// 字符串
+	ASV2TPT_STRING = 1;
+	// 数字
+	ASV2TPT_NUMBER = 2;
+	// 布尔型
+	ASV2TPT_BOOL = 3;
+	// 品种代码
+	ASV2TPT_CODE = 4;
+	// K线周期
+	ASV2TPT_PERIOD = 5;
+}
+
+// AI策略V2统计周期
+enum AiStrategyV2StatsPeriod
+{
+	// 无
+	ASV2SP_NONE = 0;
+	// 全期间
+	ASV2SP_ALL = 1;
+	// 3个月
+	ASV2SP_THREE_MONTHS = 2;
+	// 6个月
+	ASV2SP_SIX_MONTHS = 3;
+	// 1年
+	ASV2SP_ONE_YEAR = 4;
+}
+
+
+// AI策略V2买卖方向
+enum AiStrategyV2Side
+{
+	// 未知
+	ASV2SI_NONE = 0;
+	// 买入/做多
+	ASV2SI_BUY = 1;
+	// 卖出/做空
+	ASV2SI_SELL = 2;
+}
+
+
+// AI策略V2开平方向
+enum AiStrategyV2Offset
+{
+	// 未知
+	ASV2O_NONE = 0;
+	// 开仓
+	ASV2O_OPEN = 1;
+	// 平仓
+	ASV2O_CLOSE = 2;
+}
+
+
+// AI策略V2委托类型
+enum AiStrategyV2OrderType
+{
+	// 未知
+	ASV2OT_NONE = 0;
+	// 限价单
+	ASV2OT_LIMIT = 1;
+	// 市价单
+	ASV2OT_MARKET = 2;
+}
+
+
+// AI策略V2委托状态
+enum AiStrategyV2OrderStatus
+{
+	// 未知
+	ASV2OS_NONE = 0;
+	// 未成交
+	ASV2OS_PENDING = 1;
+	// 部分成交
+	ASV2OS_PARTIAL_FILLED = 2;
+	// 部成部撤
+	ASV2OS_PARTIAL_CANCELED = 3;
+	// 全部成交
+	ASV2OS_FILLED = 4;
+	// 全部撤单
+	ASV2OS_CANCELED = 5;
+}
+
+
+// AI策略V2持仓状态
+enum AiStrategyV2PositionStatus
+{
+	// 未知
+	ASV2PS_NONE = 0;
+	// 未平仓
+	ASV2PS_OPEN = 1;
+	// 部分平仓
+	ASV2PS_PARTIAL_CLOSED = 2;
+	// 全部平仓
+	ASV2PS_CLOSED = 3;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 策略消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 策略数据描述
+message StrategyDataDescription
+{
+	// 名称
+	string name = 1;
+	// 描述
+	string desc = 2;
+}
+
+
+// 策略图表技术指标
+message StrategyChartTechnical
+{
+	// 技术指标类型
+	StrategyChartTechnicalType type = 1;
+	// 数据
+	repeated string data = 2;
+	// 描述
+	string desc = 3;
+}
+
+
+// 策略数据
+message StrategyData
+{
+	// 名称
+	string name = 1;
+	// 数值
+	repeated double values = 2;
+}
+
+
+// 策略绩效
+message StrategyPerformance
+{
+	// 统计周期
+	CandlePeriod period = 1;
+	// 交易次数
+	int32 trade_count = 2;
+	// 胜次数
+	int32 win_count = 3;
+	// 败次数
+	int32 lose_count = 4;
+	// 胜率
+	double win_rate = 5;
+	// 累积收益
+	double accumulated_profit = 6;
+	// 最大累积收益
+	double max_accumulated_profit = 7;
+	// 最小累积收益
+	double min_accumulated_profit = 8;
+	// 胜收益
+	double win_profit = 9;
+	// 败收益
+	double lose_profit = 10;
+	// 收益比率
+	double profit_rate = 11;
+	// 最大回撤
+	double max_drawdown = 12;
+	// 最好单次收益
+	double best_profit = 13;
+	// 最差单次收益
+	double worst_profit = 14;
+	// 手续费（全部）
+	double commission = 15;
+	// 手续费（策略提供者）
+	double provider_commission = 16;
+	// 手续费（管理员）
+	double manager_commission = 17;
+	// 点差（全部）
+	double spread = 18;
+	// 点差（策略提供者）
+	double provider_spread = 19;
+	// 点差（管理员）
+	double manager_spread = 20;
+	// 浮动盈亏
+	double float_profit = 21;
+	// 累积收益（包含浮动盈亏）
+	double accumulated_profit_float = 22;
+	// 最大累积收益（包含浮动盈亏）
+	double max_accumulated_profit_float = 23;
+	// 最小累积收益（包含浮动盈亏）
+	double min_accumulated_profit_float = 24;
+	// 最大回撤（包含浮动盈亏）
+	double max_drawdown_float = 25;
+	// 开始时间
+	int64 start_timestamp = 26;
+	// 结束时间
+	int64 end_timestamp = 27;
+}
+
+
+// 取策略收益列表请求项目
+message GetStrategyProfitListRequestItem
+{
+	// 策略编号
+	int32 strategy_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+}
+
+
+// 取策略收益列表返回项目
+message GetStrategyProfitListResponseItem
+{
+	// 策略编号
+	int32 strategy_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 商品键值
+	CommodityKey key = 3;
+	// 周期
+	CandlePeriod period = 4;
+	// 时间列表
+	repeated int64 timestamps = 5;
+	// 收益列表
+	repeated double profits = 6;
+	// 浮动收益列表
+	repeated double float_profits = 7;
+}
+
+
+// 定阅策略信息请求项目
+message SubscribeStrategyInfoRequestItem
+{
+	// 策略编号
+	int32 strategy_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// AI助手消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// AI助手消息
+message AssistentMessage
+{
+	// 角色
+	AssistantRole role = 1;
+	// 消息
+	string message = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// AI策略V2消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// AI策略V2模板
+message AiStrategyV2Template
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 当前版本编号(UUID)
+	string current_version_id = 2;
+	// 当前版本号(从1递增)
+	int32 current_version_no = 3;
+	// 名称
+	string name = 4;
+	// 描述
+	string description = 5;
+	// 代码
+	string code = 6;
+	// 创建时间
+	int64 create_time = 7;
+	// 更新时间
+	int64 update_time = 8;
+	// 回测控制台输出
+	string backtest_log = 9;
+	// 回测是否通过
+	bool backtest_passed = 10;
+	// 回测进程退出码（未退出或信号终止时为 -1）
+	int32 backtest_exit_code = 11;
+}
+
+
+// AI策略V2模板历史
+message AiStrategyV2TemplateHistory
+{
+	// 版本编号(UUID)
+	string version_id = 1;
+	// 版本号(从1递增)
+	int32 version_no = 2;
+	// 名称
+	string name = 3;
+	// 描述
+	string description = 4;
+	// 代码
+	string code = 5;
+	// 版本来源
+	AiStrategyV2TemplateActionType action_type = 6;
+	// 创建时间
+	int64 create_time = 7;
+	// 回测控制台输出（该版本）
+	string backtest_log = 8;
+	// 回测是否通过
+	bool backtest_passed = 9;
+	// 回测进程退出码
+	int32 backtest_exit_code = 10;
+}
+
+
+// AI策略V2模板参数
+message AiStrategyV2TemplateParameter
+{
+	// 名称
+	string name = 1;
+	// 数值
+	string value = 2;
+	// 类型
+	AiStrategyV2TemplateParameterType type = 3;
+}
+
+
+// AI策略V2模板聊天会话
+message AiStrategyV2TemplateChatSession
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 名称
+	string name = 2;
+}
+
+
+// AI策略V2模板聊天消息
+message AiStrategyV2TemplateChatMessage
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 时间戳（毫秒）
+	int64 timestamp = 2;
+	// 角色
+	AiStrategyV2ChatRole role = 3;
+	// 内容类型
+	AiStrategyV2ChatContentType content_type = 4;
+	// 内容
+	string content = 5;
+	// 当次消息使用的策略模板版本编号(UUID)
+	string template_version_id = 6;
+	// 当次消息使用的策略模板版本号(从1递增)
+	int32 template_version_no = 7;
+	// 策略生成状态（仅策略结果推送时有值）
+	AiStrategyV2ChatStrategyGenerationStatus strategy_generation_status = 8;
+	// 回测控制台输出（检查/完成阶段推送，供右侧面板展示）
+	string backtest_log = 9;
+	// 回测是否通过
+	bool backtest_passed = 10;
+	// 回测进程退出码
+	int32 backtest_exit_code = 11;
+	// 策略生成进度轨迹（生成中可多次推送；实现方约定为增量拼接或每次全量快照）
+	string strategy_generation_trace = 12;
+}
+
+
+// AI策略V2实例
+message AiStrategyV2
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 策略模板编号(UUID)
+	string template_id = 2;
+	// 版本编号(UUID)
+	string version_id = 3;
+	// 版本号(从1递增)
+	int32 version_no = 4;
+	// 名称
+	string name = 5;
+	// 描述
+	string description = 6;
+	// 代码
+	string code = 7;
+	// 参数
+	string params = 8;
+	// 阶段
+	AiStrategyV2Stage stage = 9;
+	// 状态
+	AiStrategyV2Status status = 10;
+	// 初始资金
+	double initial_capital = 11;
+	// 手续费比例
+	double commission_ratio = 12;
+	// 出错消息
+	string error_message = 13;
+	// 创建时间
+	int64 create_time = 14;
+	// 更新时间
+	int64 update_time = 15;
+}
+
+
+// AI策略V2日次统计
+message AiStrategyV2DailyStats
+{
+	// 交易日(YYYYMMDD)
+	int32 trading_day = 1;
+	// 日内交易次数
+	int32 trade_count = 2;
+	// 日内胜次数
+	int32 win_count = 3;
+	// 日内败次数
+	int32 lose_count = 4;
+	// 日内胜率
+	double win_rate = 5;
+	// 日内胜盈亏
+	double win_pnl = 6;
+	// 日内败盈亏
+	double lose_pnl = 7;
+	// 日内盈利因子
+	double profit_factor = 8;
+	// 日内最好单次盈亏
+	double best_trade_pnl = 9;
+	// 日内最差单次盈亏
+	double worst_trade_pnl = 10;
+	// 日内手续费
+	double commission_fee = 11;
+	// 日内未实现盈亏
+	double unrealized_pnl = 12;
+	// 日内已实现盈亏
+	double realized_pnl = 13;
+	// 日内最大已实现盈亏
+	double realized_pnl_max = 14;
+	// 日内最大已实现盈亏时间戳
+	int64 realized_pnl_max_timestamp = 15;
+	// 日内最小已实现盈亏
+	double realized_pnl_min = 16;
+	// 日内最小已实现盈亏时间戳
+	int64 realized_pnl_min_timestamp = 17;
+	// 日内总盈亏（已实现 + 未实现）
+	double total_pnl = 18;
+	// 日内最大总盈亏
+	double total_pnl_max = 19;
+	// 日内最大总盈亏时间戳
+	int64 total_pnl_max_timestamp = 20;
+	// 日内最小总盈亏
+	double total_pnl_min = 21;
+	// 日内最小总盈亏时间戳
+	int64 total_pnl_min_timestamp = 22;
+	// 日内最大已实现回撤
+	double max_realized_drawdown = 23;
+	// 日内最大已实现回撤时间戳
+	int64 max_realized_drawdown_timestamp = 24;
+	// 日内最大总回撤
+	double max_total_drawdown = 25;
+	// 日内最大总回撤时间戳
+	int64 max_total_drawdown_timestamp = 26;
+}
+
+
+// AI策略V2区间统计
+message AiStrategyV2PeriodStats
+{
+	// 统计周期
+	AiStrategyV2StatsPeriod period = 1;
+	// 区间交易次数
+	int32 trade_count = 2;
+	// 区间胜次数
+	int32 win_count = 3;
+	// 区间败次数
+	int32 lose_count = 4;
+	// 区间胜率
+	double win_rate = 5;
+	// 区间胜盈亏
+	double win_pnl = 6;
+	// 区间败盈亏
+	double lose_pnl = 7;
+	// 区间盈利因子
+	double profit_factor = 8;
+	// 区间最好单次盈亏
+	double best_trade_pnl = 9;
+	// 区间最差单次盈亏
+	double worst_trade_pnl = 10;
+	// 区间手续费
+	double commission_fee = 11;
+	// 区间未实现盈亏
+	double unrealized_pnl = 12;
+	// 区间已实现盈亏
+	double realized_pnl = 13;
+	// 区间总盈亏（已实现 + 未实现）
+	double total_pnl = 14;
+	// 区间最大已实现回撤
+	double max_realized_drawdown = 15;
+	// 区间最大已实现回撤时间戳
+	int64 max_realized_drawdown_timestamp = 16;
+	// 区间最大总回撤
+	double max_total_drawdown = 17;
+	// 区间最大总回撤时间戳
+	int64 max_total_drawdown_timestamp = 18;
+	// 区间开始时间戳（毫秒）
+	int64 start_timestamp = 19;
+	// 区间结束时间戳（毫秒）
+	int64 end_timestamp = 20;
+}
+
+
+// AI策略V2权益曲线（1小时）
+message AiStrategyV2EquityCurve1h
+{
+	// 小时结束时间戳（毫秒）
+	int64 timestamp = 1;
+	// 已实现盈亏
+	double realized_pnl = 2;
+	// 总盈亏（已实现 + 未实现）
+	double total_pnl = 3;
+	// 权益（初始资金 + 总盈亏）
+	double equity = 4;
+}
+
+
+// AI策略V2委托
+message AiStrategyV2Order
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 交易日(YYYYMMDD)
+	int32 trading_day = 2;
+	// 报单时间戳（毫秒）
+	int64 create_timestamp = 3;
+	// 更新时间戳（毫秒）
+	int64 update_timestamp = 4;
+	// 撤单时间戳（毫秒）
+	int64 cancel_timestamp = 5;
+	// 商品键值
+	string commodity_key = 6;
+	// 商品名称
+	string commodity_name = 7;
+	// 买卖方向
+	AiStrategyV2Side side = 8;
+	// 开平方向
+	AiStrategyV2Offset offset = 9;
+	// 委托类型
+	AiStrategyV2OrderType order_type = 10;
+	// 价格
+	double price = 11;
+	// 交易量
+	double volume = 12;
+	// 关联持仓编号(UUID)
+	string position_id = 13;
+	// 剩余交易量
+	double remaining_volume = 14;
+	// 保证金
+	double margin = 15;
+	// 剩余保证金
+	double remaining_margin = 16;
+	// 委托状态
+	AiStrategyV2OrderStatus order_status = 17;
+	// 备注
+	string comment = 18;
+	// 交易所委托编号
+	string exchange_order_id = 19;
+	// 自定义数据
+	string custom_data = 20;
+}
+
+
+// AI策略V2持仓
+message AiStrategyV2Position
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 交易日(YYYYMMDD)
+	int32 trading_day = 2;
+	// 创建时间戳（毫秒）
+	int64 create_timestamp = 3;
+	// 更新时间戳（毫秒）
+	int64 update_timestamp = 4;
+	// 商品键值
+	string commodity_key = 5;
+	// 商品名称
+	string commodity_name = 6;
+	// 买卖方向
+	AiStrategyV2Side side = 7;
+	// 持仓成本价
+	double price = 8;
+	// 交易量
+	double volume = 9;
+	// 剩余交易量
+	double remaining_volume = 10;
+	// 保证金
+	double margin = 11;
+	// 剩余保证金
+	double remaining_margin = 12;
+	// 未实现盈亏
+	double unrealized_pnl = 13;
+	// 已实现盈亏
+	double realized_pnl = 14;
+	// 持仓状态
+	AiStrategyV2PositionStatus status = 15;
+	// 备注
+	string comment = 16;
+	// 交易所持仓编号
+	string exchange_position_id = 17;
+	// 自定义数据
+	string custom_data = 18;
+}
+
+
+// AI策略V2成交
+message AiStrategyV2Trade
+{
+	// 开放编号(UUID)
+	string open_id = 1;
+	// 交易日(YYYYMMDD)
+	int32 trading_day = 2;
+	// 创建时间戳（毫秒）
+	int64 create_timestamp = 3;
+	// 商品键值
+	string commodity_key = 4;
+	// 商品名称
+	string commodity_name = 5;
+	// 买卖方向
+	AiStrategyV2Side side = 6;
+	// 开平方向
+	AiStrategyV2Offset offset = 7;
+	// 委托类型
+	AiStrategyV2OrderType order_type = 8;
+	// 成交价格
+	double price = 9;
+	// 交易量
+	double volume = 10;
+	// 关联委托编号(UUID)
+	string order_id = 11;
+	// 关联持仓编号(UUID)
+	string position_id = 12;
+	// 已实现盈亏
+	double realized_pnl = 13;
+	// 手续费
+	double commission_fee = 14;
+	// 备注
+	string comment = 15;
+	// 交易所成交编号
+	string exchange_trade_id = 16;
+	// 自定义数据
+	string custom_data = 17;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 接口定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 接口编码定义：协议类型(0) + 消息类型(0) + 商品类型(0) + 消息编号(000)
+// 协议类型：请求/应答(1)，定阅/应答(2)，推送(3)，
+// 消息类型：通用(1)，行情(2)，交易(3)，资讯(4)，管理((5))，扩展((6))
+// 消息编号：编号(0001-9999)
+enum ExtensionInterface
+{
+	// 占位
+	EI_UNKNOWN = 0;
+
+	// 策略回测
+	EI_STRATEGY_BACKTEST = 160010;
+	// 变更策略执行状态
+	EI_CHANGE_STRATEGY_EXECUTION_STATUS = 160011;
+	// 取策略信息
+	EI_GET_STRATEGY_INFO = 160012;
+	// 取策略收益列表
+	EI_GET_STRATEGY_PROFIT_LIST = 160013;
+	// 发送策略报单
+	EI_SEND_STRATEGY_ORDER = 160014;
+	// 撤消策略报单
+	EI_CANCEL_STRATEGY_ORDER = 160015;
+	// 取策略报单列表
+	EI_GET_STRATEGY_ORDER_LIST = 160016;
+	// 取策略持仓列表
+	EI_GET_STRATEGY_POSITION_LIST = 160017;
+	// 取策略成交列表
+	EI_GET_STRATEGY_TRADE_LIST = 160018;
+	// AI策略回测
+	EI_AI_STRATEGY_BACKTEST = 160030;
+	// AI变更策略执行状态
+	EI_CHANGE_AI_STRATEGY_EXECUTION_STATUS = 160031;
+	// AI取策略信息
+	EI_GET_AI_STRATEGY_INFO = 160032;
+	// AI取策略收益列表
+	EI_GET_AI_STRATEGY_PROFIT_LIST = 160033;
+	// AI发送策略报单
+	EI_SEND_AI_STRATEGY_ORDER = 160034;
+	// AI撤消策略报单
+	EI_CANCEL_AI_STRATEGY_ORDER = 160035;
+	// AI取策略报单列表
+	EI_GET_AI_STRATEGY_ORDER_LIST = 160036;
+	// AI取策略持仓列表
+	EI_GET_AI_STRATEGY_POSITION_LIST = 160037;
+	// AI取策略成交列表
+	EI_GET_AI_STRATEGY_TRADE_LIST = 160038;
+
+	// 添加AI策略V2模板
+	EI_ADD_AI_STRATEGY_V2_TEMPLATE = 160050;
+	// 更新AI策略V2模板
+	EI_UPDATE_AI_STRATEGY_V2_TEMPLATE = 160051;
+	// 删除AI策略V2模板
+	EI_DELETE_AI_STRATEGY_V2_TEMPLATE = 160052;
+	// 获取AI策略V2模板列表
+	EI_LIST_AI_STRATEGY_V2_TEMPLATE = 160053;
+	// 获取AI策略V2模板详情
+	EI_GET_AI_STRATEGY_V2_TEMPLATE = 160054;
+	// 回测AI策略V2模板
+	EI_BACKTEST_AI_STRATEGY_V2_TEMPLATE = 160055;
+	// 复制AI策略V2模板
+	EI_COPY_AI_STRATEGY_V2_TEMPLATE = 160056;
+	// 设置 Bond-Backtest 平台 Token
+	EI_SET_BOND_BACKTEST_TOKEN = 160057;
+	// 添加AI策略V2模板聊天会话
+	EI_ADD_AI_STRATEGY_V2_TEMPLATE_CHAT_SESSION = 160060;
+	// 更新AI策略V2模板聊天会话
+	EI_UPDATE_AI_STRATEGY_V2_TEMPLATE_CHAT_SESSION = 160061;
+	// 删除AI策略V2模板聊天会话
+	EI_DELETE_AI_STRATEGY_V2_TEMPLATE_CHAT_SESSION = 160062;
+	// 获取AI策略V2模板聊天会话列表
+	EI_LIST_AI_STRATEGY_V2_TEMPLATE_CHAT_SESSION = 160063;
+	// 发送AI策略V2模板聊天消息
+	EI_ADD_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 160070;
+	// 更新AI策略V2模板聊天消息
+	EI_UPDATE_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 160071;
+	// 删除AI策略V2模板聊天消息
+	EI_DELETE_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 160072;
+	// 获取AI策略V2模板聊天消息列表
+	EI_LIST_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 160073;
+	// 添加AI策略V2实例
+	EI_ADD_AI_STRATEGY_V2 = 160080;
+	// 更新AI策略V2实例
+	EI_UPDATE_AI_STRATEGY_V2 = 160081;
+	// 删除AI策略V2实例
+	EI_DELETE_AI_STRATEGY_V2 = 160082;
+	// 获取AI策略V2实例列表
+	EI_LIST_AI_STRATEGY_V2 = 160083;
+	// 获取AI策略V2实例详情
+	EI_GET_AI_STRATEGY_V2 = 160084;
+	// 取AI策略V2报单列表
+	EI_LIST_AI_STRATEGY_V2_ORDER = 160085;
+	// 取策略AI持仓列表
+	EI_LIST_AI_STRATEGY_V2_POSITION = 160086;
+	// 取AI取策略成交列表
+	EI_LIST_AI_STRATEGY_V2_TRADE = 160087;
+	// 发送AI策略V2报单
+	EI_SEND_AI_STRATEGY_V2_ORDER = 160088;
+	// 撤消AI策略V2报单
+	EI_CANCEL_AI_STRATEGY_V2_ORDER = 160089;
+
+	// 定阅策略信息
+	EI_SUBSCRIBE_STRATEGY_INFO = 260010;
+	// 定阅AI助手消息
+	EI_SUBSCRIBE_ASSISTENT_MESSAGE = 260020;
+	// 定阅策略信息
+	EI_SUBSCRIBE_AI_STRATEGY_INFO = 260050;
+	// 定阅AI策略V2模板聊天消息
+	EI_SUBSCRIBE_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 260060;
+	// 定阅AI策略V2数据
+	EI_SUBSCRIBE_AI_STRATEGY_V2_DATA = 260070;
+
+	// 推送策略信息
+	EI_PUSH_STRATEGY_INFO = 360010;
+	// 推送AI助手消息
+	EI_PUSH_ASSISTENT_MESSAGE = 360020;
+	// 推送策略信息
+	EI_PUSH_AI_STRATEGY_V2_TEMPLATE_CHAT_MESSAGE = 360060;
+	// 推送策略信息
+	EI_PUSH_AI_STRATEGY_V2_DATA = 360070;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 策略回测
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 策略回测（请求消息）
+message StrategyBacktestRequest
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 周期
+	CandlePeriod period = 2;
+	// 开始时间戳
+	int64 begin_timestamp = 3;
+	// 结束时间戳
+	int64 end_timestamp = 4;
+	// 策略内容
+	string content = 5;
+	// 时区
+	int32 timezone_offset = 6;
+	// 手续费（%）
+	double commission_ratio = 7;
+}
+
+
+// 策略回测（返回消息）
+message StrategyBacktestResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 周期
+	CandlePeriod period = 3;
+	// 数据描述
+	repeated StrategyDataDescription data_descriptions = 4;
+	// 图表技术指标
+	repeated StrategyChartTechnical chart_technicals = 5;
+	// 策略数据
+	repeated StrategyData datas = 6;
+	// 策略绩效
+	repeated StrategyPerformance performances = 7;
+	// 数据精度
+	int32 precision = 8;
+	// 跟踪消息
+	string trace = 9;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 变更策略执行状态
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 变更策略执行状态（请求消息）
+message ChangeStrategyExecutionStatusRequest
+{
+	// 执行状态
+	StrategyExecutionStatus status = 1;
+	// 策略编号
+	int32 strategy_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+}
+
+
+// 变更策略执行状态（返回消息）
+message ChangeStrategyExecutionStatusResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取策略信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取策略信息（请求消息）
+message GetStrategyInfoRequest
+{
+	// 策略编号
+	int32 strategy_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+}
+
+
+// 取策略信息（返回消息）
+message GetStrategyInfoResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 商品键值
+	CommodityKey key = 2;
+	// 周期
+	CandlePeriod period = 3;
+	// 数据描述
+	repeated StrategyDataDescription data_descriptions = 4;
+	// 图表技术指标
+	repeated StrategyChartTechnical chart_technicals = 5;
+	// 策略数据
+	repeated StrategyData datas = 6;
+	// 策略绩效
+	repeated StrategyPerformance performances = 7;
+	// 数据精度
+	int32 precision = 8;
+	// 跟踪消息
+	string trace = 9;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取策略收益列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取策略收益列表（请求消息）
+message GetStrategyProfitListRequest
+{
+	// 请求项目
+	repeated GetStrategyProfitListRequestItem items = 1;
+}
+
+
+// 取策略收益列表（返回消息）
+message GetStrategyProfitListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 返回项目
+	repeated GetStrategyProfitListResponseItem items = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 发送策略报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 发送策略报单（请求消息）
+message SendStrategyOrderRequest
+{
+	// 策略编号
+	string strategy_id = 1;
+	// 买卖方向
+	BuySellDirection buy_sell_direction = 2;
+	// 开平方向
+	OpenCloseDirection open_close_direction = 3;
+	// 价格（可选，不指定时为市价单）
+	double price = 4;
+	// 数量
+	double volume = 5;
+	// 持仓编号（可选，平仓时可指定持仓编号）
+	string position_id = 6;
+}
+
+
+// 发送策略报单（返回消息）
+message SendStrategyOrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 撤消策略报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 撤消策略报单（请求消息）
+message CancelStrategyOrderRequest
+{
+	// 策略编号
+	string strategy_id = 1;
+	// 报单编号
+	string order_id = 2;
+}
+
+
+// 撤消策略报单（返回消息）
+message CancelStrategyOrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取策略报单列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取策略报单列表（请求消息）
+//
+// 数量最小值为1，最大值为1000
+// 不指定数量时取最新100条数据
+// 返回结果按报单编号升序排列
+message GetStrategyOrderListRequest
+{
+	// 策略编号
+	string strategy_id = 1;
+	// 数量（可选）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 4;
+}
+
+
+// 取策略报单列表（返回消息）
+message GetStrategyOrderListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号
+	string strategy_id = 2;
+	// 报单列表
+	repeated CommodityOrderData orders = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取策略持仓列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取策略持仓列表（请求消息）
+//
+// 数量最小值为1，最大值为1000
+// 不指定数量时取最新100条数据
+// 返回结果按持仓编号升序排列
+message GetStrategyPositionListRequest
+{
+	// 策略编号
+	string strategy_id = 1;
+	// 数量（可选）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 4;
+}
+
+
+// 取策略持仓列表（返回消息）
+message GetStrategyPositionListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号
+	string strategy_id = 2;
+	// 成交列表
+	repeated CommodityPositionData positions = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取策略成交列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取策略成交列表（请求消息）
+//
+// 数量最小值为1，最大值为1000
+// 不指定数量时取最新100条数据
+// 返回结果按成交编号升序排列
+message GetStrategyTradeListRequest
+{
+	// 策略编号
+	string strategy_id = 1;
+	// 数量（可选）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 4;
+}
+
+
+// 取策略成交列表（返回消息）
+message GetStrategyTradeListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号
+	string strategy_id = 2;
+	// 成交列表
+	repeated CommodityTradeData trades = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 添加AI策略V2模板
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 添加AI策略V2模板（请求消息）
+message AddAiStrategyV2TemplateRequest
+{
+	// 名称
+	string name = 1;
+	// 描述
+	string description = 2;
+	// 代码
+	string code = 3;
+}
+
+
+// 添加AI策略V2模板（返回消息）
+message AddAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 模板信息
+	AiStrategyV2Template template = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 更新AI策略V2模板
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 更新AI策略V2模板（请求消息）
+message UpdateAiStrategyV2TemplateRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 名称
+	string name = 2;
+	// 描述
+	string description = 3;
+	// 代码
+	string code = 4;
+}
+
+
+// 更新AI策略V2模板（返回消息）
+message UpdateAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 模板信息
+	AiStrategyV2Template template = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 删除AI策略V2模板
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 删除AI策略V2模板（请求消息）
+message DeleteAiStrategyV2TemplateRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+}
+
+
+// 删除AI策略V2模板（返回消息）
+message DeleteAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2模板列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2模板列表（请求消息）
+message ListAiStrategyV2TemplateRequest
+{
+	// 数量（可选，默认100）
+	int32 count = 1;
+	// 开始位置（从0开始）
+	int32 start_pos = 2;
+	// 是否需要返回数据总数
+	bool return_total_count = 3;
+}
+
+
+// 获取AI策略V2模板列表（返回消息）
+message ListAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 模板列表
+	repeated AiStrategyV2Template templates = 2;
+	// 数量（请求参数）
+	int32 count = 3;
+	// 开始位置（请求参数）
+	int32 start_pos = 4;
+	// 数据总数
+	int32 total_count = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2模板详情
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2模板详情（请求消息）
+message GetAiStrategyV2TemplateRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 是否包含历史版本
+	bool include_history = 2;
+	// 版本编号(UUID，可选，不填使用当前版本)
+	string version_id = 3;
+}
+
+
+// 获取AI策略V2模板详情（返回消息）
+message GetAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 模板信息
+	AiStrategyV2Template template = 2;
+	// 历史版本
+	repeated AiStrategyV2TemplateHistory history = 3;
+	// 参数定义
+	repeated AiStrategyV2TemplateParameter params = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 回测AI策略V2模板
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 回测AI策略V2模板（请求消息）
+message BacktestAiStrategyV2TemplateRequest
+{
+	// 模板编号(UUID，可选，使用模板时提供）
+	string template_id = 1;
+	// 版本编号(UUID，可选，使用模板时提供，不填使用当前版本)
+	string version_id = 2;
+	// 代码（可选，直接提供代码时使用）
+	string code = 3;
+	// 参数
+	repeated AiStrategyV2TemplateParameter params = 4;
+	// 开始时间戳
+	int64 begin_timestamp = 5;
+	// 结束时间戳
+	int64 end_timestamp = 6;
+	// 初始资金
+	double initial_capital = 7;
+	// 手续费比例
+	double commission_ratio = 8;
+}
+
+
+// 回测AI策略V2模板（返回消息）
+message BacktestAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 日次绩效
+	repeated AiStrategyV2DailyStats daily_stats = 2;
+	// 区间绩效
+	repeated AiStrategyV2PeriodStats period_stats = 3;
+	// 权益曲线
+	repeated AiStrategyV2EquityCurve1h equity_curve = 4;
+	// 活动委托列表
+	repeated AiStrategyV2Order orders = 5;
+	// 活动持仓列表
+	repeated AiStrategyV2Position positions = 6;
+	// 成交列表
+	repeated AiStrategyV2Trade trades = 7;
+	// 跟踪消息
+	repeated string traces = 8;
+	// 回测控制台输出
+	string backtest_log = 9;
+	// 回测是否通过
+	bool backtest_passed = 10;
+	// 回测进程退出码
+	int32 backtest_exit_code = 11;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 复制AI策略V2模板
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 复制AI策略V2模板（请求消息）
+message CopyAiStrategyV2TemplateRequest
+{
+	// 模板编号(UUID）
+	string template_id = 1;
+	// 版本编号(UUID)
+	string version_id = 2;
+	// 名称
+	string name = 3;
+}
+
+
+// 复制AI策略V2模板（返回消息）
+message CopyAiStrategyV2TemplateResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 模板信息
+	AiStrategyV2Template template = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 设置 Bond-Backtest 平台 Token
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 设置 Bond-Backtest 平台 Token（请求消息）
+message SetBondBacktestTokenRequest
+{
+	// Bond-Backtest 平台 Token（HTTP Header: Authorization: Bearer {token}）
+	string token = 1;
+	// Bond-Backtest 平台用户 ID（父系统 postMessage 传入，用于 createrId/modifyId 等）
+	string user_id = 2;
+	// Bond-Backtest 平台 Refresh Token（父系统 postMessage 传入，可选）
+	string refresh_token = 3;
+}
+
+
+// 设置 Bond-Backtest 平台 Token（返回消息）
+message SetBondBacktestTokenResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 添加AI策略V2模板聊天会话
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 添加AI策略V2模板聊天会话（请求消息）
+message AddAiStrategyV2TemplateChatSessionRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 名称
+	string name = 2;
+}
+
+
+// 添加AI策略V2模板聊天会话（返回消息）
+message AddAiStrategyV2TemplateChatSessionResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天会话信息
+	AiStrategyV2TemplateChatSession session = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 更新AI策略V2模板聊天会话
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 更新AI策略V2模板聊天会话（请求消息）
+message UpdateAiStrategyV2TemplateChatSessionRequest
+{
+	// 会话编号(UUID)
+	string session_id = 1;
+	// 名称
+	string name = 2;
+}
+
+
+// 更新AI策略V2模板聊天会话（返回消息）
+message UpdateAiStrategyV2TemplateChatSessionResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天会话信息
+	AiStrategyV2TemplateChatSession session = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 删除AI策略V2模板聊天会话
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 删除AI策略V2模板聊天会话（请求消息）
+message DeleteAiStrategyV2TemplateChatSessionRequest
+{
+	// 会话编号(UUID)
+	string session_id = 1;
+}
+
+
+// 删除AI策略V2模板聊天会话（返回消息）
+message DeleteAiStrategyV2TemplateChatSessionResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2模板聊天会话列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2模板聊天会话列表（请求消息）
+message ListAiStrategyV2TemplateChatSessionRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 数量（可选，默认100）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数
+	bool return_total_count = 4;
+}
+
+
+// 获取AI策略V2模板聊天会话列表（返回消息）
+message ListAiStrategyV2TemplateChatSessionResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天会话列表
+	repeated AiStrategyV2TemplateChatSession sessions = 2;
+	// 数量（请求参数）
+	int32 count = 3;
+	// 开始位置（请求参数）
+	int32 start_pos = 4;
+	// 数据总数
+	int32 total_count = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 添加AI策略V2模板聊天消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 添加AI策略V2模板聊天消息（请求消息）
+message AddAiStrategyV2TemplateChatMessageRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 会话编号(UUID)
+	string session_id = 2;
+	// 内容
+	string content = 3;
+	// AI代理模型（可选）
+	string agent = 4;
+}
+
+
+// 添加AI策略V2模板聊天消息（返回消息）
+message AddAiStrategyV2TemplateChatMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天消息信息
+	AiStrategyV2TemplateChatMessage message = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 更新AI策略V2模板聊天消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 更新AI策略V2模板聊天消息（请求消息）
+message UpdateAiStrategyV2TemplateChatMessageRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 消息编号(UUID)
+	string message_id = 2;
+	// 内容
+	string content = 3;
+	// AI代理模型（可选）
+	string agent = 4;
+}
+
+
+// 更新AI策略V2模板聊天消息（返回消息）
+message UpdateAiStrategyV2TemplateChatMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天消息信息
+	AiStrategyV2TemplateChatMessage message = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 删除AI策略V2模板聊天消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 删除AI策略V2模板聊天消息（请求消息）
+message DeleteAiStrategyV2TemplateChatMessageRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 消息编号(UUID)
+	string message_id = 2;
+}
+
+
+// 删除AI策略V2模板聊天消息（返回消息）
+message DeleteAiStrategyV2TemplateChatMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2模板聊天消息列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2模板聊天消息列表（请求消息）
+message ListAiStrategyV2TemplateChatMessageRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 会话编号(UUID)
+	string session_id = 2;
+	// 数量（可选，默认100）
+	int32 count = 3;
+	// 开始位置（从0开始）
+	int32 start_pos = 4;
+	// 是否需要返回数据总数
+	bool return_total_count = 5;
+}
+
+
+// 获取AI策略V2模板聊天消息列表（返回消息）
+message ListAiStrategyV2TemplateChatMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 聊天消息列表
+	repeated AiStrategyV2TemplateChatMessage messages = 2;
+	// 起始位置
+	int32 start_pos = 3;
+	// 获取数量
+	int32 count = 4;
+	// 总数量
+	int32 total_count = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 添加AI策略V2实例
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 添加AI策略V2实例（请求消息）
+message AddAiStrategyV2Request
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 版本编号(UUID，可选，不填使用当前版本)
+	string version_id = 2;
+	// 名称
+	string name = 3;
+	// 描述
+	string description = 4;
+	// 参数
+	string params = 5;
+	// 阶段
+	AiStrategyV2Stage stage = 6;
+	// 初始资金
+	double initial_capital = 7;
+	// 手续费比例
+	double commission_ratio = 8;
+}
+
+
+// 添加AI策略V2实例（返回消息）
+message AddAiStrategyV2Response
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略实例信息
+	AiStrategyV2 strategy = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 更新AI策略V2实例
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 更新AI策略V2实例（请求消息）
+message UpdateAiStrategyV2Request
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 名称
+	string name = 2;
+	// 描述
+	string description = 3;
+	// 参数
+	string params = 4;
+	// 状态
+	AiStrategyV2Status status = 5;
+}
+
+
+// 更新AI策略V2实例（返回消息）
+message UpdateAiStrategyV2Response
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略实例信息
+	AiStrategyV2 strategy = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 删除AI策略V2实例
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 删除AI策略V2实例（请求消息）
+message DeleteAiStrategyV2Request
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+}
+
+
+// 删除AI策略V2实例（返回消息）
+message DeleteAiStrategyV2Response
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2实例列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2实例列表（请求消息）
+message ListAiStrategyV2Request
+{
+	// ·
+	string template_id = 1;
+	// 阶段筛选（可选）
+	AiStrategyV2Stage stage = 2;
+	// 状态筛选（可选）
+	AiStrategyV2Status status = 3;
+	// 数量（可选，默认100）
+	int32 count = 4;
+	// 开始位置（从0开始）
+	int32 start_pos = 5;
+	// 是否需要返回数据总数
+	bool return_total_count = 6;
+}
+
+
+// 获取AI策略V2实例列表（返回消息）
+message ListAiStrategyV2Response
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略实例列表
+	repeated AiStrategyV2 strategies = 2;
+	// 数量（请求参数）
+	int32 count = 3;
+	// 开始位置（请求参数）
+	int32 start_pos = 4;
+	// 数据总数
+	int32 total_count = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2实例详情
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2实例详情（请求消息）
+message GetAiStrategyV2Request
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+}
+
+
+// 获取AI策略V2实例详情（返回消息）
+message GetAiStrategyV2Response
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略实例信息
+	AiStrategyV2 strategy = 2;
+	// 日次绩效
+	repeated AiStrategyV2DailyStats daily_stats = 3;
+	// 区间绩效
+	repeated AiStrategyV2PeriodStats period_stats = 4;
+	// 权益曲线
+	repeated AiStrategyV2EquityCurve1h equity_curve = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2委托列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2委托列表（请求消息）
+message ListAiStrategyV2OrderRequest
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 数量（可选，默认100，最大1000）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数
+	bool return_total_count = 4;
+}
+
+
+// 获取AI策略V2委托列表（返回消息）
+message ListAiStrategyV2OrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号(UUID)
+	string strategy_id = 2;
+	// 委托列表
+	repeated AiStrategyV2Order orders = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2持仓列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2持仓列表（请求消息）
+message ListAiStrategyV2PositionRequest
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 数量（可选，默认100，最大1000）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数
+	bool return_total_count = 4;
+}
+
+
+// 获取AI策略V2持仓列表（返回消息）
+message ListAiStrategyV2PositionResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号(UUID)
+	string strategy_id = 2;
+	// 持仓列表
+	repeated AiStrategyV2Position positions = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 获取AI策略V2成交列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 获取AI策略V2成交列表（请求消息）
+message ListAiStrategyV2TradeRequest
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 数量（可选，默认100，最大1000）
+	int32 count = 2;
+	// 开始位置（从0开始）
+	int32 start_pos = 3;
+	// 是否需要返回数据总数
+	bool return_total_count = 4;
+}
+
+
+// 获取AI策略V2成交列表（返回消息）
+message ListAiStrategyV2TradeResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 策略编号(UUID)
+	string strategy_id = 2;
+	// 成交列表
+	repeated AiStrategyV2Trade trades = 3;
+	// 数量（请求参数）
+	int32 count = 4;
+	// 开始位置（请求参数）
+	int32 start_pos = 5;
+	// 数据总数
+	int32 total_count = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 发送AI策略V2报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 发送AI策略V2报单（请求消息）
+message SendAiStrategyV2OrderRequest
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 商品键值
+	string commodity_key = 2;
+	// 买卖方向
+	AiStrategyV2Side side = 3;
+	// 开平方向
+	AiStrategyV2Offset offset = 4;
+	// 委托类型
+	AiStrategyV2OrderType order_type = 5;
+	// 价格（市价单可为0）
+	double price = 6;
+	// 数量
+	double volume = 7;
+	// 持仓编号（可选，平仓时可指定持仓编号）
+	string position_id = 8;
+	// 备注
+	string comment = 9;
+}
+
+
+// 发送AI策略V2报单（返回消息）
+message SendAiStrategyV2OrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 委托信息
+	AiStrategyV2Order order = 2;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 撤消AI策略V2报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 撤消AI策略V2报单（请求消息）
+message CancelAiStrategyV2OrderRequest
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+	// 委托编号(UUID)
+	string order_id = 2;
+}
+
+
+// 撤消AI策略V2报单（返回消息）
+message CancelAiStrategyV2OrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 定阅策略信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅策略信息（请求消息）
+message SubscribeStrategyInfoRequest
+{
+	// 请求项目
+	repeated SubscribeStrategyInfoRequestItem items = 1;
+	// 是否全量定阅
+	bool is_full_subscribe = 2;
+}
+
+
+// 定阅策略信息（返回消息）
+message SubscribeStrategyInfoResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 定阅AI助手消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅AI助手消息（请求消息）
+message SubscribeAssistentMessageRequest
+{
+	// 版本
+	AssistantVersion version = 1;
+	// 模型
+	AssistantModel model = 2;
+	// 场景
+	AssistantScene scene = 3;
+	// 语言
+	AssistantLang lang = 4;
+	// 消息列表
+	repeated AssistentMessage messages = 5;
+}
+
+
+// 定阅AI助手消息（返回消息）
+message SubscribeAssistentMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 事件编号
+	string event_id = 2;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+// 定阅AI策略V2模板聊天消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅AI策略V2模板聊天消息（请求消息）
+message SubscribeAiStrategyV2TemplateChatMessageRequest
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 会话编号(UUID)
+	string session_id = 2;
+	// 是否取消订阅
+	bool unsubscribe = 3;
+}
+
+
+// 定阅AI策略V2模板聊天消息（返回消息）
+message SubscribeAiStrategyV2TemplateChatMessageResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 定阅AI策略V2数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅AI策略V2数据（请求消息）
+message SubscribeAiStrategyV2DataRequest
+{
+	// 策略编号(UUID)列表
+	repeated string strategy_ids = 1;
+	// 是否全量定阅
+	bool is_full_subscribe = 2;
+}
+
+
+// 定阅AI策略V2数据（返回消息）
+message SubscribeAiStrategyV2DataResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送策略信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送策略信息（推送消息）
+message PushStrategyInfo
+{
+	// 策略编号
+	int32 strategy_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略数据
+	repeated StrategyData datas = 3;
+	// 策略绩效
+	repeated StrategyPerformance performances = 4;
+	// 数据精度
+	int32 precision = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送AI助手消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送AI助手消息（推送消息）
+message PushAssistentMessage
+{
+	// 事件编号
+	string event_id = 1;
+	// 是否结束
+	bool done = 2;
+	// 消息内容
+	string message = 3;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送AI策略V2模板聊天消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送AI策略V2模板聊天消息（推送消息）
+message PushAiStrategyV2TemplateChatMessage
+{
+	// 模板编号(UUID)
+	string template_id = 1;
+	// 会话编号(UUID)
+	string session_id = 2;
+	// 聊天消息
+	AiStrategyV2TemplateChatMessage message = 3;
+	// 是否完成
+	bool done = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送AI策略V2数据
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送AI策略V2数据（推送消息）
+message PushAiStrategyV2Data
+{
+	// 策略编号(UUID)
+	string strategy_id = 1;
+}

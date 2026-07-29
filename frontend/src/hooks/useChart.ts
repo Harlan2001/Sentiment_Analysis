@@ -1,6 +1,6 @@
 import React from 'react'
 import { graphic } from 'echarts'
-import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
+import type { EChartsOption } from 'echarts'
 import type { YieldPoint } from '../types'
 
 const chartPalette = {
@@ -78,7 +78,7 @@ export const useYieldChart = (
             opacity: 0.55,
           },
         },
-        formatter: (params: TooltipComponentFormatterCallbackParams | TooltipComponentFormatterCallbackParams[]) => {
+        formatter: (params: any) => {
           const items = Array.isArray(params) ? params : [params]
           const primaryItem = items.find(item => item.seriesType === 'line') || items[0]
           const index = primaryItem?.dataIndex ?? 0
@@ -252,7 +252,7 @@ export const useNewsYieldChart = (
             opacity: 0.55,
           },
         },
-        formatter: (params: TooltipComponentFormatterCallbackParams | TooltipComponentFormatterCallbackParams[]) => {
+        formatter: (params: any) => {
           const items = Array.isArray(params) ? params : [params]
           const primaryItem = items.find(item => item.seriesType === 'line') || items[0]
           const index = primaryItem?.dataIndex ?? 0

@@ -1,0 +1,988 @@
+////////////////////////////////////////////////////////////////////////////////
+// DreamServer交易接口定义
+// 版本 1.0.1.25
+// 最后更新日期 2022/09/30
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+syntax = "proto3";
+
+import "common.proto";
+import "market.proto";
+
+package bitfin.dreamserver.protobuf;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 通用数据定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 账户状态
+enum AccountStatus
+{
+	// 正常
+	AS_NORMAL = 0;
+	// 禁用
+	AS_DISABLED = 1;
+}
+
+
+// 账户排序字段
+enum AccountSortField
+{
+	// 占位
+	ASF_UNKNOWN = 0;
+
+	// 当前权益
+	ASF_EQUITY = 8;
+	// 可用资金
+	ASF_AVAILABLE = 9;
+	// 持仓盈亏
+	ASF_POSITION_PROFIT = 10;
+	// 保证金
+	ASF_MARGIN = 11;
+	// 风险率（%）
+	ASF_RISK_PERCENT = 12;
+
+	// 累计收益率（%）
+	ASF_ACCUMULATIVE_RETURN_PERCENT = 100;
+	// 累计盈亏
+	ASF_ACCUMULATIVE_RETURN = 101;
+	// 累计收益率（包含持仓盈亏）（%）
+	ASF_ACCUMULATIVE_RETURN_PERCENT_WITH_POSITION_PROFIT = 102;
+	// 累计盈亏（包含持仓盈亏）
+	ASF_ACCUMULATIVE_RETURN_WITH_POSITION_PROFIT = 103;
+	// 累计成交量
+	ASF_ACCUMULATIVE_VOLUME = 104;
+	// 累计盈利成交量
+	ASF_ACCUMULATIVE_GAIN_VOLUME = 105;
+	// 累计亏损成交量
+	ASF_ACCUMULATIVE_LOSS_VOLUME = 106;
+	// 累计成交金额
+	ASF_ACCUMULATIVE_TURNOVER = 107;
+	// 累计手续费
+	ASF_ACCUMULATIVE_COMMISSION = 108;
+	// 累计胜率（%）
+	ASF_ACCUMULATIVE_WINNING_PERCENT = 109;
+	// 累计平均单手盈亏
+	ASF_ACCUMULATIVE_RETURN_PER_VOLUME = 110;
+
+	// 当日收益率（%）
+	ASF_DAILY_RETURN_PERCENT = 200;
+	// 当日盈亏
+	ASF_DAILY_RETURN = 201;
+	// 当日收益率（包含持仓盈亏）（%）
+	ASF_DAILY_RETURN_PERCENT_WITH_POSITION_PROFIT = 202;
+	// 当日盈亏（包含持仓盈亏）
+	ASF_DAILY_RETURN_WITH_POSITION_PROFIT = 203;
+	// 当日成交量
+	ASF_DAILY_VOLUME = 204;
+	// 当日盈利成交量
+	ASF_DAILY_GAIN_VOLUME = 205;
+	// 当日亏损成交量
+	ASF_DAILY_LOSS_VOLUME = 206;
+	// 当日成交金额
+	ASF_DAILY_TURNOVER = 207;
+	// 当日手续费
+	ASF_DAILY_COMMISSION = 208;
+	// 当日胜率（%）
+	ASF_DAILY_WINNING_PERCENT = 209;
+	// 当日平均单手盈亏
+	ASF_DAILY_RETURN_PER_VOLUME = 210;
+}
+
+
+// 商品报单状态
+enum CommodityOrderStatus
+{
+	// 未成交
+	COS_NO_TRADE = 0;
+	// 部分成交
+	COS_PART_TRADED = 1;
+	// 全部成交
+	COS_ALL_TRADED = 2;
+	// 撤单
+	COS_CANCELED = 3;
+}
+
+
+// 商品持仓状态
+enum CommodityPositionStatus
+{
+	// 未平仓
+	CPS_NO_CLOSE = 0;
+	// 部分平仓
+	CPS_PART_CLOSED = 1;
+	// 全部平仓
+	CPS_ALL_CLOSED = 2;
+}
+
+
+// 账户入出金类型
+enum AccountTransferType
+{
+	// 转入
+	ATT_IN = 0;
+	// 转出
+	ATT_OUT = 1;
+	// 设置金额
+	ATT_SET = 2;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 通用消息定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 账户信息
+message AccountInfo
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 4;
+	// 更新时间
+	int64 timestamp = 5;
+	// 账户状态
+	AccountStatus status = 6;
+
+	// 期初权益
+	double initial_equity = 7;
+	// 当前权益
+	double equity = 8;
+	// 可用资金
+	double available = 9;
+	// 持仓盈亏
+	double position_profit = 10;
+	// 保证金
+	double margin = 11;
+	// 风险率（%）
+	double Risk_Percent = 12;
+
+	// 累计收益率（%）
+	double accumulative_return_percent = 100;
+	// 累计盈亏
+	double accumulative_return = 101;
+	// 累计收益率（包含持仓盈亏）（%）
+	double accumulative_return_percent_with_position_profit = 102;
+	// 累计盈亏（包含持仓盈亏）
+	double accumulative_return_with_position_profit = 103;
+	// 累计成交量
+	double accumulative_volume = 104;
+	// 累计利成交量
+	double accumulative_gain_volume = 105;
+	// 累计亏损成交量
+	double accumulative_loss_volume = 106;
+	// 累计成交金额
+	double accumulative_turnover = 107;
+	// 累计手续费
+	double accumulative_commission = 108;
+	// 累计胜率（%）
+	double accumulative_winning_percent = 109;
+	// 累计平均单手盈亏
+	double accumulative_return_per_volume = 110;
+
+	// 当日收益率（%）
+	double daily_return_percent = 200;
+	// 当日盈亏
+	double daily_return = 201;
+	// 当日收益率（包含持仓盈亏）（%）
+	double daily_return_percent_with_position_profit = 202;
+	// 当日盈亏（包含持仓盈亏）
+	double daily_return_with_position_profit = 203;
+	// 当日成交量
+	double daily_volume = 204;
+	// 当日盈利成交量
+	double daily_gain_volume = 205;
+	// 当日亏损成交量
+	double daily_loss_volume = 206;
+	// 当日成交金额
+	double daily_turnover = 207;
+	// 当日手续费
+	double daily_commission = 208;
+	// 当日胜率（%）
+	double daily_winning_percent = 209;
+	// 当日平均单手盈亏
+	double daily_return_per_volume = 210;
+}
+
+
+// 商品报单信息
+message CommodityOrderData
+{
+	// 报单编号
+	string id = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 5;
+	// 报单时间
+	int64 timestamp = 6;
+	// 商品键值
+	CommodityKey key = 7;
+	// 商品名称
+	string name = 8;
+	// 价格小数位数
+	int32 precision = 9;
+	// 买卖方向
+	BuySellDirection buy_sell_direction = 10;
+	// 开平方向
+	OpenCloseDirection open_close_direction = 11;
+	// 价格
+	double price = 12;
+	// 数量
+	double volume = 13;
+	// 关联持仓编号
+	string position_id = 14;
+	// 成交数量
+	double traded_volume = 15;
+	// 剩余数量
+	double remaining_volume = 16;
+	// 占用的保证金
+	double margin = 17;
+	// 剩余占用的保证金
+	double remaining_margin = 18;
+	// 最后修改时间
+	int64 update_timestamp = 19;
+	// 撤销时间
+	int64 cancel_timestamp = 20;
+	// 状态
+	CommodityOrderStatus status = 21;
+	// 备注
+	string comment = 22;
+	// 交易所编号
+	string exchange_id = 23;
+}
+
+
+// 商品持仓信息
+message CommodityPositionData
+{
+	// 编号
+	string id = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 开仓所属交易日期（YYYYMMDD）
+	int32 trading_day = 5;
+	// 开仓时间
+	int64 timestamp = 6;
+	// 商品键值
+	CommodityKey key = 7;
+	// 商品名称
+	string name = 8;
+	// 价格小数位数
+	int32 precision = 9;
+	// 买卖方向
+	BuySellDirection buy_sell_direction = 10;
+	// 价格
+	double price = 11;
+	// 数量
+	double volume = 12;
+	// 剩余数量
+	double remaining_volume = 13;
+	// 占用的保证金
+	double margin = 14;
+	// 剩余占用的保证金
+	double remaining_margin = 15;
+	// 浮动盈亏
+	double profit = 16;
+	// 最后修改时间
+	int64 update_timestamp = 17;
+	// 状态
+	CommodityPositionStatus status = 18;
+	// 备注
+	string comment = 19;
+	// 交易所编号
+	string exchange_id = 20;
+	// 浮动盈亏（%）
+	double profit_percent = 21;
+}
+
+
+// 商品成交信息
+message CommodityTradeData
+{
+	// 编号
+	string id = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 关联报单编号
+	string order_id = 5;
+	// 关联持仓编号
+	string position_id = 6;
+	// 所属交易日期（YYYYMMDD）
+	int32 trading_day = 7;
+	// 时间
+	int64 timestamp = 8;
+	// 商品键值
+	CommodityKey key = 9;
+	// 商品名称
+	string name = 10;
+	// 价格小数位数
+	int32 precision = 11;
+	// 买卖方向
+	BuySellDirection buy_sell_direction = 12;
+	// 开平方向
+	OpenCloseDirection open_close_direction = 13;
+	// 价格
+	double price = 14;
+	// 数量
+	double volume = 15;
+	// 盈亏
+	double profit = 16;
+	// 盈亏（%）
+	double profit_percent = 17;
+	// 手续费
+	double commission = 18;
+	// 备注
+	string comment = 19;
+	// 交易所编号
+	string exchange_id = 20;
+	// 累积盈亏
+	double accumulative_profit = 21;
+}
+
+
+// 账户入出金信息
+message AccountTransferData
+{
+	// 编号
+	string id = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 时间
+	int64 timestamp = 5;
+	// 入出金类型
+	AccountTransferType type = 6;
+	// 金额
+	double amount = 7;
+	// 备注
+	string comment = 8;
+}
+
+
+// 浮动盈亏信息
+message FloatProfitData
+{
+	// 商品键值
+	CommodityKey key = 1;
+	// 浮动盈亏
+	double profit = 2;
+}
+
+
+// 定阅交易信息请求项目
+message SubscribeTradeInfoRequestItem
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 策略编号
+	int32 strategy_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 接口定义
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 接口编码定义：协议类型(0) + 消息类型(0) + 商品类型(0) + 消息编号(000)
+// 协议类型：请求/应答(1)，定阅/应答(2)，推送(3)，
+// 消息类型：通用(1)，行情(2)，交易((3))，资讯(4)
+// 商品类型：通用(1)，股票(2)，期货(3)，期权(4)，外汇(5)，现货(6)
+// 消息编号：编号(001-999)
+enum TradeInterface
+{
+	// 占位
+	TI_UNKNOWN = 0;
+
+	// 取账户信息
+	TI_GET_ACCOUNT_INFO = 131001;
+	// 取账户排名
+	TI_GET_ACCOUNT_RANKING = 131002;
+	// 发送报单
+	TI_SEND_ORDER = 131003;
+	// 撤消报单
+	TI_CANCEL_ORDER = 131004;
+	// 取报单列表
+	TI_GET_ORDER_LIST = 131005;
+	// 取持仓列表
+	TI_GET_POSITION_LIST = 131006;
+	// 取成交列表
+	TI_GET_TRADE_LIST = 131007;
+	// 取账户历史记录
+	TI_GET_ACCOUNT_HISTORY = 131008;
+	// 账户入出金
+	TI_ACCOUNT_TRANSFER = 131009;
+	// 取浮动盈亏
+	TI_GET_FLOAT_PROFIT = 131010;
+
+	// 定阅交易信息
+	EI_SUBSCRIBE_TRADE_INFO = 231001;
+
+	// 推送报单消息
+	TI_PUSH_ORDER_MESSAGE = 331001;
+	// 推送成交消息
+	TI_PUSH_TRADE_MESSAGE = 331002;
+	// 推送持仓消息
+	TI_PUSH_POSITION_MESSAGE = 331003;
+	// 推送持仓消息
+	TI_PUSH_POSITION_FLOAT_PROFIT_MESSAGE = 331004;
+	// 推送账户信息
+	TI_PUSH_ACCOUNT_INFO = 331005;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取账户信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取账户信息（请求消息）
+message GetAccountInfoRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+}
+
+
+// 取账户信息（返回消息）
+message GetAccountInfoResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 交易账号信息
+	AccountInfo account_info = 3;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取账户排名
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取账户排名（请求消息）
+message GetAccountRankingRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 排序字段
+	AccountSortField sort_by = 4;
+	// 排名数量
+	int32 count = 5;
+}
+
+
+// 取账户排名（返回消息）
+message GetAccountRankingResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 排序字段
+	AccountSortField sort_by = 3;
+	// 账户信息排名列表
+	repeated AccountInfo account_infos = 4;
+	// 交易账号排名
+	int32 account_ranking = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 发送报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 发送报单（请求消息）
+message SendOrderRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 商品键值
+	CommodityKey key = 4;
+	// 买卖方向
+	BuySellDirection buy_sell_direction = 5;
+	// 开平方向
+	OpenCloseDirection open_close_direction = 6;
+	// 价格
+	double price = 7;
+	// 数量
+	double volume = 8;
+	// 关联持仓编号
+	string position_id = 9;
+}
+
+
+// 发送报单（返回消息）
+message SendOrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 撤消报单
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 撤消报单（请求消息）
+message CancelOrderRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 报单编号
+	string order_id = 4;
+	// 关联持仓编号
+	string position_id = 5;
+}
+
+
+// 撤消报单（返回消息）
+message CancelOrderResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取报单列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取报单列表（请求消息）
+//
+// 数量最小值为1，最大值为5000
+//
+// 开始时间戳、结束时间戳、数量组合使用说明：
+// 不指定参数：取最新100条数据
+// 数量（N）：取最新N条数据
+// 开始时间戳：取开始时间戳之后（包含）的100条数据
+// 结束时间戳：取结束时间戳之前（包含）的100条数据
+// 开始时间戳 + 数量（N）：取开始时间戳之后（包含）的N条数据
+// 结束时间戳 + 数量（N）：取结束时间戳之前（包含）的N条数据
+// 开始时间戳 + 结束时间戳：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回5000条数据
+// 开始时间戳 + 结束时间戳 + 数量（N）：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回N条数据
+//
+// 返回结果按时间戳升序排列
+message GetOrderListRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 4;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 5;
+	// 数量（可选）
+	int32 count = 6;
+	// 商品键值（可选，只返回指定的商品数据）
+	repeated CommodityKey keys = 7;
+	// 开始位置（从0开始）
+	int32 start_pos = 8;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 9;
+}
+
+
+// 取报单列表（返回消息）
+message GetOrderListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 5;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 6;
+	// 数量（请求参数）
+	int32 count = 7;
+	// 商品键值（请求参数）
+	repeated CommodityKey keys = 8;
+	// 报单列表
+	repeated CommodityOrderData orders = 9;
+	// 开始位置（请求参数）
+	int32 start_pos = 10;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 11;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取持仓列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取持仓列表（请求消息）
+message GetPositionListRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 商品键值（可选，只返回指定的商品数据）
+	repeated CommodityKey keys = 4;
+	// 数量（可选）
+	int32 count = 5;
+	// 开始位置（从0开始）
+	int32 start_pos = 6;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 7;
+}
+
+
+// 取持仓列表（返回消息）
+message GetPositionListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 商品键值（请求参数）
+	repeated CommodityKey keys = 5;
+	// 成交列表
+	repeated CommodityPositionData positions = 6;
+	// 数量（请求参数）
+	int32 count = 7;
+	// 开始位置（请求参数）
+	int32 start_pos = 8;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 9;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取成交列表
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取成交列表（请求消息）
+//
+// 数量最小值为1，最大值为5000
+//
+// 开始时间戳、结束时间戳、数量组合使用说明：
+// 不指定参数：取最新100条数据
+// 数量（N）：取最新N条数据
+// 开始时间戳：取开始时间戳之后（包含）的100条数据
+// 结束时间戳：取结束时间戳之前（包含）的100条数据
+// 开始时间戳 + 数量（N）：取开始时间戳之后（包含）的N条数据
+// 结束时间戳 + 数量（N）：取结束时间戳之前（包含）的N条数据
+// 开始时间戳 + 结束时间戳：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回5000条数据
+// 开始时间戳 + 结束时间戳 + 数量（N）：取开始结束时间戳之间（包含）的数据，从结束时间戳向前最多返回N条数据
+//
+// 返回结果按时间戳升序排列
+message GetTradeListRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 开始时间戳（可选）
+	int64 begin_timestamp = 4;
+	// 结束时间戳（可选）
+	int64 end_timestamp = 5;
+	// 数量（可选）
+	int32 count = 6;
+	// 商品键值（可选，只返回指定的商品数据）
+	repeated CommodityKey keys = 7;
+	// 开始位置（从0开始）
+	int32 start_pos = 8;
+	// 是否需要返回数据总数（可选）
+	bool return_total_count = 9;
+}
+
+
+// 取成交列表（返回消息）
+message GetTradeListResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 开始时间戳（请求参数）
+	int64 begin_timestamp = 5;
+	// 结束时间戳（请求参数）
+	int64 end_timestamp = 6;
+	// 数量（请求参数）
+	int32 count = 7;
+	// 商品键值（请求参数）
+	repeated CommodityKey keys = 8;
+	// 成交列表
+	repeated CommodityTradeData trades = 9;
+	// 开始位置（请求参数）
+	int32 start_pos = 10;
+	// 数据总数（请求参数需要返回数据总数时有值）
+	int32 total_count = 11;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取账户历史记录
+////////////////////////////////////////////////////////////////////////////////
+
+
+//  取账户历史记录（请求消息）
+message GetAccountHistoryRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 数量
+	int32 count = 4;
+}
+
+
+//  取账户历史记录（返回消息）
+message GetAccountHistoryResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 账户历史记录列表
+	repeated AccountInfo account_infos = 5;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 账户入出金
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 账户入出金（请求消息）
+message AccountTransferRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 入出金类型
+	AccountTransferType type = 4;
+	// 金额
+	double amount = 5;
+}
+
+
+// 账户入出金（返回消息）
+message AccountTransferResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 取浮动盈亏
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 取浮动盈亏（请求消息）
+message GetFloatProfitRequest
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+}
+
+
+// 取浮动盈亏（返回消息）
+message GetFloatProfitResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+	// 分组编号
+	int32 group_id = 2;
+	// 用户编号
+	int32 user_id = 3;
+	// 策略编号
+	int32 strategy_id = 4;
+	// 成交列表
+	repeated FloatProfitData float_profits = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 定阅交易信息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 定阅交易信息（请求消息）
+message SubscribeTradeInfoRequest
+{
+	// 请求项目
+	repeated SubscribeTradeInfoRequestItem items = 1;
+	// 是否全量定阅
+	bool is_full_subscribe = 2;
+}
+
+
+// 定阅交易信息（返回消息）
+message SubscribeTradeInfoResponse
+{
+	// 返回信息
+	ResponseInfo response_info = 1;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送报单消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送报单消息（推送消息）
+message PushOrderMessage
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 报单列表
+	repeated CommodityOrderData orders = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送成交消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送成交消息（推送消息）
+message PushTradeMessage
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 成交列表
+	repeated CommodityTradeData trades = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送持仓消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送持仓消息（推送消息）
+message PushPositionMessage
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 持仓列表
+	repeated CommodityPositionData positions = 4;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 推送账户消息
+////////////////////////////////////////////////////////////////////////////////
+
+
+// 推送账户消息（推送消息）
+message PushAccountInfoMessage
+{
+	// 分组编号
+	int32 group_id = 1;
+	// 用户编号
+	int32 user_id = 2;
+	// 策略编号
+	int32 strategy_id = 3;
+	// 交易账号信息
+	AccountInfo account_info = 4;
+}

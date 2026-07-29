@@ -26,6 +26,23 @@ YIELD_INDEX_DIR = DATA_DIR / "yield_indices"
 def _get_env_str(name: str) -> str:
     return os.getenv(name, "").strip()
 
+def _require_env_str(name: str) -> str:
+    """读取必填配置，禁止回退到机器相关的真实密钥。"""
+    value = _get_env_str(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _get_env_int(name: str, default: int) -> int:
+    value = _get_env_str(name)
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"Environment variable {name} must be an integer") from exc
+
 def _is_truthy(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
@@ -76,11 +93,11 @@ def create_openai_async_http_client() -> httpx.AsyncClient:
 # ====================== 数据库配置 ======================
 # 复用工具函数读取环境变量，消除重复逻辑
 MYSQL_CONFIG = {
-    "host": _get_env_str("MYSQL_HOST") or "10.253.50.134",
-    "port": int(_get_env_str("MYSQL_PORT") or 3306),
-    "user": _get_env_str("MYSQL_USER") or "root",
-    "password": _get_env_str("MYSQL_PASSWORD") or "123456",
-    "database": _get_env_str("MYSQL_DATABASE") or "Sentiment_analysis",
+    "host": _require_env_str("MYSQL_HOST"),
+    "port": _get_env_int("MYSQL_PORT", 3306),
+    "user": _require_env_str("MYSQL_USER"),
+    "password": _require_env_str("MYSQL_PASSWORD"),
+    "database": _require_env_str("MYSQL_DATABASE"),
     "charset": _get_env_str("MYSQL_CHARSET") or "utf8mb4",
     "autocommit": _is_truthy(_get_env_str("MYSQL_AUTOCOMMIT") or "true"),
 }
@@ -195,7 +212,9 @@ BEHAVIOR_LOG_DEFAULT_DAYS = 10
 AUTH_ENABLED = _is_truthy(_get_env_str("AUTH_ENABLED") or "false")
 
 # JWT 密钥（启用认证时必填，建议 32 位以上随机字符串）
-JWT_SECRET_KEY = _get_env_str("JWT_SECRET_KEY") or "sentiment-jwt-secret-change-me"
+JWT_SECRET_KEY = _get_env_str("JWT_SECRET_KEY")
+if AUTH_ENABLED and not JWT_SECRET_KEY:
+    raise RuntimeError("Missing required environment variable: JWT_SECRET_KEY when AUTH_ENABLED=true")
 
 # JWT 过期时间（小时），默认 24 小时
 JWT_EXPIRY_HOURS = int(_get_env_str("JWT_EXPIRY_HOURS") or "24")

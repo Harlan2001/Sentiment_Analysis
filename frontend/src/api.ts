@@ -32,6 +32,11 @@ import type {
   ChangeSnapshotsResponse,
   ChangeCompareResponse,
   ChangeTriggerResponse,
+  AiStrategyGenerationResponse,
+  AiStrategyConversationCreateResponse,
+  AiStrategyConversationDetailResponse,
+  AiStrategyConversationListResponse,
+  AiStrategyPromptDraftResponse,
 } from "./types";
 import { storage } from "./utils/helpers";
 import { API_PREFIX } from "./constants";
@@ -716,7 +721,7 @@ export async function postBehaviorBatch(events: PageVisitEvent[]): Promise<Behav
 
 // ========== User Profile API ==========
 
-export async function fetchActiveUsers(): Promise<{ users: { id: number; username: string; display_name: string; department: string | null; role: string }[] }> {
+export async function fetchActiveUsers(): Promise<{ users: { id: number; username: string; display_name: string; department: string | null; company: string | null; role: string }[] }> {
   const r = await fetch(`${BASE}/dashboard/users/active`, { headers: authHeaders() });
   if (!r.ok) throw new Error('活跃用户列表获取失败');
   return r.json();
@@ -831,4 +836,69 @@ export async function fetchMacroData(
   })
   if (!r.ok) throw new Error('获取宏观数据失败')
   return r.json()
+}
+
+
+export async function createAiStrategyConversation(title: string): Promise<AiStrategyConversationCreateResponse> {
+  const response = await fetch(`${BASE}/ai-strategy-generation/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'Failed to create history conversation');
+  }
+  return response.json();
+}
+
+export async function fetchAiStrategyConversations(): Promise<AiStrategyConversationListResponse> {
+  const response = await fetch(`${BASE}/ai-strategy-generation/conversations`, { headers: authHeaders() });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'Failed to load history conversations');
+  }
+  return response.json();
+}
+
+export async function fetchAiStrategyConversation(conversationId: number): Promise<AiStrategyConversationDetailResponse> {
+  const response = await fetch(`${BASE}/ai-strategy-generation/conversations/${conversationId}`, { headers: authHeaders() });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'Failed to load history conversation');
+  }
+  return response.json();
+}
+
+export async function createAiStrategyPromptDraft(
+  conversationId: number,
+  requirement: string,
+): Promise<AiStrategyPromptDraftResponse> {
+  const response = await fetch(`${BASE}/ai-strategy-generation/conversations/${conversationId}/draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ requirement }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'Unable to build the strategy prompt draft');
+  }
+  return response.json();
+}
+
+export async function confirmAiStrategyPromptDraft(
+  conversationId: number,
+  assistantMessageId: number,
+  editedPrompt: string,
+): Promise<AiStrategyGenerationResponse> {
+  const response = await fetch(`${BASE}/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ edited_prompt: editedPrompt }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'DreamStrategy generation failed');
+  }
+  return response.json();
 }

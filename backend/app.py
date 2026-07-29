@@ -14,6 +14,7 @@ from backend.common.database import DatabaseConfig, init_database
 from backend.common.vector_store import get_faiss_store
 from backend.config.config import MYSQL_CONFIG
 from backend.routers.ai_strategy import router as ai_strategy_router
+from backend.routers.ai_strategy_generation import router as ai_strategy_generation_router
 from backend.routers.strategy import router as strategy_router, start_strategy_services, stop_strategy_services
 from backend.routers.macro import router as macro_router
 from backend.routers.factors import router as factors_router
@@ -56,6 +57,7 @@ async def log_unhandled_exceptions(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(ai_strategy_router)
+app.include_router(ai_strategy_generation_router)
 app.include_router(strategy_router)
 app.include_router(macro_router)
 app.include_router(factors_router)

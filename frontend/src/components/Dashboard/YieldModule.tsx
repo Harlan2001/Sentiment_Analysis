@@ -34,7 +34,7 @@ export const YieldModule: React.FC<Props> = ({ data }) => {
   const sparklineOption = (values: number[], color: string) => ({
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'category', show: false, data: values.map((_, i) => i) },
-    yAxis: { type: 'value', show: false, min: v => Math.min(...values) * 0.99, max: v => Math.max(...values) * 1.01 },
+    yAxis: { type: 'value', show: false, min: (v: number) => Math.min(...values) * 0.99, max: (v: number) => Math.max(...values) * 1.01 },
     series: [{
       type: 'line',
       data: values,

@@ -28,6 +28,29 @@ export const formatDate = (date: string | Date, format?: string): string => {
   }
 }
 
+/**
+ * Format API timestamps in Beijing time. History MySQL DATETIME values are
+ * defined as Beijing local time; only explicitly offset values are converted.
+ */
+export const formatBeijingDateTime = (value: string | null | undefined): string => {
+  if (!value) return '暂无消息'
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const source = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}+08:00`
+  const date = new Date(source)
+  if (Number.isNaN(date.getTime())) return value
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const fields = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${fields.year}-${fields.month}-${fields.day} ${fields.hour}:${fields.minute}`
+}
+
 // 相对时间格式化
 export const formatRelativeTime = (date: string | Date): string => {
   try {

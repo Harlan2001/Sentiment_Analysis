@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchAllStrategies } from '../../api'
 import { Loading, Error, Empty, Card, CardContent, CardHeader, CardTitle, Input } from '../UI'
 import type { StrategyItem } from '../../types'
@@ -114,6 +115,7 @@ const StrategyListPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'quant' | 'trading'>('all')
+  const navigate = useNavigate()
   const [searchText, setSearchText] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -149,6 +151,7 @@ const StrategyListPage: React.FC = () => {
     { key: 'all' as const, label: '全部', count: strategies.length },
     { key: 'quant' as const, label: '量化策略', count: quantCount },
     { key: 'trading' as const, label: '交易策略', count: tradingCount },
+    { key: 'ai' as const, label: 'AI策略', count: null },
   ]
 
   return (
@@ -181,12 +184,24 @@ const StrategyListPage: React.FC = () => {
                       ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-purple-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
-                  onClick={() => { setActiveTab(tab.key); setExpandedId(null) }}
+                  onClick={() => {
+                    // AI标签特殊跳转逻辑
+                    if (tab.key === 'ai') {
+                      navigate('/ai-strategy-generation-preview');
+                      // return 阻断后面通用逻辑，点ai只跳转，不切换tab
+                      return;
+                    }
+                    // 所有标签通用逻辑：切换激活tab、收起展开面板
+                    setActiveTab(tab.key);
+                    setExpandedId(null);
+                  }}
                   data-track="strategy_filter"
                   data-target={tab.key}
                 >
                   {tab.label}
-                  <span className="ml-1.5 text-xs opacity-75">({tab.count})</span>
+                  {typeof tab.count === 'number' && (
+                    <span className="ml-1.5 text-xs opacity-75">({tab.count})</span>
+                  )}
                 </button>
               ))}
             </div>
