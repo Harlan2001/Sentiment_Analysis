@@ -18,6 +18,7 @@ import { FactorModule } from '@/components/Dashboard/FactorModule';
 import { VectorModule } from '@/components/Dashboard/VectorModule';
 import { YieldModule } from '@/components/Dashboard/YieldModule';
 import { ForecastModule } from '@/components/Dashboard/ForecastModule';
+import { ResearchModule } from '@/components/Dashboard/ResearchModule';
 import { BehaviorPanel } from '@/components/Dashboard/BehaviorPanel';
 import { UserProfilePanel } from '@/components/Dashboard/UserProfilePanel';
 import { HistorySnapshot } from '@/components/Dashboard/HistorySnapshot';
@@ -150,6 +151,7 @@ const DashboardPage: React.FC = () => {
                   <div className="flex flex-col gap-4">
                     <VectorModule data={coreData.vector} />
                     <ForecastModule data={coreData.forecast} />
+                    <ResearchModule data={coreData.research} />
                   </div>
                 </div>
                 <HistorySnapshot />

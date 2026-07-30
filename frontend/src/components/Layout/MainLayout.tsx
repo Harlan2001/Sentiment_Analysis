@@ -67,6 +67,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigation = [
     { name: '看板', href: '/dashboard', icon: ClipboardListIcon },
     { name: '新闻', href: '/news', icon: NewspaperIcon },
+    { name: '研报', href: '/research', icon: BeakerIcon },
     { name: '数据', href: '/data', icon: DatabaseIcon },
     { name: '预测', href: '/prediction', icon: SparklesIcon },
     { name: '因子', href: '/factors', icon: ChartBarIcon },

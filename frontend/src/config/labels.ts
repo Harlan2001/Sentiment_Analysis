@@ -16,7 +16,10 @@ export const PAGE_TITLE_MAP: Record<string, string> = {
   '/macro-signal-logs': '信号日志',
   '/dashboard': '看板',
   '/login': '登录',
-  '/my-usage': '我的使用',  // 兼容历史数据
+  '/my-usage': '我的使用',
+  '/research': '研报',
+  '/ai-strategy-generation': 'AI策略生成',
+  '/macro-data': '宏观数据',
 };
 
 // ========== 模型名称 → 中文显示名 ==========
@@ -48,6 +51,7 @@ export const ACTION_LABEL_MAP: Record<string, string> = {
   factor_filter: '筛选因子',
   strategy_click: '点击策略',
   strategy_search: '搜索策略',
+  strategy_filter: '策略筛选',
   snapshot_compare: '对比快照',
   chart_interact: '图表交互',
   download: '下载',
@@ -67,6 +71,7 @@ export const CALL_SOURCE_MAP: Record<string, string> = {
   analysis: '新闻分析',
   strategy: 'AI策略推荐',
   change: 'AI策略变动',
+  research: '研报分析',
 };
 
 // ========== 退出类型 → 中文标签 ==========
@@ -84,6 +89,9 @@ export const ACTION_TARGET_MAP: Record<string, string> = {
   history: '历史预测',
   strategy_filter: '策略筛选',
   strategy_search: '策略搜索',
+  all: '全部策略',
+  quant: '量化策略',
+  trading: '交易策略',
 };
 
 // ========== 通用 UI 标签 ==========

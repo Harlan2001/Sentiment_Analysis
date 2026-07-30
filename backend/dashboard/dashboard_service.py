@@ -27,9 +27,13 @@ cache_lock = threading.Lock()
 def _route_title(route: str) -> str:
     """路由 → 中文标题（兜底映射，避免 SQL 中硬编码）"""
     from backend.config.config import PAGE_TITLES
+    import re
     if route in ('/', '/news'):
         return '新闻'
-    return PAGE_TITLES.get(route, route)
+    # 归一化：/research/7 → /research，/ai-strategy-generation-preview → /ai-strategy-generation
+    normalized = re.sub(r'^/research/\d+$', '/research', route)
+    normalized = re.sub(r'^/ai-strategy-generation.*$', '/ai-strategy-generation', normalized)
+    return PAGE_TITLES.get(normalized, normalized)
 
 
 # ============================================================
@@ -59,13 +63,19 @@ def get_base_stats() -> Dict[str, int]:
                (SELECT COUNT(DISTINCT date) FROM yield_data),(SELECT COUNT(*) FROM forecast_report),
                (SELECT COUNT(*) FROM analysis WHERE direction IS NOT NULL AND direction!=''
                  AND horizon IS NOT NULL AND horizon!='' AND reason IS NOT NULL AND reason!=''),
-               (SELECT COUNT(*) FROM analysis)
+               (SELECT COUNT(*) FROM analysis),
+               (SELECT COUNT(*) FROM research_report),
+               (SELECT COUNT(*) FROM research_report WHERE status='analyzed'),
+               (SELECT COUNT(*) FROM research_report WHERE ai_market_view='bullish'),
+               (SELECT COUNT(*) FROM research_report WHERE ai_market_view='bearish'),
+               (SELECT COUNT(*) FROM research_report WHERE ai_market_view='neutral')
     """, one=True)
     if not row:
         return {}
     return dict(zip([
         "news_total", "analyzed", "pending", "factor_total", "indexed", "vec_pending",
         "yield_days", "report_total", "valid_analysis", "analysis_total",
+        "research_total", "research_analyzed", "research_bullish", "research_bearish", "research_neutral",
     ], row))
 
 
@@ -245,6 +255,17 @@ def build_forecast_module(report_total: int) -> Dict[str, Any]:
             }
             for i in range(30)
         ],
+    }
+
+
+def build_research_module(base: Dict[str, int]) -> Dict[str, Any]:
+    """研报模块：总数、分析数、观点分布"""
+    return {
+        "total": base.get("research_total", 0),
+        "analyzed": base.get("research_analyzed", 0),
+        "bullish": base.get("research_bullish", 0),
+        "bearish": base.get("research_bearish", 0),
+        "neutral": base.get("research_neutral", 0),
     }
 
 

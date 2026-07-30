@@ -835,6 +835,14 @@ export interface ForecastModuleData {
   coverage_30d: CoverageDay[];
 }
 
+export interface ResearchModuleData {
+  total: number;
+  analyzed: number;
+  bullish: number;
+  bearish: number;
+  neutral: number;
+}
+
 // Dashboard Core Response
 export interface DashboardCoreData {
   generated_at: string;
@@ -846,6 +854,7 @@ export interface DashboardCoreData {
   vector: VectorModuleData;
   yield: YieldModuleData;
   forecast: ForecastModuleData;
+  research: ResearchModuleData;
 }
 
 // ========== Behavior / Audit Types ==========

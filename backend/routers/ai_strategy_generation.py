@@ -24,7 +24,7 @@ from backend.strategy.dream_strategy_prompt import (
 )
 
 
-router = APIRouter(prefix="f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
+router = APIRouter(prefix=f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
 
 
 class ConversationCreateRequest(BaseModel):

@@ -33,6 +33,7 @@ from backend.dashboard.dashboard_service import (
     build_vector_module,
     build_yield_module,
     build_forecast_module,
+    build_research_module,
     read_cache,
     write_cache,
     cleanup_cache,
@@ -91,6 +92,7 @@ def get_dashboard_core():
             "vector": build_vector_module(base["indexed"], base["vec_pending"]),
             "yield": build_yield_module(),
             "forecast": build_forecast_module(base["report_total"]),
+            "research": build_research_module(base),
         }
         write_cache(data)
         cleanup_cache()
