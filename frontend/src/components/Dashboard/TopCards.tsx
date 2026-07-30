@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TopCards } from '../../types';
+import type { TopCards } from '@/types';
 import { MetricCard } from './Widgets';
 
 interface Props {

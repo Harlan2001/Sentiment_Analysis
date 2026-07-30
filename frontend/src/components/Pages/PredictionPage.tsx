@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '../UI'
-import { Loading, Error, Empty } from '../UI'
-import { useForecastReport, useForecastHistory } from '../../hooks/useForecastApi'
-import { formatDate } from '../../utils/helpers'
-import { logAction } from '../../utils/behaviorLogger'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/UI'
+import { Loading, Error, Empty } from '@/components/UI'
+import { useForecastReport, useForecastHistory } from '@/hooks/useForecastApi'
+import { formatDate } from '@/utils/helpers'
+import { logAction } from '@/utils/behaviorLogger'
 import type {
    ForecastReport,
    ForecastHistoryItem,
@@ -11,7 +11,7 @@ import type {
    FullForecastReport,
    ScenarioAnalysis,
    ScenarioItem
-} from '../../types'
+} from '@/types'
 
 // 常量定义
 const MODEL_NAME = "kingstar"

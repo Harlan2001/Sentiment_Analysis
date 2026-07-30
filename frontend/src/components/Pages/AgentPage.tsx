@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '../UI'
-import { useAgentChat } from '../../hooks/useChatApi'
-import { cn, formatDate, copyToClipboard } from '../../utils/helpers'
-import { TOOL_DISPLAY_NAMES, TOOL_ICONS } from '../../constants'
-import type { AgentMessage, ToolCall, ToolCallResult, AgentSkill } from '../../types'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/UI'
+import { useAgentChat } from '@/hooks/useChatApi'
+import { cn, formatDate, copyToClipboard } from '@/utils/helpers'
+import { TOOL_DISPLAY_NAMES, TOOL_ICONS } from '@/constants'
+import type { AgentMessage, ToolCall, ToolCallResult, AgentSkill } from '@/types'
 
 // ═══════════════════════════════════════════════════════════════════════
 // Skills 定义

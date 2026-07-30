@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Loading, Empty } from '../UI'
-import { useNewsSources } from '../../hooks/useNewsApi'
-import { cn, formatDate } from '../../utils/helpers'
+import { Card, CardContent, CardHeader, CardTitle, Button, Loading, Empty } from '@/components/UI'
+import { useNewsSources } from '@/hooks/useNewsApi'
+import { cn, formatDate } from '@/utils/helpers'
 
 interface DataSource {
   id: string

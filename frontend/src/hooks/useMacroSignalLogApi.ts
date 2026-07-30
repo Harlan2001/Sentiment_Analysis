@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchMacroSignalRequestLogs } from '../api'
-import type { MacroSignalRequestLogQuery } from '../types'
+import { fetchMacroSignalRequestLogs } from '@/api'
+import type { MacroSignalRequestLogQuery } from '@/types'
 
 export const useMacroSignalRequestLogs = (query: MacroSignalRequestLogQuery) => {
   return useQuery({

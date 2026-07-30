@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchYields, fetchNewsByDate, fetchNewsById, fetchNewsSources, fetchNewsByDateRange, fetchLatestTradingDay } from '../api'
-import { storage } from '../utils/helpers'
-import { API_PREFIX } from '../constants'
-import type { YieldPoint, NewsItem, NewsSource } from '../types'
+import { fetchYields, fetchNewsByDate, fetchNewsById, fetchNewsSources, fetchNewsByDateRange, fetchLatestTradingDay } from '@/api'
+import { storage } from '@/utils/helpers'
+import { API_PREFIX } from '@/constants'
+import type { YieldPoint, NewsItem, NewsSource } from '@/types'
 
 function authHeaders(): Record<string, string> {
   const token = storage.get<string>("auth_token");

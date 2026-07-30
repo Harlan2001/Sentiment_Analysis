@@ -11,10 +11,10 @@
 import React, { useState, useMemo, useCallback } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { Card, CardContent, CardHeader, CardTitle, Button, Loading, Empty, Error } from '../UI'
-import { useMacroIndicators, useMacroData } from '../../hooks/useMacroDataApi'
-import { cn } from '../../utils/helpers'
-import type { MacroIndicator, MacroDataSeries, MacroDataPoint } from '../../types'
+import { Card, CardContent, CardHeader, CardTitle, Button, Loading, Empty, Error } from '@/components/UI'
+import { useMacroIndicators, useMacroData } from '@/hooks/useMacroDataApi'
+import { cn } from '@/utils/helpers'
+import type { MacroIndicator, MacroDataSeries, MacroDataPoint } from '@/types'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 常量

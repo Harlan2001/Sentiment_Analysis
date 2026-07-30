@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef } from 'react'
-import { sendChatMessage, sendChatMessageStream, sendChatMessageStreamLegacy } from '../api'
+import { sendChatMessage, sendChatMessageStream, sendChatMessageStreamLegacy } from '@/api'
 import type {
   ChatMessage,
   ChatResponse,
   AgentMessage,
   ToolCall,
   ToolCallResult,
-} from '../types'
-import { TOOL_DISPLAY_NAMES, TOOL_ICONS } from '../constants'
+} from '@/types'
+import { TOOL_DISPLAY_NAMES, TOOL_ICONS } from '@/constants'
 
 // 重新导出 API 函数
 export { sendChatMessage, sendChatMessageStream }

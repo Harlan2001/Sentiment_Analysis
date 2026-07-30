@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchChangeSnapshots, fetchChangeCompare, triggerChangeSnapshot } from '../../api';
-import { Loading, Error, Empty } from '../UI';
+import { fetchChangeSnapshots, fetchChangeCompare, triggerChangeSnapshot } from '@/api';
+import { Loading, Error, Empty } from '@/components/UI';
 import type {
   ChangeSnapshotItem,
   ChangeCompareResponse,
@@ -10,7 +10,7 @@ import type {
   StrategyRecommendItem,
   StrategyRemovedItem,
   StrategyModifiedItem,
-} from '../../types';
+} from '@/types';
 
 // ============ 状态徽章 ============
 const StatusBadge: React.FC<{ status: number }> = ({ status }) => {

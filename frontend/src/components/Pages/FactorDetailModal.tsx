@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
-import { Modal, Card, CardContent, CardHeader, CardTitle, Button, Loading, Error, Empty } from '../UI'
-import { useFactorAnalysis } from '../../hooks/useFactorApi'
-import { useNewsDetail } from '../../hooks/useNewsApi'
-import { formatDate, getDirectionColor, truncateText } from '../../utils/helpers'
+import { Modal, Card, CardContent, CardHeader, CardTitle, Button, Loading, Error, Empty } from '@/components/UI'
+import { useFactorAnalysis } from '@/hooks/useFactorApi'
+import { useNewsDetail } from '@/hooks/useNewsApi'
+import { formatDate, getDirectionColor, truncateText } from '@/utils/helpers'
+import type { FactorDefinition, FactorNewsItem } from '@/types'
 import NewsCard from './NewsCard'
-import type { FactorDefinition, FactorNewsItem } from '../../types'
 
 interface FactorDetailModalProps {
   factor: FactorDefinition

@@ -7,7 +7,7 @@ import type {
   GraphAugmentJob,
   GraphAugmentStartResponse,
   GraphAugmentStatusResponse,
-} from '../types'
+} from '@/types'
 import {
   startGraphAugment,
   getGraphAugmentStatus,
@@ -16,7 +16,7 @@ import {
   getGraphAugmentJobByNews,
   saveGraphAugmentResult,
   connectGraphAugmentStream,
-} from '../api'
+} from '@/api'
 
 export function useGraphAugmentJob(newsId: number) {
   const { data, ...rest } = useQuery({

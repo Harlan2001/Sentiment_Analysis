@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { AnalysisModuleData } from '../../types';
+import type { AnalysisModuleData } from '@/types';
 import { PanelTitle, MetricCard, ProgressBar, TimelinessLabel } from './Widgets';
 import { ALERT } from './constants';
 

@@ -2,9 +2,9 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { fetchAiStrategyConversations } from '../../api'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty, Error as ErrorState, Loading } from '../UI'
-import { formatBeijingDateTime } from '../../utils/helpers'
+import { fetchAiStrategyConversations } from '@/api'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty, Error as ErrorState, Loading } from '@/components/UI'
+import { formatBeijingDateTime } from '@/utils/helpers'
 
 const AiStrategyHistoryPage: React.FC = () => {
   const navigate = useNavigate()

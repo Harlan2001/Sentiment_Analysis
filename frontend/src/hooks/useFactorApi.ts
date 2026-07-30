@@ -3,10 +3,10 @@ import {
   fetchAllFactors, 
   fetchFactorsByCategory, 
   fetchNewsByFactor 
-} from '../api'
+} from '@/api'
 import type { 
   AllFactorsResponse
-} from '../types'
+} from '@/types'
 
 // 获取所有因子
 export const useAllFactors = () => {

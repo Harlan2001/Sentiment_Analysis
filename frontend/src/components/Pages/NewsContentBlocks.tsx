@@ -1,5 +1,5 @@
 import React from 'react'
-import type { NewsContentBlock } from '../../types'
+import type { NewsContentBlock } from '@/types'
 
 interface NewsContentBlocksProps {
   blocks: NewsContentBlock[]

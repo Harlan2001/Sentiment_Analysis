@@ -1,5 +1,5 @@
 import React from 'react'
-import { Input, Select, Button } from '../UI'
+import { Input, Select, Button } from '@/components/UI'
 
 interface FactorFiltersProps {
   searchQuery: string

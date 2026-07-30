@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Loading } from '../UI'
-import { useNewsAnalysis, useSimilarNews } from '../../hooks/useNewsApi'
-import { useGraphAugmentJob, useGraphAugment } from '../../hooks/useGraphAugment'
+import { Card, CardContent, CardHeader, CardTitle, Button, Loading } from '@/components/UI'
+import { useNewsAnalysis, useSimilarNews } from '@/hooks/useNewsApi'
+import { useGraphAugmentJob, useGraphAugment } from '@/hooks/useGraphAugment'
+import type { NewsItem } from '@/types'
 import GraphAugmentViewer from './GraphAugmentViewer'
-import type { NewsItem } from '../../types'
 import NewsContentBlocks from './NewsContentBlocks'
 import YieldChart from './YieldChart'
 

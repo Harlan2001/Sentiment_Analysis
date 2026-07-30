@@ -2,8 +2,8 @@
  * 宏观数据 API hooks — 基于 @tanstack/react-query
  */
 import { useQuery } from '@tanstack/react-query'
-import { fetchMacroIndicators, fetchMacroData } from '../api'
-import type { MacroIndicatorsResponse, MacroDataResponse } from '../types'
+import { fetchMacroIndicators, fetchMacroData } from '@/api'
+import type { MacroIndicatorsResponse, MacroDataResponse } from '@/types'
 
 /** 获取指标元数据（稳定数据，缓存1小时） */
 export function useMacroIndicators() {

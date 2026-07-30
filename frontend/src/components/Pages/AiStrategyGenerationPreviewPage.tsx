@@ -7,10 +7,10 @@ import {
   createAiStrategyPromptDraft,
   confirmAiStrategyPromptDraft,
   fetchAiStrategyConversation,
-} from '../../api'
-import type { AiStrategyBacktestMetric, AiStrategyConversationMessage, AiStrategyPromptContext } from '../../types'
-import { Button, Card, CardContent, CardHeader, CardTitle, Error as ErrorState, Loading, Select, Textarea } from '../UI'
-import { formatBeijingDateTime } from '../../utils/helpers'
+} from '@/api'
+import type { AiStrategyBacktestMetric, AiStrategyConversationMessage, AiStrategyPromptContext } from '@/types'
+import { Button, Card, CardContent, CardHeader, CardTitle, Error as ErrorState, Loading, Select, Textarea } from '@/components/UI'
+import { formatBeijingDateTime } from '@/utils/helpers'
 
 type ConversationTurn = {
   id: number

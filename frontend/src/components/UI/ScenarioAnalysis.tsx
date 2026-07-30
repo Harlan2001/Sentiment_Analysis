@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '../UI/Card'
-import Button from '../UI/Button'
-import { PredictionChart } from '../UI/PredictionChart'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/UI/Card'
+import Button from '@/components/UI/Button'
+import { PredictionChart } from '@/components/UI/PredictionChart'
 
 interface Scenario {
   id: string

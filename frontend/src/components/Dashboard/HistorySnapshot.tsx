@@ -3,7 +3,7 @@
  */
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchDashboardHistory, triggerDashboardSnapshot } from '../../api';
+import { fetchDashboardHistory, triggerDashboardSnapshot } from '@/api';
 
 interface Props {
   className?: string;

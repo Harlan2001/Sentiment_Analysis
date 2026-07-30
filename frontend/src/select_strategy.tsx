@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error as ErrorUI, Input, Loading } from './components/UI'
-import { storage } from './utils/helpers'
-import { API_PREFIX } from './constants'
+import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error as ErrorUI, Input, Loading } from '@/components/UI'
+import { storage } from '@/utils/helpers'
+import { API_PREFIX } from '@/constants'
 
 function authHeaders(): Record<string, string> {
   const token = storage.get<string>("auth_token");

@@ -8,23 +8,23 @@
  *   我的使用           — 所有登录用户
  */
 import React, { useState, useMemo, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useCoreDashboard } from '../../hooks/useCoreDashboard';
-import { useBehaviorStats } from '../../hooks/useSimpleBehavior';
-import { TopSummaryCards } from '../Dashboard/TopCards';
-import { NewsModule } from '../Dashboard/NewsModule';
-import { AnalysisModule } from '../Dashboard/AnalysisModule';
-import { FactorModule } from '../Dashboard/FactorModule';
-import { VectorModule } from '../Dashboard/VectorModule';
-import { YieldModule } from '../Dashboard/YieldModule';
-import { ForecastModule } from '../Dashboard/ForecastModule';
-import { BehaviorPanel } from '../Dashboard/BehaviorPanel';
-import { UserProfilePanel } from '../Dashboard/UserProfilePanel';
-import { HistorySnapshot } from '../Dashboard/HistorySnapshot';
-import TokenOverviewPanel from '../Dashboard/TokenOverviewPanel';
-import UserTokenPanel from '../Dashboard/UserTokenPanel';
-import DeptOverviewPanel from '../Dashboard/DeptOverviewPanel';
-import MyUsagePage from '../Pages/MyUsagePage';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCoreDashboard } from '@/hooks/useCoreDashboard';
+import { useBehaviorStats } from '@/hooks/useSimpleBehavior';
+import { TopSummaryCards } from '@/components/Dashboard/TopCards';
+import { NewsModule } from '@/components/Dashboard/NewsModule';
+import { AnalysisModule } from '@/components/Dashboard/AnalysisModule';
+import { FactorModule } from '@/components/Dashboard/FactorModule';
+import { VectorModule } from '@/components/Dashboard/VectorModule';
+import { YieldModule } from '@/components/Dashboard/YieldModule';
+import { ForecastModule } from '@/components/Dashboard/ForecastModule';
+import { BehaviorPanel } from '@/components/Dashboard/BehaviorPanel';
+import { UserProfilePanel } from '@/components/Dashboard/UserProfilePanel';
+import { HistorySnapshot } from '@/components/Dashboard/HistorySnapshot';
+import TokenOverviewPanel from '@/components/Dashboard/TokenOverviewPanel';
+import UserTokenPanel from '@/components/Dashboard/UserTokenPanel';
+import DeptOverviewPanel from '@/components/Dashboard/DeptOverviewPanel';
+import MyUsagePage from '@/components/Pages/MyUsagePage';
 
 type TabKey = 'monitor' | 'audit' | 'dept' | 'myusage';
 type AuditSubTab = 'overview' | 'profile' | 'token';

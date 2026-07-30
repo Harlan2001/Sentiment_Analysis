@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { ForecastModuleData } from '../../types';
+import type { ForecastModuleData } from '@/types';
 import { PanelTitle, MetricCard } from './Widgets';
 import { ALERT } from './constants';
 

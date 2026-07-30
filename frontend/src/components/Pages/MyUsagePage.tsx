@@ -3,8 +3,8 @@
  * 显示个人 Token 汇总、趋势、功能使用分布、时段分布、模型偏好
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { getModelLabel, getPageTitle } from '../../config/labels';
+import { useAuth } from '@/contexts/AuthContext';
+import { getModelLabel, getPageTitle } from '@/config/labels';
 
 const API_PREFIX = '/sapi';
 

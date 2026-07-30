@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { YieldModuleData } from '../../types';
+import type { YieldModuleData } from '@/types';
 import { PanelTitle, MetricCard } from './Widgets';
 import { PERIOD_COLORS } from './constants';
 

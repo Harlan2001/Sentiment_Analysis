@@ -14,8 +14,8 @@ import ReactFlow, {
   Panel,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Card, CardContent, CardHeader, CardTitle, Loading } from '../UI'
-import type { GraphAugmentResult, GraphAugmentExtractResult, GraphAugmentNode, GraphAugmentRelationship } from '../../types'
+import { Card, CardContent, CardHeader, CardTitle, Loading } from '@/components/UI'
+import type { GraphAugmentResult, GraphAugmentExtractResult, GraphAugmentNode, GraphAugmentRelationship } from '@/types'
 
 interface GraphAugmentViewerProps {
   result: GraphAugmentResult | null

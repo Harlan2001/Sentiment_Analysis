@@ -1,7 +1,7 @@
 import React from 'react'
 import { graphic } from 'echarts'
 import type { EChartsOption } from 'echarts'
-import type { YieldPoint } from '../types'
+import type { YieldPoint } from '@/types'
 
 const chartPalette = {
   primary: '#a78bfa',

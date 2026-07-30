@@ -3,9 +3,9 @@
  * 全局汇总卡片 + Token趋势 + 模型分布 + 用户排行
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { fetchTokenTrend, fetchTokenByModel, fetchUserTokenList } from '../../api';
-import type { TokenTrendItem, TokenModelDist, UserTokenItem } from '../../types';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchTokenTrend, fetchTokenByModel, fetchUserTokenList } from '@/api';
+import type { TokenTrendItem, TokenModelDist, UserTokenItem } from '@/types';
 
 const API_PREFIX = '/sapi';
 

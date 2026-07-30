@@ -4,9 +4,9 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { fetchTokenTrend, fetchTokenByModel, fetchUserTokenList } from '../../api';
-import { getPageTitle } from '../../config/labels';
-import type { TokenTrendItem, TokenModelDist, UserTokenItem } from '../../types';
+import { fetchTokenTrend, fetchTokenByModel, fetchUserTokenList } from '@/api';
+import { getPageTitle } from '@/config/labels';
+import type { TokenTrendItem, TokenModelDist, UserTokenItem } from '@/types';
 
 const API_PREFIX = '/sapi';
 

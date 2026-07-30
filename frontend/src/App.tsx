@@ -1,11 +1,11 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import MainLayout from './components/Layout/MainLayout'
-import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, AiStrategyGenerationPreviewPage } from './components/Pages'
-import { useAuth } from './contexts/AuthContext'
-import { useBehaviorTracker } from './hooks/useBehaviorTracker'
-import { Loading } from './components/UI/Loading'
-import AiStrategyHistoryPage from './components/Pages/AiStrategyHistoryPage'
+import MainLayout from '@/components/Layout/MainLayout'
+import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, AiStrategyGenerationPreviewPage } from '@/components/Pages'
+import { useAuth } from '@/contexts/AuthContext'
+import { useBehaviorTracker } from '@/hooks/useBehaviorTracker'
+import { Loading } from '@/components/UI/Loading'
+import AiStrategyHistoryPage from '@/components/Pages/AiStrategyHistoryPage'
 
 /**
  * 受保护的路由组件：

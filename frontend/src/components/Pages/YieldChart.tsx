@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useYieldChart } from '../../hooks/useChart'
-import type { YieldPoint } from '../../types'
+import { useYieldChart } from '@/hooks/useChart'
+import type { YieldPoint } from '@/types'
 
 interface YieldChartProps {
   data: YieldPoint[]

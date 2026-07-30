@@ -1,5 +1,5 @@
 import React from 'react'
-import type { NewsItem } from '../../types'
+import type { NewsItem } from '@/types'
 
 interface NewsListProps {
   news: NewsItem[]

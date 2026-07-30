@@ -1,7 +1,7 @@
 import React from 'react'
-import { Card, CardContent } from '../UI'
-import { formatDate } from '../../utils/helpers'
-import type { FactorDefinition } from '../../types'
+import { Card, CardContent } from '@/components/UI'
+import { formatDate } from '@/utils/helpers'
+import type { FactorDefinition } from '@/types'
 
 interface FactorCardProps {
   factor: FactorDefinition

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { storage } from '../utils/helpers'
-import { API_PREFIX } from '../constants'
+import { storage } from '@/utils/helpers'
+import { API_PREFIX } from '@/constants'
 
 interface AuthState {
   isAuthenticated: boolean

@@ -2,9 +2,9 @@
  * 用户 Token 消耗面板（管理员）— 全局概览 + 趋势 + 模型分布 + 用户排行
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchUserTokenList, fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '../../api';
-import { getModelLabel, CALL_SOURCE_MAP } from '../../config/labels';
-import type { UserTokenItem, TokenOverview, TokenTrendItem, TokenModelDist } from '../../types';
+import { fetchUserTokenList, fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '@/api';
+import { getModelLabel, CALL_SOURCE_MAP } from '@/config/labels';
+import type { UserTokenItem, TokenOverview, TokenTrendItem, TokenModelDist } from '@/types';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: '管理员', manager: '经理', user: '普通用户',

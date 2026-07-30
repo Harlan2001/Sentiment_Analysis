@@ -3,9 +3,9 @@
  * 显示今日/本月 Token 总量、调用次数、按来源分布、趋势图、模型分布
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '../../api';
-import type { TokenOverview, TokenTrendItem, TokenModelDist } from '../../types';
-import { CALL_SOURCE_MAP, getModelLabel } from '../../config/labels';
+import { fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '@/api';
+import type { TokenOverview, TokenTrendItem, TokenModelDist } from '@/types';
+import { CALL_SOURCE_MAP, getModelLabel } from '@/config/labels';
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';

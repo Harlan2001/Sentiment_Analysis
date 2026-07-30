@@ -4,11 +4,11 @@
  */
 import React, { useState, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { BehaviorStats, AuditLogEntry } from '../../types';
-import { useBehaviorLogs } from '../../hooks/useSimpleBehavior';
+import type { BehaviorStats, AuditLogEntry } from '@/types';
+import { useBehaviorLogs } from '@/hooks/useSimpleBehavior';
+import { pageTitle } from '@/utils/pageTitle';
+import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP } from '@/config/labels';
 import { MetricCard } from './Widgets';
-import { pageTitle } from '../../utils/pageTitle';
-import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP } from '../../config/labels';
 
 interface Props {
   stats: BehaviorStats | undefined;

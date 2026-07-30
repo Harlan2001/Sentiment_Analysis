@@ -3,9 +3,9 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { useUserProfiles, useUserProfile, useUserCompare } from '../../hooks/useSimpleBehavior';
-import { triggerProfileCompute, fetchActiveUsers } from '../../api';
-import type { UserBehaviorProfile, ActiveUser } from '../../types';
+import { useUserProfiles, useUserProfile, useUserCompare } from '@/hooks/useSimpleBehavior';
+import { triggerProfileCompute, fetchActiveUsers } from '@/api';
+import type { UserBehaviorProfile, ActiveUser } from '@/types';
 import { MetricCard } from './Widgets';
 
 // 页面路由中文映射

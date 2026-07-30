@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { NewsModuleData } from '../../types';
+import type { NewsModuleData } from '@/types';
 import { PanelTitle, MetricCard } from './Widgets';
 import { NEWS_SOURCES } from './constants';
 

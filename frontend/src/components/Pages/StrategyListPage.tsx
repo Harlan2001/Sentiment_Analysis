@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchAllStrategies } from '../../api'
-import { Loading, Error, Empty, Card, CardContent, CardHeader, CardTitle, Input } from '../UI'
-import type { StrategyItem } from '../../types'
+import { fetchAllStrategies } from '@/api'
+import { Loading, Error, Empty, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/UI'
+import type { StrategyItem } from '@/types'
 
 // ============ 状态标签组件 ============
 const StatusBadge: React.FC<{ status: string; type: string }> = ({ status, type }) => {

@@ -1,8 +1,8 @@
 /**
  * 用户行为日志缓冲队列
  */
-import type { PageVisitEvent } from '../types';
-import { API_PREFIX } from '../constants';
+import type { PageVisitEvent } from '@/types';
+import { API_PREFIX } from '@/constants';
 
 const BATCH_URL = `${API_PREFIX}/dashboard/behavior/batch`;
 

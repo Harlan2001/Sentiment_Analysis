@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Loading, Error, Empty } from '../UI'
-import { useMacroSignalRequestLogs } from '../../hooks/useMacroSignalLogApi'
-import { useNewsDetail } from '../../hooks/useNewsApi'
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Loading, Error, Empty } from '@/components/UI'
+import { useMacroSignalRequestLogs } from '@/hooks/useMacroSignalLogApi'
+import { useNewsDetail } from '@/hooks/useNewsApi'
+import type { MacroSignalRequestLogItem, MacroSignalRequestLogQuery } from '@/types'
 import NewsDetail from './NewsDetail'
-import type { MacroSignalRequestLogItem, MacroSignalRequestLogQuery } from '../../types'
 
 // -------- 筛选区 --------
 interface FiltersState {

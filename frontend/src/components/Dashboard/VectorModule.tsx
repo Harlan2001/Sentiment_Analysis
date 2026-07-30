@@ -2,7 +2,7 @@
  * 模块D：向量库 & 存储
  */
 import React from 'react';
-import type { VectorModuleData } from '../../types';
+import type { VectorModuleData } from '@/types';
 import { PanelTitle, MetricCard, ProgressBar } from './Widgets';
 import { ALERT } from './constants';
 

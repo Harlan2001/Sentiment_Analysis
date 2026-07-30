@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../UI'
-import { Loading, Empty, Button } from '../UI'
-import { useAllFactors } from '../../hooks/useFactorApi'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI'
+import { Loading, Empty, Button } from '@/components/UI'
+import { useAllFactors } from '@/hooks/useFactorApi'
+import { formatNumber } from '@/utils/helpers'
+import type { FactorDefinition } from '@/types'
 import FactorCard from './FactorCard'
 import FactorDetailModal from './FactorDetailModal'
 import FactorFilters from './FactorFilters'
-import { formatNumber } from '../../utils/helpers'
-import type { FactorDefinition } from '../../types'
 
 const FactorPage: React.FC = () => {
   // 状态管理

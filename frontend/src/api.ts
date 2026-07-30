@@ -37,9 +37,9 @@ import type {
   AiStrategyConversationDetailResponse,
   AiStrategyConversationListResponse,
   AiStrategyPromptDraftResponse,
-} from "./types";
-import { storage } from "./utils/helpers";
-import { API_PREFIX } from "./constants";
+} from "@/types";
+import { storage } from "@/utils/helpers";
+import { API_PREFIX } from "@/constants";
 
 const BASE = API_PREFIX;
 

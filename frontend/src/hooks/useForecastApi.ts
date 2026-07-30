@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchForecastReport, fetchForecastHistory } from '../api'
-import type { ForecastResponse, ForecastHistoryResponse } from '../types'
+import { fetchForecastReport, fetchForecastHistory } from '@/api'
+import type { ForecastResponse, ForecastHistoryResponse } from '@/types'
 
 // 导出API函数供外部使用
 export { fetchForecastReport, fetchForecastHistory }

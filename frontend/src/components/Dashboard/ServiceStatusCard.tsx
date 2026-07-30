@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ServiceStatus } from '../../types';
+import type { ServiceStatus } from '@/types';
 import { StatusLight } from './Widgets';
 
 interface Props {

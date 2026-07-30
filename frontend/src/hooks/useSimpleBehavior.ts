@@ -3,7 +3,7 @@
  * 仅在激活 Tab2 时按需请求，不自动轮询
  */
 import { useQuery } from '@tanstack/react-query';
-import { fetchBehaviorStats, fetchBehaviorLogs, fetchUserProfiles, fetchUserProfile, fetchUserCompare } from '../api';
+import { fetchBehaviorStats, fetchBehaviorLogs, fetchUserProfiles, fetchUserProfile, fetchUserCompare } from '@/api';
 
 export function useBehaviorStats(days: number = 7, enabled: boolean = false) {
   return useQuery({

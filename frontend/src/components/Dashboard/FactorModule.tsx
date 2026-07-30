@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { FactorModuleData } from '../../types';
+import type { FactorModuleData } from '@/types';
 import { PanelTitle, MetricCard, ProgressBar, TimelinessLabel } from './Widgets';
 import { CATEGORY_COLORS, CATEGORY_NAME_MAP, ALERT } from './constants';
 
