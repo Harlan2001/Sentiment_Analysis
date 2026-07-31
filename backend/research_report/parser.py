@@ -6,6 +6,8 @@
 - 提取内嵌图片（光栅图 + 矢量图区域渲染 + 整页渲染）
 - 纯解析函数，不执行文件系统 IO（图片写入由调用方处理）
 """
+from __future__ import annotations
+
 import hashlib
 import logging
 import re
@@ -16,7 +18,12 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-import pymupdf
+try:
+    import pymupdf
+    _HAS_PYMUPDF = True
+except ImportError:
+    pymupdf = None  # type: ignore
+    _HAS_PYMUPDF = False
 
 from backend.config.config import BASE_DIR
 from backend.research_report.constants import (
@@ -371,7 +378,9 @@ def _infer_figure_type(w: int, h: int, size_kb: int) -> str:
     return "image"
 
 
-def _collect_page_captions(doc: pymupdf.Document, page_count: int) -> dict[int, list[str]]:
+def _collect_page_captions(doc, page_count: int) -> dict[int, list[str]]:
+    if not _HAS_PYMUPDF:
+        return {}
     captions = {}
     for pi in range(1, page_count + 1):
         try:
@@ -383,12 +392,15 @@ def _collect_page_captions(doc: pymupdf.Document, page_count: int) -> dict[int, 
     return captions
 
 
-def _extract_images(doc: pymupdf.Document) -> list[dict]:
+def _extract_images(doc) -> list[dict]:
     """
     单次页面遍历，提取所有图片（光栅 + 矢量块渲染 + 整页渲染）。
     返回 list[dict]，每个 dict 包含 raw_bytes / width / height / page_number / caption 等。
     达到 FIGURE_MAX_PER_REPORT 上限后停止。
     """
+    if not _HAS_PYMUPDF:
+        logger.warning("pymupdf 不可用，跳过 PDF 图片提取")
+        return []
     page_count = len(doc)
     page_captions = _collect_page_captions(doc, page_count)
     seen_md5: set[str] = set()
@@ -562,6 +574,10 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
     解析单个研报 PDF，返回 ParseResult。
     纯解析函数，不写入磁盘文件。
     """
+    if not _HAS_PYMUPDF:
+        raise ImportError(
+            "pymupdf 未安装，无法解析 PDF。请安装: pip install pymupdf"
+        )
     doc = None
     try:
         doc = pymupdf.open(pdf_path)
@@ -623,11 +639,11 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
             symbols=symbols,
             figures=figures,
         )
-    except pymupdf.FileDataError as e:
-        logger.error("加密/损坏PDF: %s — %s", pdf_path, e)
-        raise
-    except Exception:
-        logger.exception("PDF解析异常: %s", pdf_path)
+    except Exception as e:
+        if _HAS_PYMUPDF and isinstance(e, pymupdf.FileDataError):
+            logger.error("加密/损坏PDF: %s — %s", pdf_path, e)
+        else:
+            logger.exception("PDF解析异常: %s", pdf_path)
         raise
     finally:
         if doc:

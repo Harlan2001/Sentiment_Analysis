@@ -13,10 +13,6 @@
     python backend/weixin_push.py --pdf-path "data/pdf/2026-04-24.pdf"
     python backend/weixin_push.py                          # 自动找最新 PDF
     python backend/weixin_push.py --publish                # 定时发布（暂未实现）
-
-依赖：
-    pip install PyMuPDF playwright
-    playwright install chromium
 """
 
 import os
