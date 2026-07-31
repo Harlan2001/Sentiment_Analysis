@@ -353,7 +353,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
             defaultValue=""
           >
             <option value="">全部页面</option>
-            {['/news', '/factors', '/data', '/prediction', '/agents', '/strategies', '/change', '/dashboard'].map(r => (
+            {['/news', '/factors', '/data', '/prediction', '/agents', '/select-strategy', '/strategies', '/change', '/macro-signal-logs', '/dashboard', '/macro-data', '/research', '/login', '/ai-strategy-generation'].map(r => (
               <option key={r} value={r}>{pageTitle(r)}</option>
             ))}
           </select>

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 
 from backend.common.database import execute_query
-from backend.config.config import PAGE_TITLES
+from backend.config.config import PAGE_TITLES, ALL_PAGE_ROUTES
 
 
 def admin_check(request: Request) -> bool:
@@ -84,6 +84,15 @@ def page_title(route: str) -> str:
         if route == path or route.startswith(path):
             return title
     return route
+
+
+def pad_page_routes(items: List[Dict[str, Any]], count_key: str = "count") -> List[Dict[str, Any]]:
+    """补全 page_distribution / page_avg_duration 中未访问页面的零值条目"""
+    existing = {item.get("page_route", "") for item in items}
+    for route in ALL_PAGE_ROUTES:
+        if route not in existing:
+            items.append({"page_route": route, "page_title": page_title(route), count_key: 0})
+    return items
 
 
 def assemble_trend(rows: List[tuple], key_map: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:

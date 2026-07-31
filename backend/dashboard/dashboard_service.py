@@ -19,7 +19,7 @@ from backend.config.config import (
     CACHE_TTL_SEC,
     BEHAVIOR_LOG_RETENTION_DAYS,
 )
-from backend.tools.dashboard import fmt_dt, fmt_dt2, pct, safe_one
+from backend.tools.dashboard import fmt_dt, fmt_dt2, pct, safe_one, pad_page_routes
 
 cache_lock = threading.Lock()
 
@@ -802,15 +802,21 @@ def get_department_behavior_stats(department: str, company: str = "", days: int 
         f"SELECT HOUR(v.enter_time)h, DAYOFWEEK(v.enter_time)dow, COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY h,dow ORDER BY dow,h", (days, *cond_params))
     heatmap = [{"hour": r[0], "day_of_week": r[1], "count": r[2]} for r in heatmap_rows]
 
-    page_dist = [{"page_route": r[0], "page_title": _route_title(r[0]), "count": r[1]} for r in execute_query(
-        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' ELSE v.page_route END AS route, "
+    page_dist = pad_page_routes([{"page_route": r[0], "page_title": _route_title(r[0]), "count": r[1]} for r in execute_query(
+        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' "
+        f"WHEN v.page_route LIKE '/research/%%' THEN '/research' "
+        f"WHEN v.page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation' "
+        f"ELSE v.page_route END AS route, "
         f"COUNT(*)c FROM user_page_view v JOIN users u ON u.id=v.user_id "
-        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY route ORDER BY c DESC", (days, *cond_params))]
+        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) {dcond} GROUP BY route ORDER BY c DESC", (days, *cond_params))])
 
-    page_avg = [{"page_route": r[0], "avg_sec": round(float(r[1]),0) if r[1] else 0} for r in execute_query(
-        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' ELSE v.page_route END AS route, AVG(v.duration_sec) "
+    page_avg = pad_page_routes([{"page_route": r[0], "avg_sec": round(float(r[1]),0) if r[1] else 0} for r in execute_query(
+        f"SELECT CASE WHEN v.page_route IN ('/','/news') THEN '/news' "
+        f"WHEN v.page_route LIKE '/research/%%' THEN '/research' "
+        f"WHEN v.page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation' "
+        f"ELSE v.page_route END AS route, AVG(v.duration_sec) "
         f"FROM user_page_view v JOIN users u ON u.id=v.user_id "
-        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) AND v.duration_sec>0 {dcond} GROUP BY route ORDER BY 2 DESC", (days, *cond_params))]
+        f"WHERE v.enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) AND v.duration_sec>0 {dcond} GROUP BY route ORDER BY 2 DESC", (days, *cond_params))])
 
     power_users = safe_one(
         f"SELECT COUNT(*) FROM user_behavior_profile p JOIN users u ON u.id=p.user_id WHERE p.is_power_user=1 {dcond}", *cond_params)

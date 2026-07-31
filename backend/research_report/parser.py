@@ -130,6 +130,9 @@ _RE_ANALYST2 = re.compile(r"分析师[：:]\s*([^\s（(]{2,4})")
 _RE_FIGURE_CAPTION = re.compile(r'(?:图|图表|Figure|Fig\.?)\s*\d+[：:]\s*(.+?)(?:\n|$)')
 _RE_CHART_CAPTION = re.compile(r'(?:图|图表|Figure)\s*\d+[：:]')
 
+_RE_TRUNCATED = re.compile(
+    r'(?:.{0,4}[如一二是]|[^》】）\)\]\s。！？…\.\,\;\:\!\?\-—‐-―])$'
+)
 _RE_HASH = re.compile(r"^[a-f0-9]{12,16}$")
 _RE_IDX_PREFIX = re.compile(r"^\d{1,3}-")
 _RE_PDF_EXT = re.compile(r"\.pdf$", re.IGNORECASE)
@@ -451,16 +454,10 @@ def _extract_images(doc: pymupdf.Document) -> list[dict]:
                     if len(img_bytes) >= FIGURE_MIN_BYTES:
                         _add_figure(page_idx, img_bytes, w, h)
                 finally:
-                    pix.destroy()
                     pix = None
             except Exception:
                 logger.warning("光栅图提取失败 page=%d xref=%d\n%s", page_idx, xref, traceback.format_exc())
-                if pix:
-                    try:
-                        pix.destroy()
-                    except Exception:
-                        pass
-                    pix = None
+                pix = None
 
         if len(figures) >= FIGURE_MAX_PER_REPORT:
             break
@@ -487,7 +484,6 @@ def _extract_images(doc: pymupdf.Document) -> list[dict]:
                     if len(img_bytes) >= _VECTOR_MIN_BYTES:
                         _add_figure(page_idx, img_bytes, int(clip.width), int(clip.height))
                 finally:
-                    pix.destroy()
                     pix = None
             except Exception:
                 logger.debug("矢量块渲染失败 page=%d\n%s", page_idx, traceback.format_exc())
@@ -513,7 +509,6 @@ def _extract_images(doc: pymupdf.Document) -> list[dict]:
                                 int(page_w * _DPI_RENDER / 72),
                                 int(page_h * _DPI_RENDER / 72))
             finally:
-                pix.destroy()
                 pix = None
         except Exception:
             logger.debug("整页渲染失败 page=%d\n%s", page_idx, traceback.format_exc())
@@ -578,9 +573,10 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
         pages_text = [page.get_text() for page in doc if page.get_text().strip()]
         full_text = normalize_text("\n".join(pages_text))
 
-        if _RE_HASH.match(title):
-            t = _extract_title_from_text(full_text)
-            if t:
+        # 标题兜底：元数据标题为hash、截断或不完整时，从正文提取
+        t = _extract_title_from_text(full_text)
+        if t:
+            if _RE_HASH.match(title) or _RE_TRUNCATED.search(title) or len(t) > len(title) + 5:
                 title = t
 
         # -- 元数据 --
