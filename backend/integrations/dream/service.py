@@ -147,11 +147,37 @@ def _fetch_final_answer(
         extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
     )
     _ensure_success("读取 DreamStrategy 最终消息", response)
-    if generation_message_id:
-        for message in response.messages:
-            if message.open_id == generation_message_id:
-                return message.content
-    return next((message.content for message in reversed(response.messages) if message.role == 2), "")
+    return next(
+        (message.content for message in reversed(response.messages) if message.role == 2 and len(str(message.content or "").strip()) > 1 and not str(message.content or "").strip().isdigit()),
+        "",
+    )
+
+
+def _fetch_final_message(
+    client: DreamClient,
+    extension_pb2: Any,
+    template_id: str,
+    session_id: str,
+    generation_message_id: str,
+) -> Any | None:
+    response = client.request(
+        EI_LIST_MESSAGES,
+        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
+            template_id=template_id,
+            session_id=session_id,
+            count=100,
+            start_pos=0,
+            return_total_count=False,
+        ),
+        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
+    )
+    _ensure_success("Read DreamStrategy final message", response)
+    candidates = [
+        message
+        for message in response.messages
+        if message.role == 2 and len(str(message.content or "").strip()) > 1 and not str(message.content or "").strip().isdigit()
+    ]
+    return candidates[-1] if candidates else None
 
 
 def _fetch_strategy(
@@ -259,6 +285,12 @@ def generate_strategy(
     if not prompt.strip():
         raise ValueError("策略提示词不能为空")
     settings = settings or DreamStrategySettings.from_environment()
+    settings = DreamStrategySettings(
+        portal_config_url=settings.portal_config_url,
+        template_id=settings.template_id,
+        agent=settings.agent,
+        timeout_seconds=min(settings.timeout_seconds, 120),
+    )
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)
     client = _connect_and_login(ws_url, token, settings.timeout_seconds, common_pb2)
@@ -308,22 +340,24 @@ def generate_strategy(
                 continue
 
             message = push.message
-            # Dream may push a user echo or an assistant progress marker before the
-            # final assistant result. Only the latter has both persistent IDs.
-            if message.role != 2 or not message.open_id or not message.template_version_id:
+            # Dream may push a user echo before the assistant result.
+            if message.role != 2:
                 continue
             if message.content:
                 streamed_answer_parts.append(message.content)
-            if not generation_message_id and not message.backtest_log:
+            if not generation_message_id and message.open_id:
                 generation_message_id = message.open_id
             if message.backtest_log:
                 backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
-            if push.done and (message.open_id == generation_message_id or message.content_type == 5):
+            if push.done:
                 final_message = message
                 break
 
         if final_message is None:
             raise RuntimeError("DreamStrategy 未返回完成消息")
+        hydrated_message = _fetch_final_message(client, extension_pb2, settings.template_id, session_id, generation_message_id)
+        if hydrated_message:
+            final_message = hydrated_message
         answer = _fetch_final_answer(
             client,
             extension_pb2,
@@ -331,9 +365,8 @@ def generate_strategy(
             session_id,
             generation_message_id,
         ) or "".join(streamed_answer_parts)
-        artifact_deadline = min(started_at + settings.timeout_seconds, time.monotonic() + 30)
+        artifact_deadline = time.monotonic()
         strategy: dict[str, str] | None = None
-        strategy_error: Exception | None = None
         while True:
             try:
                 strategy = _fetch_strategy(
@@ -345,21 +378,15 @@ def generate_strategy(
                 if strategy and str(strategy.get("code") or "").strip():
                     break
             except Exception as exc:
-                strategy_error = exc
+                logger.warning("DreamStrategy reply has no readable strategy artifact: %s", exc)
             if time.monotonic() >= artifact_deadline:
                 break
             time.sleep(1)
 
-        # A completed chat message is not sufficient: Sentiment only persists a successful version when Dream returned executable strategy artifacts.
+        # Persist an assistant reply even when Dream does not attach code.
         if not str(answer or "").strip():
             raise RuntimeError("DreamStrategy completed without a final answer")
-        if not final_message.open_id or not final_message.template_version_id:
-            raise RuntimeError("DreamStrategy completed without a message or strategy version id")
-        if not strategy or not str(strategy.get("code") or "").strip():
-            if strategy_error:
-                raise RuntimeError("DreamStrategy strategy artifact was not ready") from strategy_error
-            raise RuntimeError("DreamStrategy completed without strategy code")
-
+        # Text-only assistant replies may not include persistent strategy identifiers.
         return {
             "template_id": settings.template_id,
             "session_id": session_id,
