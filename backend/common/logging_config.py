@@ -124,6 +124,17 @@ def _build_log_config(log_dir: str, log_level: str, log_max_days: int) -> dict:
                 "level": log_level,
                 "propagate": False,
             },
+            # FAISS loader logs AVX capability checks at INFO — noise in production
+            "faiss.loader": {
+                "handlers": ["console", "app_file", "error_file"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "faiss": {
+                "handlers": ["console", "app_file", "error_file"],
+                "level": "WARNING",
+                "propagate": False,
+            },
         },
     }
 

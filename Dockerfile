@@ -10,8 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
-# 安装 uv（使用 pip 替代 ghcr.io 镜像，避免国内 TLS 超时）
-RUN pip install uv --no-cache-dir https://mirrors.aliyun.com/pypi/simple
+# 安装 uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -79,6 +79,7 @@ FROM python:3.12.11-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONWARNINGS=ignore::SyntaxWarning \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright \
     HOME=/home/appuser \
     PATH="/app/.venv/bin:$PATH"
