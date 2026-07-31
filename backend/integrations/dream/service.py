@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -27,6 +28,9 @@ from backend.integrations.dream.client import (
     DreamClient,
     prepare_protobuf_modules,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -304,6 +308,8 @@ def generate_strategy(
                 continue
 
             message = push.message
+            if message.role != 2:  # Dream may push the user's echo before the assistant result.
+                continue
             if message.content:
                 streamed_answer_parts.append(message.content)
             if not generation_message_id and not message.backtest_log:
@@ -323,12 +329,24 @@ def generate_strategy(
             session_id,
             generation_message_id,
         ) or "".join(streamed_answer_parts)
-        strategy = _fetch_strategy(
-            client,
-            extension_pb2,
-            settings.template_id,
-            final_message.template_version_id,
-        )
+        artifact_deadline = min(started_at + settings.timeout_seconds, time.monotonic() + 30)
+        strategy: dict[str, str] | None = None
+        strategy_error: Exception | None = None
+        while True:
+            try:
+                strategy = _fetch_strategy(
+                    client,
+                    extension_pb2,
+                    settings.template_id,
+                    final_message.template_version_id,
+                )
+                if strategy and str(strategy.get("code") or "").strip():
+                    break
+            except Exception as exc:
+                strategy_error = exc
+            if time.monotonic() >= artifact_deadline:
+                break
+            time.sleep(1)
 
         # A completed chat message is not sufficient: Sentiment only persists a successful version when Dream returned executable strategy artifacts.
         if not str(answer or "").strip():
@@ -336,6 +354,8 @@ def generate_strategy(
         if not final_message.open_id or not final_message.template_version_id:
             raise RuntimeError("DreamStrategy completed without a message or strategy version id")
         if not strategy or not str(strategy.get("code") or "").strip():
+            if strategy_error:
+                raise RuntimeError("DreamStrategy strategy artifact was not ready") from strategy_error
             raise RuntimeError("DreamStrategy completed without strategy code")
 
         return {
