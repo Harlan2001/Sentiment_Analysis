@@ -16,8 +16,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
-sys.path.insert(0, str(Path(__file__).parent.parent))
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import pymysql
 from backend.config.config import BASE_DIR

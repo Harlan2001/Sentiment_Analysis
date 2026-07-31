@@ -197,6 +197,13 @@ PAGE_TITLES = {
     "/ai-strategy-generation": "AI策略生成",
 }
 
+# 看板页面分布图表中应展示的完整路由列表（含未访问页面的零值补全）
+ALL_PAGE_ROUTES = [
+    "/news", "/factors", "/data", "/prediction", "/agents",
+    "/select-strategy", "/strategies", "/change", "/macro-signal-logs",
+    "/dashboard", "/macro-data", "/research", "/login", "/ai-strategy-generation",
+]
+
 # 会话冷却时间（秒）：冷却时间内复用同一会话
 SESSION_COOLING_SEC = 10
 

@@ -14,8 +14,8 @@ from pathlib import Path
 import pymysql
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
-sys.path.insert(0, str(Path(__file__).parent.parent))
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.config.config import BASE_DIR
 from backend.research_report.parser import parse_pdf, compute_file_hash, ParseResult

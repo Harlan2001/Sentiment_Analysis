@@ -9,7 +9,7 @@ export const PAGE_TITLE_MAP: Record<string, string> = {
   '/factors': '因子',
   '/data': '数据',
   '/prediction': '预测',
-  '/agents': '智能体',
+  '/agents': 'Agent',
   '/select-strategy': 'AI推荐',
   '/strategies': '策略',
   '/change': '变动对比',

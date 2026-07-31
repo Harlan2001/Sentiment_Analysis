@@ -22,6 +22,7 @@ from backend.tools.dashboard import (
     fmt_dt,
     fmt_dt2,
     page_title,
+    pad_page_routes,
     safe_one,
 )
 from backend.dashboard.dashboard_service import (
@@ -286,20 +287,26 @@ def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check
         "churn_risk_users": churn_users,
         "activity_trend": activity_trend,
         "hourly_heatmap": heatmap,
-        "page_distribution": [
+        "page_distribution": pad_page_routes([
             {"page_route": r[0], "page_title": page_title(r[0]), "count": r[1]}
             for r in execute_query("""
-                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news' ELSE page_route END AS route,
+                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news'
+                WHEN page_route LIKE '/research/%%' THEN '/research'
+                WHEN page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation'
+                ELSE page_route END AS route,
                 COUNT(*)c FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
                 GROUP BY route ORDER BY c DESC""", (days,))
-        ],
-        "page_avg_duration": [
+        ]),
+        "page_avg_duration": pad_page_routes([
             {"page_route": r[0], "avg_sec": round(float(r[1]), 0) if r[1] else 0}
             for r in execute_query("""
-                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news' ELSE page_route END AS route,
+                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news'
+                WHEN page_route LIKE '/research/%%' THEN '/research'
+                WHEN page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation'
+                ELSE page_route END AS route,
                 AVG(duration_sec) FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
                 AND duration_sec>0 GROUP BY route ORDER BY 2 DESC""", (days,))
-        ],
+        ], count_key="avg_sec"),
     }
     result["_ts"] = datetime.now().isoformat()
     write_cache(result, cache_key)
@@ -352,7 +359,7 @@ def get_behavior_logs(
             {
                 "id": r[0], "session_id": r[1], "user_id": r[2], "username": r[3],
                 "page_route": r[4],
-                "page_title": r[5] or page_title(r[4]) if r[4] else "",
+                "page_title": page_title(r[4]) if r[4] else "",
                 "enter_time": r[6].isoformat() if hasattr(r[6], 'isoformat') else str(r[6]),
                 "leave_time": r[7].isoformat() if r[7] and hasattr(r[7], 'isoformat') else (str(r[7]) if r[7] else None),
                 "duration_sec": r[8], "exit_type": r[9],
