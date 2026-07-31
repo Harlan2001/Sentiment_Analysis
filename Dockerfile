@@ -28,18 +28,18 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sourc
     libgdk-pixbuf-2.0-0 libpangoft2-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Python 依赖
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
-
-# 复制应用代码 + 安装项目自身
+# 复制应用代码
 COPY main.py .
 COPY backend/ ./backend/
 COPY pyproject.toml uv.lock ./
+
+# 一次性安装依赖 + 项目自身
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+    uv sync --locked --no-editable && \
+    # 验证关键包已安装（构建时发现缺失立即失败）
+    uv run python -c "import pymupdf; print('pymupdf:', pymupdf.__version__)" && \
+    uv run python -c "import faiss; print('faiss ok')" && \
+    uv run python -c "import sentence_transformers; print('sbert ok')"
 
 # 安装 Playwright Chromium 浏览器
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright

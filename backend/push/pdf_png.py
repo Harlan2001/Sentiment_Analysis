@@ -12,7 +12,7 @@ PDF 转高清图片工具。
     python backend/pdf_png.py --dpi 300                # 超高清模式
 """
 
-import fitz  # PyMuPDF
+import pymupdf
 import sys
 import argparse
 import logging
@@ -79,7 +79,7 @@ def pdf_to_images(pdf_path: str | Path, output_dir: str | Path = None, dpi: int 
             file.unlink()
             logger.debug("已删除旧图片: %s", file.name)
 
-    doc = fitz.open(str(pdf_path))
+    doc = pymupdf.open(str(pdf_path))
     image_paths = []
 
     logger.info("开始转换 PDF → 图片 (DPI=%d): %s", dpi, pdf_path.name)
@@ -88,7 +88,7 @@ def pdf_to_images(pdf_path: str | Path, output_dir: str | Path = None, dpi: int 
         page = doc.load_page(page_num)
         # 使用 zoom 矩阵方式渲染，兼容性更好
         zoom = dpi / 72  # 72 是 PDF 标准 DPI
-        mat = fitz.Matrix(zoom, zoom)
+        mat = pymupdf.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
         image_path = output_dir / f"page_{page_num + 1:02d}.png"
         pix.save(str(image_path))

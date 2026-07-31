@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-import fitz
+import pymupdf
 
 from backend.config.config import BASE_DIR
 from backend.research_report.constants import (
@@ -371,7 +371,7 @@ def _infer_figure_type(w: int, h: int, size_kb: int) -> str:
     return "image"
 
 
-def _collect_page_captions(doc: fitz.Document, page_count: int) -> dict[int, list[str]]:
+def _collect_page_captions(doc: pymupdf.Document, page_count: int) -> dict[int, list[str]]:
     captions = {}
     for pi in range(1, page_count + 1):
         try:
@@ -383,7 +383,7 @@ def _collect_page_captions(doc: fitz.Document, page_count: int) -> dict[int, lis
     return captions
 
 
-def _extract_images(doc: fitz.Document) -> list[dict]:
+def _extract_images(doc: pymupdf.Document) -> list[dict]:
     """
     单次页面遍历，提取所有图片（光栅 + 矢量块渲染 + 整页渲染）。
     返回 list[dict]，每个 dict 包含 raw_bytes / width / height / page_number / caption 等。
@@ -442,10 +442,10 @@ def _extract_images(doc: fitz.Document) -> list[dict]:
             seen_xrefs.add(xref)
             pix = None
             try:
-                pix = fitz.Pixmap(doc, xref)
+                pix = pymupdf.Pixmap(doc, xref)
                 try:
                     if pix.n >= 5:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                        pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                     w, h = pix.width, pix.height
                     img_bytes = pix.tobytes("png")
                     if len(img_bytes) >= FIGURE_MIN_BYTES:
@@ -477,7 +477,7 @@ def _extract_images(doc: fitz.Document) -> list[dict]:
             try:
                 margin = min(_MERGE_MARGIN, (page_w - w) / 2, (page_h - h) / 2)
                 bbox = blk["bbox"]
-                clip = fitz.Rect(
+                clip = pymupdf.Rect(
                     max(0, bbox[0] - margin), max(0, bbox[1] - margin),
                     min(page_w, bbox[2] + margin), min(page_h, bbox[3] + margin * 2),
                 )
@@ -564,7 +564,7 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
     """
     doc = None
     try:
-        doc = fitz.open(pdf_path)
+        doc = pymupdf.open(pdf_path)
         page_count = len(doc)
         meta = doc.metadata or {}
 
@@ -623,7 +623,7 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
             symbols=symbols,
             figures=figures,
         )
-    except fitz.FileDataError as e:
+    except pymupdf.FileDataError as e:
         logger.error("加密/损坏PDF: %s — %s", pdf_path, e)
         raise
     except Exception:
