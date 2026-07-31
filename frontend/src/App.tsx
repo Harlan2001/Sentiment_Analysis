@@ -1,7 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/Layout/MainLayout'
-import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, ResearchListPage, ResearchDetailPage, AiStrategyGenerationPreviewPage } from './components/Pages'
+import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, ResearchListPage, ResearchDetailPage, AiStrategyGenerationPreviewPage, AiStrategyHistoryPage } from './components/Pages'
 import { useAuth } from './contexts/AuthContext'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
 import { Loading } from './components/UI/Loading'
@@ -42,6 +42,8 @@ function ProtectedRoutes() {
           <Route path="/research" element={<ResearchListPage />} />
           <Route path="/research/:id" element={<ResearchDetailPage />} />
           <Route path="/ai-strategy-generation-preview" element={<AiStrategyGenerationPreviewPage />} />
+          <Route path="/ai-strategy-generation-preview/:conversationId" element={<AiStrategyGenerationPreviewPage />} />
+          <Route path="/ai-strategy-generation-history" element={<AiStrategyHistoryPage />} />
           <Route path="*" element={<Navigate to="/news" replace />} />
         </Routes>
       </MainLayout>
@@ -78,6 +80,8 @@ function ProtectedRoutes() {
         <Route path="/research" element={<ResearchListPage />} />
         <Route path="/research/:id" element={<ResearchDetailPage />} />
         <Route path="/ai-strategy-generation-preview" element={<AiStrategyGenerationPreviewPage />} />
+        <Route path="/ai-strategy-generation-preview/:conversationId" element={<AiStrategyGenerationPreviewPage />} />
+        <Route path="/ai-strategy-generation-history" element={<AiStrategyHistoryPage />} />
         <Route path="*" element={<Navigate to="/news" replace />} />
       </Routes>
     </MainLayout>

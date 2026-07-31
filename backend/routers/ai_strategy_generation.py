@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any, Optional
 from backend.config.config import API_PREFIX
@@ -22,6 +23,9 @@ from backend.strategy.dream_strategy_prompt import (
     build_dream_strategy_continuation_prompt,
     build_dream_strategy_prompt,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix=f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
@@ -260,6 +264,7 @@ async def confirm_prompt_draft(
         )
         raise HTTPException(status_code=504, detail="DreamStrategy generation timed out") from exc
     except Exception as exc:
+        logger.exception("DreamStrategy generation failed for conversation %s", conversation_id)
         repository.fail_generation(
             owner_username,
             conversation_id,

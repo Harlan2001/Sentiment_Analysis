@@ -131,7 +131,7 @@ def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
 [EXECUTION RULES]
 - Continue the existing DreamStrategy session and directly generate a complete strategy response now.
 - The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
-- Do not ask follow-up questions or list missing parameters. When information is absent, choose conservative, conventional defaults and state those defaults briefly in the strategy summary.
+- If important execution parameters are missing, ask concise follow-up questions instead of inventing defaults. When the user supplies them, use those additions to generate the next strategy response in this same session.
 - Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
 - If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies.
 - Return the complete strategy code, concise logic summary, and backtest result in the same language as the user request.
