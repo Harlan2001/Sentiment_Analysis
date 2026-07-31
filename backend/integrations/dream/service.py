@@ -308,7 +308,9 @@ def generate_strategy(
                 continue
 
             message = push.message
-            if message.role != 2:  # Dream may push the user's echo before the assistant result.
+            # Dream may push a user echo or an assistant progress marker before the
+            # final assistant result. Only the latter has both persistent IDs.
+            if message.role != 2 or not message.open_id or not message.template_version_id:
                 continue
             if message.content:
                 streamed_answer_parts.append(message.content)
