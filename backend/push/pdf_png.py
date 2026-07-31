@@ -12,12 +12,7 @@ PDF 转高清图片工具。
     python backend/pdf_png.py --dpi 300                # 超高清模式
 """
 
-try:
-    import pymupdf
-    _HAS_PYMUPDF = True
-except ImportError:
-    pymupdf = None  # type: ignore
-    _HAS_PYMUPDF = False
+import pymupdf
 import sys
 import argparse
 import logging
@@ -70,10 +65,6 @@ def pdf_to_images(pdf_path: str | Path, output_dir: str | Path = None, dpi: int 
     :param dpi: 图片分辨率（200 适合公众号图文，150 够用，300 超高清体积大）
     :return: 图片路径列表
     """
-    if not _HAS_PYMUPDF:
-        raise ImportError(
-            "pymupdf 未安装，无法转换 PDF 为图片。请安装: pip install pymupdf"
-        )
     pdf_path = Path(pdf_path)
     output_dir = Path(output_dir) if output_dir else DEFAULT_OUTPUT_DIR
 

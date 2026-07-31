@@ -6,11 +6,12 @@ FROM python:3.12.11-slim-bookworm AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1 \
     UV_LINK_MODE=copy \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
-# 安装 uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# 安装 uv（使用 pip 替代 ghcr.io 镜像，避免国内 TLS 超时）
+RUN pip install uv --no-cache-dir https://mirrors.aliyun.com/pypi/simple
 
 WORKDIR /app
 
@@ -134,6 +135,7 @@ RUN groupadd -r appgroup \
         /app/data \
         /app/logs \
         /opt/playwright \
+        /home/appuser/.cache \
     && chown -R appuser:appgroup \
         /app \
         /opt/playwright \

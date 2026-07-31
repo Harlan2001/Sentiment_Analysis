@@ -47,6 +47,7 @@ dependencies = [
     "pydantic-core==2.46.4",
     "pygments==2.20.0",
     "pyjwt==2.13.0",
+    "pymupdf>=1.28.0",
     "pymysql==1.2.0",
     "python-dateutil==2.9.0.post0",
     "python-dotenv==1.2.2",

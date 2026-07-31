@@ -18,12 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-try:
-    import pymupdf
-    _HAS_PYMUPDF = True
-except ImportError:
-    pymupdf = None  # type: ignore
-    _HAS_PYMUPDF = False
+import pymupdf
 
 from backend.config.config import BASE_DIR
 from backend.research_report.constants import (
@@ -382,8 +377,6 @@ def _infer_figure_type(w: int, h: int, size_kb: int) -> str:
 
 
 def _collect_page_captions(doc, page_count: int) -> dict[int, list[str]]:
-    if not _HAS_PYMUPDF:
-        return {}
     captions = {}
     for pi in range(1, page_count + 1):
         try:
@@ -401,9 +394,6 @@ def _extract_images(doc) -> list[dict]:
     返回 list[dict]，每个 dict 包含 raw_bytes / width / height / page_number / caption 等。
     达到 FIGURE_MAX_PER_REPORT 上限后停止。
     """
-    if not _HAS_PYMUPDF:
-        logger.warning("pymupdf 不可用，跳过 PDF 图片提取")
-        return []
     page_count = len(doc)
     page_captions = _collect_page_captions(doc, page_count)
     seen_md5: set[str] = set()
@@ -569,10 +559,6 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
     解析单个研报 PDF，返回 ParseResult。
     纯解析函数，不写入磁盘文件。
     """
-    if not _HAS_PYMUPDF:
-        raise ImportError(
-            "pymupdf 未安装，无法解析 PDF。请安装: pip install pymupdf"
-        )
     doc = None
     try:
         doc = pymupdf.open(pdf_path)
@@ -636,10 +622,7 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
             figures=figures,
         )
     except Exception as e:
-        if _HAS_PYMUPDF and isinstance(e, pymupdf.FileDataError):
-            logger.error("加密/损坏PDF: %s — %s", pdf_path, e)
-        else:
-            logger.exception("PDF解析异常: %s", pdf_path)
+        logger.exception("PDF解析异常: %s", pdf_path)
         raise
     finally:
         if doc:

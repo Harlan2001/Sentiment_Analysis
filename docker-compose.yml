@@ -55,6 +55,8 @@ services:
       - NO_PROXY=frontend,backend,localhost,127.0.0.1,.local
       - no_proxy=frontend,backend,localhost,127.0.0.1,.local
       - OUTBOUND_PROXY_ENABLED=${OUTBOUND_PROXY_ENABLED:-true}
+      # ===== uv 禁止缓存（runtime 不需要） =====
+      - UV_NO_CACHE=1
     volumes:
       # 数据持久化：宿主机 data 目录映射到容器
       - ./data:/app/data

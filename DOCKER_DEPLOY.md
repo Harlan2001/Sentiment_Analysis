@@ -162,19 +162,6 @@ docker save sentiment-backend:latest | gzip > sentiment-backend.tar.gz
 docker save sentiment-frontend:latest | gzip > sentiment-frontend.tar.gz
 ```
 
-```bash
-# === 大前台 ===
-scp sentiment-backend.tar.gz sentiment-frontend.tar.gz admin@10.253.50.112:/opt/sentiment/
-scp docker-compose.yml admin@10.253.50.112:/opt/sentiment/
-scp release/bigfrontend.env admin@10.253.50.112:/opt/sentiment/.env
-scp -r main.py backend/ admin@10.253.50.112:/opt/sentiment/
-
-# === Saas（经跳板机）===
-scp -o "ProxyCommand=ssh -p 2222 root@114.67.114.200 -W %h:%p" \
-    sentiment-backend.tar.gz sentiment-frontend.tar.gz root@172.18.0.23:/data/sentiment/
-# ... 同理传 docker-compose.yml、.env、代码等
-```
-
 ### 7.3 服务器加载镜像并启动
 
 ```bash
@@ -247,32 +234,9 @@ docker compose down
 docker compose exec backend bash
 ```
 
-### 备份数据
-
-```bash
-mkdir -p backups
-tar -czf backups/sentiment-data-$(date +%Y%m%d).tar.gz data/ logs/ models/
-tar -czf backups/sentiment-config-$(date +%Y%m%d).tar.gz docker-compose.yml .env
-```
-
 ### 清理磁盘
 
 ```bash
 docker image prune -f     # 清理无标签镜像
 docker system prune -f    # 全面清理
 ```
-
-## 10. 快速参考
-
-| 场景 | 命令 |
-|------|------|
-| 后端代码更新（大前台） | `./scripts/deploy_backend.sh bigfrontend` |
-| 后端代码更新（Saas） | `./scripts/deploy_backend.sh saas` |
-| 后端代码更新（双服务器） | `./scripts/deploy_backend.sh both` |
-| 前端更新（大前台） | `./scripts/deploy_frontend.sh bigfrontend` |
-| 前端更新（Saas） | `./scripts/deploy_frontend.sh saas` |
-| 前端更新（双服务器） | `./scripts/deploy_frontend.sh both` |
-| 完整镜像重建（大前台） | `./scripts/deploy-image.sh bigfrontend` |
-| 完整镜像重建（Saas） | `./scripts/deploy-image.sh saas` |
-| 完整镜像重建（双服务器） | `./scripts/deploy-image.sh both` |
-| 首次部署 | 见第 7 节 |
