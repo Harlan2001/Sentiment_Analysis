@@ -10,12 +10,13 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from backend.config.config import BASE_DIR
 from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
 from backend.research_report.parser import clean_display_text
+from backend.research_report import pipeline
 
 router = APIRouter(prefix=f"{API_PREFIX}/research", tags=["research"])
 
@@ -216,6 +217,114 @@ def get_research_detail(report_id: int):
             "created_at": str(row[26]) if row[26] else None,
             "figures": figures,
         }
+
+
+@router.post("/upload")
+async def upload_research_pdf(
+    file: UploadFile = File(...),
+    uploaded_by: str = Form("web"),
+):
+    """上传研报 PDF，自动解析入库。
+
+    返回 report_id，后续需调用 /{report_id}/analyze 触发 AI 分析。
+    """
+    # 校验文件类型
+    content_type = file.content_type or ""
+    filename = (file.filename or "").lower()
+    is_pdf = (
+        content_type == "application/pdf"
+        or filename.endswith(".pdf")
+    )
+    if not is_pdf:
+        raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
+
+    # 读取文件内容
+    try:
+        pdf_bytes = await file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="文件读取失败")
+
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="文件为空")
+
+    # 校验 PDF 魔数
+    if pdf_bytes[:4] != b"%PDF":
+        raise HTTPException(status_code=400, detail="不是合法的 PDF 文件")
+
+    # 入库
+    try:
+        result = pipeline.ingest_uploaded_pdf(
+            pdf_bytes=pdf_bytes,
+            original_filename=file.filename or "unknown.pdf",
+            uploaded_by=uploaded_by,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"入库失败: {e}")
+
+    return {
+        "report_id": result["report_id"],
+        "title": result["title"],
+        "status": result["status"],
+        "is_duplicate": result["is_duplicate"],
+    }
+
+
+@router.post("/{report_id}/analyze")
+def trigger_analysis(
+    report_id: int,
+    model: str = Query("doubao", description="模型短名: doubao / glm / deepseek / qwen"),
+):
+    """触发单份研报的 AI 分析（后台异步执行）。"""
+    # 校验报告存在
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, status FROM research_report WHERE id=%s",
+                (report_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="研报不存在")
+
+    current_status = row[1]
+    if current_status == "analyzed":
+        return {
+            "report_id": report_id,
+            "status": "analyzed",
+            "message": "已完成分析，无需重复触发",
+        }
+    if current_status == "processing":
+        return {
+            "report_id": report_id,
+            "status": "processing",
+            "message": "正在分析中，请稍候",
+        }
+
+    if current_status not in ("parsed", "failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"当前状态 '{current_status}' 不支持触发分析",
+        )
+
+    # 验证模型名
+    from backend.research_report.llm import MODEL_OPTIONS
+    if model not in MODEL_OPTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的模型: {model}，可选: {', '.join(MODEL_OPTIONS.keys())}",
+        )
+
+    # 启动后台分析
+    pipeline.run_analysis_async(report_id, MODEL_OPTIONS[model])
+
+    return {
+        "report_id": report_id,
+        "status": "processing",
+        "message": "分析任务已提交",
+    }
 
 
 @router.get("/figure/{file_hash}/{filename}")

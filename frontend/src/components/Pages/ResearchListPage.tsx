@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, Loading } from '../UI'
 import { API_PREFIX } from '../../constants'
 import { storage } from '../../utils/helpers'
+import UploadArea from './UploadArea'
+import ResearchUploadModal from './ResearchUploadModal'
 
 function authHeaders(): Record<string, string> {
   const token = storage.get<string>('auth_token')
@@ -23,6 +25,23 @@ const VIEW_LABEL: Record<string, string> = {
   bullish: '看多',
   bearish: '看空',
   neutral: '中性',
+}
+const STATUS_COLORS: Record<string, string> = {
+  parsed: 'text-blue-400',
+  processing: 'text-yellow-400',
+  failed: 'text-red-400',
+  analyzed: 'text-gray-400',
+}
+const STATUS_BG: Record<string, string> = {
+  parsed: 'bg-blue-500/10 border-blue-500/30',
+  processing: 'bg-yellow-500/10 border-yellow-500/30 animate-pulse',
+  failed: 'bg-red-500/10 border-red-500/30',
+  analyzed: 'bg-green-500/10 border-green-500/30',
+}
+const STATUS_LABEL: Record<string, string> = {
+  parsed: '已解析',
+  processing: '分析中...',
+  failed: '失败',
 }
 
 interface ResearchItem {
@@ -66,6 +85,8 @@ export default function ResearchListPage() {
     institutions: string[]
     industries: string[]
   }>({ institutions: [], industries: [] })
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const fetchData = () => {
     setLoading(true)
@@ -90,7 +111,7 @@ export default function ResearchListPage() {
       .then(setSummary)
   }, [])
 
-  useEffect(() => { fetchData() }, [page, filters])
+  useEffect(() => { fetchData() }, [page, filters, refreshTrigger])
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -112,6 +133,9 @@ export default function ResearchListPage() {
           <StatCard label="机构数" value={summary.institutions} color="purple" />
         </div>
       )}
+
+      {/* 上传区域 */}
+      <UploadArea onClick={() => setUploadModalOpen(true)} />
 
       {/* 筛选栏 */}
       <Card>
@@ -189,8 +213,10 @@ export default function ResearchListPage() {
                     {item.title}
                   </h3>
                   {item.status !== 'analyzed' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">
-                      {item.status}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium
+                      ${STATUS_BG[item.status] || 'bg-gray-500/10 border-gray-500/30'}
+                      ${STATUS_COLORS[item.status] || 'text-gray-400'}`}>
+                      {STATUS_LABEL[item.status] || item.status}
                     </span>
                   )}
                 </div>
@@ -249,6 +275,19 @@ export default function ResearchListPage() {
           </button>
         </div>
       )}
+
+      {/* 上传模态框 */}
+      <ResearchUploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => {
+          setUploadModalOpen(false)
+          setRefreshTrigger(t => t + 1)
+        }}
+        onSubmitted={() => {
+          setUploadModalOpen(false)
+          setRefreshTrigger(t => t + 1)
+        }}
+      />
     </div>
   )
 }

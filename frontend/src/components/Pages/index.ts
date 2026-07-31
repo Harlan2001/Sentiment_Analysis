@@ -21,3 +21,5 @@ export { default as AiStrategyGenerationPreviewPage } from './AiStrategyGenerati
 export { default as AiStrategyHistoryPage } from './AiStrategyHistoryPage'
 export { default as ResearchListPage } from './ResearchListPage'
 export { default as ResearchDetailPage } from './ResearchDetailPage'
+export { default as UploadArea } from './UploadArea'
+export { default as ResearchUploadModal } from './ResearchUploadModal'
