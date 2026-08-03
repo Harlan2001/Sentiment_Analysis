@@ -11,10 +11,9 @@ import re
 import base64
 import time
 from pathlib import Path
-from typing import Optional
 from openai import OpenAI
 
-from backend.config.config import create_openai_http_client, BASE_DIR
+from backend.config.config import create_openai_http_client
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT, LLM_MAX_TEXT_CHARS
 
 logger = logging.getLogger(__name__)

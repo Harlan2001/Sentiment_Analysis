@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-
 from fastapi import HTTPException, Request
 
 from backend.common.database import execute_query

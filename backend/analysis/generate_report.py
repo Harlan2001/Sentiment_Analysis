@@ -11,6 +11,9 @@ import argparse
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
+
 from backend.config.config import (
     MYSQL_CONFIG,
     create_openai_http_client,
@@ -22,8 +25,7 @@ from backend.common.database import init_database, DatabaseConfig, get_db_connec
 from backend.common.db_operations import DBOperations
 from backend.common.llm_logger import log_llm_usage
 
-from dotenv import load_dotenv
-load_dotenv()
+
 
 # 日志配置
 logger = logging.getLogger(__name__)

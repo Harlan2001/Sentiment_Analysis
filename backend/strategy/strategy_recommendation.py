@@ -15,7 +15,6 @@ import re
 import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
-
 import openai
 import requests
 from requests import HTTPError

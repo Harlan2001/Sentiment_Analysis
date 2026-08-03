@@ -1,5 +1,5 @@
 import os
-from backend.app import app
+from backend.app import app  # noqa: F401 — used at runtime by uvicorn via "main:app"
 from backend.common.logging_config import get_uvicorn_log_config
 
 if __name__ == "__main__":

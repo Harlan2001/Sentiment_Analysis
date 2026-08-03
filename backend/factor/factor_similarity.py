@@ -11,6 +11,7 @@ import sys
 import jieba
 from sentence_transformers import SentenceTransformer
 import numpy as np
+
 from backend.config.config import MODEL_DIR
 from backend.factor.factor_management import get_factors_from_db
 

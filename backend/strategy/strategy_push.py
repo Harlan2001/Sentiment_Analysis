@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
-
 from openai import OpenAI
 
 from backend.config.config import ANALYSIS_MODEL_PRIORITY

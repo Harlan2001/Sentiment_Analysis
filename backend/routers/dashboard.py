@@ -6,8 +6,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from typing import Any, List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from backend.common.database import execute_query, execute_update, get_db_connection
@@ -62,7 +61,6 @@ def get_dashboard_core():
     前端大盘首页核心数据接口（GET请求）
     逻辑：先读缓存→无缓存加锁再读一次缓存→无缓存全量计算→写入缓存→返回数据
     """
-    import threading
     from backend.dashboard.dashboard_service import cache_lock
 
     cached = read_cache()

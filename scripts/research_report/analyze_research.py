@@ -11,7 +11,6 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv

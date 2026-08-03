@@ -13,8 +13,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import AsyncGenerator, Any
-
+from typing import AsyncGenerator
 from openai import OpenAI
 
 from backend.agent.tools import TOOL_DEFINITIONS

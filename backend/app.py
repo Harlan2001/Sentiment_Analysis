@@ -1,15 +1,11 @@
 from dotenv import load_dotenv
 load_dotenv()
-
-from backend.common.logging_config import setup_logging
-setup_logging()
-
 import logging
-import time
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.common.logging_config import setup_logging
+setup_logging()
 from backend.common.database import DatabaseConfig, init_database
 from backend.common.vector_store import get_faiss_store
 from backend.config.config import MYSQL_CONFIG

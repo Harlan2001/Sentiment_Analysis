@@ -6,7 +6,6 @@ import json
 from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Iterator
-
 import pymysql
 from pymysql.cursors import DictCursor
 

@@ -1,7 +1,6 @@
 import logging
 from datetime import date
 from typing import Optional
-
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 

@@ -12,15 +12,12 @@ import hashlib
 import logging
 import re
 import traceback
-from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Optional
-
 import pymupdf
 
-from backend.config.config import BASE_DIR
 from backend.research_report.constants import (
     KNOWN_INSTITUTIONS, INST_ALIAS_MAP, INST_SHORT_MAP,
     INDUSTRY_KEYWORDS, FIGURE_MIN_BYTES, FIGURE_MAX_PER_REPORT,

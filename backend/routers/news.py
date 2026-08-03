@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-
 from fastapi import APIRouter, Query
 
 from backend.analysis.analyzer import process_single_news_analysis

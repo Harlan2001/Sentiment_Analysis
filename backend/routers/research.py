@@ -7,11 +7,10 @@
 """
 from __future__ import annotations
 
-from datetime import date
 from typing import Optional
-
 from fastapi import APIRouter, Query, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+
 from backend.config.config import BASE_DIR
 from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX

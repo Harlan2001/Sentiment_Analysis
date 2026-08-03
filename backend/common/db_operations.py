@@ -4,7 +4,6 @@
 """
 
 import json
-
 import pymysql
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import date, datetime, timedelta

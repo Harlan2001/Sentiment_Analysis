@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI

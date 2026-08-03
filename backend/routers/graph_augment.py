@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from typing import Optional
-
 from fastapi import APIRouter, Body
 from pydantic import BaseModel
 

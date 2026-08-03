@@ -51,7 +51,7 @@ def prepare_protobuf_modules():
             from grpc_tools import protoc
         except ImportError as exc:
             raise RuntimeError(
-                "缺少依赖，请执行: uv pip install websocket-client protobuf grpcio-tools"
+                "缺少 grpcio-tools，请执行: uv pip install grpcio-tools protobuf"
             ) from exc
 
         arguments = [

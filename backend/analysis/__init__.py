@@ -3,10 +3,10 @@
 提供批量新闻分析功能
 """
 
-from backend.analysis.result_processor import AnalysisResultProcessor
-from backend.common.db_operations import DBOperations
+from backend.analysis.result_processor import AnalysisResultProcessor as AnalysisResultProcessor
+from backend.common.db_operations import DBOperations as DBOperations
 
-all = [
-"AnalysisResultProcessor",
-"DBOperations"
+__all__ = [
+    "AnalysisResultProcessor",
+    "DBOperations",
 ]

@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
-
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.config.config import API_PREFIX
