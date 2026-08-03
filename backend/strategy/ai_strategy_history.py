@@ -54,7 +54,7 @@ class AiStrategyHistoryRepository:
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(**self._settings, autocommit=False, cursorclass=DictCursor)
+        connection = pymysql.connect(**{**self._settings, "autocommit": False}, cursorclass=DictCursor)
         try:
             yield connection
         except BaseException:
