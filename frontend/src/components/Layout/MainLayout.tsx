@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 // 简单的SVG图标组件
@@ -55,11 +55,9 @@ const ChangeIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
   </svg>
 )
 
-interface MainLayoutProps {
-  children: React.ReactNode
-}
+interface MainLayoutProps {}
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+const MainLayout: React.FC<MainLayoutProps> = () => {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { username, displayName, authEnabled, logout } = useAuth()
@@ -84,17 +82,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800">
+    <div className="flex flex-col min-h-screen bg-black">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-b border-gray-700 shadow-xl backdrop-blur-sm">
+      <header className="bg-black border-b border-gray-800 shadow-xl backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-sm font-bold">
+              <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-sm font-bold">
                 📊
               </div>
-              <span className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="text-lg font-semibold text-white">
                 债券市场智能分析
               </span>
             </div>
@@ -128,7 +126,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     to={item.href}
                     className={`flex items-center px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                       isActive(item.href)
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                        ? 'bg-white text-black shadow-lg shadow-white/20'
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     }`}
                   >
@@ -168,7 +166,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive(item.href)
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+                        ? 'bg-white text-black'
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     }`}
                   >
@@ -185,7 +183,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Main Content */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
-          {children}
+          <Outlet />
         </div>
       </main>
     </div>

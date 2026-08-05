@@ -407,7 +407,7 @@ const ChangePage: React.FC = () => {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold text-white">
             策略变动对比
           </h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -535,7 +535,7 @@ const ChangePage: React.FC = () => {
                 {hasStockChanges && compare && (
                   <div>
                     <h2 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <span className="w-1 h-4 bg-gradient-to-b from-blue-400 to-purple-400 rounded-full" />
+                      <span className="w-1 h-4 bg-gradient-to-b from-white to-gray-500 rounded-full" />
                       标的推荐变动
                     </h2>
                     <div className="space-y-2">
@@ -568,7 +568,7 @@ const ChangePage: React.FC = () => {
                 {hasStrategyChanges && compare && (
                   <div>
                     <h2 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <span className="w-1 h-4 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full" />
+                      <span className="w-1 h-4 bg-gradient-to-b from-white to-gray-500 rounded-full" />
                       策略建议变动
                     </h2>
                     <div className="space-y-2">

@@ -242,7 +242,7 @@ const SelectStrategyPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold text-white">
           AI智能推荐标的与策略
         </h1>
         <p className="text-gray-500 text-sm mt-1">

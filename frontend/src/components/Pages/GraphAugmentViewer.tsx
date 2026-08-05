@@ -656,7 +656,7 @@ const GraphAugmentViewer: React.FC<GraphAugmentViewerProps> = ({
            </p>
            <button
              onClick={onStart}
-             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors text-sm font-medium"
+             className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
            >
              🔮 开始图谱补全
            </button>

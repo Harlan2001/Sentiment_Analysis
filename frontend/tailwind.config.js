@@ -14,10 +14,10 @@ export default {
         error: '#ff4d4f',
         neutral: '#6b7280',
         bg: {
-          primary: '#0d1117',
-          secondary: '#161b22',
-          tertiary: '#1a1a1a',
-          border: '#30363d',
+          primary: '#000000',
+          secondary: '#111111',
+          tertiary: '#161616',
+          border: '#2a2a2a',
         },
         text: {
           primary: '#ffffff',

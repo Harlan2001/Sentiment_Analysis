@@ -55,7 +55,7 @@
 ```env
 # ===== Kingstar LLM API =====
 kingstar_API_KEY=sk-xxx
-kingstar_BASE_URL=https://api.kingstarinfotech.cn/dmx/openai/v1
+kingstar_BASE_URL=http://api-inner.kingstarinfotech.cn/dmx/openai/v1
 
 # ===== MySQL 数据库 =====
 MYSQL_HOST=10.253.50.134

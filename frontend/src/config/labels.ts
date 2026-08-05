@@ -5,6 +5,14 @@
 
 // ========== 页面路由 → 中文标题 ==========
 export const PAGE_TITLE_MAP: Record<string, string> = {
+  // 新工作台板块
+  '/market': '市场',
+  '/returns': '收益',
+  '/forecast': '预测',
+  '/watchlist': '关注列表',
+  '/portfolio': '投资组合',
+  '/workflow': '工作流',
+  // 旧页面
   '/news': '新闻',
   '/factors': '因子',
   '/data': '数据',

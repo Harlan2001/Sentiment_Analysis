@@ -69,7 +69,7 @@ const barColors = {
 };
 
 const bgBarColors = {
-  normal: 'bg-blue-900/30',
+  normal: 'bg-gray-800',
   warning: 'bg-yellow-900/30',
   danger: 'bg-red-900/30',
 };

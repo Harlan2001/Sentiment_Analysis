@@ -187,7 +187,7 @@ function ComparePanel({ userIds, onClose }: { userIds: number[]; onClose: () => 
   if (!data?.profiles?.length) return <div className="text-center text-gray-500 py-4">对比数据不可用</div>;
 
   return (
-    <div className="rounded-lg border border-blue-700/30 bg-blue-900/10 p-4">
+    <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs text-blue-400 font-medium">📊 用户对比</div>
         <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-300">✕ 关闭</button>

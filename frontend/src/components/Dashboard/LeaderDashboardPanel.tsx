@@ -182,7 +182,7 @@ const LeaderDashboardPanel: React.FC = () => {
                     <span className="text-gray-400">{formatTokens(m.tokens)} ({m.percentage}%)</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2.5">
-                    <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-2.5 rounded-full"
+                    <div className="bg-gradient-to-r from-white to-gray-400 h-2.5 rounded-full"
                       style={{ width: `${Math.max(m.percentage, 2)}%` }} />
                   </div>
                 </div>

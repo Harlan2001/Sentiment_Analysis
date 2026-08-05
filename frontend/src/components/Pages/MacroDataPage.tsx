@@ -615,7 +615,7 @@ const MacroDataPage: React.FC = () => {
     <div className="space-y-6">
       {/* ═════════════ 页面头部 ═════════════ */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+        <h1 className="text-3xl font-bold text-white mb-2">
           📊 宏观数据
         </h1>
         <p className="text-gray-400 text-sm">

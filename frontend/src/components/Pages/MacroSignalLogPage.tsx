@@ -183,7 +183,7 @@ const MacroSignalLogPage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold text-white">
           宏观信号请求日志
         </h1>
         <p className="text-gray-500 text-sm mt-1">查询每次宏观信号接口调用的详细记录</p>

@@ -341,7 +341,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onClose, onNewsSelect, se
             <div className="flex flex-wrap items-center gap-2 justify-center py-4">
               {displayReason.split('→').map((step, index, array) => (
                 <React.Fragment key={index}>
-                  <div className="flex items-center px-4 py-3 bg-gradient-to-r from-blue-600/30 to-purple-600/30 border border-blue-500/30 rounded-lg shadow-lg">
+                  <div className="flex items-center px-4 py-3 bg-gray-800/60 border border-gray-700 rounded-lg shadow-lg">
                     <span className="text-sm font-medium text-blue-100">
                       {step.trim().replace(/【|】/g, '')}
                     </span>

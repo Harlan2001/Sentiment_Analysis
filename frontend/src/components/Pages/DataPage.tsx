@@ -384,7 +384,7 @@ const DataPage: React.FC = () => {
     <div className="space-y-6">
       {/* 页面头部 */}
       <div className="page-header">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+        <h1 className="text-3xl font-bold text-white mb-2">
           💾 数据源配置
         </h1>
         <p className="text-gray-400 text-sm">选择和管理债券市场数据来源</p>

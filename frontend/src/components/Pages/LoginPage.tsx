@@ -76,21 +76,21 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4">
       {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
       </div>
 
       {/* 登录卡片 */}
       <div className="relative w-full max-w-md">
         {/* Logo 区域 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl mb-4 shadow-lg shadow-purple-500/30">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl mb-4 shadow-lg shadow-white/30">
             <span className="text-3xl">📊</span>
           </div>
-          <h1 className="text-2xl font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-semibold text-white">
             债券市场智能分析
           </h1>
           <p className="text-gray-500 mt-2 text-sm">请登录以继续使用</p>
@@ -105,7 +105,7 @@ const LoginPage: React.FC = () => {
               onClick={() => handleSwitchMode('phone')}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                 mode === 'phone'
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow'
+                  ? 'bg-white text-black shadow'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -116,7 +116,7 @@ const LoginPage: React.FC = () => {
               onClick={() => handleSwitchMode('password')}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                 mode === 'password'
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow'
+                  ? 'bg-white text-black shadow'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
