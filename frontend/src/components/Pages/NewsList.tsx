@@ -1,5 +1,6 @@
 import React from 'react'
 import type { NewsItem } from '@/types'
+import { maskSource } from '@/utils/helpers'
 
 interface NewsListProps {
   news: NewsItem[]
@@ -46,14 +47,16 @@ const NewsList: React.FC<NewsListProps> = ({
     }
   }
   
-  const formatTime = (publishTime?: string) => {
+  const formatDateTime = (publishTime?: string) => {
     if (!publishTime) return ''
     try {
       const date = new Date(publishTime)
-      return date.toLocaleTimeString('zh-CN', {
+      const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      const time = date.toLocaleTimeString('zh-CN', {
         hour: '2-digit',
         minute: '2-digit'
       })
+      return `${ymd} ${time}`
     } catch {
       return publishTime
     }
@@ -86,7 +89,7 @@ const NewsList: React.FC<NewsListProps> = ({
             </h3>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
               <span className="text-xs text-gray-400">
-                {formatTime(item.publish_time)}
+                {formatDateTime(item.publish_time)}
               </span>
               {item.direction && (
                 <span className={`text-xs font-medium ${getDirectionColor(item.direction)}`}>
@@ -105,9 +108,9 @@ const NewsList: React.FC<NewsListProps> = ({
           
           {/* 标签信息 */}
           <div className="flex items-center gap-2 text-xs">
-            {item.source && (
+            {item.source && maskSource(item.source) && (
               <span className="px-2 py-1 bg-gray-700 text-gray-300 rounded">
-                {item.source}
+                {maskSource(item.source)}
               </span>
             )}
             {item.horizon && (

@@ -375,6 +375,9 @@ export interface FactorDefinition {
   category: string;
   description?: string;
   last_updated?: string;
+  /** 新闻活跃度（总新闻数 / 近30天新闻数），用于按活力度排序 */
+  news_count?: number;
+  recent_news_count?: number;
 }
 
 export interface FactorNewsItem {
@@ -471,6 +474,7 @@ export interface MacroSignalRequestLogItem {
   id: number;
   request_id: string;
   factor_code: string;
+  factor_name?: string | null;
   signal_type: string;
   query_start_time: string | null;
   query_end_time: string | null;
@@ -1062,6 +1066,8 @@ export interface MacroIndicator {
   code: string;
   name: string;
   category: 'strong' | 'medium' | 'weak' | 'precious' | 'bond' | 'general';
+  /** 业务大类分类（价格/货币/利率/实体/进出口等） */
+  domain?: string;
   desc: string;
 }
 
@@ -1075,6 +1081,7 @@ export interface MacroCategory {
 export interface MacroIndicatorsResponse {
   indicators: MacroIndicator[];
   categories: MacroCategory[];
+  domains?: MacroCategory[];
   total: number;
 }
 

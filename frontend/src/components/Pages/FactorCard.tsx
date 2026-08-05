@@ -16,15 +16,26 @@ const FactorCard: React.FC<FactorCardProps> = ({
 }) => {
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      '宏观经济': 'bg-green-400/20 text-green-300',
-      '货币政策': 'bg-blue-400/20 text-blue-300', 
-      '市场情绪': 'bg-orange-400/20 text-orange-300',
-      '国际因素': 'bg-purple-400/20 text-purple-300',
-      '政策法规': 'bg-red-400/20 text-red-300',
-      '行业发展': 'bg-cyan-400/20 text-cyan-300',
-      '技术分析': 'bg-yellow-400/20 text-yellow-300',
+      POLICY: 'bg-red-400/20 text-red-300',
+      MACRO: 'bg-green-400/20 text-green-300',
+      LIQUIDITY: 'bg-blue-400/20 text-blue-300',
+      RISK: 'bg-orange-400/20 text-orange-300',
+      SENTIMENT: 'bg-purple-400/20 text-purple-300',
+      INDUSTRY: 'bg-cyan-400/20 text-cyan-300',
     }
     return colors[category] || 'bg-gray-400/20 text-gray-300'
+  }
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      POLICY: '政策',
+      MACRO: '宏观',
+      LIQUIDITY: '流动性',
+      RISK: '风险',
+      SENTIMENT: '情绪',
+      INDUSTRY: '行业',
+    }
+    return labels[category] || category
   }
   
   return (
@@ -52,7 +63,7 @@ const FactorCard: React.FC<FactorCardProps> = ({
         <div className="space-y-2 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-xs font-medium px-2 py-1 rounded-full ${getCategoryColor(factor.category)}`}>
-              {factor.category}
+              {getCategoryLabel(factor.category)}
             </span>
           </div>
         </div>

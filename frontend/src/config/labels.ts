@@ -7,13 +7,10 @@
 export const PAGE_TITLE_MAP: Record<string, string> = {
   '/news': '新闻',
   '/factors': '因子',
-  '/data': '数据',
   '/prediction': '预测',
   '/agents': 'Agent',
-  '/select-strategy': 'AI推荐',
   '/strategies': '策略',
   '/change': '变动对比',
-  '/macro-signal-logs': '信号日志',
   '/dashboard': '看板',
   '/login': '登录',
   '/my-usage': '我的使用',

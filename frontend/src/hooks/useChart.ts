@@ -383,3 +383,113 @@ export const useNewsYieldChart = (
 
   return { chartOption }
 }
+
+export interface YieldSeries {
+  label: string
+  data: YieldPoint[]
+}
+
+const multiSeriesPalette = [
+  '#a78bfa', // 紫
+  '#34d399', // 绿
+  '#60a5fa', // 蓝
+  '#fbbf24', // 黄
+  '#fb7185', // 粉
+]
+
+// 多期限收益率图表Hook：在同一坐标系叠加多条期限曲线（固定展示 1年/5年/10年/30年）
+export const useMultiYieldChart = (
+  series: YieldSeries[],
+  options?: { onClickDate?: (date: string) => void }
+) => {
+  const chartOption = React.useMemo<EChartsOption>(() => {
+    // 对齐所有期限的日期（取并集排序），缺失补 null
+    const dateSet = new Map<string, number>()
+    series.forEach(s => s.data.forEach(p => { if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size) }))
+    const dates = Array.from(dateSet.keys()).sort()
+    const labels = dates.map(formatChartDate)
+
+    const lineSeries = series.map((s, idx) => {
+      const color = multiSeriesPalette[idx % multiSeriesPalette.length]
+      const values = dates.map(d => {
+        const match = s.data.find(p => p.date === d)
+        return match ? match.value : null
+      })
+      return {
+        name: `${s.label}收益率`,
+        type: 'line' as const,
+        data: values,
+        smooth: true,
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: {
+          width: 2.2,
+          color,
+          shadowBlur: 8,
+          shadowColor: color + '55',
+        },
+        itemStyle: { color, borderColor: '#f8fafc', borderWidth: 1.5 },
+        emphasis: { focus: 'series' as const },
+      }
+    })
+
+    return {
+      backgroundColor: 'transparent',
+      animationDuration: 450,
+      animationEasing: 'cubicOut',
+      grid: { left: '2%', right: '3%', top: 56, bottom: 36, containLabel: true },
+      legend: {
+        show: true,
+        top: 12,
+        textStyle: { color: '#e2e8f0', fontSize: 12, fontWeight: 600 },
+      },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartPalette.tooltipBg,
+        borderColor: chartPalette.tooltipBorder,
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: [10, 12],
+        textStyle: { color: '#f8fafc', fontSize: 12 },
+        axisPointer: { type: 'line', lineStyle: { color: chartPalette.primary, width: 1.5, opacity: 0.55 } },
+      },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.45)' } },
+        axisTick: { show: false },
+        axisLabel: { color: chartPalette.axis, fontSize: 10, margin: 14 },
+        splitLine: { show: true, lineStyle: { color: chartPalette.splitLine, type: 'dashed' } },
+        axisPointer: { label: { backgroundColor: 'rgba(15, 23, 42, 0.95)' } },
+      },
+      yAxis: {
+        type: 'value',
+        name: '收益率 (%)',
+        nameTextStyle: { color: chartPalette.axis, fontSize: 11, padding: [0, 0, 0, 8] },
+        axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.45)' } },
+        axisLabel: { color: chartPalette.axis, fontSize: 10, margin: 12, formatter: (v: number) => `${v.toFixed(1)}%` },
+        splitLine: { lineStyle: { color: chartPalette.splitLine, type: 'dashed' } },
+      },
+      series: lineSeries,
+    }
+  }, [series])
+
+  const chartEvents = React.useMemo(
+    () => ({
+      click: (params: { dataIndex?: number }) => {
+        if (options?.onClickDate && typeof params.dataIndex === 'number') {
+          const dateSet = new Map<string, number>()
+          series.forEach(s => s.data.forEach(p => { if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size) }))
+          const dates = Array.from(dateSet.keys()).sort()
+          const selectedDate = dates[params.dataIndex]
+          if (selectedDate) options.onClickDate(selectedDate)
+        }
+      },
+    }),
+    [series, options?.onClickDate]
+  )
+
+  return { chartOption, chartEvents }
+}

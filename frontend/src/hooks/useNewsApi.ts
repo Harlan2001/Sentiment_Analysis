@@ -22,6 +22,24 @@ export const useYields = (start: string, end: string, type: string) => {
   })
 }
 
+// 多期限收益率数据Hook：并行拉取多个期限，供新闻页固定展示 1年/5年/10年/30年
+export const useMultiYields = (periods: string[], start: string, end: string) => {
+  return useQuery({
+    queryKey: ['yields', 'multi', periods, start, end],
+    queryFn: async () => {
+      const results = await Promise.all(
+        periods.map(async (label) => ({
+          label,
+          data: await fetchYields(start, end, label),
+        }))
+      )
+      return results
+    },
+    enabled: !!(start && end && periods.length > 0),
+    staleTime: 5 * 60 * 1000, // 5分钟
+  })
+}
+
 // 按日期获取新闻Hook
 export const useNewsByDate = (
   date: string,

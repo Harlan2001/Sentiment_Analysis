@@ -76,15 +76,15 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
 
 
 def get_yield_window_by_news_pub_time(
-    pub_time: str, window_before: int = 14, window_after: int = 7, period: str = "10Y"
+    pub_time, window_before: int = 14, window_after: int = 7, period: str = "10Y"
 ) -> Tuple[List[Dict], Optional[str], Optional[str]]:
-    """根据新闻发布时间获取收益率窗口"""
+    """根据新闻发布时间获取收益率窗口。
+
+    pub_time 为 datetime.datetime / date 对象（如 2026-02-26 10:02:54）。
+    """
     try:
-        if "T" in pub_time:
-            base_date = datetime.fromisoformat(pub_time).date()
-        else:
-            base_date = datetime.strptime(pub_time[:10], "%Y-%m-%d").date()
-    except:
+        base_date = pub_time.date() if isinstance(pub_time, datetime) else pub_time
+    except Exception:
         return [], None, None
 
     start = (base_date - timedelta(days=window_before)).strftime("%Y-%m-%d")

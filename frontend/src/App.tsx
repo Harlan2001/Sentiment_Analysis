@@ -1,7 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/Layout/MainLayout'
-import { NewsPage, FactorPage, DataPage, PredictionPage, AgentPage, MacroSignalLogPage, SelectStrategyPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, ResearchListPage, ResearchDetailPage, AiStrategyGenerationPreviewPage, AiStrategyHistoryPage } from './components/Pages'
+import { NewsPage, FactorPage, PredictionPage, AgentPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, ResearchListPage, ResearchDetailPage, AiStrategyGenerationPreviewPage, AiStrategyHistoryPage } from './components/Pages'
 import { useAuth } from './contexts/AuthContext'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
 import { Loading } from './components/UI/Loading'
@@ -30,11 +30,10 @@ function ProtectedRoutes() {
           <Route path="/" element={<NewsPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/factors" element={<FactorPage />} />
-          <Route path="/data" element={<DataPage />} />
           <Route path="/prediction" element={<PredictionPage />} />
           <Route path="/agents" element={<AgentPage />} />
-          <Route path="/macro-signal-logs" element={<MacroSignalLogPage />} />
-          <Route path="/select-strategy" element={<SelectStrategyPage />} />
+          <Route path="/macro-signal-logs" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/select-strategy" element={<Navigate to="/strategies" replace />} />
           <Route path="/strategies" element={<StrategyListPage />} />
           <Route path="/change" element={<ChangePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -68,11 +67,10 @@ function ProtectedRoutes() {
         <Route path="/login" element={<Navigate to="/news" replace />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/factors" element={<FactorPage />} />
-        <Route path="/data" element={<DataPage />} />
         <Route path="/prediction" element={<PredictionPage />} />
         <Route path="/agents" element={<AgentPage />} />
-        <Route path="/macro-signal-logs" element={<MacroSignalLogPage />} />
-        <Route path="/select-strategy" element={<SelectStrategyPage />} />
+        <Route path="/macro-signal-logs" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/select-strategy" element={<Navigate to="/strategies" replace />} />
         <Route path="/strategies" element={<StrategyListPage />} />
         <Route path="/change" element={<ChangePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
