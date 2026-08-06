@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Loading, Error, Empty } from '@/components/UI'
 import { useMacroSignalRequestLogs } from '@/hooks/useMacroSignalLogApi'
 import { useNewsDetail } from '@/hooks/useNewsApi'
+import { cn } from '@/utils/helpers'
 import type { MacroSignalRequestLogItem, MacroSignalRequestLogQuery } from '@/types'
 import NewsDetail from './NewsDetail'
 
@@ -101,6 +102,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
                 {row.success === 1 ? '成功' : '失败'}
               </span>
               <span className="text-gray-300 font-mono">{row.factor_code}</span>
+              {row.factor_name && <span className="text-gray-500">{row.factor_name}</span>}
               <span className="text-gray-500">{row.signal_type}</span>
               {row.signal_value !== null && (
                 <span className="text-blue-300">信号值: {row.signal_value.toFixed(4)}</span>
@@ -146,7 +148,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
 }
 
 // -------- 主页面 --------
-const MacroSignalLogPage: React.FC = () => {
+const MacroSignalLogPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [pendingFilters, setPendingFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
@@ -180,14 +182,16 @@ const MacroSignalLogPage: React.FC = () => {
   const pagination = data?.pagination
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">
-          宏观信号请求日志
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">查询每次宏观信号接口调用的详细记录</p>
-      </div>
+    <div className={cn(embedded ? 'space-y-4' : 'max-w-7xl mx-auto px-4 py-6 space-y-4')}>
+      {/* 页面标题（独立页展示，嵌入看板时隐藏） */}
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            宏观信号请求日志
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">查询每次宏观信号接口调用的详细记录</p>
+        </div>
+      )}
 
       {/* 筛选区 */}
       <Card>
@@ -294,7 +298,10 @@ const MacroSignalLogPage: React.FC = () => {
                       <td className="px-4 py-2 font-mono text-gray-400 max-w-[160px] truncate" title={row.request_id}>
                         {row.request_id.slice(0, 8)}…
                       </td>
-                      <td className="px-4 py-2 font-mono text-blue-300">{row.factor_code}</td>
+                      <td className="px-4 py-2 font-mono text-blue-300">
+  {row.factor_code}
+  {row.factor_name && <span className="ml-2 font-sans text-gray-400">{row.factor_name}</span>}
+</td>
                       <td className="px-4 py-2 text-gray-400">{row.signal_type}</td>
                       <td className="px-4 py-2 text-right">{row.signal_value !== null ? row.signal_value.toFixed(4) : '-'}</td>
                       <td className="px-4 py-2 text-right">{row.confidence !== null ? row.confidence.toFixed(4) : '-'}</td>

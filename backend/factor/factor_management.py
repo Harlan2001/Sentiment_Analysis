@@ -5,6 +5,7 @@
 
 import logging
 from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import Set
 import pymysql
 
@@ -14,12 +15,32 @@ logger = logging.getLogger(__name__)
 
 
 def get_factors_from_db() -> list:
-    """从MySQL加载所有因子（使用上下文管理器，自动关闭连接）"""
+    """从MySQL加载所有因子（使用上下文管理器，自动关闭连接）。
+
+    附带每个因子的新闻活跃度：news_count（总新闻数）与 recent_news_count（近30天新闻数），
+    供前端按活跃度排序、分类聚合。
+    """
+    recent_cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
     try:
         with pymysql.connect(**MYSQL_CONFIG) as conn:
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute("SELECT code, name, category, factor_type FROM factor ORDER BY category, code")
-                return list(cursor.fetchall())
+                cursor.execute(
+                    """
+                    SELECT f.code, f.name, f.category, f.factor_type,
+                           COUNT(nf.factor_id) AS news_count,
+                           SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS recent_news_count
+                    FROM factor f
+                    LEFT JOIN news_factor nf ON nf.factor_id = f.id
+                    GROUP BY f.id, f.code, f.name, f.category, f.factor_type
+                    ORDER BY f.category, f.code
+                    """,
+                    (recent_cutoff,),
+                )
+                rows = list(cursor.fetchall())
+                for row in rows:
+                    row["news_count"] = row.get("news_count") or 0
+                    row["recent_news_count"] = row.get("recent_news_count") or 0
+                return rows
     except Exception as e:
         logger.error("加载因子失败: %s", e, exc_info=True)
         raise

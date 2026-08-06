@@ -82,7 +82,10 @@ class DreamClient:
             raise RuntimeError("缺少依赖 websocket-client") from exc
 
         # Keep proxy handling local to Dream; changing NO_PROXY here would affect all backend clients.
-        self.ws = websocket.create_connection(url, timeout=15, http_proxy_host=None)
+        # http_proxy_host=None alone does NOT disable the proxy — websocket-client falls back to the
+        # HTTP_PROXY/HTTPS_PROXY env vars, which hijack this connection to an unreachable proxy.
+        # no_proxy=["*"] forces a direct connection regardless of the destination host.
+        self.ws = websocket.create_connection(url, timeout=15, http_no_proxy=["*"])
         self.ws.settimeout(timeout)
         self.flow_no = 0
         self.closed = False

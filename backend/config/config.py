@@ -148,10 +148,24 @@ NEWS_SOURCES = {
 }
 DEFAULT_NEWS_SOURCES = []
 
+# 新闻源脱敏标签（合规）：对外展示通用数据源名，不暴露具体媒体名称
+NEWS_SOURCE_LABELS = {
+    "wallstreetcn": "数据源1", "yicai": "数据源2",
+}
+
+def mask_news_source(source_key: str) -> str:
+    """新闻源脱敏：返回通用「数据源N」标签，避免暴露具体媒体（合规）。"""
+    return NEWS_SOURCE_LABELS.get(source_key, "数据源")
+
 # ====================== 投资组合策略配置 ======================
 
 # 组合策略时区：统一使用北京时间进行日期计算和时间戳生成
 PORTFOLIO_TZ = ZoneInfo("Asia/Shanghai")
+
+# 每日定时自动生成 AI 策略推荐（STRATEGY_AUTO_ENABLED=true 时生效）
+STRATEGY_AUTO_ENABLED = _is_truthy(_get_env_str("STRATEGY_AUTO_ENABLED") or "true")
+# 触发时间（cron 格式，仅取小时字段，如 "0 9 * * *" = 每天 9:00）
+STRATEGY_AUTO_CRON = _get_env_str("STRATEGY_AUTO_CRON") or "0 9 * * *"
 
 # 组合策略默认模型：可通过环境变量 PORTFOLIO_STRATEGY_MODEL 覆盖
 PORTFOLIO_MODEL = os.getenv("PORTFOLIO_STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215")
@@ -188,9 +202,9 @@ PERIOD_LIST = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
 
 # 页面路由 → 中文标题映射
 PAGE_TITLES = {
-    "/news": "新闻", "/factors": "因子", "/data": "数据", "/prediction": "预测",
-    "/agents": "Agent", "/select-strategy": "AI推荐", "/strategies": "策略",
-    "/change": "变动对比", "/macro-signal-logs": "信号日志", "/dashboard": "看板", "/login": "登录",
+    "/news": "新闻", "/factors": "因子", "/prediction": "预测",
+    "/agents": "Agent", "/strategies": "策略",
+    "/change": "变动对比", "/dashboard": "看板", "/login": "登录",
     "/my-usage": "我的使用",
     "/macro-data": "宏观数据",
     "/research": "研报",
@@ -199,8 +213,8 @@ PAGE_TITLES = {
 
 # 看板页面分布图表中应展示的完整路由列表（含未访问页面的零值补全）
 ALL_PAGE_ROUTES = [
-    "/news", "/factors", "/data", "/prediction", "/agents",
-    "/select-strategy", "/strategies", "/change", "/macro-signal-logs",
+    "/news", "/factors", "/prediction", "/agents",
+    "/strategies", "/change",
     "/dashboard", "/macro-data", "/research", "/login", "/ai-strategy-generation",
 ]
 

@@ -101,6 +101,11 @@ const AiStrategyGenerationPreviewPage: React.FC = () => {
     queryKey: ['ai-strategy-conversation', numericConversationId],
     queryFn: () => fetchAiStrategyConversation(numericConversationId as number),
     enabled: Boolean(numericConversationId),
+    // Poll while a generation is in flight (status === 'running'); stop once it resolves.
+    refetchInterval: (query) =>
+      (query.state.data?.data.messages ?? []).some((m) => m.role === 'assistant' && m.status === 'running')
+        ? 3000
+        : false,
   })
 
   const versions = detailQuery.data?.data.versions ?? []
@@ -186,9 +191,9 @@ const AiStrategyGenerationPreviewPage: React.FC = () => {
     mutationFn: () => confirmAiStrategyPromptDraft(numericConversationId as number, draft!.assistantMessageId, editedPrompt),
     onSuccess: async () => {
       setDraft(null)
-      const refreshed = await detailQuery.refetch()
-      const latestVersion = refreshed.data?.data.versions[0]
-      setSelectedVersionId(latestVersion?.id ?? null)
+      // Confirm now returns immediately with status 'running'; kick one refetch so the
+      // detailQuery refetchInterval (active while any message is 'running') takes over.
+      await detailQuery.refetch()
       await queryClient.invalidateQueries({ queryKey: ['ai-strategy-conversations'] })
     },
     onError: async (reason) => {

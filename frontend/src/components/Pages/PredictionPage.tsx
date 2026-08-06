@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import ReactECharts from 'echarts-for-react'
+import type { EChartsOption } from 'echarts'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/UI'
 import { Loading, Error, Empty } from '@/components/UI'
 import { useForecastReport, useForecastHistory } from '@/hooks/useForecastApi'
@@ -13,8 +15,59 @@ import type {
    ScenarioItem
 } from '@/types'
 
-// 常量定义
-const MODEL_NAME = "kingstar"
+// 概率仪表盘（上涨/下跌概率可视化）
+const ProbabilityGauge: React.FC<{ rise: number; riseBp: number; fallBp: number }> = ({ rise, riseBp, fallBp }) => {
+  const risePct = Math.round((rise * 100))
+  const option: EChartsOption = {
+    backgroundColor: 'transparent',
+    series: [
+      {
+        type: 'gauge',
+        startAngle: 210,
+        endAngle: -30,
+        min: 0,
+        max: 100,
+        splitNumber: 5,
+        radius: '95%',
+        center: ['50%', '58%'],
+        pointer: { itemStyle: { color: risePct >= 50 ? '#34d399' : '#fb7185' }, length: '55%', width: 5 },
+        axisLine: {
+          lineStyle: {
+            width: 14,
+            color: [[0.5, '#fb7185'], [1, '#34d399']],
+          },
+        },
+        axisTick: { show: false },
+        splitLine: { length: 8, lineStyle: { color: '#0f172a', width: 2 } },
+        axisLabel: { color: '#94a3b8', fontSize: 9, distance: -26 },
+        detail: {
+          valueAnimation: true,
+          formatter: (v: number) => `${v}%`,
+          color: risePct >= 50 ? '#34d399' : '#fb7185',
+          fontSize: 26,
+          offsetCenter: [0, '-12%'],
+        },
+        title: { show: false },
+        data: [{ value: risePct }],
+      },
+    ],
+  }
+  return (
+    <div className="flex flex-col items-center">
+      <ReactECharts option={option} style={{ height: 150, width: 180 }} opts={{ renderer: 'svg' }} />
+      <div className="-mt-2 text-center">
+        <div className="text-xs text-gray-400">
+          上涨 <span className="text-green-400 font-semibold">+{riseBp.toFixed(1)} BP</span>
+          <span className="mx-2 text-gray-600">·</span>
+          下跌 <span className="text-red-400 font-semibold">{fallBp.toFixed(1)} BP</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 常量定义（模型名以报告后端返回为准，历史记录回退用空串）
+const MODEL_NAME = ""
 const PROMPT_VERSION = "v2.0"
 
 const toFullForecastReport = (prediction: ForecastReport['prediction']): FullForecastReport | null => {
@@ -56,12 +109,6 @@ const PredictionPage: React.FC = () => {
   const isLoading = activeTab === 'current' ? currentLoading : historyLoading
   const error = activeTab === 'current' ? currentError : historyError
   
-  const getProbabilityColor = (probability: number) => {
-    if (probability > 0.6) return 'text-green-400'
-    if (probability > 0.4) return 'text-yellow-400'
-    return 'text-red-400'
-  }
-  
   const getScenarioIcon = (scenario: string) => {
     switch (scenario) {
       case 'bullish':
@@ -93,28 +140,12 @@ const PredictionPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* 概率显示 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                <p className="text-sm text-gray-400 mb-1">上涨概率</p>
-                <p className={`text-2xl font-bold ${getProbabilityColor(prediction.上涨概率)}`}>
-                  {(prediction.上涨概率 * 100).toFixed(1)}%
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  +{prediction.上涨基点.toFixed(1)} BP
-                </p>
-              </div>
-              
-              <div className="text-center p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                <p className="text-sm text-gray-400 mb-1">下跌概率</p>
-                <p className={`text-2xl font-bold ${getProbabilityColor(prediction.下跌概率)}`}>
-                  {(prediction.下跌概率 * 100).toFixed(1)}%
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {prediction.下跌基点.toFixed(1)} BP
-                </p>
-              </div>
-            </div>
+            {/* 概率仪表盘 */}
+            <ProbabilityGauge
+              rise={prediction.上涨概率}
+              riseBp={prediction.上涨基点}
+              fallBp={prediction.下跌基点}
+            />
             
              {/* 预测理由 */}
              {prediction.分析理由 && (
@@ -568,7 +599,7 @@ const PredictionPage: React.FC = () => {
             // 创建一个模拟的ForecastReport对象
             const forecastReport: ForecastReport = {
               trade_date: historyItem.date,
-              model_name: MODEL_NAME || 'kingstar',
+              model_name: MODEL_NAME || 'AI',
               prompt_version: PROMPT_VERSION || 'v2.0',
               forecast_type: 'full_report',
               prediction: fullReport,

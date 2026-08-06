@@ -26,6 +26,39 @@ CATEGORY_LABELS: dict[str, str] = {
     "general": "通用",
 }
 
+# 业务大类分类标准（按指标名称关键词推断，词表可后续补充细化）
+DOMAIN_LABELS: dict[str, str] = {
+    "price": "价格指数",
+    "money": "货币信贷",
+    "rate": "利率",
+    "real": "实体景气",
+    "trade": "进出口",
+    "real_estate": "房地产",
+    "fiscal": "财政",
+    "industry": "产业",
+    "general": "通用",
+}
+
+_DOMAIN_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("price", ("价格", "cpi", "ppi", "物价", "通胀")),
+    ("money", ("货币", "m1", "m2", "信贷", "存款", "社融", "流动性")),
+    ("rate", ("利率", "lpr", "shibor", "收益率", "国债")),
+    ("real_estate", ("房地产", "房价", "地产", "商品房", "土地")),
+    ("trade", ("进出口", "出口", "进口", "贸易", "海关")),
+    ("fiscal", ("财政", "税收", "国债发行", "政府支出")),
+    ("real", ("pmi", "工业", "gdp", "投资", "消费", "发电", "景气")),
+    ("industry", ("行业", "汽车", "钢铁", "石油", "煤炭", "电力")),
+]
+
+
+def _infer_domain(name: str) -> str:
+    """按指标名称关键词推断业务大类；无法匹配时归为 general。"""
+    low = name.lower()
+    for key, keywords in _DOMAIN_KEYWORDS:
+        if any(kw in low for kw in keywords):
+            return key
+    return "general"
+
 
 def _resolve_category(row_category: str | None) -> str:
     """将 DB 中的 category 值归一化到标签表中存在的 key。"""
@@ -63,6 +96,7 @@ def get_macro_indicators():
             "code": code,
             "name": name,
             "category": _resolve_category(db_category),
+            "domain": _infer_domain(name),
             "desc": db_desc or "",
         })
 
@@ -70,6 +104,9 @@ def get_macro_indicators():
         "indicators": indicators,
         "categories": [
             {"key": k, "label": v} for k, v in CATEGORY_LABELS.items()
+        ],
+        "domains": [
+            {"key": k, "label": v} for k, v in DOMAIN_LABELS.items()
         ],
         "total": len(indicators),
     }

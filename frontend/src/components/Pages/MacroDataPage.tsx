@@ -30,7 +30,7 @@ const CATEGORY_TABS: { key: string; label: string; icon: string }[] = [
   { key: 'general', label: '通用', icon: '📋' },
 ]
 
-type ViewMode = 'table' | 'chart' | 'pie'
+type ViewMode = 'table' | 'chart' | 'pie' | 'compare'
 type BarOrientation = 'vertical' | 'horizontal'
 
 const DEFAULT_START = '202201'
@@ -392,6 +392,92 @@ const PieChartView: React.FC<{ series: MacroDataSeries }> = ({ series }) => {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 归一化工具 + 多指标对比图
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** min-max 归一化到 [0,1]，消除不同指标间的量纲差异 */
+function normalize(values: (number | null)[]): (number | null)[] {
+  const nums = values.filter((v): v is number => v != null)
+  if (nums.length === 0) return values
+  const min = Math.min(...nums)
+  const max = Math.max(...nums)
+  if (max === min) return values.map(v => (v == null ? null : 0.5))
+  return values.map(v => (v == null ? null : (v - min) / (max - min)))
+}
+
+/** 多指标叠加对比折线图（自动归一化） */
+const ComparisonChart: React.FC<{ seriesList: MacroDataSeries[] }> = ({ seriesList }) => {
+  const option: EChartsOption = useMemo(() => {
+    // 对齐所有指标的日期（取并集排序）
+    const dateSet = new Map<string, number>()
+    seriesList.forEach(s => s.data.forEach(d => { if (!dateSet.has(d.datestr)) dateSet.set(d.datestr, dateSet.size) }))
+    const dates = Array.from(dateSet.keys()).sort()
+
+    const lineSeries = seriesList.map((s, idx) => {
+      const values = dates.map(d => {
+        const match = s.data.find(p => p.datestr === d)
+        return match && match.value != null ? match.value : null
+      })
+      return {
+        name: s.name,
+        type: 'line' as const,
+        data: normalize(values),
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { width: 2, color: CHART_COLORS.pieColors[idx % CHART_COLORS.pieColors.length] },
+        itemStyle: { color: CHART_COLORS.pieColors[idx % CHART_COLORS.pieColors.length] },
+        emphasis: { focus: 'series' as const },
+      }
+    })
+
+    return {
+      grid: { top: 50, right: 40, bottom: 60, left: 60 },
+      legend: {
+        type: 'scroll',
+        top: 12,
+        textStyle: { color: '#94a3b8', fontSize: 11 },
+        itemWidth: 12,
+        itemHeight: 10,
+      },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: TOOLTIP_BG,
+        borderColor: TOOLTIP_BORDER,
+        textStyle: { color: '#e2e8f0', fontSize: 12 },
+        formatter: (params: any) => {
+          const list = Array.isArray(params) ? params : [params]
+          const dateLabel = list[0]?.axisValue || ''
+          let html = `<div style="font-size:12px;font-weight:600;margin-bottom:4px">归一化对比 · ${formatMonth(dateLabel)}</div>`
+          html += list.map((p: any) => `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>${p.seriesName}: <b>${(p.value ?? 0).toFixed(3)}</b></div>`).join('')
+          return html
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: dates.map(formatMonth),
+        axisLabel: { color: '#94a3b8', fontSize: 10, rotate: dates.length > 24 ? 45 : 0 },
+        axisLine: { lineStyle: { color: '#475569' } },
+      },
+      yAxis: {
+        type: 'value',
+        name: '归一化(0-1)',
+        nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+        axisLabel: { color: '#94a3b8', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#334155', type: 'dashed' } },
+      },
+      series: lineSeries,
+    }
+  }, [seriesList])
+
+  return (
+    <div className="bg-gray-800/40 rounded-lg border border-gray-700/60 p-2">
+      <ReactECharts option={option} style={{ height: '420px', width: '100%' }} opts={{ renderer: 'svg' }} />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 指标详情面板（选择指标后展示）
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -408,6 +494,10 @@ const IndicatorDetailPanel: React.FC<{
   const [barOrientation, setBarOrientation] = useState<BarOrientation>('vertical')
 
   const series = seriesMap[activeCode]
+  const compareSeriesList = useMemo(
+    () => allCodes.map(c => seriesMap[c]).filter((s): s is MacroDataSeries => !!s),
+    [allCodes, seriesMap],
+  )
 
   return (
     <Card className="border-purple-500/30">
@@ -441,6 +531,7 @@ const IndicatorDetailPanel: React.FC<{
                 { key: 'table' as ViewMode, label: '📋 表格' },
                 { key: 'chart' as ViewMode, label: '📊 直方图+折线图' },
                 { key: 'pie' as ViewMode, label: '🥧 饼图' },
+                ...(allCodes.length > 1 ? [{ key: 'compare' as ViewMode, label: '🔀 多指标对比(归一化)' }] : []),
               ]).map((m) => (
                 <button
                   key={m.key}
@@ -480,6 +571,12 @@ const IndicatorDetailPanel: React.FC<{
               setBarOrientation((prev) => (prev === 'vertical' ? 'horizontal' : 'vertical'))
             }
           />
+        ) : viewMode === 'compare' ? (
+          compareSeriesList.length > 1 ? (
+            <ComparisonChart seriesList={compareSeriesList} />
+          ) : (
+            <div className="text-center py-20 text-gray-500">请选择多个指标以进行对比</div>
+          )
         ) : (
           <PieChartView series={series} />
         )}
@@ -495,6 +592,7 @@ const IndicatorDetailPanel: React.FC<{
 const MacroDataPage: React.FC = () => {
   // ── 状态 ─────────────────────────────────────────────────
   const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [activeDomain, setActiveDomain] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [startMonth, setStartMonth] = useState(DEFAULT_START)
   const [endMonth, setEndMonth] = useState(DEFAULT_END)
@@ -513,13 +611,14 @@ const MacroDataPage: React.FC = () => {
   const filteredIndicators = useMemo(() => {
     return allIndicators.filter((ind) => {
       if (activeCategory !== 'all' && ind.category !== activeCategory) return false
+      if (activeDomain !== 'all' && ind.domain !== activeDomain) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         return ind.name.toLowerCase().includes(q) || ind.code.toLowerCase().includes(q)
       }
       return true
     })
-  }, [allIndicators, activeCategory, searchQuery])
+  }, [allIndicators, activeCategory, activeDomain, searchQuery])
 
   // 所有选中指标（用于 API 查询 & 详情面板下拉）
   const queryCodes = useMemo(() => {
@@ -596,6 +695,20 @@ const MacroDataPage: React.FC = () => {
     return counts
   }, [allIndicators])
 
+  const domainCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: allIndicators.length }
+    for (const ind of allIndicators) {
+      const d = ind.domain || 'general'
+      counts[d] = (counts[d] || 0) + 1
+    }
+    return counts
+  }, [allIndicators])
+
+  const domainTabs = useMemo(() => {
+    const list = indicatorsData?.domains || []
+    return [{ key: 'all', label: '全部', icon: '📊' }, ...list.map(d => ({ key: d.key, label: d.label, icon: '🗂️' }))]
+  }, [indicatorsData])
+
   // ── 加载 / 错误状态 ──────────────────────────────────────
   if (indicatorsLoading) {
     return <Loading text="加载指标列表..." />
@@ -645,6 +758,30 @@ const MacroDataPage: React.FC = () => {
                   activeCategory === tab.key ? 'text-purple-500' : 'text-gray-500',
                 )}>
                   ({categoryCounts[tab.key] ?? 0})
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* 业务大类分类 */}
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-700/50">
+            {domainTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveDomain(tab.key)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all border',
+                  activeDomain === tab.key
+                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:bg-gray-700',
+                )}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+                <span className={cn(
+                  'text-[10px] ml-0.5',
+                  activeDomain === tab.key ? 'text-blue-500' : 'text-gray-500',
+                )}>
+                  ({domainCounts[tab.key] ?? 0})
                 </span>
               </button>
             ))}

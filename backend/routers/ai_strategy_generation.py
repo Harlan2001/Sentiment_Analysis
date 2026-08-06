@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
 
+# Fire-and-forget handle to running generation tasks so they are not garbage-collected.
+_background_generation_tasks: set[asyncio.Task] = set()
+
 
 class ConversationCreateRequest(BaseModel):
     title: str = Field(default="New strategy conversation", min_length=1, max_length=255)
@@ -61,38 +64,6 @@ def _history_repository() -> AiStrategyHistoryRepository:
         return AiStrategyHistoryRepository.from_environment()
     except HistoryStoreConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-def _history_generation_payload(
-    conversation_id: int,
-    assistant_message_id: int,
-    result: dict[str, Any],
-    final_sent_prompt: str,
-    version: dict[str, Any] | None,
-    references: list[dict[str, Any]],
-) -> dict[str, Any]:
-    strategy = result.get("strategy")
-    return {
-        "success": True,
-        "data": {
-            "conversation_id": conversation_id,
-            "assistant_message_id": assistant_message_id,
-            "version": version,
-            "chat_message": result.get("summary", ""),
-            "logic_overview": strategy["description"] if strategy else "",
-            "generated_prompt": final_sent_prompt,
-            "strategy": strategy,
-            "generation_status": result.get("generation_status"),
-            "backtest": {
-                "passed": result.get("backtest_passed"),
-                "exit_code": result.get("backtest_exit_code"),
-                "summary": result.get("backtest_summary", ""),
-                "metrics": result.get("backtest_metrics", []),
-            },
-            "references": {"news": references},
-            "elapsed_seconds": result.get("elapsed_seconds", 0),
-        },
-    }
 
 
 def _serialize_news_references(context: dict[str, Any]) -> list[dict[str, Any]]:
@@ -202,6 +173,49 @@ async def create_prompt_draft(
     }
 
 
+async def _run_generation(
+    owner_username: str,
+    conversation_id: int,
+    assistant_message_id: int,
+    final_sent_prompt: str,
+    remote_session_id: str | None,
+    on_session_created: Any,
+) -> None:
+    """Run a DreamStrategy generation in a worker thread and persist its outcome.
+
+    The message row is already marked ``running`` by the confirm endpoint before this
+    task starts; here we only execute the blocking remote call and flip the row to a
+    terminal status via the repository.
+    """
+    try:
+        result = await asyncio.to_thread(
+            generate_strategy,
+            final_sent_prompt,
+            session_id=remote_session_id,
+            on_session_created=on_session_created,
+        )
+        repository = _history_repository()
+        repository.complete_generation(owner_username, conversation_id, assistant_message_id, result)
+    except TimeoutError:
+        repository = _history_repository()
+        repository.fail_generation(
+            owner_username,
+            conversation_id,
+            assistant_message_id,
+            "DreamStrategy generation timed out; the remote result was not received.",
+            timed_out=True,
+        )
+    except Exception:
+        logger.exception("DreamStrategy generation failed for conversation %s", conversation_id)
+        repository = _history_repository()
+        repository.fail_generation(
+            owner_username,
+            conversation_id,
+            assistant_message_id,
+            "DreamStrategy generation failed; retry with a new prompt draft.",
+        )
+
+
 @router.post("/conversations/{conversation_id}/drafts/{assistant_message_id}/confirm")
 async def confirm_prompt_draft(
     request: Request,
@@ -236,42 +250,27 @@ async def confirm_prompt_draft(
             session_id,
         )
 
-    snapshot = draft.get("context_json") or {}
-    references = snapshot.get("references") or []
-    try:
-        result = await asyncio.to_thread(
-            generate_strategy,
-            final_sent_prompt,
-            session_id=str(remote_session_id) if remote_session_id else None,
-            on_session_created=on_session_created if not remote_session_id else None,
-        )
-        version = repository.complete_generation(owner_username, conversation_id, assistant_message_id, result)
-        return _history_generation_payload(
-            conversation_id,
-            assistant_message_id,
-            result,
-            final_sent_prompt,
-            version,
-            references,
-        )
-    except TimeoutError as exc:
-        repository.fail_generation(
+    task = asyncio.create_task(
+        _run_generation(
             owner_username,
             conversation_id,
             assistant_message_id,
-            "DreamStrategy generation timed out; the remote result was not received.",
-            timed_out=True,
+            final_sent_prompt,
+            remote_session_id,
+            on_session_created if not remote_session_id else None,
         )
-        raise HTTPException(status_code=504, detail="DreamStrategy generation timed out") from exc
-    except Exception as exc:
-        logger.exception("DreamStrategy generation failed for conversation %s", conversation_id)
-        repository.fail_generation(
-            owner_username,
-            conversation_id,
-            assistant_message_id,
-            "DreamStrategy generation failed; retry with a new prompt draft.",
-        )
-        raise HTTPException(status_code=502, detail="DreamStrategy generation failed") from exc
+    )
+    task.add_done_callback(_background_generation_tasks.discard)
+    _background_generation_tasks.add(task)
+
+    return {
+        "success": True,
+        "data": {
+            "conversation_id": conversation_id,
+            "assistant_message_id": assistant_message_id,
+            "status": "running",
+        },
+    }
 
 
 @router.patch("/conversations/{conversation_id}/archive")

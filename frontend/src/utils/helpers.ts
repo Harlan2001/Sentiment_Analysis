@@ -179,6 +179,18 @@ export const downloadFile = (content: string, filename: string, contentType: str
   URL.revokeObjectURL(url)
 }
 
+// 新闻源脱敏（合规）：后端已返回通用「数据源N」，此处兜底映射未脱敏的原始 key
+const NEWS_SOURCE_MASK: Record<string, string> = {
+  wallstreetcn: '数据源1',
+  yicai: '数据源2',
+  cls: '数据源3',
+  wechat: '数据源4',
+}
+export const maskSource = (source?: string | null): string => {
+  if (!source) return ''
+  return NEWS_SOURCE_MASK[source] || source
+}
+
 // 本地存储工具
 export const storage = {
   set: (key: string, value: any): void => {

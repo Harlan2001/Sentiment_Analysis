@@ -26,10 +26,11 @@ import TokenOverviewPanel from '@/components/Dashboard/TokenOverviewPanel';
 import UserTokenPanel from '@/components/Dashboard/UserTokenPanel';
 import DeptOverviewPanel from '@/components/Dashboard/DeptOverviewPanel';
 import MyUsagePage from '@/components/Pages/MyUsagePage';
+import MacroSignalLogPage from '@/components/Pages/MacroSignalLogPage';
 
 type TabKey = 'monitor' | 'audit' | 'dept' | 'myusage';
 type AuditSubTab = 'overview' | 'profile' | 'token';
-type MonitorSection = 'data' | 'token';
+type MonitorSection = 'data' | 'token' | 'signal';
 
 const DashboardPage: React.FC = () => {
   const { isAdmin, role } = useAuth();
@@ -131,6 +132,14 @@ const DashboardPage: React.FC = () => {
                 onClick={() => setMonitorSection('token')}
               >🪙 Token监控</button>
             )}
+            {canViewMonitor && (
+              <button
+                className={`px-4 py-1.5 text-xs font-medium transition-colors border-l border-gray-700/50 ${
+                  monitorSection === 'signal' ? 'bg-amber-600/40 text-amber-300' : 'text-gray-500 hover:text-gray-300'
+                }`}
+                onClick={() => setMonitorSection('signal')}
+              >📡 信号日志</button>
+            )}
           </div>
 
           {monitorSection === 'data' && (
@@ -161,6 +170,10 @@ const DashboardPage: React.FC = () => {
 
           {monitorSection === 'token' && isAdmin && (
             <TokenOverviewPanel />
+          )}
+
+          {monitorSection === 'signal' && canViewMonitor && (
+            <MacroSignalLogPage embedded />
           )}
         </>
       )}

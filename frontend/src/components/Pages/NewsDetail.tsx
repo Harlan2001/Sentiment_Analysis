@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/U
 import { useNewsAnalysis, useSimilarNews, useNewsDetail } from '@/hooks/useNewsApi'
 import { useGraphAugmentJob, useGraphAugment } from '@/hooks/useGraphAugment'
 import { Loading, Error } from '@/components/UI'
+import { maskSource } from '@/utils/helpers'
 import type { NewsItem } from '@/types'
 import GraphAugmentViewer from './GraphAugmentViewer'
 import NewsContentBlocks from './NewsContentBlocks'
@@ -141,7 +142,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ news, onClose, onNewsSelect, se
             </h2>
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400">
               <span>发布时间: {formatDateTime(news.publish_time)}</span>
-              {news.source && <span>来源: {news.source}</span>}
+              {news.source && maskSource(news.source) && <span>来源: {maskSource(news.source)}</span>}
               {news.publisher && <span>发布者: {news.publisher}</span>}
             </div>
           </div>

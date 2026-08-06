@@ -181,14 +181,16 @@ def get_macro_signal_logs(
         total = cur.fetchone()[0]
         cur.execute(
             f"""
-            SELECT id, request_id, factor_code, signal_type,
-                   query_start_time, query_end_time, decay_lambda,
-                   signal_value, confidence, news_count,
-                   queried_news, success, error_message,
-                   started_at, finished_at, latency_ms
-            FROM macro_signal_request_log
+            SELECT l.id, l.request_id, l.factor_code, l.signal_type,
+                   l.query_start_time, l.query_end_time, l.decay_lambda,
+                   l.signal_value, l.confidence, l.news_count,
+                   l.queried_news, l.success, l.error_message,
+                   l.started_at, l.finished_at, l.latency_ms,
+                   f.name AS factor_name
+            FROM macro_signal_request_log l
+            LEFT JOIN factor f ON f.code = l.factor_code
             {where_clause}
-            ORDER BY started_at DESC, id DESC
+            ORDER BY l.started_at DESC, l.id DESC
             LIMIT %s OFFSET %s
             """,
             params + [page_size, offset],
@@ -230,6 +232,7 @@ def get_macro_signal_logs(
             "started_at": _fmt_dt(row[13]),
             "finished_at": _fmt_dt(row[14]),
             "latency_ms": row[15],
+            "factor_name": row[16],
         }
         for row in rows
     ]

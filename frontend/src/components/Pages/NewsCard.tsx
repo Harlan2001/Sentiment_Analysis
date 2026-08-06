@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button, Loading } from '@/components/UI'
 import { useNewsAnalysis, useSimilarNews } from '@/hooks/useNewsApi'
 import { useGraphAugmentJob, useGraphAugment } from '@/hooks/useGraphAugment'
+import { maskSource } from '@/utils/helpers'
 import type { NewsItem } from '@/types'
 import GraphAugmentViewer from './GraphAugmentViewer'
 import NewsContentBlocks from './NewsContentBlocks'
@@ -132,7 +133,7 @@ const NewsCard: React.FC<NewsCardProps> = ({
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mt-2">
           <span>发布时间: {formatDateTime(news.publish_time)}</span>
-          {news.source && <span>来源: {news.source}</span>}
+          {news.source && maskSource(news.source) && <span>来源: {maskSource(news.source)}</span>}
           {news.publisher && <span>发布者: {news.publisher}</span>}
         </div>
         {/* 标签 */}

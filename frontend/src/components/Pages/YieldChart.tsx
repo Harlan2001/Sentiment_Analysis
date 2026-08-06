@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useYieldChart } from '@/hooks/useChart'
+import { useYieldChart, useMultiYieldChart, type YieldSeries } from '@/hooks/useChart'
 import type { YieldPoint } from '@/types'
 
 interface YieldChartProps {
@@ -9,6 +9,8 @@ interface YieldChartProps {
   onClickDate?: (date: string) => void
   height?: number
   className?: string
+  /** 多系列模式：提供后将并行展示多条收益率曲线（如 1年/5年/10年/30年） */
+  series?: YieldSeries[]
 }
 
 const YieldChart: React.FC<YieldChartProps> = ({
@@ -17,8 +19,12 @@ const YieldChart: React.FC<YieldChartProps> = ({
   onClickDate,
   height = 400,
   className = '',
+  series,
 }) => {
-  const { chartOption, chartEvents } = useYieldChart(data, type, { onClickDate })
+  const multi = series && series.length > 0
+  const { chartOption, chartEvents } = multi
+    ? useMultiYieldChart(series, { onClickDate })
+    : useYieldChart(data, type, { onClickDate })
 
   return (
     <div className={`chart-container ${className}`} style={{ height }}>

@@ -12,6 +12,7 @@ from backend.config.config import MYSQL_CONFIG
 from backend.routers.ai_strategy import router as ai_strategy_router
 from backend.routers.ai_strategy_generation import router as ai_strategy_generation_router
 from backend.routers.strategy import router as strategy_router, start_strategy_services, stop_strategy_services
+from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 from backend.routers.macro import router as macro_router
 from backend.routers.factors import router as factors_router
 from backend.routers.news import router as news_router
@@ -91,10 +92,12 @@ async def startup_services():
     logger.info("正在启动策略推送服务...")
     await start_strategy_services()
     logger.info("策略推送服务启动完成")
+    start_strategy_scheduler()
 
 
 @app.on_event("shutdown")
 async def shutdown_services():
     logger.info("正在停止策略推送服务...")
     await stop_strategy_services()
+    stop_strategy_scheduler()
     logger.info("策略推送服务已停止")

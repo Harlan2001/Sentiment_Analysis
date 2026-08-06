@@ -66,14 +66,11 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     { name: '看板', href: '/dashboard', icon: ClipboardListIcon },
     { name: '新闻', href: '/news', icon: NewspaperIcon },
     { name: '研报', href: '/research', icon: BeakerIcon },
-    { name: '数据', href: '/data', icon: DatabaseIcon },
     { name: '预测', href: '/prediction', icon: SparklesIcon },
     { name: '因子', href: '/factors', icon: ChartBarIcon },
     { name: 'Agent', href: '/agents', icon: BeakerIcon },
-    { name: 'AI推荐', href: '/select-strategy', icon: SparklesIcon },
     { name: '策略', href: '/strategies', icon: StrategyIcon },
     { name: '变动对比', href: '/change', icon: ChangeIcon },
-    { name: '信号日志', href: '/macro-signal-logs', icon: ClipboardListIcon },
     { name: '宏观数据', href: '/macro-data', icon: DatabaseIcon },
   ]
 

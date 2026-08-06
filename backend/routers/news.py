@@ -11,6 +11,7 @@ from backend.config.config import (
     API_PREFIX,
     NEWS_SOURCES,
     get_default_analysis_model_name,
+    mask_news_source,
 )
 from backend.common.database import execute_query, get_db_connection
 from backend.common.db_operations import DBOperations
@@ -83,7 +84,7 @@ def get_news(
                 FROM news n
                 LEFT JOIN analysis a ON a.news_id = n.id AND a.model = %s
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 [model, model] + params,
             )
@@ -93,7 +94,7 @@ def get_news(
                     "id": r[0],
                     "title": r[1],
                     "publish_time": r[2],
-                    "source": NEWS_SOURCES.get(r[3], r[3]),
+                    "source": mask_news_source(r[3]),
                     "direction": r[4],
                     "horizon": r[5],
                     "reason": r[6],
@@ -124,7 +125,7 @@ def get_news(
                         LIMIT 1
                     )
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 params,
             )
@@ -134,7 +135,7 @@ def get_news(
                     "id": r[0],
                     "title": r[1],
                     "publish_time": r[2],
-                    "source": NEWS_SOURCES.get(r[3], r[3]),
+                    "source": mask_news_source(r[3]),
                     "direction": r[4],
                     "horizon": r[5],
                     "reason": r[6],
@@ -150,7 +151,7 @@ def get_news(
             SELECT n.id, n.title, n.pub_time, n.source
             FROM news n
             WHERE {date_filter} {source_filter}
-            ORDER BY n.pub_time ASC
+            ORDER BY n.pub_time DESC
             """,
             params,
         )
@@ -199,7 +200,7 @@ def get_news(
                 "id": row[0],
                 "title": row[1],
                 "publish_time": row[2],
-                "source": NEWS_SOURCES.get(row[3], row[3]),
+                "source": mask_news_source(row[3]),
                 "direction": selected["direction"],
                 "horizon": selected["horizon"],
                 "reason": selected["reason"],
@@ -214,7 +215,7 @@ def get_news(
 
 @router.get("/news/sources")
 def get_news_sources():
-    return {"sources": [{"key": key, "name": name, "enabled": True} for key, name in NEWS_SOURCES.items()]}
+    return {"sources": [{"key": key, "name": mask_news_source(key), "enabled": True} for key in NEWS_SOURCES]}
 
 
 @router.get("/news/latest-trading-day")
@@ -376,7 +377,7 @@ def get_news_detail(
         content_blocks.append(block)
 
     source_key = news_row[4] if news_row[4] else ""
-    source_display = NEWS_SOURCES.get(source_key, source_key)
+    source_display = mask_news_source(source_key)
     return {
         "id": news_row[0],
         "title": news_row[1],
