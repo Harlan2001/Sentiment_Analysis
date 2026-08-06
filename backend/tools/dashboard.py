@@ -1,13 +1,15 @@
 """
 看板工具函数
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException, Request
 
 from backend.common.database import execute_query
-from backend.config.config import PAGE_TITLES, ALL_PAGE_ROUTES
+from backend.config.config import ALL_PAGE_ROUTES, PAGE_TITLES
 
 
 def admin_check(request: Request) -> bool:
@@ -38,13 +40,15 @@ def _get_manager_context(request: Request) -> dict:
     try:
         row = execute_query(
             "SELECT department, COALESCE(company,'') FROM users WHERE username=%s AND role='manager'",
-            (username,), one=True,
+            (username,),
+            one=True,
         )
     except Exception:
         # 兼容 company 列不存在的情况
         row = execute_query(
             "SELECT department FROM users WHERE username=%s AND role='manager'",
-            (username,), one=True,
+            (username,),
+            one=True,
         )
         if row and row[0]:
             return {"department": row[0], "company": ""}
@@ -56,12 +60,20 @@ def _get_manager_context(request: Request) -> dict:
 
 def fmt_dt(value: Any, fmt: str = "%Y-%m-%d") -> Optional[str]:
     """日期格式化为字符串"""
-    return value.strftime(fmt) if hasattr(value, "strftime") else str(value) if value else None
+    return (
+        value.strftime(fmt)
+        if hasattr(value, "strftime")
+        else str(value) if value else None
+    )
 
 
 def fmt_dt2(value: Any) -> Optional[str]:
     """日期时间格式化为字符串（精确到秒）"""
-    return value.strftime("%Y-%m-%d %H:%M:%S") if hasattr(value, "strftime") and value else None
+    return (
+        value.strftime("%Y-%m-%d %H:%M:%S")
+        if hasattr(value, "strftime") and value
+        else None
+    )
 
 
 def pct(numerator: int, denominator: int) -> float:
@@ -85,16 +97,22 @@ def page_title(route: str) -> str:
     return route
 
 
-def pad_page_routes(items: List[Dict[str, Any]], count_key: str = "count") -> List[Dict[str, Any]]:
+def pad_page_routes(
+    items: List[Dict[str, Any]], count_key: str = "count"
+) -> List[Dict[str, Any]]:
     """补全 page_distribution / page_avg_duration 中未访问页面的零值条目"""
     existing = {item.get("page_route", "") for item in items}
     for route in ALL_PAGE_ROUTES:
         if route not in existing:
-            items.append({"page_route": route, "page_title": page_title(route), count_key: 0})
+            items.append(
+                {"page_route": route, "page_title": page_title(route), count_key: 0}
+            )
     return items
 
 
-def assemble_trend(rows: List[tuple], key_map: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+def assemble_trend(
+    rows: List[tuple], key_map: Optional[Dict[str, str]] = None
+) -> List[Dict[str, Any]]:
     """将 (date, key, count) 行组装为趋势图数据 [{date, key1:cnt, key2:cnt}, ...]"""
     bucket: Dict[str, Dict[str, int]] = {}
     for d, k, cnt in rows:

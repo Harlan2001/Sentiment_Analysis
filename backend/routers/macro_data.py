@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.config.config import API_PREFIX
 from backend.common.database import get_db_connection
+from backend.config.config import API_PREFIX
 
 router = APIRouter(prefix=f"{API_PREFIX}/macro-data", tags=["macro-data"])
 
@@ -92,29 +92,29 @@ def get_macro_indicators():
         name = row[1]
         db_category = row[2] if len(row) > 2 else None
         db_desc = row[3] if len(row) > 3 else None
-        indicators.append({
-            "code": code,
-            "name": name,
-            "category": _resolve_category(db_category),
-            "domain": _infer_domain(name),
-            "desc": db_desc or "",
-        })
+        indicators.append(
+            {
+                "code": code,
+                "name": name,
+                "category": _resolve_category(db_category),
+                "domain": _infer_domain(name),
+                "desc": db_desc or "",
+            }
+        )
 
     return {
         "indicators": indicators,
-        "categories": [
-            {"key": k, "label": v} for k, v in CATEGORY_LABELS.items()
-        ],
-        "domains": [
-            {"key": k, "label": v} for k, v in DOMAIN_LABELS.items()
-        ],
+        "categories": [{"key": k, "label": v} for k, v in CATEGORY_LABELS.items()],
+        "domains": [{"key": k, "label": v} for k, v in DOMAIN_LABELS.items()],
         "total": len(indicators),
     }
 
 
 @router.get("/data")
 def get_macro_data(
-    zbcode: str = Query(..., description="指标代码，多个用逗号分隔，如 A010101,A010301"),
+    zbcode: str = Query(
+        ..., description="指标代码，多个用逗号分隔，如 A010101,A010301"
+    ),
     start: str = Query(None, description="起始月份，格式 YYYYMM"),
     end: str = Query(None, description="结束月份，格式 YYYYMM"),
 ):
@@ -167,10 +167,12 @@ def get_macro_data(
                 "category": _resolve_category(db_category),
                 "data": [],
             }
-        result[code]["data"].append({
-            "datestr": row[2],
-            "value": float(row[3]) if row[3] is not None else None,
-        })
+        result[code]["data"].append(
+            {
+                "datestr": row[2],
+                "value": float(row[3]) if row[3] is not None else None,
+            }
+        )
 
     # 保持请求顺序
     ordered = [result[code] for code in codes if code in result]

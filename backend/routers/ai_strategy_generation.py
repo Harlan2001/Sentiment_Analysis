@@ -6,11 +6,11 @@ import asyncio
 import logging
 import os
 from typing import Any, Optional
-from backend.config.config import API_PREFIX
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from backend.config.config import AUTH_ENABLED
+from backend.config.config import API_PREFIX, AUTH_ENABLED
 from backend.integrations.dream.service import generate_strategy
 from backend.strategy.ai_strategy_history import (
     AiStrategyHistoryRepository,
@@ -24,18 +24,21 @@ from backend.strategy.dream_strategy_prompt import (
     build_dream_strategy_prompt,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
-router = APIRouter(prefix=f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"])
+router = APIRouter(
+    prefix=f"{API_PREFIX}/ai-strategy-generation", tags=["ai-strategy-generation"]
+)
 
 # Fire-and-forget handle to running generation tasks so they are not garbage-collected.
 _background_generation_tasks: set[asyncio.Task] = set()
 
 
 class ConversationCreateRequest(BaseModel):
-    title: str = Field(default="New strategy conversation", min_length=1, max_length=255)
+    title: str = Field(
+        default="New strategy conversation", min_length=1, max_length=255
+    )
 
 
 class ConversationDraftRequest(BaseModel):
@@ -48,13 +51,14 @@ class PromptDraftConfirmRequest(BaseModel):
     edited_prompt: str = Field(min_length=1, max_length=30000)
 
 
-
 def _history_owner(request: Request) -> str:
     """Resolve the history owner from server-authenticated request state only."""
     if AUTH_ENABLED:
         username = getattr(request.state, "username", None)
         if not username:
-            raise HTTPException(status_code=401, detail="Sign in to access history conversations")
+            raise HTTPException(
+                status_code=401, detail="Sign in to access history conversations"
+            )
         return str(username)
     return "admin"
 
@@ -75,7 +79,11 @@ def _serialize_news_references(context: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "news_id": event.get("news_id"),
                 "title": str(event.get("title") or ""),
-                "pub_time": pub_time.isoformat() if hasattr(pub_time, "isoformat") else str(pub_time or ""),
+                "pub_time": (
+                    pub_time.isoformat()
+                    if hasattr(pub_time, "isoformat")
+                    else str(pub_time or "")
+                ),
                 "direction": str(event.get("direction") or "neutral"),
                 "direction_label": str(event.get("direction_label") or ""),
                 "horizon": str(event.get("horizon") or ""),
@@ -94,8 +102,16 @@ def _draft_context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
         "frequency": context.get("frequency"),
         "model_name": context.get("model_name"),
         "lookback_days": context.get("lookback_days"),
-        "window_start": context.get("window_start").isoformat() if context.get("window_start") else None,
-        "reference_time": context.get("reference_time").isoformat() if context.get("reference_time") else None,
+        "window_start": (
+            context.get("window_start").isoformat()
+            if context.get("window_start")
+            else None
+        ),
+        "reference_time": (
+            context.get("reference_time").isoformat()
+            if context.get("reference_time")
+            else None
+        ),
         "generated_at": context.get("generated_at"),
         "prompt_version": context.get("prompt_version"),
         "market_scope": context.get("market_scope"),
@@ -106,14 +122,20 @@ def _draft_context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
 def create_conversation(request: Request, body: ConversationCreateRequest):
     owner_username = _history_owner(request)
     repository = _history_repository()
-    return {"success": True, "data": repository.create_conversation(owner_username, body.title)}
+    return {
+        "success": True,
+        "data": repository.create_conversation(owner_username, body.title),
+    }
 
 
 @router.get("/conversations")
 def list_conversations(request: Request, limit: int = Query(default=50, ge=1, le=100)):
     owner_username = _history_owner(request)
     repository = _history_repository()
-    return {"success": True, "data": {"items": repository.list_conversations(owner_username, limit)}}
+    return {
+        "success": True,
+        "data": {"items": repository.list_conversations(owner_username, limit)},
+    }
 
 
 @router.get("/conversations/{conversation_id}")
@@ -156,11 +178,18 @@ async def create_prompt_draft(
             snapshot,
         )
     except GenerationInProgressError as exc:
-        raise HTTPException(status_code=409, detail="Confirm or wait for the current strategy turn first") from exc
+        raise HTTPException(
+            status_code=409,
+            detail="Confirm or wait for the current strategy turn first",
+        ) from exc
     except ArchivedConversationError as exc:
-        raise HTTPException(status_code=409, detail="Archived conversations cannot be continued") from exc
+        raise HTTPException(
+            status_code=409, detail="Archived conversations cannot be continued"
+        ) from exc
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+        raise HTTPException(
+            status_code=404, detail="History conversation not found"
+        ) from exc
     return {
         "success": True,
         "data": {
@@ -195,7 +224,9 @@ async def _run_generation(
             on_session_created=on_session_created,
         )
         repository = _history_repository()
-        repository.complete_generation(owner_username, conversation_id, assistant_message_id, result)
+        repository.complete_generation(
+            owner_username, conversation_id, assistant_message_id, result
+        )
     except TimeoutError:
         repository = _history_repository()
         repository.fail_generation(
@@ -206,7 +237,9 @@ async def _run_generation(
             timed_out=True,
         )
     except Exception:
-        logger.exception("DreamStrategy generation failed for conversation %s", conversation_id)
+        logger.exception(
+            "DreamStrategy generation failed for conversation %s", conversation_id
+        )
         repository = _history_repository()
         repository.fail_generation(
             owner_username,
@@ -225,28 +258,52 @@ async def confirm_prompt_draft(
 ):
     owner_username = _history_owner(request)
     repository = _history_repository()
-    draft = repository.get_prompt_draft(owner_username, conversation_id, assistant_message_id)
+    draft = repository.get_prompt_draft(
+        owner_username, conversation_id, assistant_message_id
+    )
     if not draft:
         raise HTTPException(status_code=404, detail="Prompt draft not found")
     if draft.get("status") != "pending_confirmation":
-        raise HTTPException(status_code=409, detail="This prompt draft has already been confirmed or replaced")
+        raise HTTPException(
+            status_code=409,
+            detail="This prompt draft has already been confirmed or replaced",
+        )
     try:
-        user_edited_prompt = apply_user_edited_requirement(str(draft.get("system_draft_prompt") or ""), body.edited_prompt)
+        user_edited_prompt = apply_user_edited_requirement(
+            str(draft.get("system_draft_prompt") or ""), body.edited_prompt
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    conversation = repository.get_conversation(owner_username, conversation_id, include_private=True)
+    conversation = repository.get_conversation(
+        owner_username, conversation_id, include_private=True
+    )
     if not conversation:
         raise HTTPException(status_code=404, detail="History conversation not found")
     remote_session_id = conversation.get("remote_session_id")
-    final_sent_prompt = build_dream_strategy_continuation_prompt(user_edited_prompt) if remote_session_id else user_edited_prompt
-    if not repository.confirm_prompt_draft(owner_username, conversation_id, assistant_message_id, user_edited_prompt, final_sent_prompt):
-        raise HTTPException(status_code=409, detail="This prompt draft can no longer be confirmed")
+    final_sent_prompt = (
+        build_dream_strategy_continuation_prompt(user_edited_prompt)
+        if remote_session_id
+        else user_edited_prompt
+    )
+    if not repository.confirm_prompt_draft(
+        owner_username,
+        conversation_id,
+        assistant_message_id,
+        user_edited_prompt,
+        final_sent_prompt,
+    ):
+        raise HTTPException(
+            status_code=409, detail="This prompt draft can no longer be confirmed"
+        )
 
     def on_session_created(session_id: str) -> None:
         repository.save_remote_session(
             owner_username,
             conversation_id,
-            str(conversation.get("remote_template_id") or os.getenv("DREAM_TEMPLATE_ID", "")),
+            str(
+                conversation.get("remote_template_id")
+                or os.getenv("DREAM_TEMPLATE_ID", "")
+            ),
             session_id,
         )
 
@@ -280,7 +337,9 @@ def archive_conversation(request: Request, conversation_id: int):
     try:
         archived = repository.archive_conversation(owner_username, conversation_id)
     except GenerationInProgressError as exc:
-        raise HTTPException(status_code=409, detail="Wait for the running generation before archiving") from exc
+        raise HTTPException(
+            status_code=409, detail="Wait for the running generation before archiving"
+        ) from exc
     if not archived:
         raise HTTPException(status_code=404, detail="History conversation not found")
     return {"success": True}

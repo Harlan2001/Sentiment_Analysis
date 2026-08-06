@@ -2,10 +2,12 @@
 数据库连接管理器
 仅支持 MySQL 数据库
 """
-import pymysql
+
 import time
-from typing import Optional, Any, Dict, List
 from contextlib import contextmanager
+from typing import Any, Dict, List, Optional
+
+import pymysql
 from dbutils.pooled_db import PooledDB
 
 # 模块级变量（init_database() 调用前为 None）
@@ -21,6 +23,7 @@ _db_pool: Optional[PooledDB] = None
 
 class DatabaseConfig:
     """MySQL 数据库配置"""
+
     def __init__(
         self,
         host: str,
@@ -54,7 +57,7 @@ def init_database(config: DatabaseConfig, max_connections: int = 50):
         mincached=10,
         maxcached=20,
         ping=1,
-        **config.get_connection_params()
+        **config.get_connection_params(),
     )
 
 

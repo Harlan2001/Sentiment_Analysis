@@ -7,6 +7,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Set
+
 import pymysql
 
 from backend.config.config import MYSQL_CONFIG

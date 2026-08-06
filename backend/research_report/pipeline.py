@@ -3,6 +3,7 @@
 ========================================
 整合 scripts/research_report/ 的核心逻辑，提供 API 可调用的服务函数。
 """
+
 import hashlib
 import json
 import logging
@@ -15,8 +16,8 @@ from datetime import datetime
 from backend.common.database import get_db_connection
 from backend.config.config import BASE_DIR
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT
-from backend.research_report.llm import analyze_report, MODEL_OPTIONS
-from backend.research_report.parser import parse_pdf, ParseResult
+from backend.research_report.llm import MODEL_OPTIONS, analyze_report
+from backend.research_report.parser import ParseResult, parse_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ MODEL_FULL = MODEL_OPTIONS.get(DEFAULT_MODEL, MODEL_OPTIONS["doubao"])
 # ========================================================================
 # 辅助函数
 # ========================================================================
+
 
 def _infer_report_type(industry: list[str], title: str) -> str:
     """从行业和标题推断报告类型"""
@@ -54,6 +56,7 @@ def _write_figures(figures: list[dict], file_hash: str) -> list[dict]:
     hash_dir = FIGURE_ROOT / "figure" / file_hash
     if hash_dir.exists():
         import shutil
+
         shutil.rmtree(hash_dir)
     hash_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,6 +76,7 @@ def _write_figures(figures: list[dict], file_hash: str) -> list[dict]:
 # ========================================================================
 # 上传入库
 # ========================================================================
+
 
 def ingest_uploaded_pdf(
     pdf_bytes: bytes,
@@ -118,7 +122,9 @@ def ingest_uploaded_pdf(
     dest_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = dest_dir / f"{file_hash}.pdf"
     pdf_path.write_bytes(pdf_bytes)
-    logger.info("PDF 已保存: %s (%d KB)", original_filename[:60], len(pdf_bytes) // 1024)
+    logger.info(
+        "PDF 已保存: %s (%d KB)", original_filename[:60], len(pdf_bytes) // 1024
+    )
 
     # 解析 PDF
     try:
@@ -197,7 +203,11 @@ def ingest_uploaded_pdf(
     inst = result.institution or "-"
     logger.info(
         "入库完成: id=%d | %s | %s | %d图 | %d页",
-        report_id, inst, result.title[:40], len(figures), result.page_count,
+        report_id,
+        inst,
+        result.title[:40],
+        len(figures),
+        result.page_count,
     )
     return {
         "report_id": report_id,
@@ -210,6 +220,7 @@ def ingest_uploaded_pdf(
 # ========================================================================
 # 异步 AI 分析
 # ========================================================================
+
 
 def run_analysis_async(report_id: int, model: str | None = None):
     """
@@ -248,7 +259,9 @@ def _analyze_report_sync(report_id: int, model: str):
                     (report_id,),
                 )
                 if cur.rowcount == 0:
-                    logger.warning("抢占失败 report_id=%d（可能已被处理或状态不合法）", report_id)
+                    logger.warning(
+                        "抢占失败 report_id=%d（可能已被处理或状态不合法）", report_id
+                    )
                     return
             conn.commit()
 
@@ -288,7 +301,9 @@ def _analyze_report_sync(report_id: int, model: str):
             elapsed = time.time() - t_start
 
             if "error" in parsed:
-                logger.warning("LLM 解析警告 report_id=%d: %s", report_id, parsed["error"][:100])
+                logger.warning(
+                    "LLM 解析警告 report_id=%d: %s", report_id, parsed["error"][:100]
+                )
 
             # 4. 写入分析结果
             with conn.cursor() as cur:
@@ -311,7 +326,11 @@ def _analyze_report_sync(report_id: int, model: str):
                         parsed.get("time_horizon", "medium"),
                         json.dumps(parsed.get("evidence", []), ensure_ascii=False),
                         DEFAULT_MODEL,
-                        json.dumps(raw, ensure_ascii=False) if isinstance(raw, str) else raw,
+                        (
+                            json.dumps(raw, ensure_ascii=False)
+                            if isinstance(raw, str)
+                            else raw
+                        ),
                         report_id,
                     ),
                 )
@@ -335,13 +354,18 @@ def _analyze_report_sync(report_id: int, model: str):
 
         logger.info(
             "分析完成 report_id=%d [%s] view=%s tokens=%d elapsed=%.1fs",
-            report_id, title[:40], parsed.get("market_view", "?"),
-            usage.get("total_tokens", 0), elapsed,
+            report_id,
+            title[:40],
+            parsed.get("market_view", "?"),
+            usage.get("total_tokens", 0),
+            elapsed,
         )
 
     except Exception as e:
         err = str(e)[:500]
-        logger.error("分析失败 report_id=%d: %s\n%s", report_id, err, traceback.format_exc())
+        logger.error(
+            "分析失败 report_id=%d: %s\n%s", report_id, err, traceback.format_exc()
+        )
 
         try:
             with get_db_connection() as conn:

@@ -4,6 +4,7 @@
 去掉 CLI 相关部分（KNOWN_GAPS / HIDDEN_GROUPS / save_bundled 等），
 新增 filter_agent_operations / generate_tool_definitions / generate_tool_executors。
 """
+
 from __future__ import annotations
 
 import json
@@ -13,13 +14,17 @@ from typing import Any, Dict, List, Optional
 
 # ── 数据模型 ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Param:
     """OpenAPI 参数。"""
+
     name: str
-    location: str          # "path" | "query" | "body"
+    location: str  # "path" | "query" | "body"
     required: bool
-    type: str              # "string" | "integer" | "number" | "boolean" | "array" | "object" | "any"
+    type: (
+        str  # "string" | "integer" | "number" | "boolean" | "array" | "object" | "any"
+    )
     description: str = ""
     enum: Optional[List[Any]] = None
 
@@ -30,6 +35,7 @@ class Param:
 @dataclass
 class Operation:
     """一个后端 API 操作。"""
+
     group: str
     name: str
     method: str
@@ -111,8 +117,10 @@ STREAMING_OPS = {"GET /sapi/strategy/sse"}
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
+
 def urllib_quote(value: str) -> str:
     import urllib.parse
+
     return urllib.parse.quote(value, safe="")
 
 
@@ -171,6 +179,7 @@ def derive_name(tag: str, path: str) -> str:
 
 # ── Spec ──────────────────────────────────────────────────────────────────────
 
+
 class Spec:
     """从 OpenAPI 文档构建的操作模型。"""
 
@@ -217,30 +226,40 @@ class Spec:
         out: List[Param] = []
         for p in op.get("parameters", []):
             schema = p.get("schema", {})
-            out.append(Param(
-                name=p["name"],
-                location=p["in"],
-                required=bool(p.get("required")),
-                type=_schema_type(schema),
-                description=p.get("description", ""),
-                enum=_schema_enum(schema),
-            ))
+            out.append(
+                Param(
+                    name=p["name"],
+                    location=p["in"],
+                    required=bool(p.get("required")),
+                    type=_schema_type(schema),
+                    description=p.get("description", ""),
+                    enum=_schema_enum(schema),
+                )
+            )
         rb = op.get("requestBody")
         if rb:
             js = rb.get("content", {}).get("application/json", {}).get("schema", {})
             if isinstance(js, dict) and "$ref" in js:
                 js = _resolve_ref(self.raw, js["$ref"])
             props = js.get("properties", {}) if isinstance(js, dict) else {}
-            required_names = set(js.get("required", [])) if isinstance(js, dict) else set()
+            required_names = (
+                set(js.get("required", [])) if isinstance(js, dict) else set()
+            )
             for pname, pschema in props.items():
-                out.append(Param(
-                    name=pname,
-                    location="body",
-                    required=pname in required_names,
-                    type=_schema_type(pschema),
-                    description=pschema.get("description", "") if isinstance(pschema, dict) else "",
-                    enum=_schema_enum(pschema),
-                ))
+                out.append(
+                    Param(
+                        name=pname,
+                        location="body",
+                        required=pname in required_names,
+                        type=_schema_type(pschema),
+                        description=(
+                            pschema.get("description", "")
+                            if isinstance(pschema, dict)
+                            else ""
+                        ),
+                        enum=_schema_enum(pschema),
+                    )
+                )
         return out
 
     def find(self, group: str, name: str) -> Optional[Operation]:
@@ -260,8 +279,12 @@ def load_spec(path: Optional[str] = None) -> Spec:
 # ── Agent 工具生成 ────────────────────────────────────────────────────────────
 
 _TYPE_MAP = {
-    "string": "string", "integer": "integer", "number": "number",
-    "boolean": "boolean", "array": "array", "object": "object",
+    "string": "string",
+    "integer": "integer",
+    "number": "number",
+    "boolean": "boolean",
+    "array": "array",
+    "object": "object",
 }
 
 _GROUP_DISPLAY: Dict[str, str] = {
@@ -276,9 +299,14 @@ _GROUP_DISPLAY: Dict[str, str] = {
 }
 
 _GROUP_ICONS: Dict[str, str] = {
-    "news": "📰", "factors": "📊", "forecast": "🔮",
-    "macro": "⚡", "strategy": "🎯", "recommend": "💡",
-    "change": "📈", "graph": "🕸️",
+    "news": "📰",
+    "factors": "📊",
+    "forecast": "🔮",
+    "macro": "⚡",
+    "strategy": "🎯",
+    "recommend": "💡",
+    "change": "📈",
+    "graph": "🕸️",
 }
 
 
@@ -289,7 +317,8 @@ _AGENT_EXCLUDED_GROUPS = {"auth", "dashboard", "report", "pipeline"}
 def filter_agent_operations(spec: Spec) -> List[Operation]:
     """过滤出 agent 适用的操作：仅 GET + 非流式 + 排除无关组。"""
     return [
-        op for op in spec.operations
+        op
+        for op in spec.operations
         if op.method == "GET"
         and not op.streaming
         and op.group not in _AGENT_EXCLUDED_GROUPS
@@ -317,29 +346,35 @@ def generate_tool_definitions(ops: List[Operation]) -> List[dict]:
             if p.required:
                 required.append(p.name)
 
-        tools.append({
-            "type": "function",
-            "function": {
-                "name": _make_tool_name(op),
-                "description": op.summary or op.description or f"{op.group} {op.name}",
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": required,
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": _make_tool_name(op),
+                    "description": op.summary
+                    or op.description
+                    or f"{op.group} {op.name}",
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required,
+                    },
                 },
-            },
-        })
+            }
+        )
     return tools
 
 
 def generate_tool_executors(ops: List[Operation], client) -> Dict[str, callable]:
     """为每个 Operation 创建闭包执行器，通过 HTTP client 调用后端 API。"""
     import logging
+
     _log = logging.getLogger(__name__)
 
     def _make_executor(op: Operation):
         def executor(**kwargs):
             from backend.agent.client import BackendError, NetworkError
+
             try:
                 path_values: Dict[str, Any] = {}
                 query: Dict[str, Any] = {}
@@ -361,17 +396,22 @@ def generate_tool_executors(ops: List[Operation], client) -> Dict[str, callable]
             except Exception as exc:
                 _log.exception("工具 %s 执行异常", _make_tool_name(op))
                 return {"error": f"工具执行异常: {exc}"}
+
         return executor
 
     return {_make_tool_name(op): _make_executor(op) for op in ops}
 
 
-def generate_display_metadata(ops: List[Operation]) -> tuple[Dict[str, str], Dict[str, str]]:
+def generate_display_metadata(
+    ops: List[Operation],
+) -> tuple[Dict[str, str], Dict[str, str]]:
     """为所有 agent 工具生成中文名和图标映射。"""
     display_names: Dict[str, str] = {}
     icons: Dict[str, str] = {}
     for op in ops:
         name = _make_tool_name(op)
-        display_names[name] = op.summary or f"{_GROUP_DISPLAY.get(op.group, op.group)}-{op.name}"
+        display_names[name] = (
+            op.summary or f"{_GROUP_DISPLAY.get(op.group, op.group)}-{op.name}"
+        )
         icons[name] = _GROUP_ICONS.get(op.group, "🔧")
     return display_names, icons

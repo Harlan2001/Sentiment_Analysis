@@ -111,23 +111,25 @@ def build_failure_log_rows(
 
     rows = []
     for code in codes:
-        rows.append({
-            "request_id": request_id,
-            "factor_code": code,
-            "signal_type": signal_type or "presence",
-            "query_start_time": query_start_time,
-            "query_end_time": query_end_time,
-            "decay_lambda": decay_lambda,
-            "signal_value": None,
-            "confidence": None,
-            "news_count": 0,
-            "queried_news": None,
-            "success": 0,
-            "error_message": truncated_msg,
-            "started_at": started_at,
-            "finished_at": finished_at,
-            "latency_ms": latency_ms,
-        })
+        rows.append(
+            {
+                "request_id": request_id,
+                "factor_code": code,
+                "signal_type": signal_type or "presence",
+                "query_start_time": query_start_time,
+                "query_end_time": query_end_time,
+                "decay_lambda": decay_lambda,
+                "signal_value": None,
+                "confidence": None,
+                "news_count": 0,
+                "queried_news": None,
+                "success": 0,
+                "error_message": truncated_msg,
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "latency_ms": latency_ms,
+            }
+        )
     return rows
 
 

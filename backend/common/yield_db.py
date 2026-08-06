@@ -4,14 +4,15 @@
 """
 
 import logging
-import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Dict
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-from backend.config.config import BOND_XLSX, PERIOD_MAP
-from backend.common.database import get_db_connection, execute_query
+import pandas as pd
+
+from backend.common.database import execute_query, get_db_connection
 from backend.common.db_operations import DBOperations
+from backend.config.config import BOND_XLSX, PERIOD_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +55,15 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
         for col, period in actual_period_map.items():
             val = row[col]
             if pd.notna(val):
-                long_data.append({"date": date_str, "period": period, "value": float(val)})
+                long_data.append(
+                    {"date": date_str, "period": period, "value": float(val)}
+                )
 
     # 前值填充（精简版）
     long_df = pd.DataFrame(long_data)
-    long_df["value"] = long_df.sort_values(["period", "date"]).groupby("period")["value"].ffill()
+    long_df["value"] = (
+        long_df.sort_values(["period", "date"]).groupby("period")["value"].ffill()
+    )
 
     # 批量入库
     with get_db_connection() as conn:
@@ -66,13 +71,17 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
         for _, row in long_df.iterrows():
             cursor.execute(
                 "INSERT IGNORE INTO yield_data (date, period, value) VALUES (%s, %s, %s)",
-                (row["date"], row["period"], row["value"])
+                (row["date"], row["period"], row["value"]),
             )
         conn.commit()
 
-    logger.info("导入完成: %d 条记录, 日期范围 %s ~ %s, 期限数 %d",
-                len(long_df), long_df['date'].min(), long_df['date'].max(),
-                long_df['period'].nunique())
+    logger.info(
+        "导入完成: %d 条记录, 日期范围 %s ~ %s, 期限数 %d",
+        len(long_df),
+        long_df["date"].min(),
+        long_df["date"].max(),
+        long_df["period"].nunique(),
+    )
 
 
 def get_yield_window_by_news_pub_time(
@@ -100,4 +109,6 @@ def get_yield_window_by_news_id(
     row = execute_query("SELECT pub_time FROM news WHERE id = %s", (news_id,), one=True)
     if not row:
         return [], None, None
-    return get_yield_window_by_news_pub_time(row[0], window_before, window_after, period)
+    return get_yield_window_by_news_pub_time(
+        row[0], window_before, window_after, period
+    )

@@ -15,15 +15,17 @@
     python backend/weixin_push.py --publish                # 定时发布（暂未实现）
 """
 
-import os
-import sys
-import re
-import time
 import argparse
 import logging
+import os
+import re
+import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright
 
 # 添加项目根目录到 sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,20 +33,22 @@ sys.path.insert(0, str(BASE_DIR))
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(BASE_DIR / ".env")
 except ImportError:
     pass
 
-from backend.push.pdf_png import get_latest_pdf, pdf_to_images
-
 # ==================== 日志 ====================
-from backend.common.logging_config import setup_logging, add_logger_daily_file
+from backend.common.logging_config import add_logger_daily_file, setup_logging
+from backend.push.pdf_png import get_latest_pdf, pdf_to_images
 
 setup_logging()
 
 # weixin_push 使用独立的每日日志文件，复用统一的格式和级别
 _log_date = datetime.now().strftime("%Y%m%d")
-add_logger_daily_file("weixin_push", str(BASE_DIR / "logs" / f"weixin_push_{_log_date}.log"))
+add_logger_daily_file(
+    "weixin_push", str(BASE_DIR / "logs" / f"weixin_push_{_log_date}.log")
+)
 
 logger = logging.getLogger("weixin_push")
 
@@ -54,7 +58,8 @@ WECHAT_USERNAME = os.getenv("WECHAT_USERNAME", "")
 WECHAT_PASSWORD = os.getenv("WECHAT_PASSWORD", "")
 
 ARTICLE_TITLE_TEMPLATE = os.getenv(
-    "ARTICLE_TITLE_TEMPLATE", "{} 债券市场预测分析报告",
+    "ARTICLE_TITLE_TEMPLATE",
+    "{} 债券市场预测分析报告",
 )
 ARTICLE_AUTHOR = os.getenv("ARTICLE_AUTHOR", "AI量化系统")
 
@@ -116,7 +121,9 @@ def _smart_login(page, context) -> bool:
     # 直接访问后台 cgi-bin 页面：已登录则停留，未登录则服务器重定向到登录页
     # 这样 URL 检测就能 100% 判断登录状态
     logger.info("访问微信公众号后台...")
-    page.goto(WECHAT_MP_URL + "cgi-bin/home", wait_until="domcontentloaded", timeout=20000)
+    page.goto(
+        WECHAT_MP_URL + "cgi-bin/home", wait_until="domcontentloaded", timeout=20000
+    )
     page.wait_for_timeout(2000)
 
     if _is_logged_in(page):
@@ -174,13 +181,17 @@ def _create_new_article(page):
 
     # 2. 等待"新的创作"面板
     try:
-        page.wait_for_selector(".new-creation__menu-item", state="visible", timeout=10000)
+        page.wait_for_selector(
+            ".new-creation__menu-item", state="visible", timeout=10000
+        )
     except PlaywrightTimeout:
         logger.error("❌ '新的创作'面板未加载")
         return False, None
 
     # 3. 点击"文章"，用 expect_page 捕获新标签页
-    article_loc = page.locator(".new-creation__menu-title").filter(has_text="文章").first
+    article_loc = (
+        page.locator(".new-creation__menu-title").filter(has_text="文章").first
+    )
     article_loc.wait_for(state="visible", timeout=5000)
 
     try:
@@ -230,8 +241,13 @@ def _upload_images_in_editor(page, image_paths: list) -> bool:
 
     for i, img_path in enumerate(image_paths):
         img_name = Path(img_path).name
-        logger.info("[%d/%d] %s (%.0f KB)", i + 1, total, img_name,
-                    os.path.getsize(img_path) / 1024)
+        logger.info(
+            "[%d/%d] %s (%.0f KB)",
+            i + 1,
+            total,
+            img_name,
+            os.path.getsize(img_path) / 1024,
+        )
 
         # 1) 点击"图片"按钮打开下拉菜单（JS click 绕过视口限制）
         page.evaluate("""() => {
@@ -368,8 +384,11 @@ def push_report_to_wechat(
         browser = p.chromium.launch(
             headless=False,
             slow_mo=80,
-            args=["--disable-blink-features=AutomationControlled",
-                  "--no-sandbox", "--disable-infobars"],
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-infobars",
+            ],
         )
 
         state_file = str(STORAGE_STATE_PATH) if STORAGE_STATE_PATH.exists() else None
@@ -438,16 +457,24 @@ def main():
 配置（.env）：WECHAT_APPID, ARTICLE_AUTHOR 等
         """,
     )
-    parser.add_argument("--pdf-path", default=None,
-                        help="PDF 文件路径（默认自动查找 data/pdf/ 下最新文件）")
-    parser.add_argument("--publish", action="store_true", default=False,
-                        help="定时发布模式（默认仅保存草稿）")
-    parser.add_argument("--dpi", type=int, default=200,
-                        help="图片 DPI（默认 200）")
+    parser.add_argument(
+        "--pdf-path",
+        default=None,
+        help="PDF 文件路径（默认自动查找 data/pdf/ 下最新文件）",
+    )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        default=False,
+        help="定时发布模式（默认仅保存草稿）",
+    )
+    parser.add_argument("--dpi", type=int, default=200, help="图片 DPI（默认 200）")
     args = parser.parse_args()
 
     success = push_report_to_wechat(
-        pdf_path=args.pdf_path, publish=args.publish, dpi=args.dpi,
+        pdf_path=args.pdf_path,
+        publish=args.publish,
+        dpi=args.dpi,
     )
     sys.exit(0 if success else 1)
 

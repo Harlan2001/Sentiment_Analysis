@@ -12,12 +12,13 @@ PDF 转高清图片工具。
     python backend/pdf_png.py --dpi 300                # 超高清模式
 """
 
-import pymupdf
-import sys
 import argparse
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
+
+import pymupdf
 
 # 项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,7 +53,11 @@ def get_latest_pdf(pdf_dir: str | Path = None) -> Path | None:
 
     latest = pdf_files[0]
     mtime = datetime.fromtimestamp(latest.stat().st_mtime)
-    logger.info("找到最新 PDF: %s (修改时间: %s)", latest.name, mtime.strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info(
+        "找到最新 PDF: %s (修改时间: %s)",
+        latest.name,
+        mtime.strftime("%Y-%m-%d %H:%M:%S"),
+    )
     return latest
 
 
@@ -95,11 +100,17 @@ def pdf_to_images(pdf_path: str | Path, output_dir: str | Path = None, dpi: int 
         image_paths.append(str(image_path))
         logger.info(
             "  第 %d/%d 页 → %s (%dx%d)",
-            page_num + 1, len(doc), image_path.name, pix.width, pix.height,
+            page_num + 1,
+            len(doc),
+            image_path.name,
+            pix.width,
+            pix.height,
         )
 
     doc.close()
-    logger.info("PDF 转换完成，共生成 %d 张图片，输出目录: %s", len(image_paths), output_dir)
+    logger.info(
+        "PDF 转换完成，共生成 %d 张图片，输出目录: %s", len(image_paths), output_dir
+    )
     return image_paths
 
 
@@ -159,5 +170,6 @@ def main():
 
 if __name__ == "__main__":
     from backend.common.logging_config import setup_logging
+
     setup_logging()
     main()

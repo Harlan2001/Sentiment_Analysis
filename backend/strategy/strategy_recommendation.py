@@ -15,20 +15,30 @@ import re
 import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+
 import openai
 import requests
-from requests import HTTPError
 from openai import AsyncOpenAI
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from requests import HTTPError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
-from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, get_requests_proxies, create_openai_async_http_client
 from backend.common.database import get_db_connection
 from backend.common.llm_logger import log_llm_usage
 
 # 【临时兼容】SaaS 本地快照模式配置
 # 通过 config 模块动态读取，而非模块级导入，以便快照脚本能在运行时覆盖
 from backend.config import config as _config
-
+from backend.config.config import (
+    create_openai_async_http_client,
+    get_analysis_model_info,
+    get_default_analysis_model_name,
+    get_requests_proxies,
+)
 
 MODEL_NAME = get_default_analysis_model_name()
 
@@ -38,8 +48,15 @@ if not _config.USE_LOCAL_SNAPSHOT and not kingstar_API_KEY:
     raise ValueError("kingstar_API_KEY environment variable is not set.")
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
-async_client = AsyncOpenAI(api_key=kingstar_API_KEY, base_url=kingstar_BASE_URL,
-                              http_client=create_openai_async_http_client()) if kingstar_API_KEY and kingstar_BASE_URL else None
+async_client = (
+    AsyncOpenAI(
+        api_key=kingstar_API_KEY,
+        base_url=kingstar_BASE_URL,
+        http_client=create_openai_async_http_client(),
+    )
+    if kingstar_API_KEY and kingstar_BASE_URL
+    else None
+)
 
 STRATEGY_LIST_PATH = "/v1/strategy/follow_price_point_strategy/list"
 BOND_LIST_PATH = "/v1/bondBasisInfo/query"
@@ -76,7 +93,11 @@ def _join_url(base_url: str, path: str) -> str:
 
 
 def _get_required_base_url(primary_env: str) -> str:
-    base_url = os.getenv(primary_env) or os.getenv("EXTERNAL_API_BASE_URL") or os.getenv("kingstar_BASE_URL")
+    base_url = (
+        os.getenv(primary_env)
+        or os.getenv("EXTERNAL_API_BASE_URL")
+        or os.getenv("kingstar_BASE_URL")
+    )
     if not base_url:
         raise RuntimeError(
             f"{primary_env}, EXTERNAL_API_BASE_URL, or kingstar_BASE_URL is required for AI strategy recommendation."
@@ -87,13 +108,13 @@ def _get_required_base_url(primary_env: str) -> str:
 def _get_employee_no() -> str:
     employee_no = os.getenv("KINGSTAR_EMPLOYEE_NO")
     if not employee_no:
-        raise RuntimeError(
-            "KINGSTAR_EMPLOYEE_NO is required for strategy list API."
-        )
+        raise RuntimeError("KINGSTAR_EMPLOYEE_NO is required for strategy list API.")
     return employee_no
 
 
-def _post_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def _post_json(
+    url: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     response = requests.post(
         url,
         json=payload,
@@ -116,7 +137,9 @@ def _day_range(target_date: date) -> tuple[datetime, datetime]:
     return start, end
 
 
-def get_news_reasons_for_date(target_date: date, model_name: Optional[str] = None) -> List[str]:
+def get_news_reasons_for_date(
+    target_date: date, model_name: Optional[str] = None
+) -> List[str]:
     selected_model = model_name or MODEL_NAME
     start, end = _day_range(target_date)
 
@@ -211,14 +234,14 @@ def _normalize_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
     definition = item.get("strategyDefinition") or {}
     strategy_type = item.get("strategyType") or definition.get("strategyType")
     strategy_type_str = str(strategy_type or "")
-    
+
     description_parts = [
         f"type={_strategy_type_name(strategy_type)}",
         f"version={item.get('version') or definition.get('version') or ''}",
         f"scope={definition.get('scope') or ''}",
         f"reference={definition.get('reference') or definition.get('referenceSecurityID') or ''}",
     ]
-    
+
     return {
         "id": str(item.get("id") or definition.get("strategyId") or ""),
         "name": item.get("strategyName") or definition.get("strategyName") or "",
@@ -231,14 +254,18 @@ def _normalize_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
         "status": "active",
         "status_label": "启用",
         "risk_level": "medium",
-        "description": "; ".join(part for part in description_parts if part.split("=", 1)[1]),
+        "description": "; ".join(
+            part for part in description_parts if part.split("=", 1)[1]
+        ),
         # 详情字段
         "details": {
             "strategy_type": strategy_type_str,
             "strategy_type_label": _strategy_type_name(strategy_type),
             "version": item.get("version") or definition.get("version") or "",
             "scope": definition.get("scope") or "",
-            "reference": definition.get("reference") or definition.get("referenceSecurityID") or "",
+            "reference": definition.get("reference")
+            or definition.get("referenceSecurityID")
+            or "",
             "product_type": item.get("productType") or "",
             "approval_status": item.get("approvalStatus") or "",
         },
@@ -280,7 +307,7 @@ def get_available_strategies() -> List[Dict[str, Any]]:
 
 def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
     """标准化量化策略数据
-    
+
     将数字编码字段转换为可读的中文名称，便于前端直接展示。
     字段设计与原有策略的 _normalize_strategy 保持统一。
     """
@@ -289,20 +316,20 @@ def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
     research_status = item.get("research_status") or ""
     frequency = item.get("frequency") or ""
     data_source = item.get("data_source") or ""
-    
+
     factor_type_str = str(factor_type)
     factor_category_str = str(factor_category)
     research_status_str = str(research_status)
     frequency_str = str(frequency)
     data_source_str = str(data_source)
-    
+
     # 编码转可读名称
     category_label = _map_code(factor_category_str, FACTOR_CATEGORY_MAP)
     factor_type_label = _map_code(factor_type_str, FACTOR_TYPE_MAP)
     status_label = _map_code(research_status_str, RESEARCH_STATUS_MAP)
     frequency_label = _map_code(frequency_str, FREQUENCY_MAP)
     data_source_label = _map_code(data_source_str, DATA_SOURCE_MAP)
-    
+
     description_parts = [
         f"因子类型={factor_type_label}",
         f"分类={category_label}",
@@ -311,7 +338,7 @@ def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
         f"数据源={data_source_label}",
         f"品种={item.get('variety_code') or ''}",
     ]
-    
+
     return {
         "id": str(item.get("factor_id") or item.get("exam_id") or ""),
         "name": item.get("factor_name") or "",
@@ -325,7 +352,9 @@ def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
         "status": status_label,
         "status_code": research_status_str,
         "risk_level": "medium",
-        "description": "; ".join(part for part in description_parts if part.split("=", 1)[1]),
+        "description": "; ".join(
+            part for part in description_parts if part.split("=", 1)[1]
+        ),
         # 详情字段
         "details": {
             "factor_type": factor_type_str,
@@ -352,7 +381,9 @@ def _normalize_quant_strategy(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> List[Dict[str, Any]]:
+def get_available_quant_strategies(
+    page_size: int = 100, page_num: int = 1
+) -> List[Dict[str, Any]]:
     """获取可用的量化策略列表
 
     Args:
@@ -375,7 +406,7 @@ def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> L
             return json.load(f)
 
     url = _join_url(QUANT_STRATEGY_BASE_URL, QUANT_STRATEGY_LIST_PATH)
-    
+
     # 构建查询参数
     params = {
         "factor_type_list": "1564142752714371072,1567429037549928448,4,1559114009792917505,1,1559114009792917506,3,2",
@@ -384,12 +415,12 @@ def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> L
         "page_size": str(page_size),
         "page_num": str(page_num),
     }
-    
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": QUANT_STRATEGY_TOKEN,
     }
-    
+
     try:
         response = requests.get(
             url,
@@ -405,50 +436,48 @@ def get_available_quant_strategies(page_size: int = 100, page_num: int = 1) -> L
             f"量化策略接口请求失败: HTTP {response.status_code}, url={url}, body={response.text[:500]}"
         ) from exc
     except Exception as exc:
-        raise RuntimeError(
-            f"量化策略接口请求异常: url={url}, error={exc}"
-        ) from exc
-    
+        raise RuntimeError(f"量化策略接口请求异常: url={url}, error={exc}") from exc
+
     # 解析返回数据
     # 接口返回格式: {"err_msg": "success", "err_data": {"total": 35, "list": [...]}}
     err_data = result.get("err_data") or {}
     records = err_data.get("list") or []
-    
+
     if not isinstance(records, list):
         raise RuntimeError(
             f"量化策略接口返回 err_data.list 不是数组 (url={url}, list_type={type(records).__name__})"
         )
-    
-    strategies = [_normalize_quant_strategy(row) for row in records if isinstance(row, dict)]
-    
 
-    
+    strategies = [
+        _normalize_quant_strategy(row) for row in records if isinstance(row, dict)
+    ]
+
     return strategies
 
 
 def get_all_strategies() -> Dict[str, Any]:
     """统一获取所有策略（量化策略 + 原有交易策略）
-    
+
     返回统一格式的策略列表，方便前端展示。
     """
     quant_strategies = []
     trading_strategies = []
     errors: List[Dict[str, Any]] = []
-    
+
     # 获取量化策略
     try:
         quant_strategies = get_available_quant_strategies(page_size=100, page_num=1)
     except Exception as exc:
         err_msg = f"量化策略获取失败: {exc}"
         errors.append({"source": "quant_strategy", "error": str(exc)})
-    
+
     # 获取原有交易策略
     try:
         trading_strategies = get_available_strategies()
     except Exception as exc:
         err_msg = f"原有策略获取失败: {exc}"
         errors.append({"source": "trading_strategy", "error": str(exc)})
-    
+
     return {
         "strategies": quant_strategies + trading_strategies,
         "quant_strategies": quant_strategies,
@@ -462,7 +491,12 @@ def get_all_strategies() -> Dict[str, Any]:
 
 def _normalize_bond(item: Dict[str, Any]) -> Dict[str, Any]:
     code = item.get("bondCode") or item.get("securityID") or item.get("code") or ""
-    name = item.get("bondShortName") or item.get("symbol") or item.get("securityName") or code
+    name = (
+        item.get("bondShortName")
+        or item.get("symbol")
+        or item.get("securityName")
+        or code
+    )
     sign = item.get("sign") or "BOND"
     security_desc = item.get("securityDesc") or ""
     description_parts = [
@@ -476,7 +510,9 @@ def _normalize_bond(item: Dict[str, Any]) -> Dict[str, Any]:
         "code": str(code),
         "name": str(name),
         "type": str(sign or security_desc or "bond"),
-        "description": "; ".join(part for part in description_parts if part.split("=", 1)[1]),
+        "description": "; ".join(
+            part for part in description_parts if part.split("=", 1)[1]
+        ),
         "raw": item,
     }
 
@@ -530,7 +566,7 @@ def _extract_json(response_text: str) -> Dict[str, Any]:
     elif "```" in text:
         text = text.split("```", 1)[1].split("```", 1)[0].strip()
     # 清理尾随逗号等常见 JSON 不合规问题
-    text = re.sub(r',\s*([}\]])', r'\1', text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
@@ -558,7 +594,9 @@ async def analyze(
     selected_model_name = model_name or MODEL_NAME
     provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
 
-    news_text = "\n".join(f"{idx}. {reason}" for idx, reason in enumerate(news_summary, 1))
+    news_text = "\n".join(
+        f"{idx}. {reason}" for idx, reason in enumerate(news_summary, 1)
+    )
     if not news_text:
         news_text = "No analysis.reason records were found for the selected date."
 
@@ -625,7 +663,7 @@ JSON格式要求：
                 latency_ms=latency_ms,
             )
     except openai.APIError as exc:
-        latency_ms = int((time.time() - t0) * 1000) if 't0' in dir() else None
+        latency_ms = int((time.time() - t0) * 1000) if "t0" in dir() else None
         log_llm_usage(
             call_source="strategy",
             model_name=selected_model_name,
@@ -639,7 +677,7 @@ JSON格式要求：
             f"status_code={exc.status_code or 'N/A'}, message={exc.message}"
         ) from exc
     except Exception as exc:
-        latency_ms = int((time.time() - t0) * 1000) if 't0' in dir() else None
+        latency_ms = int((time.time() - t0) * 1000) if "t0" in dir() else None
         log_llm_usage(
             call_source="strategy",
             model_name=selected_model_name,
@@ -779,18 +817,14 @@ async def get_or_create_recommendation(
     except RuntimeError:
         raise
     except Exception as exc:
-        raise RuntimeError(
-            f"获取可用债券目标列表失败: {exc}"
-        ) from exc
+        raise RuntimeError(f"获取可用债券目标列表失败: {exc}") from exc
 
     try:
         strategy_list = get_available_strategies()
     except RuntimeError:
         raise
     except Exception as exc:
-        raise RuntimeError(
-            f"获取可用策略列表失败: {exc}"
-        ) from exc
+        raise RuntimeError(f"获取可用策略列表失败: {exc}") from exc
 
     try:
         outcome = await analyze(
@@ -827,14 +861,12 @@ def get_latest_recommendation() -> Optional[Dict[str, Any]]:
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute(
-                """
+            cur.execute("""
                 SELECT analysis_date
                 FROM ai_strategy_recommendation
                 ORDER BY analysis_date DESC
                 LIMIT 1
-                """
-            )
+                """)
             row = cur.fetchone()
     except Exception as exc:
         raise RuntimeError(f"查询最新推荐日期失败: {exc}") from exc

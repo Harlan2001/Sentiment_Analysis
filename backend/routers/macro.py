@@ -4,13 +4,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.config.config import API_PREFIX
 from backend.macrosignal.macro_signal import get_macro_signal
 from backend.macrosignal.macro_signal_log import (
-    build_success_log_row,
     build_failure_log_rows,
+    build_success_log_row,
     insert_signal_logs,
 )
 
@@ -20,8 +21,12 @@ router = APIRouter(prefix=f"{API_PREFIX}/macro", tags=["macro"])
 @router.get("/signal")
 def get_macro_signal_api(
     factor_code: str = Query(..., description="因子代码，多个用逗号分隔，如 A,B,C"),
-    start_time: str = Query(..., description="起始时间，ISO 格式，如 2025-01-01T00:00:00"),
-    end_time: str = Query(..., description="结束时间，ISO 格式，如 2025-01-01T23:59:59"),
+    start_time: str = Query(
+        ..., description="起始时间，ISO 格式，如 2025-01-01T00:00:00"
+    ),
+    end_time: str = Query(
+        ..., description="结束时间，ISO 格式，如 2025-01-01T23:59:59"
+    ),
     signal_type: str = Query(..., description="信号类型：presence | directional"),
     decay_lambda: float = Query(0.1, description="时间衰减系数，仅 directional 生效"),
 ):
@@ -34,13 +39,18 @@ def get_macro_signal_api(
 
     try:
         if signal_type not in ("presence", "directional"):
-            raise HTTPException(status_code=400, detail="signal_type 必须为 presence 或 directional")
+            raise HTTPException(
+                status_code=400, detail="signal_type 必须为 presence 或 directional"
+            )
 
         try:
             start_dt = datetime.fromisoformat(start_time)
             end_dt = datetime.fromisoformat(end_time)
         except ValueError:
-            raise HTTPException(status_code=400, detail="时间格式错误，请使用 ISO 格式，如 2025-01-01T00:00:00")
+            raise HTTPException(
+                status_code=400,
+                detail="时间格式错误，请使用 ISO 格式，如 2025-01-01T00:00:00",
+            )
 
         if start_dt > end_dt:
             raise HTTPException(status_code=400, detail="start_time 不能晚于 end_time")
@@ -86,7 +96,9 @@ def get_macro_signal_api(
         log_rows = build_failure_log_rows(
             request_id=request_id,
             factor_codes=codes,
-            signal_type=signal_type if signal_type in ("presence", "directional") else None,
+            signal_type=(
+                signal_type if signal_type in ("presence", "directional") else None
+            ),
             query_start_time=start_dt,
             query_end_time=end_dt,
             decay_lambda=decay_lambda,
@@ -103,7 +115,9 @@ def get_macro_signal_api(
         log_rows = build_failure_log_rows(
             request_id=request_id,
             factor_codes=codes,
-            signal_type=signal_type if signal_type in ("presence", "directional") else None,
+            signal_type=(
+                signal_type if signal_type in ("presence", "directional") else None
+            ),
             query_start_time=start_dt,
             query_end_time=end_dt,
             decay_lambda=decay_lambda,
@@ -125,7 +139,9 @@ def get_macro_signal_logs(
     request_id: Optional[str] = Query(None, description="请求ID过滤"),
     factor_code: Optional[str] = Query(None, description="因子代码过滤"),
     success: Optional[int] = Query(None, description="成功状态 0/1"),
-    signal_type: Optional[str] = Query(None, description="信号类型 presence/directional"),
+    signal_type: Optional[str] = Query(
+        None, description="信号类型 presence/directional"
+    ),
     start_time: Optional[str] = Query(None, description="started_at 开始时间"),
     end_time: Optional[str] = Query(None, description="started_at 结束时间"),
 ):
@@ -135,7 +151,9 @@ def get_macro_signal_logs(
         try:
             parsed = datetime.fromisoformat(value)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"{field_name} 格式错误：{value}")
+            raise HTTPException(
+                status_code=400, detail=f"{field_name} 格式错误：{value}"
+            )
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=shanghai_tz)
         return parsed.astimezone(timezone.utc).replace(tzinfo=None)
@@ -143,9 +161,15 @@ def get_macro_signal_logs(
     if success is not None and success not in (0, 1):
         raise HTTPException(status_code=400, detail="success 只能为 0 或 1")
     if signal_type is not None and signal_type not in ("presence", "directional"):
-        raise HTTPException(status_code=400, detail="signal_type 只能为 presence 或 directional")
+        raise HTTPException(
+            status_code=400, detail="signal_type 只能为 presence 或 directional"
+        )
 
-    start_dt = _parse_filter_time_to_utc_naive(start_time, "start_time") if start_time else None
+    start_dt = (
+        _parse_filter_time_to_utc_naive(start_time, "start_time")
+        if start_time
+        else None
+    )
     end_dt = _parse_filter_time_to_utc_naive(end_time, "end_time") if end_time else None
 
     conditions = []
@@ -172,12 +196,15 @@ def get_macro_signal_logs(
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     offset = (page - 1) * page_size
 
-    from backend.common.database import get_db_connection
     import json
+
+    from backend.common.database import get_db_connection
 
     with get_db_connection() as conn:
         cur = conn.cursor()
-        cur.execute(f"SELECT COUNT(*) FROM macro_signal_request_log {where_clause}", params)
+        cur.execute(
+            f"SELECT COUNT(*) FROM macro_signal_request_log {where_clause}", params
+        )
         total = cur.fetchone()[0]
         cur.execute(
             f"""
@@ -240,7 +267,12 @@ def get_macro_signal_logs(
     total_pages = max(1, (total + page_size - 1) // page_size)
     return {
         "items": items,
-        "pagination": {"page": page, "page_size": page_size, "total": total, "total_pages": total_pages},
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages,
+        },
         "filters": {
             "request_id": request_id,
             "factor_code": factor_code,

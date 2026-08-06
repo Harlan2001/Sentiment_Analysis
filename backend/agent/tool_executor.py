@@ -10,8 +10,12 @@
 import logging
 import os
 
-from backend.agent.spec import load_spec, filter_agent_operations, generate_tool_executors
 from backend.agent.client import Client
+from backend.agent.spec import (
+    filter_agent_operations,
+    generate_tool_executors,
+    load_spec,
+)
 
 logger = logging.getLogger(__name__)
 

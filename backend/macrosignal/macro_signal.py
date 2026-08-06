@@ -5,6 +5,7 @@
 - presence：某因子在指定时间范围内是否存在对应新闻（0/1）
 - directional：某因子在指定时间范围内的方向性信号（-1/0/1），带时间衰减加权
 """
+
 import math
 from datetime import datetime
 from typing import List
@@ -71,7 +72,9 @@ def _check_factor_codes_exist(cur, factor_codes: List[str]) -> set:
     return {row[0] for row in cur.fetchall()}
 
 
-def _compute_presence(rows, factor_code: str, start_time: datetime, end_time: datetime) -> dict:
+def _compute_presence(
+    rows, factor_code: str, start_time: datetime, end_time: datetime
+) -> dict:
     """计算单个因子的 presence 信号"""
     matched = [r for r in rows if r[0] == factor_code]
     news_count = len(matched)
@@ -88,7 +91,11 @@ def _compute_presence(rows, factor_code: str, start_time: datetime, end_time: da
 
 
 def _compute_directional(
-    rows, factor_code: str, start_time: datetime, end_time: datetime, decay_lambda: float
+    rows,
+    factor_code: str,
+    start_time: datetime,
+    end_time: datetime,
+    decay_lambda: float,
 ) -> dict:
     """计算单个因子的 directional 信号（时间衰减加权）"""
     matched = [r for r in rows if r[0] == factor_code]
@@ -149,7 +156,11 @@ def get_macro_signal(
         cur = conn.cursor()
         existing_codes = _check_factor_codes_exist(cur, factor_codes)
         valid_codes = [c for c in factor_codes if c in existing_codes]
-        rows = _query_news_factor_rows(cur, valid_codes, start_time, end_time) if valid_codes else []
+        rows = (
+            _query_news_factor_rows(cur, valid_codes, start_time, end_time)
+            if valid_codes
+            else []
+        )
 
     results = []
     for code in factor_codes:
@@ -160,6 +171,8 @@ def get_macro_signal(
         if signal_type == SIGNAL_PRESENCE:
             results.append(_compute_presence(rows, code, start_time, end_time))
         else:
-            results.append(_compute_directional(rows, code, start_time, end_time, decay_lambda))
+            results.append(
+                _compute_directional(rows, code, start_time, end_time, decay_lambda)
+            )
 
     return results

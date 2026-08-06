@@ -4,13 +4,15 @@
 - 输入：研报全文 + 关键图表（base64）
 - 输出：摘要、要点、标的、行业、情感判断
 """
+
+import base64
 import json
 import logging
 import os
 import re
-import base64
 import time
 from pathlib import Path
+
 from openai import OpenAI
 
 from backend.config.config import create_openai_http_client
@@ -101,11 +103,17 @@ def analyze_report(
             try:
                 b64 = _encode_image(fp)
                 ext = fp.suffix.lower().lstrip(".")
-                media_type = "png" if ext == "png" else "jpeg" if ext in ("jpg", "jpeg") else "png"
-                content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/{media_type};base64,{b64}"},
-                })
+                media_type = (
+                    "png"
+                    if ext == "png"
+                    else "jpeg" if ext in ("jpg", "jpeg") else "png"
+                )
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/{media_type};base64,{b64}"},
+                    }
+                )
             except Exception:
                 logger.warning("图片编码失败: %s", fp)
 

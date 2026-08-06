@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Optional
+
 from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
@@ -62,7 +63,9 @@ def save_graph_augment_result(request: SaveGraphAugmentRequest = Body(...)):
 
     with get_db_connection() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM graph_augment_jobs WHERE run_id = %s", (request.run_id,))
+        cur.execute(
+            "SELECT id FROM graph_augment_jobs WHERE run_id = %s", (request.run_id,)
+        )
         existing = cur.fetchone()
 
         if existing:
@@ -72,7 +75,13 @@ def save_graph_augment_result(request: SaveGraphAugmentRequest = Body(...)):
                 SET status = %s, stage = %s, result_json = %s, extract_json = %s, updated_at = NOW()
                 WHERE id = %s
                 """,
-                (request.status, request.stage, result_json_str, extract_json_str, existing[0]),
+                (
+                    request.status,
+                    request.stage,
+                    result_json_str,
+                    extract_json_str,
+                    existing[0],
+                ),
             )
             conn.commit()
             return {"success": True, "action": "updated", "id": existing[0]}
@@ -82,7 +91,14 @@ def save_graph_augment_result(request: SaveGraphAugmentRequest = Body(...)):
             INSERT INTO graph_augment_jobs (news_id, run_id, status, stage, result_json, extract_json)
             VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (request.news_id, request.run_id, request.status, request.stage, result_json_str, extract_json_str),
+            (
+                request.news_id,
+                request.run_id,
+                request.status,
+                request.stage,
+                result_json_str,
+                extract_json_str,
+            ),
         )
         conn.commit()
         return {"success": True, "action": "inserted"}

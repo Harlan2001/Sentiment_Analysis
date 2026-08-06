@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
@@ -25,8 +26,7 @@ def get_forecast_report(date: str = Query(None), limit: int = Query(10)):
                 (date,),
             )
         else:
-            cur.execute(
-                """
+            cur.execute("""
                 SELECT trade_date, model_name, prompt_version, forecast_type,
                        prediction, created_at
                 FROM forecast_report
@@ -35,8 +35,7 @@ def get_forecast_report(date: str = Query(None), limit: int = Query(10)):
                     ORDER BY trade_date DESC LIMIT 1
                 )
                 ORDER BY forecast_type
-                """
-            )
+                """)
         rows = cur.fetchall()
 
     reports = []

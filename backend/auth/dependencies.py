@@ -1,7 +1,9 @@
 """
 FastAPI 认证依赖 + HTTP 中间件
 """
+
 import os
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -74,6 +76,8 @@ async def auth_middleware(request: Request, call_next):
         request.state.is_admin = payload.get("is_admin", False)
         request.state.role = payload.get("role", "user")
     except Exception:
-        return JSONResponse(status_code=401, content={"detail": "登录已过期，请重新登录"})
+        return JSONResponse(
+            status_code=401, content={"detail": "登录已过期，请重新登录"}
+        )
 
     return await call_next(request)

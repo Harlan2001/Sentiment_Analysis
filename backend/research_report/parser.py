@@ -6,6 +6,7 @@
 - 提取内嵌图片（光栅图 + 矢量图区域渲染 + 整页渲染）
 - 纯解析函数，不执行文件系统 IO（图片写入由调用方处理）
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,11 +17,16 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Optional
+
 import pymupdf
 
 from backend.research_report.constants import (
-    KNOWN_INSTITUTIONS, INST_ALIAS_MAP, INST_SHORT_MAP,
-    INDUSTRY_KEYWORDS, FIGURE_MIN_BYTES, FIGURE_MAX_PER_REPORT,
+    FIGURE_MAX_PER_REPORT,
+    FIGURE_MIN_BYTES,
+    INDUSTRY_KEYWORDS,
+    INST_ALIAS_MAP,
+    INST_SHORT_MAP,
+    KNOWN_INSTITUTIONS,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,11 +132,11 @@ _RE_SYMBOL_BRACKET = re.compile(r"（(\d{6})）")
 _RE_ANALYST1 = re.compile(r"证券分析师\s+([^\s（(]{2,4})")
 _RE_ANALYST2 = re.compile(r"分析师[：:]\s*([^\s（(]{2,4})")
 
-_RE_FIGURE_CAPTION = re.compile(r'(?:图|图表|Figure|Fig\.?)\s*\d+[：:]\s*(.+?)(?:\n|$)')
-_RE_CHART_CAPTION = re.compile(r'(?:图|图表|Figure)\s*\d+[：:]')
+_RE_FIGURE_CAPTION = re.compile(r"(?:图|图表|Figure|Fig\.?)\s*\d+[：:]\s*(.+?)(?:\n|$)")
+_RE_CHART_CAPTION = re.compile(r"(?:图|图表|Figure)\s*\d+[：:]")
 
 _RE_TRUNCATED = re.compile(
-    r'(?:.{0,4}[如一二是]|[^》】）\)\]\s。！？…\.\,\;\:\!\?\-—‐-―])$'
+    r"(?:.{0,4}[如一二是]|[^》】）\)\]\s。！？…\.\,\;\:\!\?\-—‐-―])$"
 )
 _RE_HASH = re.compile(r"^[a-f0-9]{12,16}$")
 _RE_IDX_PREFIX = re.compile(r"^\d{1,3}-")
@@ -152,6 +158,7 @@ _BRACKET_INST = re.compile(r"【(.+?)】")
 # 工具函数
 # ========================================================================
 
+
 def compute_file_hash(pdf_path: Path) -> str:
     sha256 = hashlib.sha256()
     with open(pdf_path, "rb") as f:
@@ -171,16 +178,17 @@ def _is_table_row(line: str) -> bool:
     n = len(line)
     if n == 0:
         return True
-    return sum(1 for c in line if c.isdigit() or c in '.-/%% \t') / n > 0.55
+    return sum(1 for c in line if c.isdigit() or c in ".-/%% \t") / n > 0.55
 
 
 def _cjk_count(s: str) -> int:
-    return sum(1 for c in s if '一' <= c <= '鿿')
+    return sum(1 for c in s if "一" <= c <= "鿿")
 
 
 # ========================================================================
 # 文本清洗
 # ========================================================================
+
 
 def clean_display_text(full_text: str, max_chars: int = _DISPLAY_MAX_CHARS) -> str:
     """清洗研报正文用于前端展示：去页眉页脚，截断到摘要结束位置"""
@@ -225,6 +233,7 @@ def clean_display_text(full_text: str, max_chars: int = _DISPLAY_MAX_CHARS) -> s
 # ========================================================================
 # 标题/元数据解析
 # ========================================================================
+
 
 def _extract_title(raw_title: str, filename: str) -> str:
     title = raw_title.strip()
@@ -275,7 +284,11 @@ def _parse_metadata_from_title(title: str) -> dict:
     for kw, industry in INDUSTRY_KEYWORDS.items():
         if kw in title and industry not in result["industry"]:
             result["industry"].append(industry)
-    for pattern, fmt in [(_RE_DATE_YMD, "YYMMDD"), (_RE_DATE_FULL, "YYYYMMDD"), (_RE_DATE_CN, "CN")]:
+    for pattern, fmt in [
+        (_RE_DATE_YMD, "YYMMDD"),
+        (_RE_DATE_FULL, "YYYYMMDD"),
+        (_RE_DATE_CN, "CN"),
+    ]:
         m = pattern.search(title)
         if m:
             if fmt == "YYMMDD":
@@ -306,11 +319,15 @@ def _extract_meta_from_text(text: str) -> dict:
     if not result["institution"]:
         m = re.search(r"([一-鿿]{2,6}证券(?:研究所|股份有限公司)?)", snippet)
         if m:
-            result["institution"] = m.group(1).replace("研究所", "").replace("股份有限公司", "")
+            result["institution"] = (
+                m.group(1).replace("研究所", "").replace("股份有限公司", "")
+            )
 
     if m := _RE_DATE_CN.search(snippet):
         try:
-            result["publish_date"] = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            result["publish_date"] = date(
+                int(m.group(1)), int(m.group(2)), int(m.group(3))
+            )
         except ValueError:
             pass
 
@@ -352,15 +369,15 @@ def _extract_symbols(text: str) -> list[str]:
 
 def _extract_industries_from_text(text: str) -> list[str]:
     snippet = text[:5000]
-    return list(dict.fromkeys(
-        ind for kw, ind in INDUSTRY_KEYWORDS.items()
-        if kw in snippet
-    ))
+    return list(
+        dict.fromkeys(ind for kw, ind in INDUSTRY_KEYWORDS.items() if kw in snippet)
+    )
 
 
 # ========================================================================
 # 图片提取
 # ========================================================================
+
 
 def _infer_figure_type(w: int, h: int, size_kb: int) -> str:
     ratio = w / max(h, 1)
@@ -412,19 +429,26 @@ def _extract_images(doc) -> list[dict]:
         fig_idx_in_page = sum(1 for f in figures if f["page_number"] == page_idx)
         caption = caps[fig_idx_in_page] if fig_idx_in_page < len(caps) else None
         if caption and len(caps) > 1 and fig_idx_in_page < len(caps):
-            logger.debug("图注匹配 page=%d idx=%d/%d caption=%s",
-                        page_idx, fig_idx_in_page, len(caps), caption[:40])
+            logger.debug(
+                "图注匹配 page=%d idx=%d/%d caption=%s",
+                page_idx,
+                fig_idx_in_page,
+                len(caps),
+                caption[:40],
+            )
 
-        figures.append({
-            "page_number": page_idx,
-            "figure_order": len(figures) + 1,
-            "figure_type": _infer_figure_type(w, h, sz),
-            "caption": caption[:512] if caption else None,
-            "image_size_kb": sz,
-            "bytes": img_bytes,
-            "width": w,
-            "height": h,
-        })
+        figures.append(
+            {
+                "page_number": page_idx,
+                "figure_order": len(figures) + 1,
+                "figure_type": _infer_figure_type(w, h, sz),
+                "caption": caption[:512] if caption else None,
+                "image_size_kb": sz,
+                "bytes": img_bytes,
+                "width": w,
+                "height": h,
+            }
+        )
         return True
 
     for page_idx, page in enumerate(doc, start=1):
@@ -455,7 +479,12 @@ def _extract_images(doc) -> list[dict]:
                 finally:
                     pix = None
             except Exception:
-                logger.warning("光栅图提取失败 page=%d xref=%d\n%s", page_idx, xref, traceback.format_exc())
+                logger.warning(
+                    "光栅图提取失败 page=%d xref=%d\n%s",
+                    page_idx,
+                    xref,
+                    traceback.format_exc(),
+                )
                 pix = None
 
         if len(figures) >= FIGURE_MAX_PER_REPORT:
@@ -474,24 +503,34 @@ def _extract_images(doc) -> list[dict]:
                 margin = min(_MERGE_MARGIN, (page_w - w) / 2, (page_h - h) / 2)
                 bbox = blk["bbox"]
                 clip = pymupdf.Rect(
-                    max(0, bbox[0] - margin), max(0, bbox[1] - margin),
-                    min(page_w, bbox[2] + margin), min(page_h, bbox[3] + margin * 2),
+                    max(0, bbox[0] - margin),
+                    max(0, bbox[1] - margin),
+                    min(page_w, bbox[2] + margin),
+                    min(page_h, bbox[3] + margin * 2),
                 )
                 pix = page.get_pixmap(clip=clip, dpi=_DPI_RENDER)
                 try:
                     img_bytes = pix.tobytes("png")
                     if len(img_bytes) >= _VECTOR_MIN_BYTES:
-                        _add_figure(page_idx, img_bytes, int(clip.width), int(clip.height))
+                        _add_figure(
+                            page_idx, img_bytes, int(clip.width), int(clip.height)
+                        )
                 finally:
                     pix = None
             except Exception:
-                logger.debug("矢量块渲染失败 page=%d\n%s", page_idx, traceback.format_exc())
+                logger.debug(
+                    "矢量块渲染失败 page=%d\n%s", page_idx, traceback.format_exc()
+                )
 
         if len(figures) >= FIGURE_MAX_PER_REPORT:
             break
 
         # -- 整页渲染（纯矢量图表） --
-        large_img_blocks = [b for b in img_blocks if b.get("width", 0) > 150 and b.get("height", 0) > 150]
+        large_img_blocks = [
+            b
+            for b in img_blocks
+            if b.get("width", 0) > 150 and b.get("height", 0) > 150
+        ]
         if len(drawings) < _DRAWING_THRESHOLD or large_img_blocks:
             continue
         if not _RE_CHART_CAPTION.search(text):
@@ -504,9 +543,12 @@ def _extract_images(doc) -> list[dict]:
             try:
                 img_bytes = pix.tobytes("png")
                 if len(img_bytes) >= _PAGE_RENDER_MIN_BYTES:
-                    _add_figure(page_idx, img_bytes,
-                                int(page_w * _DPI_RENDER / 72),
-                                int(page_h * _DPI_RENDER / 72))
+                    _add_figure(
+                        page_idx,
+                        img_bytes,
+                        int(page_w * _DPI_RENDER / 72),
+                        int(page_h * _DPI_RENDER / 72),
+                    )
             finally:
                 pix = None
         except Exception:
@@ -518,6 +560,7 @@ def _extract_images(doc) -> list[dict]:
 # ========================================================================
 # 主解析函数
 # ========================================================================
+
 
 @dataclass
 class ParseResult:
@@ -575,7 +618,11 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
         # 标题兜底：元数据标题为hash、截断或不完整时，从正文提取
         t = _extract_title_from_text(full_text)
         if t:
-            if _RE_HASH.match(title) or _RE_TRUNCATED.search(title) or len(t) > len(title) + 5:
+            if (
+                _RE_HASH.match(title)
+                or _RE_TRUNCATED.search(title)
+                or len(t) > len(title) + 5
+            ):
                 title = t
 
         # -- 元数据 --

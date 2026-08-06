@@ -11,7 +11,6 @@ import zlib
 from collections import deque
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # 与服务端 Protobuf 协议对应的命令编号。
@@ -96,7 +95,10 @@ class DreamClient:
 
     @staticmethod
     def build_frame(flow_no: int, command_no: int, payload: bytes = b"") -> bytes:
-        return struct.pack(">BBiiiI", 66, 70, flow_no, command_no, 0, len(payload)) + payload
+        return (
+            struct.pack(">BBiiiI", 66, 70, flow_no, command_no, 0, len(payload))
+            + payload
+        )
 
     @staticmethod
     def parse_frame(frame: bytes) -> tuple[int, int, bytes]:
@@ -108,7 +110,11 @@ class DreamClient:
         if tag0 != 66 or tag1 != 70 or length != len(frame) - 18:
             raise RuntimeError("数据帧格式错误")
         payload = frame[18:]
-        return flow_no, command_no, zlib.decompress(payload) if data_type == 1 else payload
+        return (
+            flow_no,
+            command_no,
+            zlib.decompress(payload) if data_type == 1 else payload,
+        )
 
     def _heartbeat_loop(self) -> None:
         while not self.closed:

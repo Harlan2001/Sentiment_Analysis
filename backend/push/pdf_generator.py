@@ -6,12 +6,14 @@ PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 +
 
 依赖：playwright + Chromium（`playwright install chromium`）
 """
+
 import json
 import logging
 import os
 import tempfile
 from datetime import date, datetime
 from pathlib import Path
+
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from backend.common.database import get_db_connection
@@ -60,7 +62,9 @@ def _fetch_report_from_db(trade_date: date) -> dict:
         )
         row = cur.fetchone()
         if not row:
-            raise ValueError(f"未找到 {trade_date.isoformat()} 的预测报告（forecast_report 表中无 full_report 记录）")
+            raise ValueError(
+                f"未找到 {trade_date.isoformat()} 的预测报告（forecast_report 表中无 full_report 记录）"
+            )
 
         prediction = row[3]
         if isinstance(prediction, str):
@@ -132,17 +136,19 @@ def _build_report_html(report: dict) -> str:
     for key, title, period in period_config:
         item = pred_results.get(key)
         if item and isinstance(item, dict):
-            predictions.append({
-                "title": title,
-                "period": period,
-                "上涨概率": item.get("上涨概率", 0) or 0,
-                "下跌概率": item.get("下跌概率", 0) or 0,
-                "上涨基点": item.get("上涨基点", 0) or 0,
-                "下跌基点": item.get("下跌基点", 0) or 0,
-                "置信度": item.get("置信度", None),
-                "分析理由": item.get("分析理由", ""),
-                "假设条件": item.get("假设条件", []),
-            })
+            predictions.append(
+                {
+                    "title": title,
+                    "period": period,
+                    "上涨概率": item.get("上涨概率", 0) or 0,
+                    "下跌概率": item.get("下跌概率", 0) or 0,
+                    "上涨基点": item.get("上涨基点", 0) or 0,
+                    "下跌基点": item.get("下跌基点", 0) or 0,
+                    "置信度": item.get("置信度", None),
+                    "分析理由": item.get("分析理由", ""),
+                    "假设条件": item.get("假设条件", []),
+                }
+            )
 
     # ── 情景分析 ──
     scenario_data = pred.get("情景分析", {}) or {}
@@ -156,14 +162,16 @@ def _build_report_html(report: dict) -> str:
     for key, icon, title in scenario_config:
         item = scenario_data.get(key)
         if item and isinstance(item, dict):
-            scenarios.append({
-                "key": key,
-                "icon": icon,
-                "title": title,
-                "概率": item.get("概率", 0) or 0,
-                "触发条件": item.get("触发条件", ""),
-                "描述": item.get("描述", ""),
-            })
+            scenarios.append(
+                {
+                    "key": key,
+                    "icon": icon,
+                    "title": title,
+                    "概率": item.get("概率", 0) or 0,
+                    "触发条件": item.get("触发条件", ""),
+                    "描述": item.get("描述", ""),
+                }
+            )
 
     # ── 渲染模板 ──
     template = _jinja_env.get_template("report.html")
@@ -214,12 +222,18 @@ def generate_prediction_pdf(
     logger.info("  输出目录 : %s", PDF_DIR)
 
     report = _fetch_report_from_db(report_date)
-    trade_date_str = report["trade_date"].isoformat() if isinstance(report["trade_date"], date) else str(report["trade_date"])
+    trade_date_str = (
+        report["trade_date"].isoformat()
+        if isinstance(report["trade_date"], date)
+        else str(report["trade_date"])
+    )
 
     if output_path is None:
         output_path = str(PDF_DIR / f"{trade_date_str}.pdf")
 
-    logger.info("  模型 : %s  |  版本 : %s", report["model_name"], report["prompt_version"])
+    logger.info(
+        "  模型 : %s  |  版本 : %s", report["model_name"], report["prompt_version"]
+    )
 
     # 2. 构建 HTML
     html = _build_report_html(report)
@@ -249,11 +263,18 @@ def generate_prediction_pdf(
                 tmp_path = tmp.name
 
             try:
-                page.goto(f"file:///{tmp_path.replace(os.sep, '/')}", wait_until="networkidle")
+                page.goto(
+                    f"file:///{tmp_path.replace(os.sep, '/')}", wait_until="networkidle"
+                )
                 page.pdf(
                     path=output_path,
                     format="A4",
-                    margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
+                    margin={
+                        "top": "15mm",
+                        "bottom": "15mm",
+                        "left": "12mm",
+                        "right": "12mm",
+                    },
                     print_background=True,
                 )
             finally:

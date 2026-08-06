@@ -7,8 +7,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+
 from openai import OpenAI
 
+from backend.common.db_operations import DBOperations
 from backend.config.config import (
     CATEGORY_KEYS,
     PORTFOLIO_MODEL,
@@ -16,7 +18,6 @@ from backend.config.config import (
     RATING_ENUM,
     TYPE_KEYS,
 )
-from backend.common.db_operations import DBOperations
 from backend.tools.portfolio_utils import (
     build_cache_key,
     build_data_version,
@@ -32,6 +33,7 @@ from backend.tools.portfolio_utils import (
 @dataclass
 class PortfolioRuntimeConfig:
     """组合策略运行时配置，默认值来自全局常量。"""
+
     model: str = PORTFOLIO_MODEL
     tz: "ZoneInfo" = PORTFOLIO_TZ  # type: ignore[name-defined]
 
@@ -43,7 +45,11 @@ class PortfolioStrategyService:
     并通过缓存表实现幂等与结果复用。
     """
 
-    def __init__(self, llm_client: OpenAI, runtime_config: Optional[PortfolioRuntimeConfig] = None):
+    def __init__(
+        self,
+        llm_client: OpenAI,
+        runtime_config: Optional[PortfolioRuntimeConfig] = None,
+    ):
         self._llm_client = llm_client
         self._cfg = runtime_config or PortfolioRuntimeConfig()
 
@@ -78,7 +84,9 @@ class PortfolioStrategyService:
             raise ValueError("缺少 distribution_by_type 对象")
 
         duration = validate_range(general.get("duration_years") or {}, "组合久期")
-        single_weight = validate_range(general.get("single_bond_weight_pct") or {}, "单券权重")
+        single_weight = validate_range(
+            general.get("single_bond_weight_pct") or {}, "单券权重"
+        )
 
         min_rating = str(general.get("min_rating", "不限")).strip() or "不限"
         if min_rating not in RATING_ENUM:
@@ -92,7 +100,9 @@ class PortfolioStrategyService:
         for key in CATEGORY_KEYS:
             if key not in by_category:
                 raise ValueError(f"按种类缺少字段：{key}")
-            normalized_by_category[key] = validate_range(by_category[key], f"按种类/{key}")
+            normalized_by_category[key] = validate_range(
+                by_category[key], f"按种类/{key}"
+            )
 
         normalized_by_type: Dict[str, Dict[str, float]] = {}
         for key in TYPE_KEYS:
@@ -131,7 +141,11 @@ class PortfolioStrategyService:
         lines: List[str] = []
         for i, item in enumerate(rows, start=1):
             pub_time = item["pub_time"]
-            ts = pub_time.strftime("%Y-%m-%d %H:%M") if isinstance(pub_time, datetime) else str(pub_time)
+            ts = (
+                pub_time.strftime("%Y-%m-%d %H:%M")
+                if isinstance(pub_time, datetime)
+                else str(pub_time)
+            )
             lines.append(
                 f"{i}. 时间: {ts} | 标题: {item['title']} | 方向: {item['direction']} | 原因: {item['reason']}"
             )
@@ -154,7 +168,9 @@ class PortfolioStrategyService:
             完整的提示词字符串
         """
         material = self._build_news_material(rows)
-        correction_section = f"\n校验错误修正提示：{correction_hint}\n" if correction_hint else ""
+        correction_section = (
+            f"\n校验错误修正提示：{correction_hint}\n" if correction_hint else ""
+        )
         return f"""
 你是中国债券市场组合分析助手。请根据新闻及其分析原因，输出"组合筛选字段"的 JSON。
 

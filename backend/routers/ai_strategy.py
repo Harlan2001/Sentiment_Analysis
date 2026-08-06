@@ -1,6 +1,7 @@
 import logging
 from datetime import date
 from typing import Optional
+
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 
@@ -14,7 +15,9 @@ from backend.strategy.strategy_recommendation import (
 
 logger = logging.getLogger("ai_strategy_router")
 
-router = APIRouter(prefix=f"{API_PREFIX}/ai-strategy-recommendation", tags=["ai-strategy"])
+router = APIRouter(
+    prefix=f"{API_PREFIX}/ai-strategy-recommendation", tags=["ai-strategy"]
+)
 
 
 class RecommendationRequest(BaseModel):

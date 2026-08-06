@@ -2,9 +2,12 @@
 认证核心模块：密码验证 + JWT 签发/验证
 明文密码版：直接比对，不哈希
 """
+
 import time
+
 import jwt
-from backend.config.config import JWT_SECRET_KEY, JWT_EXPIRY_HOURS
+
+from backend.config.config import JWT_EXPIRY_HOURS, JWT_SECRET_KEY
 
 
 def check_password(password: str, stored_password: str) -> bool:

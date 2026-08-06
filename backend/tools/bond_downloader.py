@@ -2,11 +2,12 @@ import argparse
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
+
 import requests
 
-from backend.config.config import BOND_XLSX, MYSQL_CONFIG, get_requests_proxies
-from backend.common.database import DatabaseConfig, init_database, get_db_connection
+from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.yield_db import import_yield_data_from_excel
+from backend.config.config import BOND_XLSX, MYSQL_CONFIG, get_requests_proxies
 
 logger = logging.getLogger("bond_downloader")
 
@@ -52,13 +53,15 @@ def download_history_excel(
         "gjqx": gjqx,
         "locale": locale,
         "nameType": name_type,
-        "qxmc": name_type
+        "qxmc": name_type,
     }
 
     try:
         # 3. 发送请求下载文件
         logger.info("正在下载收益率Excel: %s ~ %s", start_date, end_date)
-        response = requests.get(base_url, params=params, timeout=60, proxies=get_requests_proxies())
+        response = requests.get(
+            base_url, params=params, timeout=60, proxies=get_requests_proxies()
+        )
         response.raise_for_status()
 
         # 4. 保存Excel文件
@@ -153,6 +156,7 @@ def build_arg_parser():
 
 def main():
     from backend.common.logging_config import setup_logging
+
     setup_logging()
 
     args = build_arg_parser().parse_args()
@@ -167,5 +171,5 @@ def main():
     logger.info("收益率数据更新完成")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

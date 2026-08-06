@@ -29,7 +29,6 @@ from backend.integrations.dream.client import (
     prepare_protobuf_modules,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +67,9 @@ class DreamStrategySettings:
 
 def _ensure_success(operation: str, response: Any) -> None:
     if response.response_info.code != 0:
-        raise RuntimeError(f"{operation}失败，服务端 code={response.response_info.code}")
+        raise RuntimeError(
+            f"{operation}失败，服务端 code={response.response_info.code}"
+        )
 
 
 def _load_portal_connection(settings: DreamStrategySettings) -> tuple[str, str]:
@@ -90,7 +91,9 @@ def _load_portal_connection(settings: DreamStrategySettings) -> tuple[str, str]:
     return f"{ws_base_url.rstrip('/')}/{token}", token
 
 
-def _connect_and_login(url: str, token: str, timeout_seconds: int, common_pb2: Any) -> DreamClient:
+def _connect_and_login(
+    url: str, token: str, timeout_seconds: int, common_pb2: Any
+) -> DreamClient:
     client = DreamClient(url, timeout_seconds)
     try:
         while True:
@@ -103,7 +106,9 @@ def _connect_and_login(url: str, token: str, timeout_seconds: int, common_pb2: A
 
         response = client.request(
             CI_LOGIN,
-            common_pb2.LoginRequest(access_token=session_key_message.session_key + token),
+            common_pb2.LoginRequest(
+                access_token=session_key_message.session_key + token
+            ),
             common_pb2.LoginResponse,
         )
         _ensure_success("DreamStrategy 登录", response)
@@ -148,7 +153,13 @@ def _fetch_final_answer(
     )
     _ensure_success("读取 DreamStrategy 最终消息", response)
     return next(
-        (message.content for message in reversed(response.messages) if message.role == 2 and len(str(message.content or "").strip()) > 1 and not str(message.content or "").strip().isdigit()),
+        (
+            message.content
+            for message in reversed(response.messages)
+            if message.role == 2
+            and len(str(message.content or "").strip()) > 1
+            and not str(message.content or "").strip().isdigit()
+        ),
         "",
     )
 
@@ -175,7 +186,9 @@ def _fetch_final_message(
     candidates = [
         message
         for message in response.messages
-        if message.role == 2 and len(str(message.content or "").strip()) > 1 and not str(message.content or "").strip().isdigit()
+        if message.role == 2
+        and len(str(message.content or "").strip()) > 1
+        and not str(message.content or "").strip().isdigit()
     ]
     return candidates[-1] if candidates else None
 
@@ -240,13 +253,33 @@ def _merge_backtest_log(previous: str, incoming: str) -> str:
 
 
 _BACKTEST_STATISTIC_NAMES = (
-    "Total Orders", "Average Win", "Average Loss", "Compounding Annual Return",
-    "Drawdown", "Expectancy", "Start Equity", "End Equity", "Net Profit",
-    "Sharpe Ratio", "Sortino Ratio", "Probabilistic Sharpe Ratio", "Loss Rate",
-    "Win Rate", "Profit-Loss Ratio", "Alpha", "Beta", "Annual Standard Deviation",
-    "Annual Variance", "Information Ratio", "Tracking Error", "Treynor Ratio",
-    "Total Fees", "Estimated Strategy Capacity", "Lowest Capacity Asset",
-    "Portfolio Turnover", "Drawdown Recovery",
+    "Total Orders",
+    "Average Win",
+    "Average Loss",
+    "Compounding Annual Return",
+    "Drawdown",
+    "Expectancy",
+    "Start Equity",
+    "End Equity",
+    "Net Profit",
+    "Sharpe Ratio",
+    "Sortino Ratio",
+    "Probabilistic Sharpe Ratio",
+    "Loss Rate",
+    "Win Rate",
+    "Profit-Loss Ratio",
+    "Alpha",
+    "Beta",
+    "Annual Standard Deviation",
+    "Annual Variance",
+    "Information Ratio",
+    "Tracking Error",
+    "Treynor Ratio",
+    "Total Fees",
+    "Estimated Strategy Capacity",
+    "Lowest Capacity Asset",
+    "Portfolio Turnover",
+    "Drawdown Recovery",
 )
 
 
@@ -260,12 +293,14 @@ def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
         statistic = line.split("STATISTICS::", 1)[1].strip()
         for label in _BACKTEST_STATISTIC_NAMES:
             if statistic == label or statistic.startswith(f"{label} "):
-                value = statistic[len(label):].strip()
-                metrics.append({
-                    "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
-                    "label": label,
-                    "value": value,
-                })
+                value = statistic[len(label) :].strip()
+                metrics.append(
+                    {
+                        "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
+                        "label": label,
+                        "value": value,
+                    }
+                )
                 break
     return metrics
 
@@ -329,14 +364,21 @@ def generate_strategy(
         backtest_log = ""
         while True:
             if time.monotonic() - started_at >= settings.timeout_seconds:
-                raise TimeoutError(f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒")
-            client.ws.settimeout(max(0.1, settings.timeout_seconds - (time.monotonic() - started_at)))
+                raise TimeoutError(
+                    f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒"
+                )
+            client.ws.settimeout(
+                max(0.1, settings.timeout_seconds - (time.monotonic() - started_at))
+            )
             _, command, payload = client.receive()
             if command != EI_PUSH_MESSAGE:
                 continue
             push = extension_pb2.PushAiStrategyV2TemplateChatMessage()
             push.ParseFromString(payload)
-            if push.template_id != settings.template_id or push.session_id != session_id:
+            if (
+                push.template_id != settings.template_id
+                or push.session_id != session_id
+            ):
                 continue
 
             message = push.message
@@ -355,7 +397,13 @@ def generate_strategy(
 
         if final_message is None:
             raise RuntimeError("DreamStrategy 未返回完成消息")
-        hydrated_message = _fetch_final_message(client, extension_pb2, settings.template_id, session_id, generation_message_id)
+        hydrated_message = _fetch_final_message(
+            client,
+            extension_pb2,
+            settings.template_id,
+            session_id,
+            generation_message_id,
+        )
         if hydrated_message:
             final_message = hydrated_message
         answer = _fetch_final_answer(
@@ -378,7 +426,9 @@ def generate_strategy(
                 if strategy and str(strategy.get("code") or "").strip():
                     break
             except Exception as exc:
-                logger.warning("DreamStrategy reply has no readable strategy artifact: %s", exc)
+                logger.warning(
+                    "DreamStrategy reply has no readable strategy artifact: %s", exc
+                )
             if time.monotonic() >= artifact_deadline:
                 break
             time.sleep(1)

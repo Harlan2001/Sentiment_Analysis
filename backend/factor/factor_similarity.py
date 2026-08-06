@@ -2,15 +2,17 @@
 因子相似度计算引擎
 使用预训练模型计算因子语义相似度，防止创建语义重复的新因子。
 """
+
 import logging
-from typing import Any, Dict, List
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-import sys
+from typing import Any, Dict, List
+
 import jieba
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
 from backend.config.config import MODEL_DIR
 from backend.factor.factor_management import get_factors_from_db
@@ -27,6 +29,7 @@ if str(project_root) not in sys.path:
 @dataclass
 class SimilarityResult:
     """相似度计算结果"""
+
     factor_code: str
     factor_name: str
     similarity_score: float
@@ -119,7 +122,9 @@ class FactorSimilarityEngine:
             self.initialize()
 
         # 计算新因子嵌入
-        new_embedding = self.model.encode([new_factor_text], normalize_embeddings=True)[0]
+        new_embedding = self.model.encode([new_factor_text], normalize_embeddings=True)[
+            0
+        ]
 
         results = []
         for factor in self.standard_factors:
@@ -170,7 +175,6 @@ class FactorSimilarityEngine:
         intersection = len(new_words & standard_words) + len(new_words & code_words)
         union = len(new_words | standard_words | code_words)
         return intersection / union if union else 0.0
-    
 
     def reload_factors(self):
         """重新加载因子库和嵌入，在新增因子后调用"""

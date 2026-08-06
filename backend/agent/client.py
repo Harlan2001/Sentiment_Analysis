@@ -3,6 +3,7 @@
 从 sentiment-cli-for-server/sentiment_cli/client.py 提取，
 去掉了 Config 依赖、stream/fetch_openapi/chat_gateway 等 agent 不需要的方法。
 """
+
 from __future__ import annotations
 
 import json
@@ -85,7 +86,9 @@ class Client:
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(
-            url, data=data, method=method.upper(),
+            url,
+            data=data,
+            method=method.upper(),
             headers=self._headers(data is not None),
         )
         try:
@@ -96,7 +99,9 @@ class Client:
                 return resp.status, _parse(raw, resp.headers.get("Content-Type", ""))
         except urllib.error.HTTPError as exc:
             raw = exc.read()
-            raise BackendError(exc.code, _parse(raw, exc.headers.get("Content-Type", "")), url)
+            raise BackendError(
+                exc.code, _parse(raw, exc.headers.get("Content-Type", "")), url
+            )
         except (urllib.error.URLError, OSError) as exc:
             raise NetworkError(f"cannot reach {url}: {exc}") from exc
 
@@ -105,6 +110,7 @@ class Client:
 
 
 # ── 内部辅助 ──────────────────────────────────────────────────────────────────
+
 
 def _parse(raw: bytes, content_type: str) -> Any:
     if not raw:
@@ -119,10 +125,17 @@ def _parse(raw: bytes, content_type: str) -> Any:
 
 
 _BINARY_PREFIXES = (
-    "application/pdf", "application/octet-stream", "application/zip",
-    "application/x-tar", "application/x-gzip", "application/msword",
-    "application/vnd.openxmlformats", "application/vnd.ms-excel",
-    "image/", "audio/", "video/",
+    "application/pdf",
+    "application/octet-stream",
+    "application/zip",
+    "application/x-tar",
+    "application/x-gzip",
+    "application/msword",
+    "application/vnd.openxmlformats",
+    "application/vnd.ms-excel",
+    "image/",
+    "audio/",
+    "video/",
 )
 
 
