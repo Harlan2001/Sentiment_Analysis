@@ -96,8 +96,8 @@ export default function ResearchListPage() {
     if (filters.market_view) params.set('market_view', filters.market_view)
 
     fetch(`${API_PREFIX}/research/list?${params}`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         setData(d.items || [])
         setTotal(d.total || 0)
         setFilterOptions(d.filters || { institutions: [], industries: [] })
@@ -107,14 +107,16 @@ export default function ResearchListPage() {
 
   useEffect(() => {
     fetch(`${API_PREFIX}/research/summary`, { headers: authHeaders() })
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(setSummary)
   }, [])
 
-  useEffect(() => { fetchData() }, [page, filters, refreshTrigger])
+  useEffect(() => {
+    fetchData()
+  }, [page, filters, refreshTrigger])
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
+    setFilters((prev) => ({ ...prev, [key]: value }))
     setPage(1)
   }
 
@@ -142,31 +144,35 @@ export default function ResearchListPage() {
         <CardContent className="flex flex-wrap items-center gap-3">
           <select
             value={filters.institution}
-            onChange={e => handleFilterChange('institution', e.target.value)}
+            onChange={(e) => handleFilterChange('institution', e.target.value)}
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-300
                        focus:outline-none focus:border-blue-500"
           >
             <option value="">全部机构</option>
-            {filterOptions.institutions.map(inst => (
-              <option key={inst} value={inst}>{inst}</option>
+            {filterOptions.institutions.map((inst) => (
+              <option key={inst} value={inst}>
+                {inst}
+              </option>
             ))}
           </select>
 
           <select
             value={filters.industry}
-            onChange={e => handleFilterChange('industry', e.target.value)}
+            onChange={(e) => handleFilterChange('industry', e.target.value)}
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-300
                        focus:outline-none focus:border-blue-500"
           >
             <option value="">全部行业</option>
-            {filterOptions.industries.map(ind => (
-              <option key={ind} value={ind}>{ind}</option>
+            {filterOptions.industries.map((ind) => (
+              <option key={ind} value={ind}>
+                {ind}
+              </option>
             ))}
           </select>
 
           <select
             value={filters.market_view}
-            onChange={e => handleFilterChange('market_view', e.target.value)}
+            onChange={(e) => handleFilterChange('market_view', e.target.value)}
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-300
                        focus:outline-none focus:border-blue-500"
           >
@@ -176,32 +182,25 @@ export default function ResearchListPage() {
             <option value="neutral">中性</option>
           </select>
 
-          <span className="text-xs text-gray-500 ml-auto">
-            共 {total} 份
-          </span>
+          <span className="text-xs text-gray-500 ml-auto">共 {total} 份</span>
         </CardContent>
       </Card>
 
       {/* 列表 */}
       <div className="space-y-3">
-        {data.map(item => (
-          <Card
-            key={item.id}
-            hover
-            onClick={() => navigate(`/research/${item.id}`)}
-            className="cursor-pointer"
-          >
+        {data.map((item) => (
+          <Card key={item.id} hover onClick={() => navigate(`/research/${item.id}`)} className="cursor-pointer">
             <CardContent className="flex items-start gap-4">
               {/* 情感徽章 */}
               <div className="flex-shrink-0 mt-0.5">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border
                   ${VIEW_BG[item.ai_market_view || 'neutral']}
-                  ${VIEW_COLORS[item.ai_market_view || 'neutral']}`}>
+                  ${VIEW_COLORS[item.ai_market_view || 'neutral']}`}
+                >
                   {VIEW_LABEL[item.ai_market_view || 'neutral']}
                   {item.ai_view_strength && (
-                    <span className="ml-1 opacity-70">
-                      {Math.round(item.ai_view_strength * 100)}%
-                    </span>
+                    <span className="ml-1 opacity-70">{Math.round(item.ai_view_strength * 100)}%</span>
                   )}
                 </span>
               </div>
@@ -209,41 +208,35 @@ export default function ResearchListPage() {
               {/* 主体内容 */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-white text-sm font-medium truncate">
-                    {item.title}
-                  </h3>
+                  <h3 className="text-white text-sm font-medium truncate">{item.title}</h3>
                   {item.status !== 'analyzed' && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded border font-medium
                       ${STATUS_BG[item.status] || 'bg-gray-500/10 border-gray-500/30'}
-                      ${STATUS_COLORS[item.status] || 'text-gray-400'}`}>
+                      ${STATUS_COLORS[item.status] || 'text-gray-400'}`}
+                    >
                       {STATUS_LABEL[item.status] || item.status}
                     </span>
                   )}
                 </div>
 
-                {item.ai_summary && (
-                  <p className="text-gray-400 text-xs line-clamp-2 mb-2">
-                    {item.ai_summary}
-                  </p>
-                )}
+                {item.ai_summary && <p className="text-gray-400 text-xs line-clamp-2 mb-2">{item.ai_summary}</p>}
 
                 {/* 标签行 */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-                  {item.institution && (
-                    <span className="px-1.5 py-0.5 rounded bg-gray-700/50">{item.institution}</span>
-                  )}
-                  {item.publish_date && (
-                    <span>{item.publish_date}</span>
-                  )}
-                  {item.industry && item.industry.split(',').slice(0, 3).map((ind: string) => (
-                    <span key={ind} className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
-                      {ind.trim()}
-                    </span>
-                  ))}
+                  {item.institution && <span className="px-1.5 py-0.5 rounded bg-gray-700/50">{item.institution}</span>}
+                  {item.publish_date && <span>{item.publish_date}</span>}
+                  {item.industry &&
+                    item.industry
+                      .split(',')
+                      .slice(0, 3)
+                      .map((ind: string) => (
+                        <span key={ind} className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                          {ind.trim()}
+                        </span>
+                      ))}
                   <span className="text-gray-600">{item.page_count}页</span>
-                  {item.source && (
-                    <span className="text-gray-600">{item.source}</span>
-                  )}
+                  {item.source && <span className="text-gray-600">{item.source}</span>}
                 </div>
               </div>
             </CardContent>
@@ -256,7 +249,7 @@ export default function ResearchListPage() {
         <div className="flex justify-center gap-2">
           <button
             disabled={page <= 1}
-            onClick={() => setPage(p => p - 1)}
+            onClick={() => setPage((p) => p - 1)}
             className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-400
                        disabled:opacity-30 hover:bg-gray-700 transition-colors"
           >
@@ -267,7 +260,7 @@ export default function ResearchListPage() {
           </span>
           <button
             disabled={page >= Math.ceil(total / 20)}
-            onClick={() => setPage(p => p + 1)}
+            onClick={() => setPage((p) => p + 1)}
             className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-400
                        disabled:opacity-30 hover:bg-gray-700 transition-colors"
           >
@@ -281,22 +274,18 @@ export default function ResearchListPage() {
         isOpen={uploadModalOpen}
         onClose={() => {
           setUploadModalOpen(false)
-          setRefreshTrigger(t => t + 1)
+          setRefreshTrigger((t) => t + 1)
         }}
         onSubmitted={() => {
           setUploadModalOpen(false)
-          setRefreshTrigger(t => t + 1)
+          setRefreshTrigger((t) => t + 1)
         }}
       />
     </div>
   )
 }
 
-function StatCard({ label, value, color = 'gray' }: {
-  label: string
-  value: number
-  color?: string
-}) {
+function StatCard({ label, value, color = 'gray' }: { label: string; value: number; color?: string }) {
   const colors: Record<string, string> = {
     blue: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400',
     red: 'from-red-500/20 to-red-600/10 border-red-500/30 text-red-400',

@@ -8,22 +8,16 @@ interface CardProps {
   onClick?: () => void
 }
 
-const Card: React.FC<CardProps> = ({
-  children,
-  className = '',
-  padding = 'md',
-  hover = false,
-  onClick,
-}) => {
+const Card: React.FC<CardProps> = ({ children, className = '', padding = 'md', hover = false, onClick }) => {
   const baseClasses = 'bg-gray-900/80 border border-gray-600 rounded-xl backdrop-blur-sm'
-  
+
   const paddingClasses = {
     none: '',
     sm: 'p-4',
     md: 'p-5',
     lg: 'p-6',
   }
-  
+
   const classes = `
     ${baseClasses}
     ${paddingClasses[padding]}
@@ -31,7 +25,7 @@ const Card: React.FC<CardProps> = ({
     ${onClick ? 'cursor-pointer' : ''}
     ${className}
   `
-  
+
   return (
     <div className={classes} onClick={onClick}>
       {children}
@@ -53,43 +47,24 @@ const CardTitle: React.FC<{
   children: React.ReactNode
   className?: string
 }> = ({ children, className = '' }) => (
-  <h3 className={`text-lg font-semibold text-white mb-2 ${className}`}>
-    {children}
-  </h3>
+  <h3 className={`text-lg font-semibold text-white mb-2 ${className}`}>{children}</h3>
 )
 
 const CardDescription: React.FC<{
   children: React.ReactNode
   className?: string
-}> = ({ children, className = '' }) => (
-  <p className={`text-gray-400 text-sm ${className}`}>
-    {children}
-  </p>
-)
+}> = ({ children, className = '' }) => <p className={`text-gray-400 text-sm ${className}`}>{children}</p>
 
 const CardContent: React.FC<{
   children: React.ReactNode
   className?: string
-}> = ({ children, className = '' }) => (
-  <div className={className}>
-    {children}
-  </div>
-)
+}> = ({ children, className = '' }) => <div className={className}>{children}</div>
 
 const CardFooter: React.FC<{
   children: React.ReactNode
   className?: string
 }> = ({ children, className = '' }) => (
-  <div className={`mt-4 pt-4 border-t border-gray-700 ${className}`}>
-    {children}
-  </div>
+  <div className={`mt-4 pt-4 border-t border-gray-700 ${className}`}>{children}</div>
 )
 
-export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-}
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }

@@ -1,9 +1,9 @@
-import React from 'react';
-import type { ServiceStatus } from '@/types';
-import { StatusLight } from './Widgets';
+import React from 'react'
+import type { ServiceStatus } from '@/types'
+import { StatusLight } from './Widgets'
 
 interface Props {
-  status: ServiceStatus;
+  status: ServiceStatus
 }
 
 export const ServiceStatusCard: React.FC<Props> = ({ status }) => (
@@ -17,4 +17,4 @@ export const ServiceStatusCard: React.FC<Props> = ({ status }) => (
       />
     </div>
   </div>
-);
+)

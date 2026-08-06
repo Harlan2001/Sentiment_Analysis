@@ -1,15 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchYields, fetchNewsByDate, fetchNewsById, fetchNewsSources, fetchNewsByDateRange, fetchLatestTradingDay } from '@/api'
+import {
+  fetchYields,
+  fetchNewsByDate,
+  fetchNewsById,
+  fetchNewsSources,
+  fetchNewsByDateRange,
+  fetchLatestTradingDay,
+} from '@/api'
 import { storage } from '@/utils/helpers'
 import { API_PREFIX } from '@/constants'
 import type { YieldPoint, NewsItem, NewsSource } from '@/types'
 
 function authHeaders(): Record<string, string> {
-  const token = storage.get<string>("auth_token");
+  const token = storage.get<string>('auth_token')
   if (token) {
-    return { Authorization: `Bearer ${token}` };
+    return { Authorization: `Bearer ${token}` }
   }
-  return {};
+  return {}
 }
 
 // 收益率数据Hook
@@ -93,7 +100,7 @@ export const useNewsSources = () => {
 // 新闻分析Mutation Hook
 export const useNewsAnalysis = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async ({ newsId, period, modelName }: { newsId: number; period?: string; modelName?: string }) => {
       const params = new URLSearchParams({

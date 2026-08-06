@@ -14,25 +14,17 @@ interface SectionLayoutProps {
   side?: React.ReactNode
 }
 
-const SectionLayout: React.FC<SectionLayoutProps> = ({
-  title,
-  main,
-  side,
-}) => {
+const SectionLayout: React.FC<SectionLayoutProps> = ({ title, main, side }) => {
   return (
     <div className="flex gap-4 p-4 h-full">
       {/* 左栏：板块内容（520） */}
       <div className="flex-[5] min-w-0 overflow-y-auto pr-1">
-        {main ?? (
-          <div className="text-sm text-gray-500">{title} 板块内容区</div>
-        )}
+        {main ?? <div className="text-sm text-gray-500">{title} 板块内容区</div>}
       </div>
 
       {/* 右栏：该板块自己的侧栏（300） */}
       <div className="flex-[3] min-w-0 overflow-y-auto pr-1">
-        {side ?? (
-          <div className="text-sm text-gray-500">{title} 侧栏区</div>
-        )}
+        {side ?? <div className="text-sm text-gray-500">{title} 侧栏区</div>}
       </div>
     </div>
   )

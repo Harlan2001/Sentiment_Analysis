@@ -21,21 +21,21 @@ const Skeleton: React.FC<SkeletonProps> = ({
     rectangular: 'rounded-md',
     circular: 'rounded-full',
   }
-  
+
   const animationClasses = {
     pulse: 'animate-pulse',
     wave: '',
     none: '',
   }
-  
+
   const baseClasses = 'bg-gray-700'
   const classes = `${baseClasses} ${variantClasses[variant]} ${animationClasses[animation]} ${className}`
-  
+
   const style = {
     width: width || '100%',
     height: height || (variant === 'text' ? '1rem' : '40px'),
   }
-  
+
   if (animation === 'wave') {
     return (
       <motion.div
@@ -55,13 +55,8 @@ const Skeleton: React.FC<SkeletonProps> = ({
       </motion.div>
     )
   }
-  
-  return (
-    <div
-      className={classes}
-      style={style}
-    />
-  )
+
+  return <div className={classes} style={style} />
 }
 
 // 新闻项骨架屏
@@ -104,12 +99,12 @@ const NewsPageSkeleton: React.FC = () => (
       <Skeleton width="200px" height="32px" className="mb-2" />
       <Skeleton width="400px" height="16px" />
     </div>
-    
+
     {/* 工具栏 */}
     <div>
       <Skeleton height="80px" variant="rectangular" />
     </div>
-    
+
     {/* 主要内容 */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* 图表区域 */}
@@ -119,7 +114,7 @@ const NewsPageSkeleton: React.FC = () => (
           <ChartSkeleton />
         </div>
       </div>
-      
+
       {/* 新闻列表 */}
       <div className="lg:col-span-1">
         <div className="p-5 border border-gray-600 rounded-xl">
@@ -135,9 +130,4 @@ const NewsPageSkeleton: React.FC = () => (
   </div>
 )
 
-export {
-  Skeleton,
-  NewsItemSkeleton,
-  ChartSkeleton,
-  NewsPageSkeleton,
-}
+export { Skeleton, NewsItemSkeleton, ChartSkeleton, NewsPageSkeleton }

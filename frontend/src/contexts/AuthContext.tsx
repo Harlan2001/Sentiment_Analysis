@@ -67,7 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
       } else if (data.authenticated && savedToken) {
         // 已认证
-        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(USER_KEY)
+        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(
+          USER_KEY
+        )
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -97,7 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // API 不可用时的降级处理
       const savedToken = storage.get<string>(TOKEN_KEY)
       if (savedToken) {
-        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(USER_KEY)
+        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(
+          USER_KEY
+        )
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -140,7 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.success && data.token) {
         storage.set(TOKEN_KEY, data.token)
-        storage.set(USER_KEY, { username: data.username, displayName: data.display_name, isAdmin: data.is_admin || false, role: data.role || 'user' })
+        storage.set(USER_KEY, {
+          username: data.username,
+          displayName: data.display_name,
+          isAdmin: data.is_admin || false,
+          role: data.role || 'user',
+        })
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -177,7 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.success && data.token) {
         storage.set(TOKEN_KEY, data.token)
-        storage.set(USER_KEY, { username: data.username, displayName: data.display_name, isAdmin: data.is_admin || false, role: data.role || 'user' })
+        storage.set(USER_KEY, {
+          username: data.username,
+          displayName: data.display_name,
+          isAdmin: data.is_admin || false,
+          role: data.role || 'user',
+        })
         setState({
           isAuthenticated: true,
           isLoading: false,
@@ -200,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     storage.remove(TOKEN_KEY)
     storage.remove(USER_KEY)
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isAuthenticated: false,
       username: null,
@@ -211,11 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }))
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ ...state, login, loginByPhone, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ ...state, login, loginByPhone, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

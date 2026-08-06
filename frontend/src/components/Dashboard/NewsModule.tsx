@@ -2,41 +2,41 @@
  * 模块A：新闻数据流
  * A1 卡片 + A2 7日趋势堆叠柱状图 + A3 各源占比环形图 + A4 数据表格
  */
-import React from 'react';
-import ReactECharts from 'echarts-for-react';
-import type { NewsModuleData } from '@/types';
-import { PanelTitle, MetricCard } from './Widgets';
-import { NEWS_SOURCES } from './constants';
+import React from 'react'
+import ReactECharts from 'echarts-for-react'
+import type { NewsModuleData } from '@/types'
+import { PanelTitle, MetricCard } from './Widgets'
+import { NEWS_SOURCES } from './constants'
 
 interface Props {
-  data: NewsModuleData;
+  data: NewsModuleData
 }
 
 const sourceColors: Record<string, string> = {
-  '华尔街见闻': '#f59e0b',
-  '第一财经': '#8b5cf6',
-  'wallstreetcn': '#f59e0b',
-  'yicai': '#8b5cf6',
-};
+  华尔街见闻: '#f59e0b',
+  第一财经: '#8b5cf6',
+  wallstreetcn: '#f59e0b',
+  yicai: '#8b5cf6',
+}
 
 function getSourceColor(name: string): string {
-  return sourceColors[name] || '#6b7280';
+  return sourceColors[name] || '#6b7280'
 }
 
 function buildTrendOption(data: NewsModuleData) {
-  const trend = data.trend_7d;
-  if (!trend || trend.length === 0) return {};
+  const trend = data.trend_7d
+  if (!trend || trend.length === 0) return {}
 
   // 收集所有 source name
-  const sourceSet = new Set<string>();
-  trend.forEach(item => {
-    Object.keys(item).forEach(k => {
-      if (k !== 'date') sourceSet.add(k);
-    });
-  });
-  const sources = Array.from(sourceSet);
+  const sourceSet = new Set<string>()
+  trend.forEach((item) => {
+    Object.keys(item).forEach((k) => {
+      if (k !== 'date') sourceSet.add(k)
+    })
+  })
+  const sources = Array.from(sourceSet)
 
-  const dates = trend.map(item => item.date);
+  const dates = trend.map((item) => item.date)
 
   return {
     tooltip: {
@@ -64,25 +64,25 @@ function buildTrendOption(data: NewsModuleData) {
       axisLabel: { color: '#9ca3af', fontSize: 10 },
       splitLine: { lineStyle: { color: '#1f2937' } },
     },
-    series: sources.map(s => ({
+    series: sources.map((s) => ({
       name: s,
       type: 'bar',
       stack: 'total',
-      data: trend.map(item => {
-        const v = item[s];
-        if (typeof v === 'number') return v;
-        if (typeof v === 'object' && v !== null) return (v as any).count || 0;
-        return 0;
+      data: trend.map((item) => {
+        const v = item[s]
+        if (typeof v === 'number') return v
+        if (typeof v === 'object' && v !== null) return (v as any).count || 0
+        return 0
       }),
       itemStyle: { color: getSourceColor(s), borderRadius: [0, 0, 0, 0] },
       emphasis: { itemStyle: { color: getSourceColor(s) } },
     })),
-  };
+  }
 }
 
 function buildDonutOption(data: NewsModuleData) {
-  const dist = data.source_distribution;
-  if (!dist || dist.length === 0) return {};
+  const dist = data.source_distribution
+  if (!dist || dist.length === 0) return {}
 
   return {
     tooltip: {
@@ -98,27 +98,29 @@ function buildDonutOption(data: NewsModuleData) {
       top: 'center',
       textStyle: { color: '#9ca3af', fontSize: 10 },
     },
-    series: [{
-      type: 'pie',
-      radius: ['45%', '70%'],
-      center: ['35%', '50%'],
-      avoidLabelOverlap: false,
-      label: { show: false },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: 14,
-          fontWeight: 'bold',
-          color: '#e5e7eb',
+    series: [
+      {
+        type: 'pie',
+        radius: ['45%', '70%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: false,
+        label: { show: false },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: '#e5e7eb',
+          },
         },
+        data: dist.map((d) => ({
+          name: d.name,
+          value: d.count,
+          itemStyle: { color: getSourceColor(d.name) },
+        })),
       },
-      data: dist.map(d => ({
-        name: d.name,
-        value: d.count,
-        itemStyle: { color: getSourceColor(d.name) },
-      })),
-    }],
-  };
+    ],
+  }
 }
 
 export const NewsModule: React.FC<Props> = ({ data }) => (
@@ -162,17 +164,21 @@ export const NewsModule: React.FC<Props> = ({ data }) => (
           </tr>
         </thead>
         <tbody>
-          {data.latest_per_source?.map(s => (
+          {data.latest_per_source?.map((s) => (
             <tr key={s.source} className="border-b border-gray-700/30">
               <td className="text-gray-300 py-1">{s.name}</td>
               <td className="text-right text-gray-400 py-1">{s.latest_time || '—'}</td>
               <td className="text-center py-1">
-                <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                  s.status === 'ok' ? 'bg-green-400' : s.status === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
-                }`} />
-                <span className={`text-[10px] ${
-                  s.status === 'ok' ? 'text-green-400' : s.status === 'yellow' ? 'text-yellow-400' : 'text-red-400'
-                }`}>
+                <span
+                  className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                    s.status === 'ok' ? 'bg-green-400' : s.status === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
+                  }`}
+                />
+                <span
+                  className={`text-[10px] ${
+                    s.status === 'ok' ? 'text-green-400' : s.status === 'yellow' ? 'text-yellow-400' : 'text-red-400'
+                  }`}
+                >
                   {s.status === 'ok' ? '正常' : s.status === 'yellow' ? '超24h未更新' : '从未采集'}
                 </span>
               </td>
@@ -182,4 +188,4 @@ export const NewsModule: React.FC<Props> = ({ data }) => (
       </table>
     </div>
   </div>
-);
+)

@@ -2,8 +2,29 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/Layout/MainLayout'
 import WorkspaceLayout from './components/Layout/WorkspaceLayout'
-import { NewsPage, FactorPage, PredictionPage, AgentPage, StrategyListPage, ChangePage, LoginPage, DashboardPage, MacroDataPage, ResearchListPage, ResearchDetailPage, AiStrategyGenerationPreviewPage, AiStrategyHistoryPage } from './components/Pages'
-import { MarketSection, ReturnsSection, ForecastSection, WatchlistSection, PortfolioSection, WorkflowSection } from './components/Pages/sections'
+import {
+  NewsPage,
+  FactorPage,
+  PredictionPage,
+  AgentPage,
+  StrategyListPage,
+  ChangePage,
+  LoginPage,
+  DashboardPage,
+  MacroDataPage,
+  ResearchListPage,
+  ResearchDetailPage,
+  AiStrategyGenerationPreviewPage,
+  AiStrategyHistoryPage,
+} from './components/Pages'
+import {
+  MarketSection,
+  ReturnsSection,
+  ForecastSection,
+  WatchlistSection,
+  PortfolioSection,
+  WorkflowSection,
+} from './components/Pages/sections'
 import { useAuth } from './contexts/AuthContext'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
 import { Loading } from './components/UI/Loading'
@@ -92,7 +113,7 @@ function ProtectedRoutes() {
 }
 
 function App() {
-  useBehaviorTracker();
+  useBehaviorTracker()
   return (
     <div className="app-container min-h-screen">
       <ProtectedRoutes />

@@ -16,13 +16,13 @@ const Checkbox: React.FC<CheckboxProps> = ({
   ...props
 }) => {
   const checkboxRef = React.useRef<HTMLInputElement>(null)
-  
+
   React.useEffect(() => {
     if (checkboxRef.current) {
       checkboxRef.current.indeterminate = indeterminate
     }
   }, [indeterminate])
-  
+
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -42,14 +42,10 @@ const Checkbox: React.FC<CheckboxProps> = ({
           </label>
         )}
       </div>
-      
-      {error && (
-        <p className="text-sm text-red-400">{error}</p>
-      )}
-      
-      {helperText && !error && (
-        <p className="text-sm text-gray-400">{helperText}</p>
-      )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {helperText && !error && <p className="text-sm text-gray-400">{helperText}</p>}
     </div>
   )
 }

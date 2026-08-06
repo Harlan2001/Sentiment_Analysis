@@ -26,11 +26,7 @@ const DIRECTION_COLOR: Record<string, string> = {
   unknown: '#94a3b8',
 }
 
-const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
-  factor,
-  isOpen,
-  onClose,
-}) => {
+const FactorDetailModal: React.FC<FactorDetailModalProps> = ({ factor, isOpen, onClose }) => {
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null)
   const [modelFilter, setModelFilter] = useState<string>('best')
 
@@ -43,7 +39,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
     const news = analysis.news?.news || []
     const byDate = new Map<string, Record<string, number>>()
     for (const item of news) {
-      const date = (item.publish_date || String(item.publish_time || '').slice(0, 10))
+      const date = item.publish_date || String(item.publish_time || '').slice(0, 10)
       if (!date) continue
       const dir = DIRECTION_LABEL[item.factor_direction] || item.factor_direction || '中性'
       const entry = byDate.get(date) || {}
@@ -55,11 +51,11 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
 
   const timelineOption: EChartsOption = useMemo(() => {
     const dirKeys = ['看涨', '看跌', '中性']
-    const series = dirKeys.map(dir => ({
+    const series = dirKeys.map((dir) => ({
       name: dir,
       type: 'bar' as const,
       stack: 'total',
-      data: timeline.dates.map(d => timeline.byDate.get(d)?.[dir] || 0),
+      data: timeline.dates.map((d) => timeline.byDate.get(d)?.[dir] || 0),
       itemStyle: { color: DIRECTION_COLOR[dir] },
       barMaxWidth: 22,
     }))
@@ -96,20 +92,14 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
   const NewsItemCard: React.FC<{ news: FactorNewsItem }> = ({ news }) => (
     <div
       className={`p-4 border border-gray-700 rounded-lg transition-colors cursor-pointer ${
-        selectedNewsId === news.id
-          ? 'bg-purple-500/20 border-purple-500'
-          : 'hover:bg-gray-800/50'
+        selectedNewsId === news.id ? 'bg-purple-500/20 border-purple-500' : 'hover:bg-gray-800/50'
       }`}
       onClick={() => setSelectedNewsId(news.id)}
     >
       <div className="flex items-start justify-between mb-2">
-        <h4 className="font-medium text-white flex-1 mr-3 line-clamp-2">
-          {news.title}
-        </h4>
+        <h4 className="font-medium text-white flex-1 mr-3 line-clamp-2">{news.title}</h4>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <span className="text-xs text-gray-400">
-            {formatDate(news.publish_time, 'HH:mm')}
-          </span>
+          <span className="text-xs text-gray-400">{formatDate(news.publish_time, 'HH:mm')}</span>
           <span className={`text-xs px-2 py-1 rounded ${getDirectionColor(news.factor_direction)}`}>
             {news.factor_direction}
           </span>
@@ -131,12 +121,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
   // 选中新闻时的详情视图
   if (selectedNewsId) {
     return (
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={`${factor.name} (${factor.code})`}
-        size="xl"
-      >
+      <Modal isOpen={isOpen} onClose={onClose} title={`${factor.name} (${factor.code})`} size="xl">
         {newsDetailQuery.isLoading ? (
           <Loading text="加载新闻详情..." />
         ) : newsDetailQuery.data ? (
@@ -161,12 +146,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`${factor.name} (${factor.code})`}
-      size="xl"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={`${factor.name} (${factor.code})`} size="xl">
       <div className="space-y-6">
         {/* 模型切换 */}
         <div className="flex items-center gap-2">
@@ -216,7 +196,9 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
         {analysis.newsStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
-              <CardHeader><CardTitle className="text-sm">影响方向分布</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-sm">影响方向分布</CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {Object.keys(analysis.newsStats.byDirection).length === 0 ? (
@@ -224,9 +206,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
                   ) : (
                     Object.entries(analysis.newsStats.byDirection).map(([direction, count]) => (
                       <div key={direction} className="flex items-center justify-between">
-                        <span className={`px-2 py-1 rounded text-xs ${getDirectionColor(direction)}`}>
-                          {direction}
-                        </span>
+                        <span className={`px-2 py-1 rounded text-xs ${getDirectionColor(direction)}`}>{direction}</span>
                         <span className="text-sm text-gray-400">{String(count)} 条</span>
                       </div>
                     ))
@@ -235,7 +215,9 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-sm">分析期限分布</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-sm">分析期限分布</CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {Object.keys(analysis.newsStats.byHorizon).length === 0 ? (
@@ -252,7 +234,9 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-sm">数据时间范围</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-sm">数据时间范围</CardTitle>
+              </CardHeader>
               <CardContent>
                 {analysis.dateRange ? (
                   <div className="flex items-center gap-3">
@@ -281,11 +265,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
             ) : timeline.dates.length === 0 ? (
               <Empty title="暂无新闻" message="该因子暂无相关新闻" />
             ) : (
-              <ReactECharts
-                option={timelineOption}
-                style={{ height: 280, width: '100%' }}
-                opts={{ renderer: 'svg' }}
-              />
+              <ReactECharts option={timelineOption} style={{ height: 280, width: '100%' }} opts={{ renderer: 'svg' }} />
             )}
           </CardContent>
         </Card>
@@ -293,9 +273,7 @@ const FactorDetailModal: React.FC<FactorDetailModalProps> = ({
         {/* 相关新闻列表 */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">
-              相关新闻 ({analysis.newsStats?.total ?? 0} 条)
-            </CardTitle>
+            <CardTitle className="text-sm">相关新闻 ({analysis.newsStats?.total ?? 0} 条)</CardTitle>
           </CardHeader>
           <CardContent>
             {analysis.isLoading ? (

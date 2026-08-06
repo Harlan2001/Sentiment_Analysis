@@ -41,9 +41,21 @@ const CHART_COLORS = {
   barHover: '#c4b5fd',
   line: '#34d399',
   pieColors: [
-    '#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f472b6',
-    '#fb923c', '#94a3b8', '#f87171', '#4ade80', '#a3e635',
-    '#38bdf8', '#c084fc', '#e879f9', '#2dd4bf', '#facc15',
+    '#a78bfa',
+    '#60a5fa',
+    '#34d399',
+    '#fbbf24',
+    '#f472b6',
+    '#fb923c',
+    '#94a3b8',
+    '#f87171',
+    '#4ade80',
+    '#a3e635',
+    '#38bdf8',
+    '#c084fc',
+    '#e879f9',
+    '#2dd4bf',
+    '#facc15',
   ],
 }
 
@@ -80,40 +92,24 @@ const TOOLTIP_BORDER = 'rgba(148, 163, 184, 0.3)'
 
 const TableView: React.FC<{ series: MacroDataSeries }> = ({ series }) => {
   // 按日期降序排列
-  const sorted = useMemo(
-    () => [...series.data].sort((a, b) => b.datestr.localeCompare(a.datestr)),
-    [series.data],
-  )
+  const sorted = useMemo(() => [...series.data].sort((a, b) => b.datestr.localeCompare(a.datestr)), [series.data])
 
   return (
     <div className="overflow-auto max-h-[500px] rounded-lg border border-gray-700">
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-gray-800">
           <tr>
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-300 border-b border-gray-700">
-              序号
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-300 border-b border-gray-700">
-              月份
-            </th>
-            <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-300 border-b border-gray-700">
-              数值
-            </th>
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-300 border-b border-gray-700">序号</th>
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-300 border-b border-gray-700">月份</th>
+            <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-300 border-b border-gray-700">数值</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-700/50">
           {sorted.map((d, i) => (
-            <tr
-              key={d.datestr}
-              className="hover:bg-gray-700/30 transition-colors"
-            >
+            <tr key={d.datestr} className="hover:bg-gray-700/30 transition-colors">
               <td className="px-4 py-2 text-gray-500 text-xs">{i + 1}</td>
-              <td className="px-4 py-2 text-gray-200 font-mono">
-                {formatMonth(d.datestr)}
-              </td>
-              <td className="px-4 py-2 text-right text-gray-100 font-mono tabular-nums">
-                {fmtVal(d.value)}
-              </td>
+              <td className="px-4 py-2 text-gray-200 font-mono">{formatMonth(d.datestr)}</td>
+              <td className="px-4 py-2 text-right text-gray-100 font-mono tabular-nums">{fmtVal(d.value)}</td>
             </tr>
           ))}
         </tbody>
@@ -245,7 +241,10 @@ const BarLineChartView: React.FC<{
           areaStyle: {
             color: {
               type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
               colorStops: [
                 { offset: 0, color: 'rgba(52, 211, 153, 0.2)' },
                 { offset: 1, color: 'rgba(52, 211, 153, 0.02)' },
@@ -281,11 +280,7 @@ const BarLineChartView: React.FC<{
           </Button>
         </div>
         <div className="bg-gray-800/40 rounded-lg border border-gray-700/60 p-2">
-          <ReactECharts
-            option={option}
-            style={{ height: '380px', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-          />
+          <ReactECharts option={option} style={{ height: '380px', width: '100%' }} opts={{ renderer: 'svg' }} />
         </div>
       </div>
 
@@ -293,11 +288,7 @@ const BarLineChartView: React.FC<{
       <div>
         <h4 className="text-sm font-medium text-gray-300 mb-3">折线图</h4>
         <div className="bg-gray-800/40 rounded-lg border border-gray-700/60 p-2">
-          <ReactECharts
-            option={lineOption}
-            style={{ height: '380px', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-          />
+          <ReactECharts option={lineOption} style={{ height: '380px', width: '100%' }} opts={{ renderer: 'svg' }} />
         </div>
       </div>
     </div>
@@ -377,15 +368,9 @@ const PieChartView: React.FC<{ series: MacroDataSeries }> = ({ series }) => {
 
   return (
     <div>
-      <h4 className="text-sm font-medium text-gray-300 mb-3">
-        饼图{data.length > 14 ? `（最近 ${14} 个月）` : ''}
-      </h4>
+      <h4 className="text-sm font-medium text-gray-300 mb-3">饼图{data.length > 14 ? `（最近 ${14} 个月）` : ''}</h4>
       <div className="bg-gray-800/40 rounded-lg border border-gray-700/60 p-2">
-        <ReactECharts
-          option={option}
-          style={{ height: '440px', width: '100%' }}
-          opts={{ renderer: 'svg' }}
-        />
+        <ReactECharts option={option} style={{ height: '440px', width: '100%' }} opts={{ renderer: 'svg' }} />
       </div>
     </div>
   )
@@ -401,8 +386,8 @@ function normalize(values: (number | null)[]): (number | null)[] {
   if (nums.length === 0) return values
   const min = Math.min(...nums)
   const max = Math.max(...nums)
-  if (max === min) return values.map(v => (v == null ? null : 0.5))
-  return values.map(v => (v == null ? null : (v - min) / (max - min)))
+  if (max === min) return values.map((v) => (v == null ? null : 0.5))
+  return values.map((v) => (v == null ? null : (v - min) / (max - min)))
 }
 
 /** 多指标叠加对比折线图（自动归一化） */
@@ -410,12 +395,16 @@ const ComparisonChart: React.FC<{ seriesList: MacroDataSeries[] }> = ({ seriesLi
   const option: EChartsOption = useMemo(() => {
     // 对齐所有指标的日期（取并集排序）
     const dateSet = new Map<string, number>()
-    seriesList.forEach(s => s.data.forEach(d => { if (!dateSet.has(d.datestr)) dateSet.set(d.datestr, dateSet.size) }))
+    seriesList.forEach((s) =>
+      s.data.forEach((d) => {
+        if (!dateSet.has(d.datestr)) dateSet.set(d.datestr, dateSet.size)
+      })
+    )
     const dates = Array.from(dateSet.keys()).sort()
 
     const lineSeries = seriesList.map((s, idx) => {
-      const values = dates.map(d => {
-        const match = s.data.find(p => p.datestr === d)
+      const values = dates.map((d) => {
+        const match = s.data.find((p) => p.datestr === d)
         return match && match.value != null ? match.value : null
       })
       return {
@@ -449,7 +438,12 @@ const ComparisonChart: React.FC<{ seriesList: MacroDataSeries[] }> = ({ seriesLi
           const list = Array.isArray(params) ? params : [params]
           const dateLabel = list[0]?.axisValue || ''
           let html = `<div style="font-size:12px;font-weight:600;margin-bottom:4px">归一化对比 · ${formatMonth(dateLabel)}</div>`
-          html += list.map((p: any) => `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>${p.seriesName}: <b>${(p.value ?? 0).toFixed(3)}</b></div>`).join('')
+          html += list
+            .map(
+              (p: any) =>
+                `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>${p.seriesName}: <b>${(p.value ?? 0).toFixed(3)}</b></div>`
+            )
+            .join('')
           return html
         },
       },
@@ -495,8 +489,8 @@ const IndicatorDetailPanel: React.FC<{
 
   const series = seriesMap[activeCode]
   const compareSeriesList = useMemo(
-    () => allCodes.map(c => seriesMap[c]).filter((s): s is MacroDataSeries => !!s),
-    [allCodes, seriesMap],
+    () => allCodes.map((c) => seriesMap[c]).filter((s): s is MacroDataSeries => !!s),
+    [allCodes, seriesMap]
   )
 
   return (
@@ -527,20 +521,18 @@ const IndicatorDetailPanel: React.FC<{
           <div className="flex items-center gap-2">
             {/* 视图模式切换 */}
             <div className="flex bg-gray-800 rounded-lg border border-gray-600 p-0.5">
-              {([
+              {[
                 { key: 'table' as ViewMode, label: '📋 表格' },
                 { key: 'chart' as ViewMode, label: '📊 直方图+折线图' },
                 { key: 'pie' as ViewMode, label: '🥧 饼图' },
                 ...(allCodes.length > 1 ? [{ key: 'compare' as ViewMode, label: '🔀 多指标对比(归一化)' }] : []),
-              ]).map((m) => (
+              ].map((m) => (
                 <button
                   key={m.key}
                   onClick={() => setViewMode(m.key)}
                   className={cn(
                     'px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                    viewMode === m.key
-                      ? 'bg-purple-500/20 text-purple-400'
-                      : 'text-gray-400 hover:text-gray-300',
+                    viewMode === m.key ? 'bg-purple-500/20 text-purple-400' : 'text-gray-400 hover:text-gray-300'
                   )}
                 >
                   {m.label}
@@ -567,9 +559,7 @@ const IndicatorDetailPanel: React.FC<{
           <BarLineChartView
             series={series}
             barOrientation={barOrientation}
-            onToggleOrientation={() =>
-              setBarOrientation((prev) => (prev === 'vertical' ? 'horizontal' : 'vertical'))
-            }
+            onToggleOrientation={() => setBarOrientation((prev) => (prev === 'vertical' ? 'horizontal' : 'vertical'))}
           />
         ) : viewMode === 'compare' ? (
           compareSeriesList.length > 1 ? (
@@ -603,10 +593,7 @@ const MacroDataPage: React.FC = () => {
   // ── 数据 ─────────────────────────────────────────────────
   const { data: indicatorsData, isLoading: indicatorsLoading, error: indicatorsError } = useMacroIndicators()
 
-  const allIndicators: MacroIndicator[] = useMemo(
-    () => indicatorsData?.indicators ?? [],
-    [indicatorsData],
-  )
+  const allIndicators: MacroIndicator[] = useMemo(() => indicatorsData?.indicators ?? [], [indicatorsData])
 
   const filteredIndicators = useMemo(() => {
     return allIndicators.filter((ind) => {
@@ -626,11 +613,7 @@ const MacroDataPage: React.FC = () => {
     return selectedCodes
   }, [showAllCharts, filteredIndicators, selectedCodes])
 
-  const { data: macroData, isLoading: dataLoading, error: dataError } = useMacroData(
-    queryCodes,
-    startMonth,
-    endMonth,
-  )
+  const { data: macroData, isLoading: dataLoading, error: dataError } = useMacroData(queryCodes, startMonth, endMonth)
 
   const seriesMap = useMemo(() => {
     const map: Record<string, MacroDataSeries> = {}
@@ -656,9 +639,7 @@ const MacroDataPage: React.FC = () => {
     (code: string) => {
       setShowAllCharts(false)
       setSelectedCodes((prev) => {
-        const next = prev.includes(code)
-          ? prev.filter((c) => c !== code)
-          : [...prev, code]
+        const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
         // 自动打开刚点击的指标详情（如果是新增的）
         if (!prev.includes(code)) {
           setActiveDetailCode(code)
@@ -670,7 +651,7 @@ const MacroDataPage: React.FC = () => {
         return next
       })
     },
-    [activeDetailCode],
+    [activeDetailCode]
   )
 
   const handleShowAllClick = useCallback(() => {
@@ -706,7 +687,7 @@ const MacroDataPage: React.FC = () => {
 
   const domainTabs = useMemo(() => {
     const list = indicatorsData?.domains || []
-    return [{ key: 'all', label: '全部', icon: '📊' }, ...list.map(d => ({ key: d.key, label: d.label, icon: '🗂️' }))]
+    return [{ key: 'all', label: '全部', icon: '📊' }, ...list.map((d) => ({ key: d.key, label: d.label, icon: '🗂️' }))]
   }, [indicatorsData])
 
   // ── 加载 / 错误状态 ──────────────────────────────────────
@@ -719,20 +700,18 @@ const MacroDataPage: React.FC = () => {
 
   const hasSelection = queryCodes.length > 0
   // 默认 auto-open 第一个已选指标
-  const activeCode = activeDetailCode && queryCodes.includes(activeDetailCode)
-    ? activeDetailCode
-    : queryCodes[0] ?? null
+  const activeCode =
+    activeDetailCode && queryCodes.includes(activeDetailCode) ? activeDetailCode : (queryCodes[0] ?? null)
   const activeName = activeCode ? (seriesMap[activeCode]?.name ?? codeNameMap[activeCode] ?? activeCode) : ''
 
   return (
     <div className="space-y-6">
       {/* ═════════════ 页面头部 ═════════════ */}
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">
-          📊 宏观数据
-        </h1>
+        <h1 className="text-3xl font-bold text-white mb-2">📊 宏观数据</h1>
         <p className="text-gray-400 text-sm">
-          基于国家统计局数据的宏观经济指标查询与可视化，涵盖 CPI、PPI、PMI、货币供应、房地产、进出口等 {allIndicators.length} 个核心指标
+          基于国家统计局数据的宏观经济指标查询与可视化，涵盖 CPI、PPI、PMI、货币供应、房地产、进出口等{' '}
+          {allIndicators.length} 个核心指标
         </p>
       </div>
 
@@ -748,15 +727,14 @@ const MacroDataPage: React.FC = () => {
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border',
                   activeCategory === tab.key
                     ? 'bg-purple-500/20 border-purple-500 text-purple-400'
-                    : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500 hover:bg-gray-700',
+                    : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500 hover:bg-gray-700'
                 )}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
-                <span className={cn(
-                  'text-[10px] ml-0.5',
-                  activeCategory === tab.key ? 'text-purple-500' : 'text-gray-500',
-                )}>
+                <span
+                  className={cn('text-[10px] ml-0.5', activeCategory === tab.key ? 'text-purple-500' : 'text-gray-500')}
+                >
                   ({categoryCounts[tab.key] ?? 0})
                 </span>
               </button>
@@ -772,15 +750,14 @@ const MacroDataPage: React.FC = () => {
                   'flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all border',
                   activeDomain === tab.key
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:bg-gray-700',
+                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:bg-gray-700'
                 )}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
-                <span className={cn(
-                  'text-[10px] ml-0.5',
-                  activeDomain === tab.key ? 'text-blue-500' : 'text-gray-500',
-                )}>
+                <span
+                  className={cn('text-[10px] ml-0.5', activeDomain === tab.key ? 'text-blue-500' : 'text-gray-500')}
+                >
                   ({domainCounts[tab.key] ?? 0})
                 </span>
               </button>
@@ -857,7 +834,7 @@ const MacroDataPage: React.FC = () => {
                   'text-left px-3 py-2 rounded-lg text-xs transition-all border truncate',
                   queryCodes.includes(ind.code)
                     ? 'border-purple-500 bg-purple-500/15 text-purple-300'
-                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-500 hover:bg-gray-700',
+                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-500 hover:bg-gray-700'
                 )}
                 title={`${ind.name} (${ind.code})`}
               >

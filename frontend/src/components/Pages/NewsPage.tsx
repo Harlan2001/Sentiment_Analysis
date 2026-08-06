@@ -3,7 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { format, subDays } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Loading } from '@/components/UI'
-import { useMultiYields, useNewsByDateRange, useNewsSources, useNewsDetail, useSearchNews, useLatestTradingDay } from '@/hooks/useNewsApi'
+import {
+  useMultiYields,
+  useNewsByDateRange,
+  useNewsSources,
+  useNewsDetail,
+  useSearchNews,
+  useLatestTradingDay,
+} from '@/hooks/useNewsApi'
 import { storage, maskSource } from '@/utils/helpers'
 import { API_PREFIX } from '@/constants'
 import type { YieldPoint, NewsItem } from '@/types'
@@ -47,8 +54,7 @@ const NewsPage: React.FC = () => {
 
   const modelOptions = ['doubao', 'deepseek', 'qwen', 'default']
 
-  const newsView: 'best' | 'single' | 'all' =
-    modelFilter === 'all' ? 'all' : modelFilter === 'best' ? 'best' : 'single'
+  const newsView: 'best' | 'single' | 'all' = modelFilter === 'all' ? 'all' : modelFilter === 'best' ? 'best' : 'single'
   const selectedModel = newsView === 'single' ? modelFilter : undefined
 
   // 获取最新的有新闻数据的交易日，作为信息流与收益率曲线的基准
@@ -60,27 +66,31 @@ const NewsPage: React.FC = () => {
   const yieldEndDate = latestDate
 
   // 多期限收益率（固定 1年/5年/10年/30年）
-  const { data: multiYields, isLoading: yieldsLoading, error: yieldsError } = useMultiYields(
-    YIELD_PERIODS,
-    yieldStartDate,
-    yieldEndDate
-  )
+  const {
+    data: multiYields,
+    isLoading: yieldsLoading,
+    error: yieldsError,
+  } = useMultiYields(YIELD_PERIODS, yieldStartDate, yieldEndDate)
 
   // 新闻信息流：默认最近 FEED_DAYS 天，终点为最新交易日；用户可选自定义时间范围
   const defaultStart = format(subDays(new Date(latestDate), FEED_DAYS), 'yyyy-MM-dd')
-  const { data: news, isLoading: newsLoading, error: newsError } = useNewsByDateRange(
+  const {
+    data: news,
+    isLoading: newsLoading,
+    error: newsError,
+  } = useNewsByDateRange(
     feedRange?.start ?? defaultStart,
     feedRange?.end ?? latestDate,
     selectedSources.length > 0 ? selectedSources : undefined,
     selectedModel,
-    newsView,
+    newsView
   )
 
   const { data: sourcesData } = useNewsSources()
   const { data: selectedNewsDetail, isLoading: detailLoading } = useNewsDetail(
     selectedNewsId || 0,
     selectedModel,
-    newsView === 'all',
+    newsView === 'all'
   )
 
   // 新闻搜索
@@ -91,7 +101,11 @@ const NewsPage: React.FC = () => {
   }, [])
 
   // 计算选中新闻前后10个交易日的收益率数据
-  const { data: newsYields, isLoading: newsYieldsLoading, error: newsYieldsError } = useQuery({
+  const {
+    data: newsYields,
+    isLoading: newsYieldsLoading,
+    error: newsYieldsError,
+  } = useQuery({
     queryKey: ['news', 'yield_features', selectedNewsId, '10年'],
     queryFn: async () => {
       if (!selectedNewsId) return null
@@ -110,10 +124,8 @@ const NewsPage: React.FC = () => {
   })
 
   const handleSourceToggle = useCallback((sourceKey: string) => {
-    setSelectedSources(prev =>
-      prev.includes(sourceKey)
-        ? prev.filter(s => s !== sourceKey)
-        : [...prev, sourceKey]
+    setSelectedSources((prev) =>
+      prev.includes(sourceKey) ? prev.filter((s) => s !== sourceKey) : [...prev, sourceKey]
     )
   }, [])
 
@@ -143,26 +155,23 @@ const NewsPage: React.FC = () => {
   }, [draftStart, draftEnd])
 
   // 快捷预设：null=默认(最近7天)，或指定天数
-  const applyPreset = useCallback((days: number | null) => {
-    setFeedRange(days
-      ? { start: format(subDays(new Date(latestDate), days), 'yyyy-MM-dd'), end: latestDate }
-      : null)
-    setDateRangeOpen(false)
-  }, [latestDate])
+  const applyPreset = useCallback(
+    (days: number | null) => {
+      setFeedRange(days ? { start: format(subDays(new Date(latestDate), days), 'yyyy-MM-dd'), end: latestDate } : null)
+      setDateRangeOpen(false)
+    },
+    [latestDate]
+  )
 
   // 组装多期限曲线数据
-  const yieldSeries = useMemo(() => (multiYields?.map(s => ({ label: s.label, data: s.data })) || []), [multiYields])
+  const yieldSeries = useMemo(() => multiYields?.map((s) => ({ label: s.label, data: s.data })) || [], [multiYields])
 
   return (
     <div className="space-y-6">
       {/* 页面头部 */}
       <div className="page-header">
-        <h1 className="text-3xl font-bold text-white mb-2">
-          📰 新闻分析
-        </h1>
-        <p className="text-gray-400 text-sm">
-          查看国债收益率走势、分析新闻事件对债市的影响
-        </p>
+        <h1 className="text-3xl font-bold text-white mb-2">📰 新闻分析</h1>
+        <p className="text-gray-400 text-sm">查看国债收益率走势、分析新闻事件对债市的影响</p>
       </div>
 
       {/* 工具栏 */}
@@ -197,7 +206,9 @@ const NewsPage: React.FC = () => {
                 <option value="best">优先级(best)</option>
                 <option value="all">全部模型(all)</option>
                 {modelOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
@@ -212,7 +223,7 @@ const NewsPage: React.FC = () => {
                 <div className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-xl">
                   {/* 快捷预设 */}
                   <div className="flex gap-2 mb-3">
-                    {[3, 7, 15, 30].map(d => (
+                    {[3, 7, 15, 30].map((d) => (
                       <button
                         key={d}
                         onClick={() => applyPreset(d)}
@@ -235,7 +246,7 @@ const NewsPage: React.FC = () => {
                       <input
                         type="date"
                         value={draftStart}
-                        onChange={e => setDraftStart(e.target.value)}
+                        onChange={(e) => setDraftStart(e.target.value)}
                         className="rounded bg-gray-700 border border-gray-600 text-gray-200 text-xs px-2 py-1.5 w-36"
                       />
                     </div>
@@ -244,7 +255,7 @@ const NewsPage: React.FC = () => {
                       <input
                         type="date"
                         value={draftEnd}
-                        onChange={e => setDraftEnd(e.target.value)}
+                        onChange={(e) => setDraftEnd(e.target.value)}
                         className="rounded bg-gray-700 border border-gray-600 text-gray-200 text-xs px-2 py-1.5 w-36"
                       />
                     </div>
@@ -304,15 +315,11 @@ const NewsPage: React.FC = () => {
               {yieldsLoading ? (
                 <Loading text="加载收益率数据..." />
               ) : yieldsError ? (
-                <div className="text-red-400 text-sm">
-                  加载收益率数据失败: {yieldsError.message}
-                </div>
-              ) : yieldSeries.length > 0 && yieldSeries.some(s => s.data.length > 0) ? (
+                <div className="text-red-400 text-sm">加载收益率数据失败: {yieldsError.message}</div>
+              ) : yieldSeries.length > 0 && yieldSeries.some((s) => s.data.length > 0) ? (
                 <YieldChart data={yieldSeries[0].data} series={yieldSeries} height={400} />
               ) : (
-                <div className="text-gray-400 text-center py-8">
-                  暂无收益率数据
-                </div>
+                <div className="text-gray-400 text-center py-8">暂无收益率数据</div>
               )}
             </CardContent>
           </Card>
@@ -326,19 +333,11 @@ const NewsPage: React.FC = () => {
                 {searchKeyword
                   ? `搜索结果: "${searchKeyword}"`
                   : `最新新闻（${feedRange ? `${feedRange.start} ~ ${feedRange.end}` : `最近 ${FEED_DAYS} 天`}）`}
-                {searchKeyword ? (
-                  searchResults?.news && (
-                    <span className="ml-2 text-sm font-normal text-gray-400">
-                      ({searchResults.news.length}条)
-                    </span>
-                  )
-                ) : (
-                  news && (
-                    <span className="ml-2 text-sm font-normal text-gray-400">
-                      ({news.length}条)
-                    </span>
-                  )
-                )}
+                {searchKeyword
+                  ? searchResults?.news && (
+                      <span className="ml-2 text-sm font-normal text-gray-400">({searchResults.news.length}条)</span>
+                    )
+                  : news && <span className="ml-2 text-sm font-normal text-gray-400">({news.length}条)</span>}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -346,36 +345,20 @@ const NewsPage: React.FC = () => {
                 searchLoading ? (
                   <Loading text="搜索中..." />
                 ) : searchError ? (
-                  <div className="text-red-400 text-sm">
-                    搜索失败: {searchError.message}
-                  </div>
+                  <div className="text-red-400 text-sm">搜索失败: {searchError.message}</div>
                 ) : searchResults?.news && searchResults.news.length > 0 ? (
-                  <NewsList
-                    news={searchResults.news}
-                    selectedNewsId={selectedNewsId}
-                    onNewsSelect={handleNewsSelect}
-                  />
+                  <NewsList news={searchResults.news} selectedNewsId={selectedNewsId} onNewsSelect={handleNewsSelect} />
                 ) : (
-                  <div className="text-gray-400 text-center py-8">
-                    没有找到包含 "{searchKeyword}" 的新闻
-                  </div>
+                  <div className="text-gray-400 text-center py-8">没有找到包含 "{searchKeyword}" 的新闻</div>
                 )
               ) : newsLoading ? (
                 <Loading text="加载新闻..." />
               ) : newsError ? (
-                <div className="text-red-400 text-sm">
-                  加载新闻失败: {newsError.message}
-                </div>
+                <div className="text-red-400 text-sm">加载新闻失败: {newsError.message}</div>
               ) : news && news.length > 0 ? (
-                <NewsList
-                  news={news}
-                  selectedNewsId={selectedNewsId}
-                  onNewsSelect={handleNewsSelect}
-                />
+                <NewsList news={news} selectedNewsId={selectedNewsId} onNewsSelect={handleNewsSelect} />
               ) : (
-                <div className="text-gray-400 text-center py-8">
-                  暂无新闻
-                </div>
+                <div className="text-gray-400 text-center py-8">暂无新闻</div>
               )}
             </CardContent>
           </Card>
@@ -402,19 +385,11 @@ const NewsPage: React.FC = () => {
                 {newsYieldsLoading ? (
                   <Loading text="加载收益率数据..." />
                 ) : newsYieldsError ? (
-                  <div className="text-red-400 text-sm">
-                    加载收益率数据失败: {newsYieldsError.message}
-                  </div>
+                  <div className="text-red-400 text-sm">加载收益率数据失败: {newsYieldsError.message}</div>
                 ) : newsYields?.data && newsYields.data.length > 0 ? (
-                  <YieldChart
-                    data={newsYields.data}
-                    type="10年"
-                    height={300}
-                  />
+                  <YieldChart data={newsYields.data} type="10年" height={300} />
                 ) : (
-                  <div className="text-gray-400 text-center py-8">
-                    暂无该时间段的收益率数据
-                  </div>
+                  <div className="text-gray-400 text-center py-8">暂无该时间段的收益率数据</div>
                 )}
               </CardContent>
             </Card>

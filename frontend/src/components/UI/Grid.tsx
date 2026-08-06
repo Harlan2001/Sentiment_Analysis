@@ -20,22 +20,18 @@ const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
 }) => {
   const getGridClasses = () => {
     const classes = ['grid']
-    
+
     if (cols.sm) classes.push(`grid-cols-${cols.sm}`)
     if (cols.md) classes.push(`md:grid-cols-${cols.md}`)
     if (cols.lg) classes.push(`lg:grid-cols-${cols.lg}`)
     if (cols.xl) classes.push(`xl:grid-cols-${cols.xl}`)
-    
+
     return classes.join(' ')
   }
-  
+
   const gapClass = typeof gap === 'number' ? `gap-${gap}` : gap
-  
-  return (
-    <div className={`${getGridClasses()} ${gapClass} ${className}`}>
-      {children}
-    </div>
-  )
+
+  return <div className={`${getGridClasses()} ${gapClass} ${className}`}>{children}</div>
 }
 
 // 预定义的网格布局
@@ -43,11 +39,7 @@ export const NewsGridLayout: React.FC<{ children: React.ReactNode; className?: s
   children,
   className = '',
 }) => (
-  <ResponsiveGrid
-    cols={{ sm: 1, md: 1, lg: 3 }}
-    gap={6}
-    className={className}
-  >
+  <ResponsiveGrid cols={{ sm: 1, md: 1, lg: 3 }} gap={6} className={className}>
     {children}
   </ResponsiveGrid>
 )
@@ -56,11 +48,7 @@ export const FactorGridLayout: React.FC<{ children: React.ReactNode; className?:
   children,
   className = '',
 }) => (
-  <ResponsiveGrid
-    cols={{ sm: 1, md: 2, lg: 3, xl: 4 }}
-    gap={4}
-    className={className}
-  >
+  <ResponsiveGrid cols={{ sm: 1, md: 2, lg: 3, xl: 4 }} gap={4} className={className}>
     {children}
   </ResponsiveGrid>
 )
@@ -69,11 +57,7 @@ export const DashboardGridLayout: React.FC<{ children: React.ReactNode; classNam
   children,
   className = '',
 }) => (
-  <ResponsiveGrid
-    cols={{ sm: 1, md: 2, lg: 2 }}
-    gap={6}
-    className={className}
-  >
+  <ResponsiveGrid cols={{ sm: 1, md: 2, lg: 2 }} gap={6} className={className}>
     {children}
   </ResponsiveGrid>
 )

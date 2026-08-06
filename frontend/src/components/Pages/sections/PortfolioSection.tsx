@@ -13,13 +13,7 @@ const PortfolioSection: React.FC = () => {
           icon={<span className="text-5xl">💼</span>}
         />
       }
-      side={
-        <Empty
-          title="侧栏"
-          message="该板块自己的固定侧栏"
-          icon={<span className="text-4xl">📊</span>}
-        />
-      }
+      side={<Empty title="侧栏" message="该板块自己的固定侧栏" icon={<span className="text-4xl">📊</span>} />}
     />
   )
 }

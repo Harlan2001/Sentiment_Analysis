@@ -3,14 +3,14 @@ export const formatDate = (date: string | Date, format?: string): string => {
   try {
     const d = typeof date === 'string' ? new Date(date) : date
     if (isNaN(d.getTime())) return String(date)
-    
+
     const year = d.getFullYear()
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     const hours = String(d.getHours()).padStart(2, '0')
     const minutes = String(d.getMinutes()).padStart(2, '0')
     const seconds = String(d.getSeconds()).padStart(2, '0')
-    
+
     switch (format) {
       case 'YYYY-MM-DD':
         return `${year}-${month}-${day}`
@@ -60,12 +60,12 @@ export const formatRelativeTime = (date: string | Date): string => {
     const diffMins = Math.floor(diffMs / (1000 * 60))
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
-    
+
     if (diffMins < 1) return '刚刚'
     if (diffMins < 60) return `${diffMins}分钟前`
     if (diffHours < 24) return `${diffHours}小时前`
     if (diffDays < 30) return `${diffDays}天前`
-    
+
     return formatDate(d, 'YYYY-MM-DD')
   } catch {
     return String(date)
@@ -200,7 +200,7 @@ export const storage = {
       // 静默失败
     }
   },
-  
+
   get: <T>(key: string, defaultValue?: T): T | null => {
     try {
       const item = localStorage.getItem(key)
@@ -209,7 +209,7 @@ export const storage = {
       return defaultValue || null
     }
   },
-  
+
   remove: (key: string): void => {
     try {
       localStorage.removeItem(key)
@@ -217,7 +217,7 @@ export const storage = {
       // 静默失败
     }
   },
-  
+
   clear: (): void => {
     try {
       localStorage.clear()
@@ -230,15 +230,15 @@ export const storage = {
 // 错误处理
 export const handleError = (error: unknown, context?: string): string => {
   console.error(`Error${context ? ` in ${context}` : ''}:`, error)
-  
+
   if (error instanceof Error) {
     return error.message
   }
-  
+
   if (typeof error === 'string') {
     return error
   }
-  
+
   return '发生了未知错误'
 }
 

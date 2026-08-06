@@ -25,13 +25,13 @@ export const PAGE_TITLE_MAP: Record<string, string> = {
   '/research': '研报',
   '/ai-strategy-generation': 'AI策略生成',
   '/macro-data': '宏观数据',
-};
+}
 
 // ========== 模型名称 → 中文显示名 ==========
 export const MODEL_NAME_MAP: Record<string, string> = {
-  'doubao': '豆包',
-  'deepseek': 'DeepSeek',
-  'qwen': '通义千问',
+  doubao: '豆包',
+  deepseek: 'DeepSeek',
+  qwen: '通义千问',
   'gpt-4': 'GPT-4',
   'gpt-4o': 'GPT-4o',
   'gpt-3.5-turbo': 'GPT-3.5',
@@ -40,7 +40,7 @@ export const MODEL_NAME_MAP: Record<string, string> = {
   'claude-3-haiku': 'Claude Haiku',
   'claude-3.5-sonnet': 'Claude 3.5 Sonnet',
   'claude-opus-4': 'Claude Opus 4',
-};
+}
 
 // ========== 操作类型 → 中文标签 ==========
 export const ACTION_LABEL_MAP: Record<string, string> = {
@@ -68,7 +68,7 @@ export const ACTION_LABEL_MAP: Record<string, string> = {
   input: '输入',
   search: '搜索',
   filter_change: '筛选变更',
-};
+}
 
 // ========== 调用来源 → 中文标签 ==========
 export const CALL_SOURCE_MAP: Record<string, string> = {
@@ -77,14 +77,14 @@ export const CALL_SOURCE_MAP: Record<string, string> = {
   strategy: 'AI策略推荐',
   change: 'AI策略变动',
   research: '研报分析',
-};
+}
 
 // ========== 退出类型 → 中文标签 ==========
 export const EXIT_TYPE_MAP: Record<string, string> = {
   navigation: '导航切换',
   idle_timeout: '空闲超时',
   close: '关闭页面',
-};
+}
 
 // ========== 操作目标 → 中文标签（审计日志"目标"列） ==========
 export const ACTION_TARGET_MAP: Record<string, string> = {
@@ -97,7 +97,7 @@ export const ACTION_TARGET_MAP: Record<string, string> = {
   all: '全部策略',
   quant: '量化策略',
   trading: '交易策略',
-};
+}
 
 // ========== 通用 UI 标签 ==========
 export const UI_LABELS = {
@@ -130,46 +130,46 @@ export const UI_LABELS = {
   startDate: '开始日期',
   endDate: '结束日期',
   dateRange: '日期范围',
-} as const;
+} as const
 
 // ========== 工具函数 ==========
 
 /** 路由 → 中文页面标题 */
 export function getPageTitle(route: string): string {
-  if (route === '/' || route.startsWith('/news')) return '新闻';
-  if (PAGE_TITLE_MAP[route]) return PAGE_TITLE_MAP[route];
+  if (route === '/' || route.startsWith('/news')) return '新闻'
+  if (PAGE_TITLE_MAP[route]) return PAGE_TITLE_MAP[route]
   for (const [prefix, title] of Object.entries(PAGE_TITLE_MAP)) {
-    if (route.startsWith(prefix)) return title;
+    if (route.startsWith(prefix)) return title
   }
-  return route;
+  return route
 }
 
 /** 模型名称 → 中文显示名 */
 export function getModelLabel(model: string): string {
-  return MODEL_NAME_MAP[model] || model;
+  return MODEL_NAME_MAP[model] || model
 }
 
 /** 操作类型 → 中文标签 */
 export function getActionLabel(type: string): string {
-  return ACTION_LABEL_MAP[type] || type;
+  return ACTION_LABEL_MAP[type] || type
 }
 
 /** 调用来源 → 中文标签 */
 export function getCallSourceLabel(source: string): string {
-  return CALL_SOURCE_MAP[source] || source;
+  return CALL_SOURCE_MAP[source] || source
 }
 
 /** 退出类型 → 中文标签 */
 export function getExitTypeLabel(type: string): string {
-  return EXIT_TYPE_MAP[type] || type;
+  return EXIT_TYPE_MAP[type] || type
 }
 
 /** 操作目标 → 中文标签（优先精准匹配，否则尝试前缀匹配如 strategy_code:xxx → 策略代码:xxx） */
 export function getActionTargetLabel(target: string): string {
-  if (!target) return '';
-  if (ACTION_TARGET_MAP[target]) return ACTION_TARGET_MAP[target];
+  if (!target) return ''
+  if (ACTION_TARGET_MAP[target]) return ACTION_TARGET_MAP[target]
   // 处理带动态值的格式
-  if (target.startsWith('strategy_code:')) return '策略代码:' + target.slice('strategy_code:'.length);
-  if (target.startsWith('news_id:')) return '新闻ID:' + target.slice('news_id:'.length);
-  return target;
+  if (target.startsWith('strategy_code:')) return '策略代码:' + target.slice('strategy_code:'.length)
+  if (target.startsWith('news_id:')) return '新闻ID:' + target.slice('news_id:'.length)
+  return target
 }

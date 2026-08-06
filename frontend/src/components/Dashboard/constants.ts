@@ -6,7 +6,7 @@
 export const NEWS_SOURCES: Record<string, string> = {
   wallstreetcn: '华尔街见闻',
   yicai: '第一财经',
-};
+}
 
 // 告警阈值
 export const ALERT = {
@@ -19,10 +19,10 @@ export const ALERT = {
   VECTOR_COVERAGE_YELLOW: 90,
   VALID_ANALYSIS_YELLOW: 90,
   FACTOR_ASSOC_COVERAGE_YELLOW: 80,
-  TIMELINESS_ANALYSIS_YELLOW: 2,     // 小时
-  TIMELINESS_FACTOR_YELLOW: 2,       // 小时
-  TIMELINESS_REPORT_YELLOW: 1,       // 天
-};
+  TIMELINESS_ANALYSIS_YELLOW: 2, // 小时
+  TIMELINESS_FACTOR_YELLOW: 2, // 小时
+  TIMELINESS_REPORT_YELLOW: 1, // 天
+}
 
 // 因子类别颜色
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -32,7 +32,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   RISK: '#ef4444',
   SENTIMENT: '#8b5cf6',
   INDUSTRY: '#06b6d4',
-};
+}
 
 // 因子类别中文映射（与后端 config.py FACTOR_CATEGORY_MAP 保持一致）
 export const CATEGORY_NAME_MAP: Record<string, string> = {
@@ -42,10 +42,17 @@ export const CATEGORY_NAME_MAP: Record<string, string> = {
   RISK: '风险',
   SENTIMENT: '情绪',
   INDUSTRY: '行业',
-};
+}
 
 // 期限色阶（用于收益率sparkline）
 export const PERIOD_COLORS = [
-  '#60a5fa', '#818cf8', '#a78bfa', '#c084fc',
-  '#e879f9', '#fb923c', '#fbbf24', '#34d399', '#f87171',
-];
+  '#60a5fa',
+  '#818cf8',
+  '#a78bfa',
+  '#c084fc',
+  '#e879f9',
+  '#fb923c',
+  '#fbbf24',
+  '#34d399',
+  '#f87171',
+]

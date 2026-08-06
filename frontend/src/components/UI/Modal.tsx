@@ -11,14 +11,7 @@ interface ModalProps {
   showCloseButton?: boolean
 }
 
-const Modal: React.FC<ModalProps> = ({
-  isOpen,
-  onClose,
-  title,
-  children,
-  size = 'md',
-  showCloseButton = true,
-}) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', showCloseButton = true }) => {
   const sizeClasses = {
     sm: 'max-w-md',
     md: 'max-w-2xl',
@@ -26,7 +19,7 @@ const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-6xl',
     full: 'max-w-7xl mx-4',
   }
-  
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -41,7 +34,7 @@ const Modal: React.FC<ModalProps> = ({
         >
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
         </Transition.Child>
-        
+
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
             <Transition.Child
@@ -53,15 +46,13 @@ const Modal: React.FC<ModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-2xl bg-gray-900 border border-gray-600 shadow-2xl transition-all`}>
+              <Dialog.Panel
+                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-2xl bg-gray-900 border border-gray-600 shadow-2xl transition-all`}
+              >
                 {/* Header */}
                 {(title || showCloseButton) && (
                   <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                    {title && (
-                      <Dialog.Title className="text-lg font-semibold text-white">
-                        {title}
-                      </Dialog.Title>
-                    )}
+                    {title && <Dialog.Title className="text-lg font-semibold text-white">{title}</Dialog.Title>}
                     {showCloseButton && (
                       <button
                         onClick={onClose}
@@ -74,11 +65,9 @@ const Modal: React.FC<ModalProps> = ({
                     )}
                   </div>
                 )}
-                
+
                 {/* Content */}
-                <div className="px-6 py-4">
-                  {children}
-                </div>
+                <div className="px-6 py-4">{children}</div>
               </Dialog.Panel>
             </Transition.Child>
           </div>

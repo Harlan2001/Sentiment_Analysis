@@ -14,10 +14,12 @@ export default function UploadArea({ onClick }: UploadAreaProps) {
     >
       <div className="flex flex-col items-center justify-center py-8 px-4">
         {/* 上传图标 */}
-        <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20
+        <div
+          className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20
                         flex items-center justify-center mb-3
                         group-hover:bg-blue-500/20 group-hover:border-blue-500/40
-                        transition-colors duration-200">
+                        transition-colors duration-200"
+        >
           <svg
             className="w-7 h-7 text-blue-400 group-hover:text-blue-300 transition-colors"
             fill="none"

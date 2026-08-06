@@ -31,15 +31,16 @@ const FactorPage: React.FC = () => {
     let factors = allFactorsData?.factors || []
 
     if (selectedCategory) {
-      factors = factors.filter(f => f.category === selectedCategory)
+      factors = factors.filter((f) => f.category === selectedCategory)
     }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      factors = factors.filter(f =>
-        f.name.toLowerCase().includes(query) ||
-        f.code.toLowerCase().includes(query) ||
-        f.category.toLowerCase().includes(query)
+      factors = factors.filter(
+        (f) =>
+          f.name.toLowerCase().includes(query) ||
+          f.code.toLowerCase().includes(query) ||
+          f.category.toLowerCase().includes(query)
       )
     }
 
@@ -49,7 +50,7 @@ const FactorPage: React.FC = () => {
   // 统计数据
   const stats = useMemo(() => {
     const factors = allFactorsData?.factors || []
-    const categories = [...new Set(factors.map(f => f.category))]
+    const categories = [...new Set(factors.map((f) => f.category))]
     return {
       total: factors.length,
       categories: categories.length,
@@ -63,8 +64,7 @@ const FactorPage: React.FC = () => {
       if (!groups.has(f.category)) groups.set(f.category, [])
       groups.get(f.category)!.push(f)
     }
-    return Array.from(groups.entries())
-      .sort((a, b) => b[1].length - a[1].length)
+    return Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length)
   }, [filteredFactors])
 
   // 获取可用分类
@@ -90,12 +90,8 @@ const FactorPage: React.FC = () => {
     <div className="space-y-6">
       {/* 页面头部 */}
       <div className="page-header">
-        <h1 className="text-3xl font-bold text-white mb-2">
-          🎯 因子库
-        </h1>
-        <p className="text-gray-400 text-sm">
-          按分类聚合浏览影响债券市场的各类因子，默认按近30天活跃度排序
-        </p>
+        <h1 className="text-3xl font-bold text-white mb-2">🎯 因子库</h1>
+        <p className="text-gray-400 text-sm">按分类聚合浏览影响债券市场的各类因子，默认按近30天活跃度排序</p>
       </div>
 
       {/* 统计卡片 */}
@@ -146,9 +142,7 @@ const FactorPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <CardTitle>
               因子列表
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({filteredFactors.length} 个因子)
-              </span>
+              <span className="ml-2 text-sm font-normal text-gray-400">({filteredFactors.length} 个因子)</span>
             </CardTitle>
             {(selectedCategory || searchQuery) && (
               <Button variant="outline" size="sm" onClick={handleClearFilters}>
@@ -161,16 +155,16 @@ const FactorPage: React.FC = () => {
           {factorsLoading ? (
             <Loading text="加载因子数据..." />
           ) : factorsError ? (
-            <div className="text-red-400 text-center py-8">
-              加载失败: {factorsError.message}
-            </div>
+            <div className="text-red-400 text-center py-8">加载失败: {factorsError.message}</div>
           ) : filteredFactors.length === 0 ? (
             <Empty
               title="没有找到匹配的因子"
               message="尝试调整筛选条件或搜索关键词"
-              action={Object.values({ selectedCategory, searchQuery }).some(Boolean)
+              action={
+                Object.values({ selectedCategory, searchQuery }).some(Boolean)
                   ? { label: '清除筛选', onClick: handleClearFilters }
-                  : undefined}
+                  : undefined
+              }
             />
           ) : searchQuery ? (
             /* 搜索结果：平铺展示 */
@@ -185,15 +179,9 @@ const FactorPage: React.FC = () => {
               {groupedByCategory.map(([category, factors]) => (
                 <div key={category}>
                   <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-base font-semibold text-white">
-                      {CATEGORY_LABELS[category] || category}
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      ({factors.length} 个)
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      近30天活跃度排序
-                    </span>
+                    <h3 className="text-base font-semibold text-white">{CATEGORY_LABELS[category] || category}</h3>
+                    <span className="text-xs text-gray-400">({factors.length} 个)</span>
+                    <span className="text-xs text-gray-500">近30天活跃度排序</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {factors.map((factor) => (
@@ -209,11 +197,7 @@ const FactorPage: React.FC = () => {
 
       {/* 因子详情弹窗 */}
       {selectedFactor && (
-        <FactorDetailModal
-          factor={selectedFactor}
-          isOpen={!!selectedFactor}
-          onClose={() => setSelectedFactor(null)}
-        />
+        <FactorDetailModal factor={selectedFactor} isOpen={!!selectedFactor} onClose={() => setSelectedFactor(null)} />
       )}
     </div>
   )

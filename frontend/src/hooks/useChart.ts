@@ -35,8 +35,8 @@ export const useYieldChart = (
   }
 ) => {
   const chartOption = React.useMemo<EChartsOption>(() => {
-    const labels = data.map(point => formatChartDate(point.date))
-    const values = data.map(point => point.value)
+    const labels = data.map((point) => formatChartDate(point.date))
+    const values = data.map((point) => point.value)
 
     return {
       backgroundColor: 'transparent',
@@ -80,7 +80,7 @@ export const useYieldChart = (
         },
         formatter: (params: any) => {
           const items = Array.isArray(params) ? params : [params]
-          const primaryItem = items.find(item => item.seriesType === 'line') || items[0]
+          const primaryItem = items.find((item) => item.seriesType === 'line') || items[0]
           const index = primaryItem?.dataIndex ?? 0
           const selectedDate = data[index]?.date || primaryItem?.axisValueLabel || ''
           return `<div style="font-weight: 600; margin-bottom: 4px;">${selectedDate}</div><div>收益率：${formatTooltipValue(primaryItem?.value)}</div>`
@@ -202,15 +202,11 @@ export const useYieldChart = (
 }
 
 // 带新闻事件的图表Hook
-export const useNewsYieldChart = (
-  data: YieldPoint[],
-  newsEvents: any[],
-  type: string = '10年'
-) => {
+export const useNewsYieldChart = (data: YieldPoint[], newsEvents: any[], type: string = '10年') => {
   const chartOption = React.useMemo<EChartsOption>(() => {
-    const labels = data.map(point => formatChartDate(point.date))
-    const values = data.map(point => point.value)
-    const newsDates = new Set(newsEvents.map(event => event.date))
+    const labels = data.map((point) => formatChartDate(point.date))
+    const values = data.map((point) => point.value)
+    const newsDates = new Set(newsEvents.map((event) => event.date))
 
     return {
       backgroundColor: 'transparent',
@@ -254,7 +250,7 @@ export const useNewsYieldChart = (
         },
         formatter: (params: any) => {
           const items = Array.isArray(params) ? params : [params]
-          const primaryItem = items.find(item => item.seriesType === 'line') || items[0]
+          const primaryItem = items.find((item) => item.seriesType === 'line') || items[0]
           const index = primaryItem?.dataIndex ?? 0
           const selectedDate = data[index]?.date || primaryItem?.axisValueLabel || ''
           return `<div style="font-weight: 600; margin-bottom: 4px;">${selectedDate}</div><div>收益率：${formatTooltipValue(primaryItem?.value)}</div>`
@@ -360,8 +356,8 @@ export const useNewsYieldChart = (
               formatter: '新闻',
             },
             data: data
-              .filter(point => newsDates.has(point.date))
-              .map(point => ({
+              .filter((point) => newsDates.has(point.date))
+              .map((point) => ({
                 name: '新闻事件',
                 coord: [formatChartDate(point.date), point.value],
                 value: point.value,
@@ -398,21 +394,22 @@ const multiSeriesPalette = [
 ]
 
 // 多期限收益率图表Hook：在同一坐标系叠加多条期限曲线（固定展示 1年/5年/10年/30年）
-export const useMultiYieldChart = (
-  series: YieldSeries[],
-  options?: { onClickDate?: (date: string) => void }
-) => {
+export const useMultiYieldChart = (series: YieldSeries[], options?: { onClickDate?: (date: string) => void }) => {
   const chartOption = React.useMemo<EChartsOption>(() => {
     // 对齐所有期限的日期（取并集排序），缺失补 null
     const dateSet = new Map<string, number>()
-    series.forEach(s => s.data.forEach(p => { if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size) }))
+    series.forEach((s) =>
+      s.data.forEach((p) => {
+        if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size)
+      })
+    )
     const dates = Array.from(dateSet.keys()).sort()
     const labels = dates.map(formatChartDate)
 
     const lineSeries = series.map((s, idx) => {
       const color = multiSeriesPalette[idx % multiSeriesPalette.length]
-      const values = dates.map(d => {
-        const match = s.data.find(p => p.date === d)
+      const values = dates.map((d) => {
+        const match = s.data.find((p) => p.date === d)
         return match ? match.value : null
       })
       return {
@@ -481,7 +478,11 @@ export const useMultiYieldChart = (
       click: (params: { dataIndex?: number }) => {
         if (options?.onClickDate && typeof params.dataIndex === 'number') {
           const dateSet = new Map<string, number>()
-          series.forEach(s => s.data.forEach(p => { if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size) }))
+          series.forEach((s) =>
+            s.data.forEach((p) => {
+              if (!dateSet.has(p.date)) dateSet.set(p.date, dateSet.size)
+            })
+          )
           const dates = Array.from(dateSet.keys()).sort()
           const selectedDate = dates[params.dataIndex]
           if (selectedDate) options.onClickDate(selectedDate)
