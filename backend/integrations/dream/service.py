@@ -289,7 +289,7 @@ def generate_strategy(
         portal_config_url=settings.portal_config_url,
         template_id=settings.template_id,
         agent=settings.agent,
-        timeout_seconds=min(settings.timeout_seconds, 120),
+        timeout_seconds=settings.timeout_seconds,
     )
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)

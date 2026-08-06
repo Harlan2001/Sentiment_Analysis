@@ -20,7 +20,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting yield data update..." >> "$LOG_FIL
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Download latest Excel and append new yield rows only." >> "$LOG_FILE"
 
 # 执行更新命令：模块内部会先下载最新 Excel，再按 (date, period) 追加导入
-if docker compose exec -T backend uv run python -m backend.tools.bond_downloader \
+if docker compose exec -T backend /app/.venv/bin/python -m backend.tools.bond_downloader \
   --excel-path data/GovernmentBonds.xlsx \
   >> "$LOG_FILE" 2>&1; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Yield data update completed successfully." >> "$LOG_FILE"

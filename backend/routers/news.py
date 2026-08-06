@@ -84,7 +84,7 @@ def get_news(
                 FROM news n
                 LEFT JOIN analysis a ON a.news_id = n.id AND a.model = %s
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 [model, model] + params,
             )
@@ -125,7 +125,7 @@ def get_news(
                         LIMIT 1
                     )
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 params,
             )
@@ -151,7 +151,7 @@ def get_news(
             SELECT n.id, n.title, n.pub_time, n.source
             FROM news n
             WHERE {date_filter} {source_filter}
-            ORDER BY n.pub_time ASC
+            ORDER BY n.pub_time DESC
             """,
             params,
         )

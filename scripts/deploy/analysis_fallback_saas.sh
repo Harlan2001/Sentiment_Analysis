@@ -21,7 +21,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting analysis fallback compensation tas
 # 执行兜底补偿任务
 # mode=model_missing：处理那些未被任何模型分析过的新闻
 # limit=1000：单次最多处理 1000 条新闻
-docker compose exec -T backend uv run python -m backend.analysis.analyzer_runner \
+docker compose exec -T backend /app/.venv/bin/python -m backend.analysis.analyzer_runner \
   --mode model_missing \
   --limit 1000 \
   >> "$LOG_FILE" 2>&1
