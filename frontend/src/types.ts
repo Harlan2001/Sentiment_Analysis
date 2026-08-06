@@ -1141,6 +1141,16 @@ export interface AiStrategyGenerationResponse {
 }
 
 
+export interface AiStrategyConfirmResponse {
+  success: boolean;
+  data: {
+    conversation_id: number;
+    assistant_message_id: number;
+    status: string;
+  };
+}
+
+
 export interface AiStrategyConversation {
   id: number;
   title: string;

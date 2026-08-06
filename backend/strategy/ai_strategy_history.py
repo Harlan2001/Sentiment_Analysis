@@ -287,10 +287,24 @@ class AiStrategyHistoryRepository:
                 cursor.execute("UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s", (conversation_id, owner_username))
             conn.commit()
 
+    def sweep_stale_running(self, owner_username: str, conversation_id: int) -> None:
+        """Flip any ``running`` message stuck for >16 minutes to ``timed_out``.
+
+        Async background generations can be lost when the process restarts mid-run;
+        without this sweep a stale ``running`` row would block the conversation
+        forever (``create_prompt_draft`` refuses while one exists).
+        """
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""UPDATE ai_strategy_messages SET status = 'timed_out', content = 'DreamStrategy generation timed out; retry this conversation.', public_error_message = 'DreamStrategy generation timed out; retry this conversation.', updated_at = CURRENT_TIMESTAMP
+                                  WHERE conversation_id = %s AND owner_username = %s AND status = 'running' AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 16 MINUTE)""", (conversation_id, owner_username))
+            conn.commit()
+
     def get_conversation_detail(self, owner_username: str, conversation_id: int) -> dict[str, Any] | None:
         conversation = self.get_conversation(owner_username, conversation_id)
         if not conversation:
             return None
+        self.sweep_stale_running(owner_username, conversation_id)
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, public_error_message, created_at, updated_at

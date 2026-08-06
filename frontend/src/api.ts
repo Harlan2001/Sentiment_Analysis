@@ -32,7 +32,7 @@ import type {
   ChangeSnapshotsResponse,
   ChangeCompareResponse,
   ChangeTriggerResponse,
-  AiStrategyGenerationResponse,
+  AiStrategyConfirmResponse,
   AiStrategyConversationCreateResponse,
   AiStrategyConversationDetailResponse,
   AiStrategyConversationListResponse,
@@ -890,7 +890,7 @@ export async function confirmAiStrategyPromptDraft(
   conversationId: number,
   assistantMessageId: number,
   editedPrompt: string,
-): Promise<AiStrategyGenerationResponse> {
+): Promise<AiStrategyConfirmResponse> {
   const response = await fetch(`${BASE}/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
