@@ -75,7 +75,10 @@ const ToolCallCard: React.FC<{ result: ToolCallResult }> = ({ result }) => {
 
   // 参数摘要：取 1-2 个关键参数
   const argEntries = Object.entries(result.input || {})
-  const argSummary = argEntries.slice(0, 2).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ')
+  const argSummary = argEntries
+    .slice(0, 2)
+    .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+    .join(', ')
 
   return (
     <div className={cn('rounded-lg border border-gray-700 overflow-hidden mb-2', config.bg)}>
@@ -84,9 +87,7 @@ const ToolCallCard: React.FC<{ result: ToolCallResult }> = ({ result }) => {
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
       >
-        <span className={cn('text-sm', result.status === 'executing' && 'animate-spin')}>
-          {config.icon}
-        </span>
+        <span className={cn('text-sm', result.status === 'executing' && 'animate-spin')}>{config.icon}</span>
         <span className="text-sm font-medium text-white">
           {result.toolDisplayName || TOOL_DISPLAY_NAMES[result.toolName] || result.toolName}
         </span>
@@ -116,18 +117,14 @@ const ToolCallCard: React.FC<{ result: ToolCallResult }> = ({ result }) => {
               <span className="text-xs text-gray-500 block mb-1">结果：</span>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               <pre className="text-xs text-gray-300 bg-gray-900/50 rounded p-2 max-h-40 overflow-y-auto whitespace-pre-wrap">
-                {typeof result.output === 'string'
-                  ? result.output
-                  : JSON.stringify(result.output, null, 2)}
+                {typeof result.output === 'string' ? result.output : JSON.stringify(result.output, null, 2)}
               </pre>
             </div>
           )}
 
           {/* 错误 */}
           {result.status === 'error' && result.error && (
-            <div className="mt-2 text-xs text-red-400 bg-red-500/10 rounded p-2">
-              {result.error}
-            </div>
+            <div className="mt-2 text-xs text-red-400 bg-red-500/10 rounded p-2">{result.error}</div>
           )}
         </div>
       )}
@@ -145,57 +142,102 @@ const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
     components={{
       // 自定义暗色主题样式
       h1: ({ children, ...props }) => (
-        <h1 className="text-xl font-bold text-white mt-4 mb-2" {...props}>{children}</h1>
+        <h1 className="text-xl font-bold text-white mt-4 mb-2" {...props}>
+          {children}
+        </h1>
       ),
       h2: ({ children, ...props }) => (
-        <h2 className="text-lg font-semibold text-white mt-3 mb-2" {...props}>{children}</h2>
+        <h2 className="text-lg font-semibold text-white mt-3 mb-2" {...props}>
+          {children}
+        </h2>
       ),
       h3: ({ children, ...props }) => (
-        <h3 className="text-base font-semibold text-gray-200 mt-3 mb-1" {...props}>{children}</h3>
+        <h3 className="text-base font-semibold text-gray-200 mt-3 mb-1" {...props}>
+          {children}
+        </h3>
       ),
       p: ({ children, ...props }) => (
-        <p className="text-sm text-gray-300 leading-relaxed mb-2" {...props}>{children}</p>
+        <p className="text-sm text-gray-300 leading-relaxed mb-2" {...props}>
+          {children}
+        </p>
       ),
       ul: ({ children, ...props }) => (
-        <ul className="list-disc list-inside text-sm text-gray-300 mb-2 space-y-1" {...props}>{children}</ul>
+        <ul className="list-disc list-inside text-sm text-gray-300 mb-2 space-y-1" {...props}>
+          {children}
+        </ul>
       ),
       ol: ({ children, ...props }) => (
-        <ol className="list-decimal list-inside text-sm text-gray-300 mb-2 space-y-1" {...props}>{children}</ol>
+        <ol className="list-decimal list-inside text-sm text-gray-300 mb-2 space-y-1" {...props}>
+          {children}
+        </ol>
       ),
       li: ({ children, ...props }) => (
-        <li className="text-sm text-gray-300" {...props}>{children}</li>
+        <li className="text-sm text-gray-300" {...props}>
+          {children}
+        </li>
       ),
       strong: ({ children, ...props }) => (
-        <strong className="font-semibold text-white" {...props}>{children}</strong>
+        <strong className="font-semibold text-white" {...props}>
+          {children}
+        </strong>
       ),
       code: ({ className, children, ...props }) => {
         const isInline = !className
-        return isInline
-          ? <code className="px-1 py-0.5 bg-gray-700 text-gray-200 rounded text-xs" {...props}>{children}</code>
-          : <code className={cn('block p-3 bg-gray-800 text-gray-200 rounded text-xs overflow-x-auto', className)} {...props}>{children}</code>
+        return isInline ? (
+          <code className="px-1 py-0.5 bg-gray-700 text-gray-200 rounded text-xs" {...props}>
+            {children}
+          </code>
+        ) : (
+          <code
+            className={cn('block p-3 bg-gray-800 text-gray-200 rounded text-xs overflow-x-auto', className)}
+            {...props}
+          >
+            {children}
+          </code>
+        )
       },
       pre: ({ children, ...props }) => (
-        <pre className="bg-gray-800 rounded-lg p-3 overflow-x-auto mb-2" {...props}>{children}</pre>
+        <pre className="bg-gray-800 rounded-lg p-3 overflow-x-auto mb-2" {...props}>
+          {children}
+        </pre>
       ),
       table: ({ children, ...props }) => (
         <div className="overflow-x-auto mb-2">
-          <table className="min-w-full text-sm border-collapse border border-gray-700" {...props}>{children}</table>
+          <table className="min-w-full text-sm border-collapse border border-gray-700" {...props}>
+            {children}
+          </table>
         </div>
       ),
       thead: ({ children, ...props }) => (
-        <thead className="bg-gray-800" {...props}>{children}</thead>
+        <thead className="bg-gray-800" {...props}>
+          {children}
+        </thead>
       ),
       th: ({ children, ...props }) => (
-        <th className="border border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-300" {...props}>{children}</th>
+        <th className="border border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-300" {...props}>
+          {children}
+        </th>
       ),
       td: ({ children, ...props }) => (
-        <td className="border border-gray-700 px-3 py-2 text-xs text-gray-400" {...props}>{children}</td>
+        <td className="border border-gray-700 px-3 py-2 text-xs text-gray-400" {...props}>
+          {children}
+        </td>
       ),
       a: ({ children, href, ...props }) => (
-        <a className="text-blue-400 hover:text-blue-300 underline" href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
+        <a
+          className="text-blue-400 hover:text-blue-300 underline"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          {...props}
+        >
+          {children}
+        </a>
       ),
       blockquote: ({ children, ...props }) => (
-        <blockquote className="border-l-2 border-purple-500 pl-3 my-2 text-sm text-gray-400 italic" {...props}>{children}</blockquote>
+        <blockquote className="border-l-2 border-purple-500 pl-3 my-2 text-sm text-gray-400 italic" {...props}>
+          {children}
+        </blockquote>
       ),
       hr: (props) => <hr className="border-gray-700 my-3" {...props} />,
     }}
@@ -209,16 +251,8 @@ const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
 // ═══════════════════════════════════════════════════════════════════════
 
 const AgentPage: React.FC = () => {
-  const {
-    messages,
-    isProcessing,
-    thinking,
-    streaming,
-    error,
-    sendMessage,
-    clearMessages,
-    stopProcessing,
-  } = useAgentChat()
+  const { messages, isProcessing, thinking, streaming, error, sendMessage, clearMessages, stopProcessing } =
+    useAgentChat()
 
   const [inputMessage, setInputMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -245,19 +279,25 @@ const AgentPage: React.FC = () => {
   }, [inputMessage, isProcessing, sendMessage])
 
   // 键盘事件
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }, [handleSend])
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleSend()
+      }
+    },
+    [handleSend]
+  )
 
   // 点击建议问题
-  const handleSuggestedQuestion = useCallback((question: string) => {
-    setInputMessage(question)
-    // 自动发送
-    sendMessage(question)
-  }, [sendMessage])
+  const handleSuggestedQuestion = useCallback(
+    (question: string) => {
+      setInputMessage(question)
+      // 自动发送
+      sendMessage(question)
+    },
+    [sendMessage]
+  )
 
   // 复制消息
   const handleCopy = useCallback(async (content: string) => {
@@ -271,9 +311,7 @@ const AgentPage: React.FC = () => {
       {/* 页面头部 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            🤖 智能分析助手
-          </h1>
+          <h1 className="text-3xl font-bold text-white mb-2">🤖 智能分析助手</h1>
           <p className="text-gray-400 text-sm">
             基于 AI 的债券市场智能分析，支持新闻搜索、因子分析、宏观信号、收益率查询
           </p>
@@ -306,9 +344,7 @@ const AgentPage: React.FC = () => {
 
                 {/* Skills 网格 */}
                 <div className="mb-8">
-                  <h3 className="text-sm font-medium text-gray-300 mb-3 text-center">
-                    🛠️ 我能做什么
-                  </h3>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3 text-center">🛠️ 我能做什么</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {SKILLS.map((skill) => (
                       <SkillCard key={skill.name} skill={skill} />
@@ -318,9 +354,7 @@ const AgentPage: React.FC = () => {
 
                 {/* 建议问题 */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3 text-center">
-                    💡 试试这些问题
-                  </h3>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3 text-center">💡 试试这些问题</h3>
                   <div className="flex flex-wrap justify-center gap-2">
                     {SUGGESTED_QUESTIONS.map((q) => (
                       <button
@@ -351,11 +385,7 @@ const AgentPage: React.FC = () => {
                                text-sm"
                     rows={2}
                   />
-                  <Button
-                    onClick={handleSend}
-                    disabled={!inputMessage.trim()}
-                    className="self-end"
-                  >
+                  <Button onClick={handleSend} disabled={!inputMessage.trim()} className="self-end">
                     发送
                   </Button>
                 </div>
@@ -370,17 +400,11 @@ const AgentPage: React.FC = () => {
                   <div className="flex-1 overflow-y-auto space-y-4 py-4">
                     {/* 已固化的消息 */}
                     {messages.map((msg, idx) => (
-                      <MessageBubble
-                        key={idx}
-                        message={msg}
-                        onCopy={handleCopy}
-                      />
+                      <MessageBubble key={idx} message={msg} onCopy={handleCopy} />
                     ))}
 
                     {/* 流式进行中的消息 */}
-                    {streaming && (
-                      <StreamingBubble streaming={streaming} thinking={thinking} />
-                    )}
+                    {streaming && <StreamingBubble streaming={streaming} thinking={thinking} />}
 
                     {/* 错误 */}
                     {error && (
@@ -414,11 +438,7 @@ const AgentPage: React.FC = () => {
                       停止
                     </Button>
                   ) : (
-                    <Button
-                      onClick={handleSend}
-                      disabled={!inputMessage.trim()}
-                      className="self-end"
-                    >
+                    <Button onClick={handleSend} disabled={!inputMessage.trim()} className="self-end">
                       发送
                     </Button>
                   )}
@@ -526,9 +546,18 @@ const StreamingBubble: React.FC<{
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">思考中</span>
               <span className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
               </span>
             </div>
           </div>
@@ -548,9 +577,18 @@ const StreamingBubble: React.FC<{
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">工具执行完成，正在分析结果...</span>
               <span className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
               </span>
             </div>
           </div>

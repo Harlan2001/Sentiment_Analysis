@@ -2,43 +2,45 @@
  * Token 消耗概览面板 — 系统监控 Tab 内展示
  * 显示今日/本月 Token 总量、调用次数、按来源分布、趋势图、模型分布
  */
-import React, { useEffect, useState, useCallback } from 'react';
-import { fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '@/api';
-import type { TokenOverview, TokenTrendItem, TokenModelDist } from '@/types';
-import { CALL_SOURCE_MAP, getModelLabel } from '@/config/labels';
+import React, { useEffect, useState, useCallback } from 'react'
+import { fetchTokenOverview, fetchTokenTrend, fetchTokenByModel } from '@/api'
+import type { TokenOverview, TokenTrendItem, TokenModelDist } from '@/types'
+import { CALL_SOURCE_MAP, getModelLabel } from '@/config/labels'
 
 function formatTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-  return String(n);
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
 }
 
 const TokenOverviewPanel: React.FC = () => {
-  const [overview, setOverview] = useState<TokenOverview | null>(null);
-  const [trend, setTrend] = useState<TokenTrendItem[]>([]);
-  const [models, setModels] = useState<TokenModelDist[]>([]);
-  const [trendDays, setTrendDays] = useState(7);
-  const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<TokenOverview | null>(null)
+  const [trend, setTrend] = useState<TokenTrendItem[]>([])
+  const [models, setModels] = useState<TokenModelDist[]>([])
+  const [trendDays, setTrendDays] = useState(7)
+  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const [ov, tr, md] = await Promise.all([
         fetchTokenOverview(),
         fetchTokenTrend(trendDays),
         fetchTokenByModel(trendDays),
-      ]);
-      setOverview(ov);
-      setTrend(tr.trend);
-      setModels(md.models);
+      ])
+      setOverview(ov)
+      setTrend(tr.trend)
+      setModels(md.models)
     } catch (e) {
-      console.error('Token数据加载失败:', e);
+      console.error('Token数据加载失败:', e)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [trendDays]);
+  }, [trendDays])
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (loading && !overview) {
     return (
@@ -46,16 +48,16 @@ const TokenOverviewPanel: React.FC = () => {
         <div className="animate-spin w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-2" />
         加载Token数据...
       </div>
-    );
+    )
   }
 
-  if (!overview) return null;
+  if (!overview) return null
 
   const modelColors: Record<string, string> = {
     doubao: '#8b5cf6',
     deepseek: '#10b981',
     qwen: '#f59e0b',
-  };
+  }
 
   return (
     <div className="space-y-4">
@@ -91,20 +93,22 @@ const TokenOverviewPanel: React.FC = () => {
             <div className="text-gray-500 text-sm text-center py-4">暂无数据</div>
           ) : (
             <div className="space-y-2">
-              {overview.by_source.map(s => {
-                const maxTokens = overview.by_source[0]?.tokens || 1;
-                const pct = Math.round((s.tokens / maxTokens) * 100);
+              {overview.by_source.map((s) => {
+                const maxTokens = overview.by_source[0]?.tokens || 1
+                const pct = Math.round((s.tokens / maxTokens) * 100)
                 return (
                   <div key={s.source}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-gray-300">{CALL_SOURCE_MAP[s.source] || s.source}</span>
-                      <span className="text-gray-400">{formatTokens(s.tokens)} ({s.calls}次)</span>
+                      <span className="text-gray-400">
+                        {formatTokens(s.tokens)} ({s.calls}次)
+                      </span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           )}
@@ -117,17 +121,25 @@ const TokenOverviewPanel: React.FC = () => {
             <div className="text-gray-500 text-sm text-center py-4">暂无数据</div>
           ) : (
             <div className="space-y-2">
-              {models.map(m => (
+              {models.map((m) => (
                 <div key={m.model}>
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-gray-300">
-                      <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: modelColors[m.model] || '#6b7280' }} />
+                      <span
+                        className="inline-block w-2 h-2 rounded-full mr-1.5"
+                        style={{ backgroundColor: modelColors[m.model] || '#6b7280' }}
+                      />
                       {getModelLabel(m.model)}
                     </span>
-                    <span className="text-gray-400">{formatTokens(m.tokens)} ({m.percentage}%)</span>
+                    <span className="text-gray-400">
+                      {formatTokens(m.tokens)} ({m.percentage}%)
+                    </span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="h-2 rounded-full" style={{ width: `${m.percentage}%`, backgroundColor: modelColors[m.model] || '#6b7280' }} />
+                    <div
+                      className="h-2 rounded-full"
+                      style={{ width: `${m.percentage}%`, backgroundColor: modelColors[m.model] || '#6b7280' }}
+                    />
                   </div>
                 </div>
               ))}
@@ -143,7 +155,7 @@ const TokenOverviewPanel: React.FC = () => {
           <select
             className="rounded bg-gray-700 border border-gray-600 text-gray-200 text-xs px-2 py-1"
             value={trendDays}
-            onChange={e => setTrendDays(Number(e.target.value))}
+            onChange={(e) => setTrendDays(Number(e.target.value))}
           >
             <option value={7}>近7天</option>
             <option value={30}>近30天</option>
@@ -153,22 +165,29 @@ const TokenOverviewPanel: React.FC = () => {
           <div className="text-gray-500 text-sm text-center py-4">暂无数据</div>
         ) : (
           <div className="flex items-end gap-1 h-32">
-            {trend.map(item => {
-              const maxTotal = Math.max(...trend.map(t => t.total as number), 1);
-              const heightPct = Math.max(2, Math.round(((item.total as number) / maxTotal) * 100));
+            {trend.map((item) => {
+              const maxTotal = Math.max(...trend.map((t) => t.total as number), 1)
+              const heightPct = Math.max(2, Math.round(((item.total as number) / maxTotal) * 100))
               return (
-                <div key={item.date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${item.date}: ${formatTokens(item.total as number)}`}>
+                <div
+                  key={item.date}
+                  className="flex-1 flex flex-col items-center justify-end h-full"
+                  title={`${item.date}: ${formatTokens(item.total as number)}`}
+                >
                   <span className="text-[10px] text-gray-400 mb-1">{formatTokens(item.total as number)}</span>
-                  <div className="w-full bg-blue-500/70 hover:bg-blue-400 rounded-t" style={{ height: `${heightPct}%`, minHeight: '2px' }} />
+                  <div
+                    className="w-full bg-blue-500/70 hover:bg-blue-400 rounded-t"
+                    style={{ height: `${heightPct}%`, minHeight: '2px' }}
+                  />
                   <span className="text-[10px] text-gray-500 mt-1">{item.date.slice(5)}</span>
                 </div>
-              );
+              )
             })}
           </div>
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default TokenOverviewPanel;
+export default TokenOverviewPanel

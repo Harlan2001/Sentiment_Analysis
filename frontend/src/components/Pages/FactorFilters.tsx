@@ -52,7 +52,12 @@ const FactorFilters: React.FC<FactorFiltersProps> = ({
             onChange={(e) => onSearchChange(e.target.value)}
             icon={
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             }
           />
@@ -64,7 +69,7 @@ const FactorFilters: React.FC<FactorFiltersProps> = ({
           onChange={(e) => onCategoryChange(e.target.value)}
           options={[
             { value: '', label: '所有分类' },
-            ...categories.map(cat => ({ value: cat, label: getCategoryLabel(cat) }))
+            ...categories.map((cat) => ({ value: cat, label: getCategoryLabel(cat) })),
           ]}
         />
       </div>
@@ -75,10 +80,7 @@ const FactorFilters: React.FC<FactorFiltersProps> = ({
           {searchQuery && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
               搜索: {searchQuery}
-              <button
-                onClick={() => onSearchChange('')}
-                className="ml-1 hover:text-purple-200"
-              >
+              <button onClick={() => onSearchChange('')} className="ml-1 hover:text-purple-200">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -89,10 +91,7 @@ const FactorFilters: React.FC<FactorFiltersProps> = ({
           {selectedCategory && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
               分类: {getCategoryLabel(selectedCategory)}
-              <button
-                onClick={() => onCategoryChange('')}
-                className="ml-1 hover:text-blue-200"
-              >
+              <button onClick={() => onCategoryChange('')} className="ml-1 hover:text-blue-200">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

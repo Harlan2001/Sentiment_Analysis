@@ -1,11 +1,13 @@
-import faiss
 import json
 import logging
 import os
+
+import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from backend.config.config import INDEX_PATH, ID_MAP_PATH, MODEL_DIR
-from backend.common.database import execute_query, execute_update, execute_batch
+
+from backend.common.database import execute_batch, execute_query, execute_update
+from backend.config.config import ID_MAP_PATH, INDEX_PATH, MODEL_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,6 @@ class FaissStore:
                 self.id_map = json.load(f)
             self.id_set = set(self.id_map)
 
-
     def add(self, news_id: int, text: str) -> bool:
         self.load()
         assert self.index is not None
@@ -74,11 +75,14 @@ class FaissStore:
 
         # 2. 持久化到 MySQL
         vector_blob = emb[0].tobytes()
-        execute_update("""
+        execute_update(
+            """
             INSERT INTO news_vectors (news_id, vector, vector_version)
             VALUES (%s, %s, %s)
             ON DUPLICATE KEY UPDATE vector = VALUES(vector)
-        """, (news_id, vector_blob, VECTOR_VERSION))
+        """,
+            (news_id, vector_blob, VECTOR_VERSION),
+        )
 
         return True
 
@@ -88,7 +92,11 @@ class FaissStore:
         assert self.index is not None
 
         # 过滤已存在的新闻
-        new_items = [(news_id, text) for news_id, text in news_items if news_id not in self.id_set]
+        new_items = [
+            (news_id, text)
+            for news_id, text in news_items
+            if news_id not in self.id_set
+        ]
         if not new_items:
             return 0
 
@@ -111,11 +119,14 @@ class FaissStore:
             (news_id, emb.tobytes(), VECTOR_VERSION)
             for (news_id, _), emb in zip(new_items, embs)
         ]
-        execute_batch("""
+        execute_batch(
+            """
             INSERT INTO news_vectors (news_id, vector, vector_version)
             VALUES (%s, %s, %s)
             ON DUPLICATE KEY UPDATE vector = VALUES(vector)
-        """, params)
+        """,
+            params,
+        )
 
         return len(new_items)
 
@@ -133,7 +144,9 @@ class FaissStore:
         return results
 
     def search(self, query: str, top_k: int = 5):
-        q_emb = self.model.encode([query], normalize_embeddings=True, convert_to_numpy=True).astype("float32")
+        q_emb = self.model.encode(
+            [query], normalize_embeddings=True, convert_to_numpy=True
+        ).astype("float32")
         return self._search_vector(q_emb, top_k)
 
     def search_by_vector(self, vector, top_k=5):
@@ -150,12 +163,12 @@ class FaissStore:
 
         # 保存前确保目录存在
         os.makedirs(os.path.dirname(INDEX_PATH), exist_ok=True)
-        
+
         faiss.write_index(self.index, str(INDEX_PATH))
 
         with open(ID_MAP_PATH, "w", encoding="utf-8") as f:
             json.dump(self.id_map, f, ensure_ascii=False)
-            
+
         # 保存后验证文件是否存在
         if not os.path.exists(INDEX_PATH) or not os.path.exists(ID_MAP_PATH):
             raise RuntimeError("索引文件保存失败，请检查目录权限")
@@ -164,7 +177,6 @@ class FaissStore:
         self.load()
         assert self.index is not None
         return self.index.ntotal
-    
 
     def get_pending_news(self, batch_size: int = 100) -> list[tuple[int, str]]:
         """获取待向量化的新闻列表（indexed = 0）
@@ -176,14 +188,17 @@ class FaissStore:
             [(news_id, full_text), ...] full_text = title + content
         """
         self.load()
-        results = execute_query("""
+        results = execute_query(
+            """
             SELECT id, title, content
             FROM news
             WHERE indexed = 0
             AND content IS NOT NULL AND content != ''
             ORDER BY id ASC
             LIMIT %s
-        """, (batch_size,))
+        """,
+            (batch_size,),
+        )
 
         pending_items = []
         for news_id, title, content in results:
@@ -201,7 +216,10 @@ class FaissStore:
         if not news_ids:
             return
 
-        placeholders = ','.join(['%s'] * len(news_ids))
-        execute_update(f"""
+        placeholders = ",".join(["%s"] * len(news_ids))
+        execute_update(
+            f"""
             UPDATE news SET indexed = 1 WHERE id IN ({placeholders})
-        """, tuple(news_ids))
+        """,
+            tuple(news_ids),
+        )

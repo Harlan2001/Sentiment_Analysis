@@ -1,15 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchYields, fetchNewsByDate, fetchNewsById, fetchNewsSources, fetchNewsByDateRange, fetchLatestTradingDay } from '@/api'
+import {
+  fetchYields,
+  fetchNewsByDate,
+  fetchNewsById,
+  fetchNewsSources,
+  fetchNewsByDateRange,
+  fetchLatestTradingDay,
+} from '@/api'
 import { storage } from '@/utils/helpers'
 import { API_PREFIX } from '@/constants'
 import type { YieldPoint, NewsItem, NewsSource } from '@/types'
 
 function authHeaders(): Record<string, string> {
-  const token = storage.get<string>("auth_token");
+  const token = storage.get<string>('auth_token')
   if (token) {
-    return { Authorization: `Bearer ${token}` };
+    return { Authorization: `Bearer ${token}` }
   }
-  return {};
+  return {}
 }
 
 // 收益率数据Hook
@@ -18,6 +25,24 @@ export const useYields = (start: string, end: string, type: string) => {
     queryKey: ['yields', start, end, type],
     queryFn: () => fetchYields(start, end, type),
     enabled: !!(start && end && type),
+    staleTime: 5 * 60 * 1000, // 5分钟
+  })
+}
+
+// 多期限收益率数据Hook：并行拉取多个期限，供新闻页固定展示 1年/5年/10年/30年
+export const useMultiYields = (periods: string[], start: string, end: string) => {
+  return useQuery({
+    queryKey: ['yields', 'multi', periods, start, end],
+    queryFn: async () => {
+      const results = await Promise.all(
+        periods.map(async (label) => ({
+          label,
+          data: await fetchYields(start, end, label),
+        }))
+      )
+      return results
+    },
+    enabled: !!(start && end && periods.length > 0),
     staleTime: 5 * 60 * 1000, // 5分钟
   })
 }
@@ -75,7 +100,7 @@ export const useNewsSources = () => {
 // 新闻分析Mutation Hook
 export const useNewsAnalysis = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async ({ newsId, period, modelName }: { newsId: number; period?: string; modelName?: string }) => {
       const params = new URLSearchParams({

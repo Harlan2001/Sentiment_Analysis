@@ -14,46 +14,50 @@ interface IconProps {
   className?: string
 }
 
-const PlusIcon: React.FC<IconProps> = ({ className = "w-3.5 h-3.5" }) => (
+const PlusIcon: React.FC<IconProps> = ({ className = 'w-3.5 h-3.5' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
     <path strokeLinecap="round" d="M12 5v14M5 12h14" />
   </svg>
 )
 
-const ChevronIcon: React.FC<IconProps> = ({ className = "w-3.5 h-3.5" }) => (
+const ChevronIcon: React.FC<IconProps> = ({ className = 'w-3.5 h-3.5' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M10 6l6 6-6 6" />
   </svg>
 )
 
-const ComputerIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const ComputerIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <rect x="2" y="4" width="20" height="13" rx="2" />
     <path strokeLinecap="round" d="M8 21h8m-4-4v4" />
   </svg>
 )
 
-const ArtifactIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const ArtifactIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" d="M12 3v18M3 12h18" />
     <circle cx="12" cy="12" r="9.5" />
   </svg>
 )
 
-const CustomIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const CustomIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4L12 2z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4L12 2z"
+    />
   </svg>
 )
 
-const SearchIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const SearchIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <circle cx="11" cy="11" r="8" />
     <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
   </svg>
 )
 
-const ShareIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const ShareIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <circle cx="18" cy="5" r="3" />
     <circle cx="6" cy="12" r="3" />
@@ -62,14 +66,14 @@ const ShareIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
   </svg>
 )
 
-const SettingsIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const SettingsIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <circle cx="12" cy="8" r="4" />
     <path strokeLinecap="round" d="M4 21v-1a4 4 0 014-4h8a4 4 0 014 4v1" />
   </svg>
 )
 
-const HelpIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => (
+const HelpIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
@@ -124,15 +128,24 @@ const WorkspaceLayout: React.FC = () => {
             新建
           </button>
           <div className="flex gap-1.5">
-            <button data-track="shell-computer" className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]">
+            <button
+              data-track="shell-computer"
+              className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]"
+            >
               <ComputerIcon />
               computer
             </button>
-            <button data-track="shell-artifact" className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]">
+            <button
+              data-track="shell-artifact"
+              className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]"
+            >
               <ArtifactIcon />
               工件
             </button>
-            <button data-track="shell-custom" className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]">
+            <button
+              data-track="shell-custom"
+              className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-[10px]"
+            >
               <CustomIcon />
               自定义
             </button>
@@ -143,7 +156,10 @@ const WorkspaceLayout: React.FC = () => {
         <div className="flex items-center gap-1 pt-4 pb-1 px-1">
           <span className="flex-1 text-xs font-semibold text-gray-300">项目</span>
           <span className="text-[10px] text-gray-500">{PROJECTS.length}</span>
-          <button data-track="shell-project-add" className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+          <button
+            data-track="shell-project-add"
+            className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          >
             <PlusIcon className="w-3.5 h-3.5" />
           </button>
           <button
@@ -157,7 +173,10 @@ const WorkspaceLayout: React.FC = () => {
         {projectOpen && (
           <div className="flex flex-col gap-0.5 px-0.5">
             {PROJECTS.map((p) => (
-              <div key={p.name} className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white cursor-pointer transition-colors text-xs">
+              <div
+                key={p.name}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white cursor-pointer transition-colors text-xs"
+              >
                 <span className="text-[13px]">{p.icon}</span>
                 <span className="truncate">{p.name}</span>
               </div>
@@ -169,7 +188,10 @@ const WorkspaceLayout: React.FC = () => {
         <div className="flex items-center gap-1 pt-4 pb-1 px-1">
           <span className="flex-1 text-xs font-semibold text-gray-300">绘画</span>
           <span className="text-[10px] text-gray-500">{DRAWINGS.length}</span>
-          <button data-track="shell-draw-add" className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+          <button
+            data-track="shell-draw-add"
+            className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          >
             <PlusIcon className="w-3.5 h-3.5" />
           </button>
           <button
@@ -183,7 +205,10 @@ const WorkspaceLayout: React.FC = () => {
         {drawOpen && (
           <div className="flex flex-col gap-0.5 px-0.5">
             {DRAWINGS.map((p) => (
-              <div key={p.name} className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white cursor-pointer transition-colors text-xs">
+              <div
+                key={p.name}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white cursor-pointer transition-colors text-xs"
+              >
                 <span className="text-[13px]">{p.icon}</span>
                 <span className="truncate">{p.name}</span>
               </div>
@@ -195,11 +220,17 @@ const WorkspaceLayout: React.FC = () => {
 
         {/* 底部 */}
         <div className="flex flex-col gap-0.5 border-t border-gray-800 pt-2">
-          <button data-track="shell-settings" className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-xs">
+          <button
+            data-track="shell-settings"
+            className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-xs"
+          >
             <SettingsIcon className="w-4 h-4" />
             设置
           </button>
-          <button data-track="shell-help" className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-xs">
+          <button
+            data-track="shell-help"
+            className="flex items-center gap-2 px-2 py-1.5 rounded text-gray-400 hover:bg-gray-800/60 hover:text-white transition-colors text-xs"
+          >
             <HelpIcon className="w-4 h-4" />
             帮助
           </button>
@@ -207,7 +238,10 @@ const WorkspaceLayout: React.FC = () => {
             <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-500">
               <span>👤 {displayName || username || '未登录'}</span>
               <button
-                onClick={() => { logout(); window.location.href = import.meta.env.BASE_URL + 'login' }}
+                onClick={() => {
+                  logout()
+                  window.location.href = import.meta.env.BASE_URL + 'login'
+                }}
                 data-track="shell-logout"
                 className="ml-auto text-red-400 hover:text-red-300 transition-colors"
               >
@@ -253,9 +287,7 @@ const WorkspaceLayout: React.FC = () => {
               data-track={`shell-tab-${s.to.slice(1)}`}
               className={({ isActive }) =>
                 `px-3.5 py-1.5 rounded-lg text-[13px] transition-colors relative ${
-                  isActive
-                    ? 'text-white font-medium'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                  isActive ? 'text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                 }`
               }
             >

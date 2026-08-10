@@ -19,7 +19,7 @@ const scenarios: Scenario[] = [
     description: '经济复苏超预期，政策宽松持续',
     probability: 0.25,
     impact: 'high',
-    color: 'green'
+    color: 'green',
   },
   {
     id: 'baseline',
@@ -27,16 +27,16 @@ const scenarios: Scenario[] = [
     description: '经济稳步复苏，政策逐步正常化',
     probability: 0.55,
     impact: 'medium',
-    color: 'blue'
+    color: 'blue',
   },
   {
     id: 'pessimistic',
     name: '悲观情景',
     description: '经济复苏放缓，政策收紧提前',
-    probability: 0.20,
+    probability: 0.2,
     impact: 'high',
-    color: 'red'
-  }
+    color: 'red',
+  },
 ]
 
 export const ScenarioAnalysis: React.FC = () => {
@@ -50,7 +50,7 @@ export const ScenarioAnalysis: React.FC = () => {
           <CardTitle>情景分析</CardTitle>
         </CardHeader>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {scenarios.map(scenario => (
+          {scenarios.map((scenario) => (
             <div
               key={scenario.id}
               className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
@@ -64,12 +64,10 @@ export const ScenarioAnalysis: React.FC = () => {
               <p className="text-sm text-gray-400 mb-3">{scenario.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">发生概率</span>
-                <span className="text-sm font-medium text-white">
-                  {(scenario.probability * 100).toFixed(0)}%
-                </span>
+                <span className="text-sm font-medium text-white">{(scenario.probability * 100).toFixed(0)}%</span>
               </div>
               <div className="mt-2 bg-gray-700 rounded-full h-2">
-                <div 
+                <div
                   className={`bg-${scenario.color}-500 h-2 rounded-full`}
                   style={{ width: `${scenario.probability * 100}%` }}
                 />
@@ -92,12 +90,14 @@ export const ScenarioAnalysis: React.FC = () => {
                 { factor: '政策收紧', probability: '中', impact: '高', level: 'orange' },
                 { factor: '通胀反弹', probability: '低', impact: '高', level: 'yellow' },
                 { factor: '地缘政治', probability: '中', impact: '中', level: 'orange' },
-                { factor: '流动性收紧', probability: '中', impact: '中', level: 'orange' }
+                { factor: '流动性收紧', probability: '中', impact: '中', level: 'orange' },
               ].map((risk, index) => (
                 <div key={index} className="flex items-center justify-between bg-gray-800/50 rounded-lg p-3">
                   <span className="text-sm text-white">{risk.factor}</span>
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-1 rounded text-xs ${risk.level === 'orange' ? 'bg-orange-500/20 text-orange-400' : risk.level === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${risk.level === 'orange' ? 'bg-orange-500/20 text-orange-400' : risk.level === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}
+                    >
                       {risk.probability}
                     </span>
                     <span className="text-xs text-gray-400">{risk.impact}</span>
@@ -122,7 +122,7 @@ export const ScenarioAnalysis: React.FC = () => {
                   </div>
                 </>
               )}
-              
+
               {selectedScenario.id === 'baseline' && (
                 <>
                   <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-3">
@@ -135,7 +135,7 @@ export const ScenarioAnalysis: React.FC = () => {
                   </div>
                 </>
               )}
-              
+
               {selectedScenario.id === 'pessimistic' && (
                 <>
                   <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">

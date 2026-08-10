@@ -5,8 +5,12 @@ Agent 工具定义模块
 工具均为 GET 查询，无副作用。
 """
 
-from backend.agent.spec import load_spec, filter_agent_operations, \
-    generate_tool_definitions, generate_display_metadata
+from backend.agent.spec import (
+    filter_agent_operations,
+    generate_display_metadata,
+    generate_tool_definitions,
+    load_spec,
+)
 
 _spec = load_spec()
 _agent_ops = filter_agent_operations(_spec)

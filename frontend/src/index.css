@@ -23,8 +23,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   background: #000000;
   color: #ffffff;
   min-height: 100vh;
@@ -140,22 +140,26 @@ body {
   }
 
   /* ── 0.1：默认隐藏所有 .no-print 元素（放到最前面，由后续具体规则选择性覆盖） ── */
-  .no-print { display: none !important; }
+  .no-print {
+    display: none !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第1层：全局背景 & 字体
      ═══════════════════════════════════════════════════════════════ */
-  html, body, #root,
-  [class*="bg-gradient"],
-  [class*="bg-gray"],
-  [class*="bg-black"] {
+  html,
+  body,
+  #root,
+  [class*='bg-gradient'],
+  [class*='bg-gray'],
+  [class*='bg-black'] {
     background: #ffffff !important;
     color: #1f2937 !important;
   }
 
   body {
-    font-family: "PingFang SC", "Microsoft YaHei", "SimSun", serif;
-    font-size: 10.5pt;  /* = 14px */
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'SimSun', serif;
+    font-size: 10.5pt; /* = 14px */
     line-height: 1.8;
     color: #1f2937;
   }
@@ -185,8 +189,10 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第3层：主内容区 → 占满整宽、白底
      ═══════════════════════════════════════════════════════════════ */
-  main, [class*="max-w"], .flex-1,
-  [class*="space-y-6"] {
+  main,
+  [class*='max-w'],
+  .flex-1,
+  [class*='space-y-6'] {
     max-width: 100% !important;
     width: 100% !important;
     padding: 0 !important;
@@ -198,15 +204,21 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第4层：卡片容器 → 纯白、无边框、无衬垫
      ═══════════════════════════════════════════════════════════════ */
-  [class*="Card"], [class*="card"] {
+  [class*='Card'],
+  [class*='card'] {
     background: #ffffff !important;
     border: none !important;
     box-shadow: none !important;
     margin: 0 0 20px 0 !important;
     padding: 0 !important;
   }
-  [class*="CardHeader"] { margin: 0 0 4px 0 !important; padding: 0 !important; }
-  [class*="CardContent"] { padding: 0 !important; }
+  [class*='CardHeader'] {
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+  }
+  [class*='CardContent'] {
+    padding: 0 !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第5层：☆★ 打印专用报告主标题（仅首页展示一次）
@@ -244,7 +256,7 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第6层：☆★ 一级章节标题（市场概览 / 技术分析 / 因子分析 / 策略建议 / 风险提示）
      ═══════════════════════════════════════════════════════════════ */
-  [class*="CardTitle"] {
+  [class*='CardTitle'] {
     font-size: 16pt !important;
     font-weight: 700 !important;
     color: #1e3a5f !important;
@@ -253,8 +265,8 @@ body {
     border-bottom: 2px solid #1e40af !important;
     page-break-after: avoid;
   }
-  [class*="CardTitle"] .text-sm,
-  [class*="CardTitle"] .text-gray-400 {
+  [class*='CardTitle'] .text-sm,
+  [class*='CardTitle'] .text-gray-400 {
     font-size: 9pt !important;
     color: #6b7280 !important;
   }
@@ -262,7 +274,8 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第7层：☆★ 二级子标题（概述 / 风险点 / 久期管理 / 曲线形态 ……）
      ═══════════════════════════════════════════════════════════════ */
-  h4, .text-white.font-semibold.text-xl {
+  h4,
+  .text-white.font-semibold.text-xl {
     font-size: 13pt !important;
     font-weight: 600 !important;
     color: #1f2937 !important;
@@ -276,7 +289,7 @@ body {
      第8层：分析理由 / 假设条件 / 触发条件 等小标题
      ═══════════════════════════════════════════════════════════════ */
   .text-sm.font-medium,
-  [class*="font-medium"] {
+  [class*='font-medium'] {
     font-size: 11pt !important;
     font-weight: 600 !important;
     color: #374151 !important;
@@ -286,26 +299,49 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第9层：正文段落
      ═══════════════════════════════════════════════════════════════ */
-  p, .text-gray-300, .leading-relaxed, .text-base {
+  p,
+  .text-gray-300,
+  .leading-relaxed,
+  .text-base {
     color: #374151 !important;
     font-size: 10.5pt !important;
     line-height: 1.8 !important;
     text-align: justify !important;
   }
-  .text-sm { font-size: 10pt !important; }
-  .text-xs { font-size: 9pt !important; }
+  .text-sm {
+    font-size: 10pt !important;
+  }
+  .text-xs {
+    font-size: 9pt !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第10层：文本颜色覆写
      ═══════════════════════════════════════════════════════════════ */
-  .text-white { color: #111827 !important; }
-  .text-gray-300 { color: #4b5563 !important; }
-  .text-gray-400 { color: #6b7280 !important; }
-  .text-gray-200 { color: #374151 !important; }
-  .text-green-400 { color: #059669 !important; }
-  .text-yellow-400 { color: #d97706 !important; }
-  .text-red-400 { color: #dc2626 !important; }
-  .text-blue-400 { color: #2563eb !important; }
+  .text-white {
+    color: #111827 !important;
+  }
+  .text-gray-300 {
+    color: #4b5563 !important;
+  }
+  .text-gray-400 {
+    color: #6b7280 !important;
+  }
+  .text-gray-200 {
+    color: #374151 !important;
+  }
+  .text-green-400 {
+    color: #059669 !important;
+  }
+  .text-yellow-400 {
+    color: #d97706 !important;
+  }
+  .text-red-400 {
+    color: #dc2626 !important;
+  }
+  .text-blue-400 {
+    color: #2563eb !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第11层：预测结果 —— 上涨/下跌 概率卡片
@@ -330,11 +366,11 @@ body {
   }
 
   /* 置信度进度条 */
-  [class*="rounded-full"].bg-gray-700 {
+  [class*='rounded-full'].bg-gray-700 {
     background: #e5e7eb !important;
     height: 8px !important;
   }
-  [class*="rounded-full"].bg-blue-400 {
+  [class*='rounded-full'].bg-blue-400 {
     background: #2563eb !important;
     height: 8px !important;
   }
@@ -352,24 +388,34 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第13层：分割线
      ═══════════════════════════════════════════════════════════════ */
-  [class*="border-t"], [class*="border-b"], hr {
+  [class*='border-t'],
+  [class*='border-b'],
+  hr {
     border-color: #e5e7eb !important;
   }
   /* 移除卡片间的深色分割线（原 border-gray-700） */
-  [class*="border-gray"] {
+  [class*='border-gray'] {
     border-color: #e5e7eb !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
      第14层：列表
      ═══════════════════════════════════════════════════════════════ */
-  ul, ol { padding-left: 20px !important; margin: 4px 0 !important; }
+  ul,
+  ol {
+    padding-left: 20px !important;
+    margin: 4px 0 !important;
+  }
   li {
     color: #374151 !important;
     font-size: 10.5pt !important;
     line-height: 1.7 !important;
   }
-  strong, b { color: #111827 !important; font-weight: 700 !important; }
+  strong,
+  b {
+    color: #111827 !important;
+    font-weight: 700 !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第15层：表格
@@ -398,33 +444,41 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第16层：分页规则
      ═══════════════════════════════════════════════════════════════ */
-  .page-break { page-break-after: always; }
+  .page-break {
+    page-break-after: always;
+  }
   /* 每个主要模块前分页 */
-  .print-page-break-before { page-break-before: always; }
+  .print-page-break-before {
+    page-break-before: always;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第17层：只打印 / 不打印 控制
      ═══════════════════════════════════════════════════════════════ */
-  .print-only { display: block !important; }
+  .print-only {
+    display: block !important;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      第18层：☆★ 水印 — 斜向浅色全屏（纯 CSS body::after，不动 JSX）
      ═══════════════════════════════════════════════════════════════ */
   body::after {
-    content: "内部资料 · 注意保密" !important;
+    content: '内部资料 · 注意保密' !important;
     position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100% !important; height: 100% !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    color: rgba(160, 160, 160, 0.10) !important;
+    color: rgba(160, 160, 160, 0.1) !important;
     font-size: 36px !important;
     font-weight: 400 !important;
     transform: rotate(-35deg) !important;
     pointer-events: none !important;
     z-index: 9999 !important;
-    font-family: "Microsoft YaHei", sans-serif !important;
+    font-family: 'Microsoft YaHei', sans-serif !important;
     letter-spacing: 6px !important;
     white-space: pre !important;
     overflow: hidden !important;
@@ -460,8 +514,17 @@ body {
   /* ═══════════════════════════════════════════════════════════════
      第20层：安全兜底 —— 清理前端格式残留
      ═══════════════════════════════════════════════════════════════ */
-  .space-y-6 > * { margin-bottom: 18px !important; }
-  .backdrop-blur-sm, [class*="backdrop"] { backdrop-filter: none !important; }
-  [class*="shadow"] { box-shadow: none !important; }
-  [class*="ring"] { box-shadow: none !important; }
+  .space-y-6 > * {
+    margin-bottom: 18px !important;
+  }
+  .backdrop-blur-sm,
+  [class*='backdrop'] {
+    backdrop-filter: none !important;
+  }
+  [class*='shadow'] {
+    box-shadow: none !important;
+  }
+  [class*='ring'] {
+    box-shadow: none !important;
+  }
 }

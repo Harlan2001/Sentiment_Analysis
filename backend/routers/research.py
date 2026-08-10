@@ -5,17 +5,18 @@
 - GET /research/{id}          研报详情（含 AI 分析 + 图表列表）
 - GET /research/figure/{hash}/{filename}  图表文件
 """
+
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException, UploadFile, File, Form
+
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from backend.config.config import BASE_DIR
 from backend.common.database import get_db_connection
-from backend.config.config import API_PREFIX
-from backend.research_report.parser import clean_display_text
+from backend.config.config import API_PREFIX, BASE_DIR
 from backend.research_report import pipeline
+from backend.research_report.parser import clean_display_text
 
 router = APIRouter(prefix=f"{API_PREFIX}/research", tags=["research"])
 
@@ -40,12 +41,16 @@ def get_summary():
             """)
             institutions = cur.fetchone()[0]
 
-            cur.execute("SELECT MIN(publish_date), MAX(publish_date) FROM research_report")
+            cur.execute(
+                "SELECT MIN(publish_date), MAX(publish_date) FROM research_report"
+            )
             date_range = cur.fetchone()
 
         return {
             "total": total,
-            "analyzed": views.get("bullish", 0) + views.get("bearish", 0) + views.get("neutral", 0),
+            "analyzed": views.get("bullish", 0)
+            + views.get("bearish", 0)
+            + views.get("neutral", 0),
             "bullish": views.get("bullish", 0),
             "bearish": views.get("bearish", 0),
             "neutral": views.get("neutral", 0),
@@ -59,7 +64,9 @@ def get_summary():
 def get_research_list(
     institution: Optional[str] = Query(None, description="机构筛选"),
     industry: Optional[str] = Query(None, description="行业筛选"),
-    market_view: Optional[str] = Query(None, description="情感筛选：bullish/bearish/neutral"),
+    market_view: Optional[str] = Query(
+        None, description="情感筛选：bullish/bearish/neutral"
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -85,7 +92,8 @@ def get_research_list(
             total = cur.fetchone()[0]
 
             offset = (page - 1) * page_size
-            cur.execute(f"""
+            cur.execute(
+                f"""
                 SELECT id, title, institution, publish_date, industry, report_type,
                        ai_summary, ai_market_view, ai_view_strength,
                        ai_symbols, ai_industries, ai_key_points,
@@ -93,7 +101,9 @@ def get_research_list(
                 FROM research_report {where}
                 ORDER BY publish_date DESC, created_at DESC
                 LIMIT %s OFFSET %s
-            """, params + [page_size, offset])
+            """,
+                params + [page_size, offset],
+            )
             rows = cur.fetchall()
 
             cur.execute("""
@@ -116,25 +126,27 @@ def get_research_list(
 
         items = []
         for r in rows:
-            items.append({
-                "id": r[0],
-                "title": r[1],
-                "institution": r[2],
-                "publish_date": str(r[3]) if r[3] else None,
-                "industry": r[4],
-                "report_type": r[5],
-                "ai_summary": r[6],
-                "ai_market_view": r[7],
-                "ai_view_strength": float(r[8]) if r[8] else None,
-                "ai_symbols": r[9],
-                "ai_industries": r[10],
-                "ai_key_points": r[11],
-                "page_count": r[12],
-                "file_size_kb": r[13],
-                "status": r[14],
-                "source": r[15],
-                "created_at": str(r[16]) if r[16] else None,
-            })
+            items.append(
+                {
+                    "id": r[0],
+                    "title": r[1],
+                    "institution": r[2],
+                    "publish_date": str(r[3]) if r[3] else None,
+                    "industry": r[4],
+                    "report_type": r[5],
+                    "ai_summary": r[6],
+                    "ai_market_view": r[7],
+                    "ai_view_strength": float(r[8]) if r[8] else None,
+                    "ai_symbols": r[9],
+                    "ai_industries": r[10],
+                    "ai_key_points": r[11],
+                    "page_count": r[12],
+                    "file_size_kb": r[13],
+                    "status": r[14],
+                    "source": r[15],
+                    "created_at": str(r[16]) if r[16] else None,
+                }
+            )
 
         return {
             "total": total,
@@ -153,7 +165,8 @@ def get_research_detail(report_id: int):
     """研报详情：正文 + AI 分析 + 图表"""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT id, title, institution, analyst, publish_date, industry,
                        symbols, report_type, file_path, file_hash, file_size_kb,
                        page_count, full_text, ai_summary, ai_key_points, ai_symbols,
@@ -161,30 +174,37 @@ def get_research_detail(report_id: int):
                        ai_time_horizon, ai_evidence, ai_analyzed_at, ai_model, ai_raw_response,
                        status, source, created_at
                 FROM research_report WHERE id = %s
-            """, (report_id,))
+            """,
+                (report_id,),
+            )
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="研报不存在")
 
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT id, page_number, figure_order, figure_type, caption,
                        image_path, image_size_kb
                 FROM report_figure WHERE report_id = %s
                 ORDER BY page_number, figure_order
-            """, (report_id,))
+            """,
+                (report_id,),
+            )
             figs = cur.fetchall()
 
         figures = []
         for f in figs:
-            figures.append({
-                "id": f[0],
-                "page_number": f[1],
-                "figure_order": f[2],
-                "figure_type": f[3],
-                "caption": f[4],
-                "image_path": f[5],
-                "image_size_kb": f[6],
-            })
+            figures.append(
+                {
+                    "id": f[0],
+                    "page_number": f[1],
+                    "figure_order": f[2],
+                    "figure_type": f[3],
+                    "caption": f[4],
+                    "image_path": f[5],
+                    "image_size_kb": f[6],
+                }
+            )
 
         return {
             "id": row[0],
@@ -230,10 +250,7 @@ async def upload_research_pdf(
     # 校验文件类型
     content_type = file.content_type or ""
     filename = (file.filename or "").lower()
-    is_pdf = (
-        content_type == "application/pdf"
-        or filename.endswith(".pdf")
-    )
+    is_pdf = content_type == "application/pdf" or filename.endswith(".pdf")
     if not is_pdf:
         raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
 
@@ -273,7 +290,9 @@ async def upload_research_pdf(
 @router.post("/{report_id}/analyze")
 def trigger_analysis(
     report_id: int,
-    model: str = Query("doubao", description="模型短名: doubao / glm / deepseek / qwen"),
+    model: str = Query(
+        "doubao", description="模型短名: doubao / glm / deepseek / qwen"
+    ),
 ):
     """触发单份研报的 AI 分析（后台异步执行）。"""
     # 校验报告存在
@@ -310,6 +329,7 @@ def trigger_analysis(
 
     # 验证模型名
     from backend.research_report.llm import MODEL_OPTIONS
+
     if model not in MODEL_OPTIONS:
         raise HTTPException(
             status_code=400,
@@ -329,7 +349,9 @@ def trigger_analysis(
 @router.get("/figure/{file_hash}/{filename}")
 def get_figure(file_hash: str, filename: str):
     """提供图表文件"""
-    figure_path = BASE_DIR / "data" / "pdf" / "research" / "figure" / file_hash / filename
+    figure_path = (
+        BASE_DIR / "data" / "pdf" / "research" / "figure" / file_hash / filename
+    )
     if not figure_path.exists():
         raise HTTPException(status_code=404, detail="图片不存在")
     return FileResponse(figure_path, media_type="image/png")

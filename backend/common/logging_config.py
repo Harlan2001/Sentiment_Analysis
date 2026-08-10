@@ -54,6 +54,7 @@ def _resolve_defaults(
     log_max_days: Optional[int] = None,
 ) -> tuple[str, str, int]:
     from backend.config.config import LOG_DIR, LOG_LEVEL, LOG_MAX_DAYS  # noqa: E402
+
     return (
         log_dir or LOG_DIR,
         log_level or LOG_LEVEL,
@@ -155,7 +156,9 @@ def setup_logging(
     if _initialized:
         return
 
-    log_dir, log_level, log_max_days = _resolve_defaults(log_dir, log_level, log_max_days)
+    log_dir, log_level, log_max_days = _resolve_defaults(
+        log_dir, log_level, log_max_days
+    )
     config = _build_log_config(log_dir, log_level, log_max_days)
     logging.config.dictConfig(config)
     _initialized = True
@@ -171,7 +174,9 @@ def get_uvicorn_log_config(
 
     确保 uvicorn 自身的启动/访问/错误日志也写入同一组 handler。
     """
-    log_dir, log_level, log_max_days = _resolve_defaults(log_dir, log_level, log_max_days)
+    log_dir, log_level, log_max_days = _resolve_defaults(
+        log_dir, log_level, log_max_days
+    )
     return _build_log_config(log_dir, log_level, log_max_days)
 
 
@@ -204,7 +209,9 @@ def add_logger_daily_file(
         encoding="utf-8",
     )
     handler.setLevel(level)
-    handler.setFormatter(logging.Formatter(STANDARD_FORMAT, datefmt=STANDARD_DATE_FORMAT))
+    handler.setFormatter(
+        logging.Formatter(STANDARD_FORMAT, datefmt=STANDARD_DATE_FORMAT)
+    )
 
     logger = logging.getLogger(logger_name)
     logger.addHandler(handler)

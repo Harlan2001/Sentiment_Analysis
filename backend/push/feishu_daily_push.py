@@ -6,17 +6,18 @@
 """
 
 import json
+import logging
 import os
 import sys
-import logging
-import requests
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 
+import requests
+
 logger = logging.getLogger(__name__)
 
-from backend.common.database import get_db_connection, init_database, DatabaseConfig
+from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.config.config import MYSQL_CONFIG, get_requests_proxies
 from backend.push.pdf_generator import generate_prediction_pdf
 
@@ -26,7 +27,11 @@ APP_ID = os.getenv("FEISHU_APP_ID")
 APP_SECRET = os.getenv("FEISHU_APP_SECRET")
 GROUP_ID = os.getenv("FEISHU_GROUP_ID")
 
-for k, v in {"FEISHU_APP_ID": APP_ID, "FEISHU_APP_SECRET": APP_SECRET, "FEISHU_GROUP_ID": GROUP_ID}.items():
+for k, v in {
+    "FEISHU_APP_ID": APP_ID,
+    "FEISHU_APP_SECRET": APP_SECRET,
+    "FEISHU_GROUP_ID": GROUP_ID,
+}.items():
     if not v:
         raise RuntimeError(f"缺少必要的环境变量: {k}，请在 .env 文件中配置")
 
@@ -103,7 +108,9 @@ def build_summary(pdf_file_name: str) -> str:
 
 # ===================== 飞书 API =====================
 
-FEISHU_TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+FEISHU_TOKEN_URL = (
+    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+)
 FEISHU_IM_FILES_URL = "https://open.feishu.cn/open-apis/im/v1/files"
 FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages"
 
@@ -111,9 +118,12 @@ FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages"
 def get_tenant_token() -> Optional[str]:
     """获取飞书 tenant_access_token。"""
     try:
-        resp = requests.post(FEISHU_TOKEN_URL, json={
-            "app_id": APP_ID, "app_secret": APP_SECRET
-        }, timeout=10, proxies=get_requests_proxies())
+        resp = requests.post(
+            FEISHU_TOKEN_URL,
+            json={"app_id": APP_ID, "app_secret": APP_SECRET},
+            timeout=10,
+            proxies=get_requests_proxies(),
+        )
         result = resp.json()
         if result.get("code") == 0:
             return result["tenant_access_token"]
@@ -157,9 +167,16 @@ def send_text(token: str, chat_id: str, text: str) -> bool:
     try:
         resp = requests.post(
             FEISHU_MSG_URL,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
             params={"receive_id_type": "chat_id"},
-            json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text})},
+            json={
+                "receive_id": chat_id,
+                "msg_type": "text",
+                "content": json.dumps({"text": text}),
+            },
             timeout=30,
             proxies=get_requests_proxies(),
         )
@@ -177,7 +194,10 @@ def send_file(token: str, chat_id: str, file_key: str) -> bool:
     try:
         resp = requests.post(
             FEISHU_MSG_URL,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
             params={"receive_id_type": "chat_id"},
             json={
                 "receive_id": chat_id,
@@ -214,7 +234,11 @@ def main():
     report_date_str = pdf_name.replace(".pdf", "")
     yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     if report_date_str != yesterday_str:
-        logger.info("报告日期校验未通过，当前最新报告日期: %s，期望日期: %s，跳过推送", report_date_str, yesterday_str)
+        logger.info(
+            "报告日期校验未通过，当前最新报告日期: %s，期望日期: %s，跳过推送",
+            report_date_str,
+            yesterday_str,
+        )
         return
 
     # 2. 获取 Token
@@ -241,5 +265,6 @@ def main():
 
 if __name__ == "__main__":
     from backend.common.logging_config import setup_logging
+
     setup_logging()
     main()

@@ -1,14 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Empty, Error as ErrorUI, Input, Loading } from '@/components/UI'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Empty,
+  Error as ErrorUI,
+  Input,
+  Loading,
+} from '@/components/UI'
 import { storage } from '@/utils/helpers'
 import { API_PREFIX } from '@/constants'
 
 function authHeaders(): Record<string, string> {
-  const token = storage.get<string>("auth_token");
+  const token = storage.get<string>('auth_token')
   if (token) {
-    return { Authorization: `Bearer ${token}` };
+    return { Authorization: `Bearer ${token}` }
   }
-  return {};
+  return {}
 }
 
 const BASE = `${API_PREFIX}/ai-strategy-recommendation`
@@ -148,9 +158,7 @@ const RecommendationDetail: React.FC<{ record: RecommendationRecord | null }> = 
       </div>
 
       {outcome?.error && (
-        <div className="text-sm text-red-300 bg-red-950/30 border border-red-800 rounded-lg p-3">
-          {outcome.error}
-        </div>
+        <div className="text-sm text-red-300 bg-red-950/30 border border-red-800 rounded-lg p-3">{outcome.error}</div>
       )}
 
       <div className="space-y-3">
@@ -160,15 +168,22 @@ const RecommendationDetail: React.FC<{ record: RecommendationRecord | null }> = 
           recommendations.map((item, index) => {
             const target = item.target || item.stock || {}
             return (
-              <div key={`${target.code || index}-${item.strategy?.id || index}`} className="bg-gray-950/40 border border-gray-700 rounded-lg p-4">
+              <div
+                key={`${target.code || index}-${item.strategy?.id || index}`}
+                className="bg-gray-950/40 border border-gray-700 rounded-lg p-4"
+              >
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
                   <div>
                     <div className="text-xs text-purple-300 mb-1">优先级 {item.priority || index + 1}</div>
                     <div className="text-lg font-semibold text-white">{target.name || target.code || '未命名标的'}</div>
-                    <div className="text-xs text-gray-500 mt-1">{target.code || '-'} · {target.type || '-'}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {target.code || '-'} · {target.type || '-'}
+                    </div>
                   </div>
                   <div className="text-left md:text-right">
-                    <div className="text-sm text-gray-200">{item.strategy?.name || item.strategy?.id || '未命名策略'}</div>
+                    <div className="text-sm text-gray-200">
+                      {item.strategy?.name || item.strategy?.id || '未命名策略'}
+                    </div>
                     <div className="text-xs text-gray-500 mt-1">{item.strategy?.id || '-'}</div>
                   </div>
                 </div>
@@ -197,16 +212,10 @@ const SelectStrategyPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [cacheHint, setCacheHint] = useState<string>('')
 
-  const expandedRecord = useMemo(
-    () => history.find(item => item.id === expandedId) || null,
-    [expandedId, history]
-  )
+  const expandedRecord = useMemo(() => history.find((item) => item.id === expandedId) || null, [expandedId, history])
 
   const loadPageData = async () => {
-    const [latestRes, historyRes] = await Promise.all([
-      fetchLatestRecommendation(),
-      fetchRecommendationHistory(),
-    ])
+    const [latestRes, historyRes] = await Promise.all([fetchLatestRecommendation(), fetchRecommendationHistory()])
     setLatest(latestRes.data)
     setHistory(historyRes.items || [])
   }
@@ -214,7 +223,7 @@ const SelectStrategyPage: React.FC = () => {
   useEffect(() => {
     setInitialLoading(true)
     loadPageData()
-      .catch(err => setError((err as Error)?.message || '页面数据加载失败'))
+      .catch((err) => setError((err as Error)?.message || '页面数据加载失败'))
       .finally(() => setInitialLoading(false))
   }, [])
 
@@ -242,12 +251,8 @@ const SelectStrategyPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-white">
-          AI智能推荐标的与策略
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          基于所选日期的新闻舆情分析结果生成推荐；同一日期优先读取缓存。
-        </p>
+        <h1 className="text-2xl font-bold text-white">AI智能推荐标的与策略</h1>
+        <p className="text-gray-500 text-sm mt-1">基于所选日期的新闻舆情分析结果生成推荐；同一日期优先读取缓存。</p>
       </div>
 
       <Card>
@@ -258,7 +263,7 @@ const SelectStrategyPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="w-full sm:w-64">
               <label className="block text-xs text-gray-400 mb-1">新闻分析日期</label>
-              <Input type="date" value={analysisDate} onChange={event => setAnalysisDate(event.target.value)} />
+              <Input type="date" value={analysisDate} onChange={(event) => setAnalysisDate(event.target.value)} />
             </div>
             <Button onClick={() => handleAnalyze(false)} loading={loading}>
               开始推荐
@@ -295,7 +300,7 @@ const SelectStrategyPage: React.FC = () => {
                 <Empty message="暂无历史推荐信息" />
               ) : (
                 <div className="space-y-2">
-                  {history.map(item => (
+                  {history.map((item) => (
                     <div key={item.id} className="border border-gray-700 rounded-lg bg-gray-950/30">
                       <button
                         type="button"
@@ -305,12 +310,11 @@ const SelectStrategyPage: React.FC = () => {
                         <div>
                           <div className="text-sm font-semibold text-gray-100">{item.analysis_date}</div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {item.news_count || 0} 条新闻 · {item.model_name || '-'} · {item.updated_at || item.created_at || '-'}
+                            {item.news_count || 0} 条新闻 · {item.model_name || '-'} ·{' '}
+                            {item.updated_at || item.created_at || '-'}
                           </div>
                         </div>
-                        <div className="text-sm text-blue-300">
-                          {expandedId === item.id ? '收起' : '查看详情'}
-                        </div>
+                        <div className="text-sm text-blue-300">{expandedId === item.id ? '收起' : '查看详情'}</div>
                       </button>
                       {expandedRecord?.id === item.id && (
                         <div className="px-4 pb-4">

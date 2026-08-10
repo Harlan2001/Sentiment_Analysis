@@ -10,17 +10,24 @@ function authHeaders(): Record<string, string> {
 }
 
 const VIEW_COLORS: Record<string, string> = {
-  bullish: 'text-red-400', bearish: 'text-green-400', neutral: 'text-gray-400',
+  bullish: 'text-red-400',
+  bearish: 'text-green-400',
+  neutral: 'text-gray-400',
 }
 const VIEW_BG: Record<string, string> = {
-  bullish: 'bg-red-500/10 border-red-500/30', bearish: 'bg-green-500/10 border-green-500/30',
+  bullish: 'bg-red-500/10 border-red-500/30',
+  bearish: 'bg-green-500/10 border-green-500/30',
   neutral: 'bg-gray-500/10 border-gray-500/30',
 }
 const VIEW_LABEL: Record<string, string> = {
-  bullish: '看多', bearish: '看空', neutral: '中性',
+  bullish: '看多',
+  bearish: '看空',
+  neutral: '中性',
 }
 const HORIZON_LABELS: Record<string, string> = {
-  short: '短期(<1月)', medium: '中期(1-6月)', long: '长期(>6月)',
+  short: '短期(<1月)',
+  medium: '中期(1-6月)',
+  long: '长期(>6月)',
 }
 
 interface Evidence {
@@ -29,20 +36,39 @@ interface Evidence {
 }
 
 interface ResearchDetail {
-  id: number; title: string; institution: string | null; analyst: string | null
-  publish_date: string | null; industry: string | null; report_type: string | null
-  page_count: number; file_size_kb: number; source: string | null; file_hash: string
-  ai_summary: string | null; ai_key_points: any; ai_symbols: any; ai_industries: any
-  ai_market_view: string | null; ai_view_strength: number | null
-  ai_time_horizon: string | null; ai_evidence: any
-  ai_model: string | null; ai_analyzed_at: string | null
-  full_text: string; status: string
+  id: number
+  title: string
+  institution: string | null
+  analyst: string | null
+  publish_date: string | null
+  industry: string | null
+  report_type: string | null
+  page_count: number
+  file_size_kb: number
+  source: string | null
+  file_hash: string
+  ai_summary: string | null
+  ai_key_points: any
+  ai_symbols: any
+  ai_industries: any
+  ai_market_view: string | null
+  ai_view_strength: number | null
+  ai_time_horizon: string | null
+  ai_evidence: any
+  ai_model: string | null
+  ai_analyzed_at: string | null
+  full_text: string
+  status: string
 }
 
 function parseJSON(v: any): any {
   if (!v) return null
   if (typeof v === 'object') return v
-  try { return JSON.parse(v) } catch { return null }
+  try {
+    return JSON.parse(v)
+  } catch {
+    return null
+  }
 }
 
 export default function ResearchDetailPage() {
@@ -54,8 +80,8 @@ export default function ResearchDetailPage() {
   useEffect(() => {
     setLoading(true)
     fetch(`${API_PREFIX}/research/${id}`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(d => setDetail(d))
+      .then((r) => r.json())
+      .then((d) => setDetail(d))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -69,9 +95,7 @@ export default function ResearchDetailPage() {
 
   // 原文摘要：API 返回的 display_text 已清洗，按段落展示
   const textExcerpt = detail.full_text || ''
-  const paragraphs = textExcerpt
-    .split(/\n\n+/)
-    .filter((p: string) => p.trim().length > 10)
+  const paragraphs = textExcerpt.split(/\n\n+/).filter((p: string) => p.trim().length > 10)
 
   return (
     <div className="space-y-5">
@@ -90,15 +114,11 @@ export default function ResearchDetailPage() {
         <div className="flex-1">
           <h1 className="text-xl font-semibold text-white mb-2">{detail.title}</h1>
           <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
-            {detail.institution && (
-              <span className="px-2 py-0.5 rounded bg-gray-700/60">{detail.institution}</span>
-            )}
+            {detail.institution && <span className="px-2 py-0.5 rounded bg-gray-700/60">{detail.institution}</span>}
             {detail.analyst && <span>分析师: {detail.analyst}</span>}
             {detail.publish_date && <span>{detail.publish_date}</span>}
             {detail.page_count && <span>{detail.page_count}页</span>}
-            {detail.report_type && (
-              <span className="text-gray-500">{detail.report_type}</span>
-            )}
+            {detail.report_type && <span className="text-gray-500">{detail.report_type}</span>}
           </div>
         </div>
         {detail.status !== 'analyzed' && (
@@ -111,7 +131,6 @@ export default function ResearchDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* 左侧主体 */}
         <div className="lg:col-span-2 space-y-5">
-
           {/* AI 分析主卡 */}
           <Card>
             <CardHeader>
@@ -120,14 +139,14 @@ export default function ResearchDetailPage() {
             <CardContent>
               {/* 情感徽章 */}
               <div className="flex items-center gap-3 mb-5">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border
+                <span
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border
                   ${VIEW_BG[detail.ai_market_view || 'neutral']}
-                  ${VIEW_COLORS[detail.ai_market_view || 'neutral']}`}>
+                  ${VIEW_COLORS[detail.ai_market_view || 'neutral']}`}
+                >
                   {VIEW_LABEL[detail.ai_market_view || 'neutral']}
                   {detail.ai_view_strength != null && (
-                    <span className="ml-1.5 opacity-70">
-                      {Math.round(detail.ai_view_strength * 100)}%
-                    </span>
+                    <span className="ml-1.5 opacity-70">{Math.round(detail.ai_view_strength * 100)}%</span>
                   )}
                 </span>
                 {detail.ai_time_horizon && (
@@ -145,9 +164,7 @@ export default function ResearchDetailPage() {
               {/* 核心摘要 */}
               {detail.ai_summary && (
                 <div className="mb-5 p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                  <h4 className="text-[11px] font-medium text-blue-400 uppercase tracking-wide mb-2">
-                    核心摘要
-                  </h4>
+                  <h4 className="text-[11px] font-medium text-blue-400 uppercase tracking-wide mb-2">核心摘要</h4>
                   <p className="text-sm text-gray-300 leading-relaxed">{detail.ai_summary}</p>
                 </div>
               )}
@@ -155,9 +172,7 @@ export default function ResearchDetailPage() {
               {/* 关键要点 */}
               {keyPoints.length > 0 && (
                 <div className="mb-5">
-                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-                    关键要点
-                  </h4>
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">关键要点</h4>
                   <div className="space-y-2">
                     {keyPoints.map((kp, i) => (
                       <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-gray-800/50">
@@ -189,7 +204,10 @@ export default function ResearchDetailPage() {
                     {symbols.map((s: any, i: number) => {
                       const icon = s.polarity === 'bullish' ? '↑' : s.polarity === 'bearish' ? '↓' : '—'
                       return (
-                        <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs">
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs"
+                        >
                           <span className="text-[10px]">{icon}</span>
                           {s.name || s.code}
                         </span>

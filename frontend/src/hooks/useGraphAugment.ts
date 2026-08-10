@@ -74,10 +74,10 @@ export function useGraphAugment({ newsId, newsContent, onComplete }: UseGraphAug
 
           // 保存到数据库
           await saveGraphAugmentResult(newsId, runId, data.status, data.stage, resultData, extractData)
-          
+
           // 使缓存失效
           queryClient.invalidateQueries({ queryKey: ['graphAugment', 'job', newsId] })
-          
+
           if (onComplete) {
             onComplete(resultData)
           }
@@ -115,15 +115,15 @@ export function useGraphAugment({ newsId, newsContent, onComplete }: UseGraphAug
     setEventSource(es)
 
     es.addEventListener('extract_thinking_delta', (event) => {
-      setProgressMessages(prev => [...prev, `[抽取] ${event.data}`])
+      setProgressMessages((prev) => [...prev, `[抽取] ${event.data}`])
     })
 
     es.addEventListener('similarity_audit_thinking_delta', (event) => {
-      setProgressMessages(prev => [...prev, `[相似度复核] ${event.data}`])
+      setProgressMessages((prev) => [...prev, `[相似度复核] ${event.data}`])
     })
 
     es.addEventListener('augment_thinking_delta', (event) => {
-      setProgressMessages(prev => [...prev, `[补全] ${event.data}`])
+      setProgressMessages((prev) => [...prev, `[补全] ${event.data}`])
     })
 
     es.onerror = (error) => {

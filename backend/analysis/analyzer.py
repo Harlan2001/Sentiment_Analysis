@@ -9,18 +9,25 @@ import os
 import re
 import time
 from typing import Any, Dict, Optional
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 import openai
 from openai import AsyncOpenAI
-from backend.config.config import (
-    create_openai_async_http_client,
-    get_default_analysis_model_name,
-    get_analysis_model_info,
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
+
+from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
 from backend.common.llm_logger import log_llm_usage
-from backend.analysis.result_processor import AnalysisResultProcessor
+from backend.config.config import (
+    create_openai_async_http_client,
+    get_analysis_model_info,
+    get_default_analysis_model_name,
+)
 from backend.factor.factor_management import get_factor_prompt_text
 
 logger = logging.getLogger(__name__)
@@ -32,7 +39,9 @@ MODEL_NAME = get_default_analysis_model_name()
 # kingstar API配置
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 if not kingstar_API_KEY:
-    raise ValueError("kingstar_API_KEY environment variable is not set. Please set it in your .env file.")
+    raise ValueError(
+        "kingstar_API_KEY environment variable is not set. Please set it in your .env file."
+    )
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
 # 创建异步客户端
@@ -42,19 +51,24 @@ async_client = AsyncOpenAI(
     http_client=create_openai_async_http_client(),
 )
 
+
 # API调用重试装饰器：最多重试3次，指数退避（1s, 2s, 4s）
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type((openai.APIError, openai.APIConnectionError, openai.RateLimitError)),
-    reraise=True
+    retry=retry_if_exception_type(
+        (openai.APIError, openai.APIConnectionError, openai.RateLimitError)
+    ),
+    reraise=True,
 )
 async def async_chat_completion(**kwargs):
     """带重试的异步API调用"""
     return await async_client.chat.completions.create(**kwargs)
 
 
-async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = None) -> dict:
+async def analyze_bond_yield_async(
+    news_id: int, model_name: Optional[str] = None
+) -> dict:
     """
     分析新闻事件对应的关键因子
 
@@ -133,7 +147,7 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
 ### 因子字段规范
 - code: 语义化大写英文缩写,禁止NEW_FACTOR_*格式
 - name: 中文名称
-- category: 
+- category:
     POLICY(政策驱动)
     MACRO(基本面驱动)
     LIQUIDITY(流动性驱动)
@@ -184,13 +198,15 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
 
         t0 = time.monotonic()
         response = await async_chat_completion(
-            model=provider_model,
-            messages=messages,
-            temperature=1.0,
-            timeout=600
+            model=provider_model, messages=messages, temperature=1.0, timeout=600
         )
         elapsed = time.monotonic() - t0
-        logger.debug("kingstar API 调用完成, elapsed=%.2fs, model=%s, news_id=%d", elapsed, provider_model, news_id)
+        logger.debug(
+            "kingstar API 调用完成, elapsed=%.2fs, model=%s, news_id=%d",
+            elapsed,
+            provider_model,
+            news_id,
+        )
 
         response_text = response.choices[0].message.content
 
@@ -210,7 +226,7 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
             json_str = response_text.strip()
 
         # 清理尾随逗号等常见 JSON 不合规问题
-        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
 
         result = json.loads(json_str)
 
@@ -221,8 +237,12 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
                 call_source="analysis",
                 model_name=selected_model_name,
                 provider_model=provider_model,
-                prompt_tokens=usage.prompt_tokens if usage and usage.prompt_tokens else 0,
-                completion_tokens=usage.completion_tokens if usage and usage.completion_tokens else 0,
+                prompt_tokens=(
+                    usage.prompt_tokens if usage and usage.prompt_tokens else 0
+                ),
+                completion_tokens=(
+                    usage.completion_tokens if usage and usage.completion_tokens else 0
+                ),
                 total_tokens=usage.total_tokens if usage and usage.total_tokens else 0,
                 success=True,
                 latency_ms=int(elapsed * 1000),
@@ -251,7 +271,9 @@ async def analyze_bond_yield_async(news_id: int, model_name: Optional[str] = Non
         }
 
 
-async def process_single_news_analysis(news_id: int, model_name: Optional[str] = None) -> Dict[str, Any]:
+async def process_single_news_analysis(
+    news_id: int, model_name: Optional[str] = None
+) -> Dict[str, Any]:
     """标准化的单条新闻分析工具函数：分析、落库并写入因子关联。"""
     with get_db_connection() as conn:
         try:
@@ -261,9 +283,13 @@ async def process_single_news_analysis(news_id: int, model_name: Optional[str] =
                 return {"success": False, "message": "新闻不存在", "news_id": news_id}
 
             selected_model_name = model_name or MODEL_NAME
-            provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
+            provider_model = get_analysis_model_info(selected_model_name)[
+                "provider_model"
+            ]
 
-            analysis_result = await analyze_bond_yield_async(news_id, model_name=selected_model_name)
+            analysis_result = await analyze_bond_yield_async(
+                news_id, model_name=selected_model_name
+            )
 
             DBOperations.save_analysis_result(
                 news_id=news_id,
@@ -290,4 +316,8 @@ async def process_single_news_analysis(news_id: int, model_name: Optional[str] =
             }
         except Exception as exc:
             conn.rollback()
-            return {"success": False, "message": f"分析失败: {str(exc)}", "news_id": news_id}
+            return {
+                "success": False,
+                "message": f"分析失败: {str(exc)}",
+                "news_id": news_id,
+            }

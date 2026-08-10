@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Select, Loading, Error, Empty } from '@/components/UI'
 import { useMacroSignalRequestLogs } from '@/hooks/useMacroSignalLogApi'
 import { useNewsDetail } from '@/hooks/useNewsApi'
+import { cn } from '@/utils/helpers'
 import type { MacroSignalRequestLogItem, MacroSignalRequestLogQuery } from '@/types'
 import NewsDetail from './NewsDetail'
 
@@ -9,7 +10,7 @@ import NewsDetail from './NewsDetail'
 interface FiltersState {
   request_id: string
   factor_code: string
-  success: string  // '' | '0' | '1'
+  success: string // '' | '0' | '1'
   signal_type: string // '' | 'presence' | 'directional'
   start_time: string
   end_time: string
@@ -47,14 +48,14 @@ const NewsSidebar: React.FC<NewsSidebarProps> = ({ newsId, onClose }) => {
     <div className="fixed inset-y-0 right-0 w-full max-w-2xl z-50 flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl overflow-y-auto">
       <div className="flex items-center justify-between p-4 border-b border-gray-700 sticky top-0 bg-gray-900 z-10">
         <span className="text-gray-300 font-semibold">新闻详情 #{newsId}</span>
-        <button onClick={onClose} className="text-gray-400 hover:text-white text-xl px-2">✕</button>
+        <button onClick={onClose} className="text-gray-400 hover:text-white text-xl px-2">
+          ✕
+        </button>
       </div>
       <div className="p-4 flex-1">
         {isLoading && <Loading />}
         {error && <Error message="加载新闻详情失败" />}
-        {news && !isLoading && (
-          <NewsDetail news={news} onClose={onClose} />
-        )}
+        {news && !isLoading && <NewsDetail news={news} onClose={onClose} />}
       </div>
     </div>
   )
@@ -71,12 +72,10 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
   const [expandedNewsRow, setExpandedNewsRow] = useState<number | null>(null)
   if (rows.length === 0) return null
 
-  const successCount = rows.filter(r => r.success === 1).length
+  const successCount = rows.filter((r) => r.success === 1).length
   const totalNews = rows.reduce((s, r) => s + (r.queried_news?.length || 0), 0)
-  const latencies = rows.map(r => r.latency_ms).filter((v): v is number => v !== null)
-  const latencyRange = latencies.length > 0
-    ? `${Math.min(...latencies)} ~ ${Math.max(...latencies)} ms`
-    : '-'
+  const latencies = rows.map((r) => r.latency_ms).filter((v): v is number => v !== null)
+  const latencyRange = latencies.length > 0 ? `${Math.min(...latencies)} ~ ${Math.max(...latencies)} ms` : '-'
 
   return (
     <div className="mt-4 bg-gray-800 border border-gray-700 rounded-xl p-4">
@@ -85,36 +84,49 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
           请求聚合视图 &nbsp;
           <span className="text-gray-400 font-mono text-xs">{rows[0].request_id}</span>
         </div>
-        <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">关闭</button>
+        <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">
+          关闭
+        </button>
       </div>
       <div className="flex gap-6 text-xs text-gray-400 mb-4">
-        <span>因子数：<b className="text-gray-200">{rows.length}</b></span>
-        <span>成功率：<b className="text-gray-200">{successCount}/{rows.length}</b></span>
-        <span>命中新闻总数：<b className="text-gray-200">{totalNews}</b></span>
-        <span>耗时区间：<b className="text-gray-200">{latencyRange}</b></span>
+        <span>
+          因子数：<b className="text-gray-200">{rows.length}</b>
+        </span>
+        <span>
+          成功率：
+          <b className="text-gray-200">
+            {successCount}/{rows.length}
+          </b>
+        </span>
+        <span>
+          命中新闻总数：<b className="text-gray-200">{totalNews}</b>
+        </span>
+        <span>
+          耗时区间：<b className="text-gray-200">{latencyRange}</b>
+        </span>
       </div>
       <div className="space-y-2">
-        {rows.map(row => (
-          <div key={row.id} className={`p-3 rounded-lg border ${row.success === 0 ? 'border-red-700 bg-red-950/30' : 'border-gray-700 bg-gray-900/50'}`}>
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className={`p-3 rounded-lg border ${row.success === 0 ? 'border-red-700 bg-red-950/30' : 'border-gray-700 bg-gray-900/50'}`}
+          >
             <div className="flex items-center gap-3 text-xs">
-              <span className={`px-2 py-0.5 rounded font-semibold ${row.success === 1 ? 'bg-green-800/60 text-green-300' : 'bg-red-800/60 text-red-300'}`}>
+              <span
+                className={`px-2 py-0.5 rounded font-semibold ${row.success === 1 ? 'bg-green-800/60 text-green-300' : 'bg-red-800/60 text-red-300'}`}
+              >
                 {row.success === 1 ? '成功' : '失败'}
               </span>
               <span className="text-gray-300 font-mono">{row.factor_code}</span>
+              {row.factor_name && <span className="text-gray-500">{row.factor_name}</span>}
               <span className="text-gray-500">{row.signal_type}</span>
               {row.signal_value !== null && (
                 <span className="text-blue-300">信号值: {row.signal_value.toFixed(4)}</span>
               )}
-              {row.confidence !== null && (
-                <span className="text-purple-300">置信度: {row.confidence.toFixed(4)}</span>
-              )}
-              {row.latency_ms !== null && (
-                <span className="text-gray-500">{row.latency_ms} ms</span>
-              )}
+              {row.confidence !== null && <span className="text-purple-300">置信度: {row.confidence.toFixed(4)}</span>}
+              {row.latency_ms !== null && <span className="text-gray-500">{row.latency_ms} ms</span>}
             </div>
-            {row.error_message && (
-              <div className="mt-1 text-xs text-red-400">{row.error_message}</div>
-            )}
+            {row.error_message && <div className="mt-1 text-xs text-red-400">{row.error_message}</div>}
             {row.queried_news && row.queried_news.length > 0 && (
               <div className="mt-2">
                 <button
@@ -125,7 +137,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
                 </button>
                 {expandedNewsRow === row.id && (
                   <div className="mt-1 flex flex-wrap gap-2">
-                    {row.queried_news.map(nid => (
+                    {row.queried_news.map((nid) => (
                       <button
                         key={nid}
                         className="text-xs px-2 py-0.5 bg-blue-900/50 text-blue-300 rounded hover:bg-blue-800/70 transition-colors"
@@ -146,7 +158,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ rows, onNewsCli
 }
 
 // -------- 主页面 --------
-const MacroSignalLogPage: React.FC = () => {
+const MacroSignalLogPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [pendingFilters, setPendingFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
@@ -172,22 +184,24 @@ const MacroSignalLogPage: React.FC = () => {
   }, [])
 
   const handleRowClick = (requestId: string) => {
-    setSelectedRequestId(prev => prev === requestId ? null : requestId)
+    setSelectedRequestId((prev) => (prev === requestId ? null : requestId))
   }
 
-  const selectedRows = data?.items.filter(r => r.request_id === selectedRequestId) ?? []
+  const selectedRows = data?.items.filter((r) => r.request_id === selectedRequestId) ?? []
 
   const pagination = data?.pagination
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
-      {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">
-          宏观信号请求日志
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">查询每次宏观信号接口调用的详细记录</p>
-      </div>
+    <div className={cn(embedded ? 'space-y-4' : 'max-w-7xl mx-auto px-4 py-6 space-y-4')}>
+      {/* 页面标题（独立页展示，嵌入看板时隐藏） */}
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            宏观信号请求日志
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">查询每次宏观信号接口调用的详细记录</p>
+        </div>
+      )}
 
       {/* 筛选区 */}
       <Card>
@@ -199,16 +213,16 @@ const MacroSignalLogPage: React.FC = () => {
             <Input
               placeholder="Request ID"
               value={pendingFilters.request_id}
-              onChange={e => setPendingFilters(f => ({ ...f, request_id: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, request_id: e.target.value }))}
             />
             <Input
               placeholder="因子代码（如 A001）"
               value={pendingFilters.factor_code}
-              onChange={e => setPendingFilters(f => ({ ...f, factor_code: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, factor_code: e.target.value }))}
             />
             <Select
               value={pendingFilters.success}
-              onChange={e => setPendingFilters(f => ({ ...f, success: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, success: e.target.value }))}
             >
               <option value="">全部状态</option>
               <option value="1">成功</option>
@@ -216,7 +230,7 @@ const MacroSignalLogPage: React.FC = () => {
             </Select>
             <Select
               value={pendingFilters.signal_type}
-              onChange={e => setPendingFilters(f => ({ ...f, signal_type: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, signal_type: e.target.value }))}
             >
               <option value="">全部信号类型</option>
               <option value="presence">presence</option>
@@ -226,18 +240,22 @@ const MacroSignalLogPage: React.FC = () => {
               type="datetime-local"
               placeholder="开始时间"
               value={pendingFilters.start_time}
-              onChange={e => setPendingFilters(f => ({ ...f, start_time: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, start_time: e.target.value }))}
             />
             <Input
               type="datetime-local"
               placeholder="结束时间"
               value={pendingFilters.end_time}
-              onChange={e => setPendingFilters(f => ({ ...f, end_time: e.target.value }))}
+              onChange={(e) => setPendingFilters((f) => ({ ...f, end_time: e.target.value }))}
             />
           </div>
           <div className="flex gap-2 mt-3">
-            <Button onClick={handleSearch} variant="primary" size="sm">查询</Button>
-            <Button onClick={handleReset} variant="secondary" size="sm">重置</Button>
+            <Button onClick={handleSearch} variant="primary" size="sm">
+              查询
+            </Button>
+            <Button onClick={handleReset} variant="secondary" size="sm">
+              重置
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -247,18 +265,24 @@ const MacroSignalLogPage: React.FC = () => {
         <CardHeader>
           <CardTitle>
             日志列表
-            {pagination && (
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                共 {pagination.total} 条
-              </span>
-            )}
+            {pagination && <span className="ml-2 text-sm font-normal text-gray-400">共 {pagination.total} 条</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading && <div className="p-6"><Loading /></div>}
-          {error && <div className="p-6"><Error message={(error as Error).message || '加载失败'} /></div>}
+          {isLoading && (
+            <div className="p-6">
+              <Loading />
+            </div>
+          )}
+          {error && (
+            <div className="p-6">
+              <Error message={(error as Error).message || '加载失败'} />
+            </div>
+          )}
           {!isLoading && !error && data?.items.length === 0 && (
-            <div className="p-6"><Empty message="暂无日志数据" /></div>
+            <div className="p-6">
+              <Empty message="暂无日志数据" />
+            </div>
           )}
           {!isLoading && !error && data && data.items.length > 0 && (
             <div className="overflow-x-auto">
@@ -278,7 +302,7 @@ const MacroSignalLogPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map(row => (
+                  {data.items.map((row) => (
                     <tr
                       key={row.id}
                       className={`border-b border-gray-800 cursor-pointer transition-colors ${
@@ -287,19 +311,30 @@ const MacroSignalLogPage: React.FC = () => {
                       onClick={() => handleRowClick(row.request_id)}
                     >
                       <td className="px-4 py-2">
-                        <span className={`px-2 py-0.5 rounded font-semibold ${row.success === 1 ? 'bg-green-800/60 text-green-300' : 'bg-red-800/60 text-red-300'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded font-semibold ${row.success === 1 ? 'bg-green-800/60 text-green-300' : 'bg-red-800/60 text-red-300'}`}
+                        >
                           {row.success === 1 ? '成功' : '失败'}
                         </span>
                       </td>
                       <td className="px-4 py-2 font-mono text-gray-400 max-w-[160px] truncate" title={row.request_id}>
                         {row.request_id.slice(0, 8)}…
                       </td>
-                      <td className="px-4 py-2 font-mono text-blue-300">{row.factor_code}</td>
+                      <td className="px-4 py-2 font-mono text-blue-300">
+                        {row.factor_code}
+                        {row.factor_name && <span className="ml-2 font-sans text-gray-400">{row.factor_name}</span>}
+                      </td>
                       <td className="px-4 py-2 text-gray-400">{row.signal_type}</td>
-                      <td className="px-4 py-2 text-right">{row.signal_value !== null ? row.signal_value.toFixed(4) : '-'}</td>
-                      <td className="px-4 py-2 text-right">{row.confidence !== null ? row.confidence.toFixed(4) : '-'}</td>
+                      <td className="px-4 py-2 text-right">
+                        {row.signal_value !== null ? row.signal_value.toFixed(4) : '-'}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {row.confidence !== null ? row.confidence.toFixed(4) : '-'}
+                      </td>
                       <td className="px-4 py-2 text-right text-blue-400">{row.news_count}</td>
-                      <td className="px-4 py-2 text-gray-500">{row.started_at ? row.started_at.replace('T', ' ').slice(0, 19) : '-'}</td>
+                      <td className="px-4 py-2 text-gray-500">
+                        {row.started_at ? row.started_at.replace('T', ' ').slice(0, 19) : '-'}
+                      </td>
                       <td className="px-4 py-2 text-right text-gray-500">{row.latency_ms ?? '-'}</td>
                       <td className="px-4 py-2 max-w-[200px] truncate text-red-400" title={row.error_message ?? ''}>
                         {row.error_message || '-'}
@@ -322,7 +357,7 @@ const MacroSignalLogPage: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   disabled={pagination.page <= 1}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   上一页
                 </Button>
@@ -330,7 +365,7 @@ const MacroSignalLogPage: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   disabled={pagination.page >= pagination.total_pages}
-                  onClick={() => setPage(p => p + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                 >
                   下一页
                 </Button>
@@ -344,15 +379,13 @@ const MacroSignalLogPage: React.FC = () => {
       {selectedRequestId && selectedRows.length > 0 && (
         <RequestDetailPanel
           rows={selectedRows}
-          onNewsClick={id => setSelectedNewsId(id)}
+          onNewsClick={(id) => setSelectedNewsId(id)}
           onClose={() => setSelectedRequestId(null)}
         />
       )}
 
       {/* 新闻详情侧边栏 */}
-      {selectedNewsId !== null && (
-        <NewsSidebar newsId={selectedNewsId} onClose={() => setSelectedNewsId(null)} />
-      )}
+      {selectedNewsId !== null && <NewsSidebar newsId={selectedNewsId} onClose={() => setSelectedNewsId(null)} />}
     </div>
   )
 }

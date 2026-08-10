@@ -4,11 +4,12 @@ LLM Token 使用日志 — 异步写入工具
 在所有 LLM 调用点（chat / analysis / strategy / change）复用此模块，
 将每次调用的 token 消耗、延迟、成功/失败信息写入 llm_usage_log 表。
 """
+
 from __future__ import annotations
 
-import time
 import logging
 import threading
+import time
 from typing import Optional
 
 from backend.common.database import execute_update

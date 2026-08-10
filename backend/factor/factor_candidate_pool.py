@@ -2,14 +2,16 @@
 新因子自动发现模块
 相似度低于阈值时自动加入标准因子库，无需人工审核
 """
+
 import logging
-import pymysql
-from typing import Dict, Any, Optional
-from datetime import datetime
-from pathlib import Path
 import sys
-import numpy as np
+from datetime import datetime
 from numbers import Integral, Real
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import numpy as np
+import pymysql
 
 # 添加项目根目录到路径
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -93,18 +95,19 @@ class FactorDiscoveryManager:
             "code": factor_code,
             "name": factor_name,
             "max_similarity": max_similarity,
-            "best_match": {
-                "code": best_match.factor_code,
-                "name": best_match.factor_name
-            } if best_match else None,
+            "best_match": (
+                {"code": best_match.factor_code, "name": best_match.factor_name}
+                if best_match
+                else None
+            ),
             "action": "",
-            "success": False
+            "success": False,
         }
 
         # 记录发现历史
         best_match_code = best_match.factor_code if best_match else None
         best_match_code_str = best_match.factor_code if best_match else "None"
-        
+
         self._log_discovery_history(
             factor_data=factor_data,
             source_news_id=source_news_id,
@@ -112,7 +115,7 @@ class FactorDiscoveryManager:
             model_name=model_name,
             max_similarity=max_similarity,
             best_match_code=best_match_code,
-            conn=conn
+            conn=conn,
         )
 
         if max_similarity < self.SIMILARITY_THRESHOLD:
@@ -121,7 +124,7 @@ class FactorDiscoveryManager:
                 category=factor_data["category"],
                 code=factor_data["code"],
                 name=factor_data["name"],
-                factor_type=factor_data["type"]
+                factor_type=factor_data["type"],
             )
             if add_success:
                 # 重载相似度引擎的因子库
@@ -129,7 +132,12 @@ class FactorDiscoveryManager:
 
                 result["action"] = "added_to_standard_library"
                 result["success"] = True
-                logger.info("新因子已加入标准库: %s (%s), 相似度: %.3f", factor_code, factor_name, max_similarity)
+                logger.info(
+                    "新因子已加入标准库: %s (%s), 相似度: %.3f",
+                    factor_code,
+                    factor_name,
+                    max_similarity,
+                )
             else:
                 result["action"] = "already_exists"
                 result["success"] = False
@@ -138,7 +146,13 @@ class FactorDiscoveryManager:
             # 高相似度，丢弃
             result["action"] = "discarded_duplicate"
             result["success"] = False
-            logger.debug("因子重复已丢弃: %s (%s), 与 %s 相似度: %.3f", factor_code, factor_name, best_match_code_str, max_similarity)
+            logger.debug(
+                "因子重复已丢弃: %s (%s), 与 %s 相似度: %.3f",
+                factor_code,
+                factor_name,
+                best_match_code_str,
+                max_similarity,
+            )
 
         return result
 
@@ -150,7 +164,7 @@ class FactorDiscoveryManager:
         model_name: str,
         max_similarity: float,
         best_match_code: Optional[str],
-        conn: Optional[pymysql.connections.Connection] = None
+        conn: Optional[pymysql.connections.Connection] = None,
     ):
         """记录因子发现历史"""
         external_conn = conn is not None
@@ -158,7 +172,7 @@ class FactorDiscoveryManager:
             conn = pymysql.connect(**self.mysql_config)
         try:
             cur = conn.cursor()
-            
+
             cur.execute(
                 """
                 INSERT INTO factor_discovery_history

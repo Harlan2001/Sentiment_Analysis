@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.analysis.analyzer import process_single_news_analysis
-from backend.config.config import API_PREFIX, MYSQL_CONFIG, get_default_analysis_model_name
 from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.db_operations import DBOperations
 from backend.common.task_logging import add_task_event, finish_task_run, start_task_run
 from backend.common.vector_store import get_faiss_store
+from backend.config.config import (
+    API_PREFIX,
+    MYSQL_CONFIG,
+    get_default_analysis_model_name,
+)
 
 router = APIRouter(prefix=API_PREFIX, tags=["pipeline"])
 
@@ -29,7 +34,9 @@ class AnalysisTriggerRequest(BaseModel):
     run_strategy_push: bool = True
 
 
-def _run_vector_index_update(batch_size: int = 200, limit: Optional[int] = None) -> Dict[str, Any]:
+def _run_vector_index_update(
+    batch_size: int = 200, limit: Optional[int] = None
+) -> Dict[str, Any]:
     db_config = DatabaseConfig(**MYSQL_CONFIG)
     init_database(db_config)
     store = get_faiss_store()
@@ -127,7 +134,11 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                             WHERE id = %s
                               AND task_name = 'analysis_trigger'
                             """,
-                            (payload.mode, json.dumps(payload_json, ensure_ascii=False), task_run_id),
+                            (
+                                payload.mode,
+                                json.dumps(payload_json, ensure_ascii=False),
+                                task_run_id,
+                            ),
                         )
                 else:
                     task_run_id = start_task_run(
@@ -151,7 +162,9 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
             results: List[Dict[str, Any]] = []
             success_count = 0
             for item in pending_news:
-                item_result = await process_single_news_analysis(item["news_id"], model_name=selected_model_name)
+                item_result = await process_single_news_analysis(
+                    item["news_id"], model_name=selected_model_name
+                )
                 results.append(item_result)
                 if item_result.get("success"):
                     success_count += 1
@@ -173,9 +186,14 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                     event_type="vector_index_started",
                     status="running",
                     message="开始执行新闻向量化与索引落盘",
-                    payload={"batch_size": payload.vector_batch_size, "limit": payload.vector_limit},
+                    payload={
+                        "batch_size": payload.vector_batch_size,
+                        "limit": payload.vector_limit,
+                    },
                 )
-                vector_result = _run_vector_index_update(batch_size=payload.vector_batch_size, limit=payload.vector_limit)
+                vector_result = _run_vector_index_update(
+                    batch_size=payload.vector_batch_size, limit=payload.vector_limit
+                )
                 add_task_event(
                     conn,
                     task_run_id=task_run_id,
@@ -238,7 +256,9 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                 "strategy_push": strategy_push_result,
             }
 
-            strategy_push_has_error = payload.run_strategy_push and not combined_result["strategy_push"].get("success", False)
+            strategy_push_has_error = payload.run_strategy_push and not combined_result[
+                "strategy_push"
+            ].get("success", False)
             final_status = (
                 "completed"
                 if success_count == len(pending_news) and not strategy_push_has_error

@@ -15,7 +15,9 @@ def start_task_run(
     payload: Optional[Any] = None,
 ) -> int:
     """Insert a new running task record and return its id."""
-    payload_json = json.dumps(payload, ensure_ascii=False) if payload is not None else None
+    payload_json = (
+        json.dumps(payload, ensure_ascii=False) if payload is not None else None
+    )
 
     with conn.cursor() as cur:
         cur.execute(
@@ -53,7 +55,14 @@ def finish_task_run(
                 updated_at = NOW()
             WHERE id = %s
             """,
-            (status, total_count, processed_count, result_json, error_message, task_run_id),
+            (
+                status,
+                total_count,
+                processed_count,
+                result_json,
+                error_message,
+                task_run_id,
+            ),
         )
 
 
@@ -67,7 +76,9 @@ def add_task_event(
     payload: Optional[Any] = None,
 ) -> None:
     """Insert a structured event record for a task run."""
-    payload_json = json.dumps(payload, ensure_ascii=False) if payload is not None else None
+    payload_json = (
+        json.dumps(payload, ensure_ascii=False) if payload is not None else None
+    )
     with conn.cursor() as cur:
         cur.execute(
             """

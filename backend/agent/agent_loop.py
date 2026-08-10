@@ -14,10 +14,11 @@ import json
 import logging
 import time
 from typing import AsyncGenerator
+
 from openai import OpenAI
 
-from backend.agent.tools import TOOL_DEFINITIONS
 from backend.agent.tool_executor import TOOL_EXECUTORS
+from backend.agent.tools import TOOL_DEFINITIONS
 from backend.common.llm_logger import log_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -114,8 +115,14 @@ async def run_agent_loop(
                 temperature=0.7,
                 stream=False,
             )
-            _log_token(response, call_source="chat", model_name=model_name,
-                       provider_model=model, user_id=user_id, username=username)
+            _log_token(
+                response,
+                call_source="chat",
+                model_name=model_name,
+                provider_model=model,
+                user_id=user_id,
+                username=username,
+            )
 
             choice = response.choices[0]
             finish_reason = choice.finish_reason
@@ -131,29 +138,33 @@ async def run_agent_loop(
                         args = json.loads(tc.function.arguments)
                     except json.JSONDecodeError:
                         args = {"raw": tc.function.arguments}
-                    tc_list.append({
-                        "id": tc.id,
-                        "name": tc.function.name,
-                        "arguments": args,
-                    })
+                    tc_list.append(
+                        {
+                            "id": tc.id,
+                            "name": tc.function.name,
+                            "arguments": args,
+                        }
+                    )
                 yield _sse({"type": "tool_call", "tool_calls": tc_list})
 
                 # 把 assistant 的 tool_call 消息加入历史
-                full_messages.append({
-                    "role": "assistant",
-                    "content": choice.message.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            },
-                        }
-                        for tc in tool_calls
-                    ],
-                })
+                full_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": choice.message.content,
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,
+                                },
+                            }
+                            for tc in tool_calls
+                        ],
+                    }
+                )
 
                 # 执行每个工具
                 for tc in tool_calls:
@@ -164,12 +175,14 @@ async def run_agent_loop(
                         arguments = {}
 
                     # 产出 tool_executing 事件
-                    yield _sse({
-                        "type": "tool_executing",
-                        "tool_call_id": tc.id,
-                        "tool_name": tool_name,
-                        "arguments": arguments,
-                    })
+                    yield _sse(
+                        {
+                            "type": "tool_executing",
+                            "tool_call_id": tc.id,
+                            "tool_name": tool_name,
+                            "arguments": arguments,
+                        }
+                    )
 
                     # 执行工具
                     executor = TOOL_EXECUTORS.get(tool_name)
@@ -199,11 +212,13 @@ async def run_agent_loop(
                     yield _sse(result_event)
 
                     # 把工具结果加入历史
-                    full_messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": json.dumps(result, ensure_ascii=False),
-                    })
+                    full_messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        }
+                    )
 
                 continue  # 回到循环开头，让模型处理工具结果
 
@@ -215,14 +230,24 @@ async def run_agent_loop(
                     # 已经拿到非流式回复，不用再调一次流式
                     yield _sse({"type": "content", "content": choice.message.content})
                     usage = response.usage
-                    yield _sse({
-                        "type": "done",
-                        "usage": {
-                            "prompt_tokens": usage.prompt_tokens if usage else 0,
-                            "completion_tokens": usage.completion_tokens if usage else 0,
-                            "total_tokens": usage.total_tokens if usage else 0,
-                        } if usage else None,
-                    })
+                    yield _sse(
+                        {
+                            "type": "done",
+                            "usage": (
+                                {
+                                    "prompt_tokens": (
+                                        usage.prompt_tokens if usage else 0
+                                    ),
+                                    "completion_tokens": (
+                                        usage.completion_tokens if usage else 0
+                                    ),
+                                    "total_tokens": usage.total_tokens if usage else 0,
+                                }
+                                if usage
+                                else None
+                            ),
+                        }
+                    )
                     yield "data: [DONE]\n\n"
                     return
 
@@ -230,29 +255,43 @@ async def run_agent_loop(
             break
 
         # ── 达到最大轮数，强制请求回复 ──
-        full_messages.append({
-            "role": "user",
-            "content": "你已经达到了工具调用的最大轮次，请基于现有信息用中文回答用户的问题。",
-        })
+        full_messages.append(
+            {
+                "role": "user",
+                "content": "你已经达到了工具调用的最大轮次，请基于现有信息用中文回答用户的问题。",
+            }
+        )
         response = client.chat.completions.create(
             model=model,
             messages=full_messages,
             temperature=0.7,
             stream=False,
         )
-        _log_token(response, call_source="chat", model_name=model_name,
-                   provider_model=model, user_id=user_id, username=username)
+        _log_token(
+            response,
+            call_source="chat",
+            model_name=model_name,
+            provider_model=model,
+            user_id=user_id,
+            username=username,
+        )
         content = response.choices[0].message.content or ""
         yield _sse({"type": "content", "content": content})
         usage = response.usage
-        yield _sse({
-            "type": "done",
-            "usage": {
-                "prompt_tokens": usage.prompt_tokens if usage else 0,
-                "completion_tokens": usage.completion_tokens if usage else 0,
-                "total_tokens": usage.total_tokens if usage else 0,
-            } if usage else None,
-        })
+        yield _sse(
+            {
+                "type": "done",
+                "usage": (
+                    {
+                        "prompt_tokens": usage.prompt_tokens if usage else 0,
+                        "completion_tokens": usage.completion_tokens if usage else 0,
+                        "total_tokens": usage.total_tokens if usage else 0,
+                    }
+                    if usage
+                    else None
+                ),
+            }
+        )
         yield "data: [DONE]\n\n"
 
     except Exception as exc:

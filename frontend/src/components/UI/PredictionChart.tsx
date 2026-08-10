@@ -19,14 +19,14 @@ export const PredictionChart: React.FC = () => {
     { label: '10年期国债收益率', value: '2.35%', change: -0.05, status: 'positive' },
     { label: '信用利差', value: '1.2%', change: 0.15, status: 'negative' },
     { label: '流动性指数', value: '86.5', change: 2.3, status: 'positive' },
-    { label: '市场情绪', value: '72.3', change: -1.8, status: 'neutral' }
+    { label: '市场情绪', value: '72.3', change: -1.8, status: 'neutral' },
   ]
 
   const forecastData: ForecastData[] = [
     { period: '1个月', predicted: 2.32, confidence: 0.85 },
     { period: '3个月', predicted: 2.28, confidence: 0.72 },
     { period: '6个月', predicted: 2.25, confidence: 0.65 },
-    { period: '12个月', predicted: 2.20, confidence: 0.58 }
+    { period: '12个月', predicted: 2.2, confidence: 0.58 },
   ]
 
   return (
@@ -42,12 +42,17 @@ export const PredictionChart: React.FC = () => {
               <div className="text-sm text-gray-400 mb-1">{metric.label}</div>
               <div className="flex items-center justify-between">
                 <span className="text-xl font-semibold text-white">{metric.value}</span>
-                <span className={`text-sm px-2 py-1 rounded ${
-                  metric.status === 'positive' ? 'bg-green-500/20 text-green-400' :
-                  metric.status === 'negative' ? 'bg-red-500/20 text-red-400' :
-                  'bg-yellow-500/20 text-yellow-400'
-                }`}>
-                  {metric.change > 0 ? '+' : ''}{metric.change}%
+                <span
+                  className={`text-sm px-2 py-1 rounded ${
+                    metric.status === 'positive'
+                      ? 'bg-green-500/20 text-green-400'
+                      : metric.status === 'negative'
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-yellow-500/20 text-yellow-400'
+                  }`}
+                >
+                  {metric.change > 0 ? '+' : ''}
+                  {metric.change}%
                 </span>
               </div>
             </div>
@@ -93,7 +98,7 @@ export const PredictionChart: React.FC = () => {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-gray-700 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-purple-500 h-2 rounded-full"
                           style={{ width: `${data.confidence * 100}%` }}
                         />
@@ -102,11 +107,15 @@ export const PredictionChart: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      data.confidence > 0.8 ? 'bg-green-500/20 text-green-400' :
-                      data.confidence > 0.6 ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-red-500/20 text-red-400'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${
+                        data.confidence > 0.8
+                          ? 'bg-green-500/20 text-green-400'
+                          : data.confidence > 0.6
+                            ? 'bg-yellow-500/20 text-yellow-400'
+                            : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
                       {data.confidence > 0.8 ? '低风险' : data.confidence > 0.6 ? '中风险' : '高风险'}
                     </span>
                   </td>

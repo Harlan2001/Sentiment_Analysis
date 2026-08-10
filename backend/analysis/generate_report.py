@@ -2,30 +2,30 @@
 生成的预测报告应填满整个板块，包含详尽的分析内容。
 """
 
-import re
+import argparse
 import json
 import logging
 import os
+import re
 import time
-import argparse
-from typing import Any, Dict, List, Optional
 from datetime import datetime
-from openai import OpenAI
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
+from openai import OpenAI
+
 load_dotenv()
 
+from backend.common.database import DatabaseConfig, get_db_connection, init_database
+from backend.common.db_operations import DBOperations
+from backend.common.llm_logger import log_llm_usage
+from backend.common.task_logging import add_task_event, finish_task_run, start_task_run
 from backend.config.config import (
     MYSQL_CONFIG,
     create_openai_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
 )
-from backend.common.task_logging import start_task_run, finish_task_run, add_task_event
-from backend.common.database import init_database, DatabaseConfig, get_db_connection
-from backend.common.db_operations import DBOperations
-from backend.common.llm_logger import log_llm_usage
-
-
 
 # 日志配置
 logger = logging.getLogger(__name__)
@@ -33,7 +33,11 @@ logger = logging.getLogger(__name__)
 # 常量配置
 MODEL_NAME = get_default_analysis_model_name()
 MODEL_INFO = get_analysis_model_info(MODEL_NAME)
-MODEL_PROVIDER_MODEL = MODEL_INFO.get("provider_model", MODEL_NAME) if isinstance(MODEL_INFO, dict) else str(MODEL_INFO)
+MODEL_PROVIDER_MODEL = (
+    MODEL_INFO.get("provider_model", MODEL_NAME)
+    if isinstance(MODEL_INFO, dict)
+    else str(MODEL_INFO)
+)
 PROMPT_VERSION = "v2.3"  # v2.3: 修复豆包模型过度拒绝问题，优化分析指令适配实际可用数据
 KINGSTAR_API_KEY = os.getenv("kingstar_API_KEY")
 KINGSTAR_BASE_URL = os.getenv("kingstar_BASE_URL")
@@ -56,7 +60,7 @@ def _sanitize_json(text: str) -> str:
     if not text:
         return ""
     # 移除尾随逗号：逗号后紧跟 ] 或 }（中间允许空白）
-    text = re.sub(r',\s*([}\]])', r'\1', text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
     return text
 
 
@@ -66,10 +70,10 @@ def _extract_json_content(content: str) -> str:
         return ""
 
     #  Step 1: 移除代码块标记
-    cleaned = re.sub(r'```json|```', '', content).strip()
+    cleaned = re.sub(r"```json|```", "", content).strip()
 
     #  Step 2: 提取第一个 { ... } 结构（无视前后废话）
-    json_match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+    json_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if json_match:
         return _sanitize_json(json_match.group().strip())
 
@@ -103,13 +107,15 @@ def construct_enhanced_prompt(
         if news_start_date and news_end_date
         else report_date
     )
-    news_section = "\n\n".join([
-        f"【新闻{i+1}】[{news.get('pub_date', report_date)}] {news['title']}\n"
-        f"方向: {news['direction']}\n"
-        f"时间范围: {news['horizon']}\n"
-        f"逻辑: {_truncate_text(news['reason'], 200)}\n"
-        for i, news in enumerate(news_texts[:MAX_NEWS_IN_PROMPT])
-    ])
+    news_section = "\n\n".join(
+        [
+            f"【新闻{i+1}】[{news.get('pub_date', report_date)}] {news['title']}\n"
+            f"方向: {news['direction']}\n"
+            f"时间范围: {news['horizon']}\n"
+            f"逻辑: {_truncate_text(news['reason'], 200)}\n"
+            for i, news in enumerate(news_texts[:MAX_NEWS_IN_PROMPT])
+        ]
+    )
 
     # 收益率部分
     yield_section = ""
@@ -118,11 +124,13 @@ def construct_enhanced_prompt(
             latest = points[-1]
             if len(points) >= 2:
                 prev = points[-2]
-                change = latest['value'] - prev['value']
+                change = latest["value"] - prev["value"]
                 change_str = f"+{change:.2f}" if change > 0 else f"{change:.2f}"
                 yield_section += f"{period}: {latest['value']}% (日变动: {change_str}bp, 日期: {latest['date']})\n"
             else:
-                yield_section += f"{period}: {latest['value']}% (日期: {latest['date']})\n"
+                yield_section += (
+                    f"{period}: {latest['value']}% (日期: {latest['date']})\n"
+                )
 
     # 市场摘要部分
     summary_section = ""
@@ -157,7 +165,9 @@ def construct_enhanced_prompt(
     由于缺少实际收益率数据，本节简要说明「因本日为节假日/非交易日，无行情数据，技术分析无法进行」，不得超过3句话。"""
         factor_requirement = """### 3. 因子分析
     基于上方提供的新闻事件，分析其中涉及的宏观、政策、资金面、外部环境因子的潜在影响。仅分析新闻中实际提及的因子，不得自行引入新闻未涉及的因子或数据。"""
-        output_instruction = "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+        output_instruction = (
+            "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+        )
     else:
         data_context = (
             "⚠️ 注意：本次分析无市场数据、无收益率数据、无新闻数据，无法进行有效分析。"
@@ -166,7 +176,9 @@ def construct_enhanced_prompt(
     因无数据，本节填写「无可用数据，分析跳过」。"""
         factor_requirement = """### 3. 因子分析
     因无数据，本节填写「无可用数据，分析跳过」。"""
-        output_instruction = "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+        output_instruction = (
+            "数据缺失的章节简短诚实说明即可，不要编造填充；有数据的章节可正常展开分析"
+        )
 
     prompt = f"""# 中国债券市场预测分析报告生成任务
 
@@ -270,8 +282,11 @@ def call_llm(prompt: str) -> str:
         response = client.chat.completions.create(
             model=MODEL_PROVIDER_MODEL,
             messages=[
-                {"role": "system", "content": "你是专业的中国债券市场分析师，擅长从收益率曲线和新闻事件中挖掘市场信号。你的分析原则：充分使用已提供的数据（收益率序列+新闻分析）完成深度分析；从数据中推导结论，不编造外部数据；当某维度缺少数据时如实标注但不影响其他维度的正常展开；绝不整体拒绝分析任务。"},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "你是专业的中国债券市场分析师，擅长从收益率曲线和新闻事件中挖掘市场信号。你的分析原则：充分使用已提供的数据（收益率序列+新闻分析）完成深度分析；从数据中推导结论，不编造外部数据；当某维度缺少数据时如实标注但不影响其他维度的正常展开；绝不整体拒绝分析任务。",
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=1.0,
             max_tokens=8000,
@@ -280,7 +295,9 @@ def call_llm(prompt: str) -> str:
         latency_ms = int((time.time() - t0) * 1000)
         choice = response.choices[0]
         if choice.finish_reason == "length":
-            logger.warning("大模型返回被截断（finish_reason=length），max_tokens 可能不足")
+            logger.warning(
+                "大模型返回被截断（finish_reason=length），max_tokens 可能不足"
+            )
 
         content = choice.message.content or ""
 
@@ -408,10 +425,21 @@ def generate_for_news_date(report_date: str) -> bool:
         limit=MAX_NEWS_IN_PROMPT,
     )
     if not news_data:
-        logger.warning("%s（范围 %s~%s）无新闻数据，跳过", report_date, news_start_date, news_end_date)
+        logger.warning(
+            "%s（范围 %s~%s）无新闻数据，跳过",
+            report_date,
+            news_start_date,
+            news_end_date,
+        )
         return False
 
-    logger.info("%s 获取到 %d 条新闻（%s~%s）", report_date, len(news_data), news_start_date, news_end_date)
+    logger.info(
+        "%s 获取到 %d 条新闻（%s~%s）",
+        report_date,
+        len(news_data),
+        news_start_date,
+        news_end_date,
+    )
 
     yield_bundle = DBOperations.get_yield_data_and_market_summary(
         end_date=report_date,
@@ -423,7 +451,10 @@ def generate_for_news_date(report_date: str) -> bool:
 
     # 构造提示词
     prompt = construct_enhanced_prompt(
-        news_data, yield_data, market_summary, report_date,
+        news_data,
+        yield_data,
+        market_summary,
+        report_date,
         news_start_date=news_start_date,
         news_end_date=news_end_date,
     )
@@ -499,7 +530,9 @@ def main() -> None:
     logger.info("数据库初始化成功")
 
     if args.start_date or args.end_date:
-        news_dates = DBOperations.get_news_pub_dates_in_range(args.start_date, args.end_date)
+        news_dates = DBOperations.get_news_pub_dates_in_range(
+            args.start_date, args.end_date
+        )
     else:
         news_dates = DBOperations.get_news_pub_dates()
 
@@ -557,7 +590,11 @@ def main() -> None:
             finish_task_run(
                 task_conn,
                 task_run_id,
-                status="completed" if success_count == len(news_dates) else "completed_with_errors",
+                status=(
+                    "completed"
+                    if success_count == len(news_dates)
+                    else "completed_with_errors"
+                ),
                 total_count=len(news_dates),
                 processed_count=success_count,
                 result={"news_dates": news_dates},
@@ -576,5 +613,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     from backend.common.logging_config import setup_logging
+
     setup_logging()
     main()

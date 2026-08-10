@@ -2,8 +2,8 @@
  * 看板核心数据 Hook
  * 30s 自动轮询 A-F模块指标 + 服务健康状态
  */
-import { useQuery } from '@tanstack/react-query';
-import { fetchDashboardCore } from '@/api';
+import { useQuery } from '@tanstack/react-query'
+import { fetchDashboardCore } from '@/api'
 
 export function useCoreDashboard(refreshKey: number = 0) {
   return useQuery({
@@ -13,5 +13,5 @@ export function useCoreDashboard(refreshKey: number = 0) {
     staleTime: 0,
     refetchOnWindowFocus: false,
     retry: 2,
-  });
+  })
 }

@@ -27,7 +27,7 @@ fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting report generation for trade date: $YESTERDAY" >> "$LOG_FILE"
 
 # 执行报告生成命令
-docker compose exec -T backend uv run python -m backend.analysis.generate_report \
+docker compose exec -T backend /app/.venv/bin/python -m backend.analysis.generate_report \
   --start-date "$YESTERDAY" \
   --end-date "$YESTERDAY" \
   >> "$LOG_FILE" 2>&1

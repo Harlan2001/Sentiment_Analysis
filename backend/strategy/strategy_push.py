@@ -8,14 +8,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
+
 from openai import OpenAI
 
-from backend.config.config import ANALYSIS_MODEL_PRIORITY
 from backend.common.database import get_db_connection
-
+from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
 STRATEGY_TZ = ZoneInfo("Asia/Shanghai")
-STRATEGY_MODEL = os.getenv("STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215")
+STRATEGY_MODEL = os.getenv(
+    "STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215"
+)
 
 
 @dataclass
@@ -25,7 +27,9 @@ class StrategyRuntimeConfig:
 
 
 class StrategyPushService:
-    def __init__(self, llm_client: OpenAI, runtime_config: Optional[StrategyRuntimeConfig] = None):
+    def __init__(
+        self, llm_client: OpenAI, runtime_config: Optional[StrategyRuntimeConfig] = None
+    ):
         self._llm_client = llm_client
         self._cfg = runtime_config or StrategyRuntimeConfig()
 
@@ -42,7 +46,7 @@ class StrategyPushService:
     @staticmethod
     def _slot_key(value: datetime) -> str:
         return value.strftime("%Y-%m-%d %H:%M")
-    
+
     def _compute_window_start(self, now: datetime) -> datetime:
         boundary = now.replace(hour=20, minute=30, second=0, microsecond=0)
         if now >= boundary:
@@ -59,14 +63,31 @@ class StrategyPushService:
 
     def _direction_normalized(self, direction: str) -> str:
         value = (direction or "").strip().lower()
-        positive_alias = {"positive", "pos", "up", "bullish", "上涨", "利多", "看多", "正向"}
-        negative_alias = {"negative", "neg", "down", "bearish", "下跌", "利空", "看空", "负向"}
+        positive_alias = {
+            "positive",
+            "pos",
+            "up",
+            "bullish",
+            "上涨",
+            "利多",
+            "看多",
+            "正向",
+        }
+        negative_alias = {
+            "negative",
+            "neg",
+            "down",
+            "bearish",
+            "下跌",
+            "利空",
+            "看空",
+            "负向",
+        }
         if value in positive_alias:
             return "positive"
         if value in negative_alias:
             return "negative"
         return ""
-
 
     def _delete_old_windows(self, window_start: datetime) -> None:
         with get_db_connection() as conn:
@@ -94,9 +115,21 @@ class StrategyPushService:
 
         for row in rows:
             slot_time = row[0]
-            slot_dt = slot_time.replace(tzinfo=self._cfg.tz) if isinstance(slot_time, datetime) else None
-            win_start_dt = row[1].replace(tzinfo=self._cfg.tz) if isinstance(row[1], datetime) else window_start
-            win_end_dt = row[2].replace(tzinfo=self._cfg.tz) if isinstance(row[2], datetime) else win_start_dt
+            slot_dt = (
+                slot_time.replace(tzinfo=self._cfg.tz)
+                if isinstance(slot_time, datetime)
+                else None
+            )
+            win_start_dt = (
+                row[1].replace(tzinfo=self._cfg.tz)
+                if isinstance(row[1], datetime)
+                else window_start
+            )
+            win_end_dt = (
+                row[2].replace(tzinfo=self._cfg.tz)
+                if isinstance(row[2], datetime)
+                else win_start_dt
+            )
             if slot_dt is None:
                 continue
             slot = self._slot_key(slot_dt)
@@ -141,8 +174,12 @@ class StrategyPushService:
                 )
             conn.commit()
 
-    def _query_news_with_reason(self, window_start: datetime, window_end: datetime) -> List[Dict[str, Any]]:
-        priority_cases = " ".join([f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
+    def _query_news_with_reason(
+        self, window_start: datetime, window_end: datetime
+    ) -> List[Dict[str, Any]]:
+        priority_cases = " ".join(
+            [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
+        )
         sql = f"""
             SELECT n.id, n.title, n.pub_time,
                    COALESCE(a.direction, '') AS direction,
@@ -208,7 +245,9 @@ class StrategyPushService:
             )
         return "\n".join(lines)
 
-    def _generate_strategy(self, rows: List[Dict[str, Any]], window_start: datetime, window_end: datetime) -> str:
+    def _generate_strategy(
+        self, rows: List[Dict[str, Any]], window_start: datetime, window_end: datetime
+    ) -> str:
         if not rows:
             return "当前窗口内暂无可用于策略建议的有效新闻。"
 
@@ -234,7 +273,10 @@ class StrategyPushService:
         response = self._llm_client.chat.completions.create(
             model=self._cfg.model,
             messages=[
-                {"role": "system", "content": "你是专业、克制、客观的债券交易策略助手。"},
+                {
+                    "role": "system",
+                    "content": "你是专业、克制、客观的债券交易策略助手。",
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.4,
@@ -242,9 +284,15 @@ class StrategyPushService:
         content = response.choices[0].message.content or ""
         return content.strip() or "当前窗口内新闻已分析，但未生成有效策略建议。"
 
-    def _run_snapshot_sync(self, slot_time: datetime, window_start: datetime) -> Dict[str, Any]:
-        rows = self._query_news_with_reason(window_start=window_start, window_end=slot_time)
-        strategy_text = self._generate_strategy(rows, window_start=window_start, window_end=slot_time)
+    def _run_snapshot_sync(
+        self, slot_time: datetime, window_start: datetime
+    ) -> Dict[str, Any]:
+        rows = self._query_news_with_reason(
+            window_start=window_start, window_end=slot_time
+        )
+        strategy_text = self._generate_strategy(
+            rows, window_start=window_start, window_end=slot_time
+        )
         return {
             "slot": self._slot_key(slot_time),
             "run_time": self._format_dt(slot_time),
@@ -256,9 +304,13 @@ class StrategyPushService:
             "error": None,
         }
 
-    async def _run_snapshot(self, slot_time: datetime, window_start: datetime) -> Dict[str, Any]:
+    async def _run_snapshot(
+        self, slot_time: datetime, window_start: datetime
+    ) -> Dict[str, Any]:
         try:
-            return await asyncio.to_thread(self._run_snapshot_sync, slot_time, window_start)
+            return await asyncio.to_thread(
+                self._run_snapshot_sync, slot_time, window_start
+            )
         except Exception as exc:
             return {
                 "slot": self._slot_key(slot_time),
@@ -277,7 +329,9 @@ class StrategyPushService:
             return {
                 "type": "strategy_full_snapshot",
                 "generated_at": self._format_dt(datetime.now(self._cfg.tz)),
-                "window_start": self._format_dt(self._window_start) if self._window_start else None,
+                "window_start": (
+                    self._format_dt(self._window_start) if self._window_start else None
+                ),
                 "items": [
                     {
                         "run_time": item["run_time"],
@@ -332,10 +386,16 @@ class StrategyPushService:
         await self._switch_window_if_needed(window_start)
 
         async with self._lock:
-            failed_slots = [key for key, value in self._snapshots.items() if value.get("status") == "failed"]
+            failed_slots = [
+                key
+                for key, value in self._snapshots.items()
+                if value.get("status") == "failed"
+            ]
 
         for failed_slot in failed_slots:
-            retry_time = datetime.strptime(failed_slot, "%Y-%m-%d %H:%M").replace(tzinfo=self._cfg.tz)
+            retry_time = datetime.strptime(failed_slot, "%Y-%m-%d %H:%M").replace(
+                tzinfo=self._cfg.tz
+            )
             retry_result = await self._run_snapshot(retry_time, window_start)
             self._save_snapshot(retry_result)
             async with self._lock:
@@ -369,7 +429,9 @@ class StrategyPushService:
         async with self._lock:
             if self._task and not self._task.done():
                 return
-            self._task = asyncio.create_task(self._scheduler_loop(), name="strategy-sse-scheduler")
+            self._task = asyncio.create_task(
+                self._scheduler_loop(), name="strategy-sse-scheduler"
+            )
 
     async def stop(self):
         task: Optional[asyncio.Task] = None

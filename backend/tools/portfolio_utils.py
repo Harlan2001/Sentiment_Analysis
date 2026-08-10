@@ -8,7 +8,7 @@
 import hashlib
 import re
 from datetime import date, datetime, time
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, Optional, Tuple
 
 
@@ -65,7 +65,7 @@ def extract_json_text(content: str) -> str:
         return ""
     text = text[start : end + 1]
     # 清理尾随逗号等常见 JSON 不合规问题
-    text = re.sub(r',\s*([}\]])', r'\1', text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
     return text
 
 

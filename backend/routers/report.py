@@ -1,19 +1,20 @@
 """
 预测报告 PDF 生成 & 文件下载路由。
 """
+
 from __future__ import annotations
 
 import asyncio
-from fastapi.responses import FileResponse
-from fastapi import HTTPException, Query, APIRouter
-from pathlib import Path
-from datetime import date
 import logging
+from datetime import date
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
 from backend.push.pdf_generator import generate_prediction_pdf
-
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,9 @@ def _ensure_pdf_storage() -> Path:
 
 @router.post("/generate-prediction")
 async def api_generate_prediction_pdf(
-    report_date: str = Query(None, description="报告日期 (YYYY-MM-DD)，不传则使用数据库中最新报告日期"),
+    report_date: str = Query(
+        None, description="报告日期 (YYYY-MM-DD)，不传则使用数据库中最新报告日期"
+    ),
 ):
     """
     生成指定日期的预测报告 PDF 并保存到 data/pdf/ 目录。
@@ -53,7 +56,10 @@ async def api_generate_prediction_pdf(
             try:
                 parsed_date = date.fromisoformat(report_date)
             except (ValueError, TypeError):
-                raise HTTPException(status_code=400, detail=f"日期格式错误: {report_date}，请使用 YYYY-MM-DD 格式")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"日期格式错误: {report_date}，请使用 YYYY-MM-DD 格式",
+                )
 
         # 未传日期时从数据库查询最新报告日期
         if parsed_date is None:

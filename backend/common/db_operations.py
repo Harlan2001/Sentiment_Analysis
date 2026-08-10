@@ -4,32 +4,34 @@
 """
 
 import json
-import pymysql
-from typing import List, Dict, Any, Optional, Tuple
 from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+import pymysql
+
 from backend.common.database import get_db_connection
-from backend.config.config import MYSQL_CONFIG, PERIOD_MAP, ANALYSIS_MODEL_PRIORITY
+from backend.config.config import ANALYSIS_MODEL_PRIORITY, MYSQL_CONFIG, PERIOD_MAP
 from backend.tools.portfolio_utils import format_datetime
 
 
 class DBOperations:
-    """数据库操作类
-    """
-    
+    """数据库操作类"""
+
     @staticmethod
     def get_pending_news(limit: int = 100) -> List[int]:
         """
         获取待分析的新闻ID列表（analysis表中不存在对应news_id）
-        
+
         Args:
             limit: 最多返回的数量
-            
+
         Returns:
             新闻ID列表
         """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT n.id
                     FROM news n
                     WHERE NOT EXISTS (
@@ -37,7 +39,9 @@ class DBOperations:
                     )
                     ORDER BY n.pub_time ASC, n.id ASC
                     LIMIT %s
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 results = cur.fetchall()
                 return [row[0] for row in results]
 
@@ -90,57 +94,61 @@ class DBOperations:
                 cur.execute(sql, tuple(params))
                 rows = cur.fetchall()
                 return [{"news_id": r[0], "pub_time": r[1]} for r in rows]
-    
+
     @staticmethod
     def get_factor_id_by_code(factor_code: str) -> Optional[int]:
         """
         根据因子代码获取因子ID
-        
+
         Args:
             factor_code: 因子代码
-            
+
         Returns:
             因子ID，如果不存在返回None
         """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id FROM factor WHERE code = %s
-                """, (factor_code,))
+                """,
+                    (factor_code,),
+                )
                 result = cur.fetchone()
                 return result[0] if result else None
-    
+
     @staticmethod
     def save_analysis_result(
-        news_id: int, 
-        analysis_result: Dict[str, Any], 
+        news_id: int,
+        analysis_result: Dict[str, Any],
         model: str,
-        conn: Optional[Any] = None
+        conn: Optional[Any] = None,
     ) -> bool:
         """
         保存分析结果到analysis表
-        
+
         Args:
             news_id: 新闻ID
             analysis_result: 分析结果字典
             model: 模型名称
             conn: 外部数据库连接，用于事务
-        
+
         Returns:
             是否保存成功
         """
         external_conn = conn is not None
         if conn is None:
             conn = pymysql.connect(**MYSQL_CONFIG)
-        
+
         try:
             with conn.cursor() as cur:
                 direction = analysis_result.get("direction", "中性")
                 horizon = analysis_result.get("horizon", "短期")
                 reason = analysis_result.get("reason", "")
-                
-                cur.execute("""
-                    INSERT INTO analysis 
+
+                cur.execute(
+                    """
+                    INSERT INTO analysis
                     (news_id, direction, horizon, reason, model, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
@@ -148,19 +156,14 @@ class DBOperations:
                         horizon = VALUES(horizon),
                         reason = VALUES(reason),
                         created_at = VALUES(created_at)
-                """, (
-                    news_id,
-                    direction,
-                    horizon,
-                    reason,
-                    model,
-                    datetime.now()
-                ))
-                
+                """,
+                    (news_id, direction, horizon, reason, model, datetime.now()),
+                )
+
                 if not external_conn:
                     conn.commit()
                 return True
-                
+
         except Exception as e:
             if not external_conn:
                 conn.rollback()
@@ -168,25 +171,21 @@ class DBOperations:
         finally:
             if not external_conn:
                 conn.close()
-    
+
     @staticmethod
     def save_news_factor_relation(
-        news_id: int,
-        factor_id: int,
-        factor_data: Dict[str, Any],
-        model: str,
-        conn: Any
+        news_id: int, factor_id: int, factor_data: Dict[str, Any], model: str, conn: Any
     ) -> bool:
         """
         保存新闻与因子的关联关系到news_factor表
-        
+
         Args:
             news_id: 新闻ID
             factor_id: 因子ID
             factor_data: 因子数据字典
             model: 模型名称
             conn: 数据库连接（必须提供，用于事务）
-        
+
         Returns:
             是否保存成功
         """
@@ -200,8 +199,9 @@ class DBOperations:
                 row = cur.fetchone()
                 pub_time = row[0] if row else None
 
-                cur.execute("""
-                    INSERT INTO news_factor 
+                cur.execute(
+                    """
+                    INSERT INTO news_factor
                     (news_id, factor_id, direction, driver, model, created_at, pub_time)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
@@ -210,38 +210,42 @@ class DBOperations:
                         model = VALUES(model),
                         created_at = VALUES(created_at),
                         pub_time = VALUES(pub_time)
-                """, (
-                    news_id,
-                    factor_id,
-                    direction,
-                    logic_impact,
-                    model,
-                    datetime.now(),
-                    pub_time
-                ))
+                """,
+                    (
+                        news_id,
+                        factor_id,
+                        direction,
+                        logic_impact,
+                        model,
+                        datetime.now(),
+                        pub_time,
+                    ),
+                )
 
             return True
         except Exception as e:
             raise e
 
-
     @staticmethod
     def get_analysis_exists(news_id: int, model: Optional[str] = None) -> bool:
         """
         检查新闻是否已经有分析结果
-        
+
         Args:
             news_id: 新闻ID
             model: 模型名称（兼容参数，当前未使用）
-            
+
         Returns:
             是否已存在分析结果
         """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT 1 FROM analysis WHERE news_id = %s
-                """, (news_id,))
+                """,
+                    (news_id,),
+                )
                 return cur.fetchone() is not None
 
     @staticmethod
@@ -250,7 +254,8 @@ class DBOperations:
         with get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                "SELECT id, title, content, DATE(pub_time) as publish_date FROM news WHERE id = %s", (news_id,)
+                "SELECT id, title, content, DATE(pub_time) as publish_date FROM news WHERE id = %s",
+                (news_id,),
             )
             row = cur.fetchone()
 
@@ -269,14 +274,12 @@ class DBOperations:
         """获取新闻发布日期去重列表（升序）。"""
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT DISTINCT DATE(pub_time) AS news_date
                     FROM news
                     WHERE pub_time IS NOT NULL
                     ORDER BY news_date ASC
-                    """
-                )
+                    """)
                 rows = cur.fetchall()
 
         results: List[str] = []
@@ -496,7 +499,11 @@ class DBOperations:
                 yield_data[label] = []
             yield_data[label].append({"date": row_date, "value": value_f})
 
-            row_date_str = row_date.strftime("%Y-%m-%d") if hasattr(row_date, "strftime") else str(row_date)
+            row_date_str = (
+                row_date.strftime("%Y-%m-%d")
+                if hasattr(row_date, "strftime")
+                else str(row_date)
+            )
             if row_date_str >= summary_start:
                 summary_bucket.setdefault(label, []).append(value_f)
 
@@ -513,7 +520,7 @@ class DBOperations:
 
             avg = sum(values) / len(values)
             variance = sum((v - avg) ** 2 for v in values) / len(values)
-            volatility = variance ** 0.5
+            volatility = variance**0.5
 
             market_summary[period] = {
                 "latest": round(latest, 4),
@@ -540,7 +547,9 @@ class DBOperations:
         Returns:
             SQL CASE 片段，如 "WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ..."
         """
-        return " ".join([f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
+        return " ".join(
+            [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
+        )
 
     @staticmethod
     def get_news_reason_rows(
@@ -593,7 +602,11 @@ class DBOperations:
         for row in rows:
             pub_time = row[2]
             if isinstance(pub_time, datetime):
-                latest_pub_time = pub_time if latest_pub_time is None else max(latest_pub_time, pub_time)
+                latest_pub_time = (
+                    pub_time
+                    if latest_pub_time is None
+                    else max(latest_pub_time, pub_time)
+                )
             items.append(
                 {
                     "news_id": row[0],
@@ -746,7 +759,11 @@ class DBOperations:
                         latency_ms = %s
                     WHERE cache_key = %s
                     """,
-                    (json.dumps(output_data, ensure_ascii=False), latency_ms, cache_key),
+                    (
+                        json.dumps(output_data, ensure_ascii=False),
+                        latency_ms,
+                        cache_key,
+                    ),
                 )
             conn.commit()
 

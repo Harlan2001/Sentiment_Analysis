@@ -3,25 +3,29 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Query
 
 from backend.analysis.analyzer import process_single_news_analysis
+from backend.common.database import execute_query, get_db_connection
+from backend.common.db_operations import DBOperations
+from backend.common.vector_store import get_faiss_store
+from backend.common.yield_db import get_yield_window_by_news_id
 from backend.config.config import (
     ANALYSIS_MODEL_PRIORITY,
     API_PREFIX,
     NEWS_SOURCES,
     get_default_analysis_model_name,
+    mask_news_source,
 )
-from backend.common.database import execute_query, get_db_connection
-from backend.common.db_operations import DBOperations
-from backend.common.vector_store import get_faiss_store
-from backend.common.yield_db import get_yield_window_by_news_id
 
 router = APIRouter(prefix=API_PREFIX, tags=["news"])
 
 
 def _priority_cases() -> str:
-    return "".join([f"WHEN '{m}' THEN {i} " for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
+    return "".join(
+        [f"WHEN '{m}' THEN {i} " for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
+    )
 
 
 @router.get("/yields")
@@ -29,16 +33,26 @@ def get_yields(start: str, end: str, type: str = Query("10年")):
     try:
         return DBOperations.get_yield_series_by_period(start, end, type)
     except Exception as exc:
-        return {"error": f"数据库表不存在或数据未初始化: {str(exc)}. 请运行 python init_yield_db.py 初始化数据库"}
+        return {
+            "error": f"数据库表不存在或数据未初始化: {str(exc)}. 请运行 python init_yield_db.py 初始化数据库"
+        }
 
 
 @router.get("/news")
 def get_news(
     date: Optional[str] = Query(None, description="单个日期查询，格式 YYYY-MM-DD"),
-    start_date: Optional[str] = Query(None, description="时间段开始日期，格式 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="时间段结束日期，格式 YYYY-MM-DD"),
-    source: Optional[str] = Query(None, description="新闻源过滤，多个用逗号分隔，如 cls,wechat"),
-    model: Optional[str] = Query(None, description="模型短名，用于 single/all 视图过滤"),
+    start_date: Optional[str] = Query(
+        None, description="时间段开始日期，格式 YYYY-MM-DD"
+    ),
+    end_date: Optional[str] = Query(
+        None, description="时间段结束日期，格式 YYYY-MM-DD"
+    ),
+    source: Optional[str] = Query(
+        None, description="新闻源过滤，多个用逗号分隔，如 cls,wechat"
+    ),
+    model: Optional[str] = Query(
+        None, description="模型短名，用于 single/all 视图过滤"
+    ),
     view: str = Query("best", description="best | single | all"),
 ):
     priority_cases = _priority_cases()
@@ -83,7 +97,7 @@ def get_news(
                 FROM news n
                 LEFT JOIN analysis a ON a.news_id = n.id AND a.model = %s
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 [model, model] + params,
             )
@@ -93,7 +107,7 @@ def get_news(
                     "id": r[0],
                     "title": r[1],
                     "publish_time": r[2],
-                    "source": NEWS_SOURCES.get(r[3], r[3]),
+                    "source": mask_news_source(r[3]),
                     "direction": r[4],
                     "horizon": r[5],
                     "reason": r[6],
@@ -124,7 +138,7 @@ def get_news(
                         LIMIT 1
                     )
                 WHERE {date_filter} {source_filter}
-                ORDER BY n.pub_time ASC
+                ORDER BY n.pub_time DESC
                 """,
                 params,
             )
@@ -134,7 +148,7 @@ def get_news(
                     "id": r[0],
                     "title": r[1],
                     "publish_time": r[2],
-                    "source": NEWS_SOURCES.get(r[3], r[3]),
+                    "source": mask_news_source(r[3]),
                     "direction": r[4],
                     "horizon": r[5],
                     "reason": r[6],
@@ -150,7 +164,7 @@ def get_news(
             SELECT n.id, n.title, n.pub_time, n.source
             FROM news n
             WHERE {date_filter} {source_filter}
-            ORDER BY n.pub_time ASC
+            ORDER BY n.pub_time DESC
             """,
             params,
         )
@@ -190,16 +204,23 @@ def get_news(
     for row in news_rows:
         current_analyses = analyses_by_news.get(row[0], [])
         if current_analyses:
-            selected = sorted(current_analyses, key=lambda x: priority_rank.get(x["model"], 999))[0]
+            selected = sorted(
+                current_analyses, key=lambda x: priority_rank.get(x["model"], 999)
+            )[0]
         else:
-            selected = {"direction": "中性", "horizon": "短期", "reason": "待分析", "model": model or "default"}
+            selected = {
+                "direction": "中性",
+                "horizon": "短期",
+                "reason": "待分析",
+                "model": model or "default",
+            }
 
         result.append(
             {
                 "id": row[0],
                 "title": row[1],
                 "publish_time": row[2],
-                "source": NEWS_SOURCES.get(row[3], row[3]),
+                "source": mask_news_source(row[3]),
                 "direction": selected["direction"],
                 "horizon": selected["horizon"],
                 "reason": selected["reason"],
@@ -214,22 +235,29 @@ def get_news(
 
 @router.get("/news/sources")
 def get_news_sources():
-    return {"sources": [{"key": key, "name": name, "enabled": True} for key, name in NEWS_SOURCES.items()]}
+    return {
+        "sources": [
+            {"key": key, "name": mask_news_source(key), "enabled": True}
+            for key in NEWS_SOURCES
+        ]
+    }
 
 
 @router.get("/news/latest-trading-day")
 def get_latest_publish_day():
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT MAX(DATE(pub_time))
                 FROM news
                 WHERE pub_time IS NOT NULL
-                """
-            )
+                """)
             result = cursor.fetchone()
-            latest_date = result[0] if result and result[0] else datetime.now().strftime("%Y-%m-%d")
+            latest_date = (
+                result[0]
+                if result and result[0]
+                else datetime.now().strftime("%Y-%m-%d")
+            )
     return {"latest_date": latest_date}
 
 
@@ -243,7 +271,9 @@ def similar_news(news_id: int, top_k: int = 5):
             return []
         content = row[0]
         store = get_faiss_store()
-        query_emb = store.model.encode([content], normalize_embeddings=True, convert_to_numpy=True).astype("float32")
+        query_emb = store.model.encode(
+            [content], normalize_embeddings=True, convert_to_numpy=True
+        ).astype("float32")
         results = store.search_by_vector(query_emb, top_k + 1)
 
         out = []
@@ -307,7 +337,15 @@ def get_news_detail(
     if not selected_model:
         selected_model = "default"
 
-    selected_analysis = analyses_by_model.get(selected_model, {"direction": "中性", "horizon": "短期", "reason": "待分析", "model": selected_model})
+    selected_analysis = analyses_by_model.get(
+        selected_model,
+        {
+            "direction": "中性",
+            "horizon": "短期",
+            "reason": "待分析",
+            "model": selected_model,
+        },
+    )
 
     def _query_factors_for_model(model_name: str) -> List[Dict[str, Any]]:
         factor_rows = execute_query(
@@ -322,7 +360,13 @@ def get_news_detail(
             one=False,
         )
         return [
-            {"code": r[0], "name": r[1] or r[0], "category": r[2], "direction": r[3], "driver": r[4]}
+            {
+                "code": r[0],
+                "name": r[1] or r[0],
+                "category": r[2],
+                "direction": r[3],
+                "driver": r[4],
+            }
             for r in factor_rows
         ]
 
@@ -330,7 +374,9 @@ def get_news_detail(
     analyses_payload: List[Dict[str, Any]] = []
     if include_all_models:
         for model_name, analysis_data in analyses_by_model.items():
-            analyses_payload.append({**analysis_data, "factors": _query_factors_for_model(model_name)})
+            analyses_payload.append(
+                {**analysis_data, "factors": _query_factors_for_model(model_name)}
+            )
 
     content_block_rows = execute_query(
         """
@@ -376,7 +422,7 @@ def get_news_detail(
         content_blocks.append(block)
 
     source_key = news_row[4] if news_row[4] else ""
-    source_display = NEWS_SOURCES.get(source_key, source_key)
+    source_display = mask_news_source(source_key)
     return {
         "id": news_row[0],
         "title": news_row[1],
@@ -401,7 +447,10 @@ def get_news_by_factor(
 ):
     with get_db_connection() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id, name, category, factor_type FROM factor WHERE code = %s", (factor_code,))
+        cur.execute(
+            "SELECT id, name, category, factor_type FROM factor WHERE code = %s",
+            (factor_code,),
+        )
         factor_row = cur.fetchone()
         if not factor_row:
             return {"factor": None, "news": []}
@@ -456,11 +505,28 @@ def get_news_by_factor(
         rows = cur.fetchall()
 
     news_list = [
-        {"id": r[0], "title": r[1], "publish_time": r[2], "publish_date": r[3], "direction": r[4], "horizon": r[5], "factor_direction": r[6], "model": r[7]}
+        {
+            "id": r[0],
+            "title": r[1],
+            "publish_time": r[2],
+            "publish_date": r[3],
+            "direction": r[4],
+            "horizon": r[5],
+            "factor_direction": r[6],
+            "model": r[7],
+        }
         for r in rows
     ]
 
-    return {"factor": {"code": factor_code, "name": factor_name, "category": factor_category}, "news": news_list, "count": len(news_list)}
+    return {
+        "factor": {
+            "code": factor_code,
+            "name": factor_name,
+            "category": factor_category,
+        },
+        "news": news_list,
+        "count": len(news_list),
+    }
 
 
 @router.get("/news/{news_id}/yield")
@@ -495,7 +561,10 @@ def get_news_yield_data(
 
     if base_value is not None:
         relative_changes = [
-            {"date": item["date"], "change": round((item["value"] - base_value) / base_value * 100, 4)}
+            {
+                "date": item["date"],
+                "change": round((item["value"] - base_value) / base_value * 100, 4),
+            }
             for item in data
         ]
 
@@ -515,7 +584,9 @@ def get_news_yield_data(
 @router.post("/news/{news_id}/analyze")
 async def analyze_news(
     news_id: int,
-    model_name: Optional[str] = Query(None, description="分析模型短名，如 kingstar / doubao / deepseek"),
+    model_name: Optional[str] = Query(
+        None, description="分析模型短名，如 kingstar / doubao / deepseek"
+    ),
 ):
     result = await process_single_news_analysis(news_id, model_name=model_name)
     if result.get("success"):

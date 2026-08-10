@@ -3,21 +3,24 @@ from __future__ import annotations
 import json
 import os
 from typing import List
+
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
 from backend.agent.agent_loop import run_agent_loop
-from backend.config.config import API_PREFIX, create_openai_http_client
 from backend.common.database import execute_query
+from backend.config.config import API_PREFIX, create_openai_http_client
 
 router = APIRouter(prefix=f"{API_PREFIX}/chat", tags=["chat"])
 
 # ── LLM 客户端 ──
 kingstar_API_KEY = os.getenv("kingstar_API_KEY")
 if not kingstar_API_KEY:
-    raise ValueError("kingstar_API_KEY environment variable is not set. Please set it in your .env file.")
+    raise ValueError(
+        "kingstar_API_KEY environment variable is not set. Please set it in your .env file."
+    )
 kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 kingstar_client = OpenAI(
     api_key=kingstar_API_KEY,
@@ -25,11 +28,14 @@ kingstar_client = OpenAI(
     http_client=create_openai_http_client(),
 )
 
-CHAT_MODEL = os.getenv("CHAT_MODEL_NAME") or "volcengine/doubao-seed-2-0-code-preview-260215"
+CHAT_MODEL = (
+    os.getenv("CHAT_MODEL_NAME") or "volcengine/doubao-seed-2-0-code-preview-260215"
+)
+
 
 # ── 系统提示词 ──
 def _build_system_prompt() -> str:
-    from backend.agent.spec import load_spec, filter_agent_operations
+    from backend.agent.spec import filter_agent_operations, load_spec
 
     spec = load_spec()
     agent_ops = filter_agent_operations(spec)
@@ -41,9 +47,9 @@ def _build_system_prompt() -> str:
 
     group_descriptions = {
         "news": "新闻搜索与分析：按日期/来源搜索新闻、查看新闻详情和AI分析、"
-                "搜索语义相似新闻、查看新闻关联的收益率变化",
+        "搜索语义相似新闻、查看新闻关联的收益率变化",
         "factors": "因子分析：列出所有影响因子、按类别过滤"
-                   "（POLICY/MACRO/LIQUIDITY/RISK/SENTIMENT/INDUSTRY）",
+        "（POLICY/MACRO/LIQUIDITY/RISK/SENTIMENT/INDUSTRY）",
         "forecast": "行情预测：获取最新预测报告、查看历史预测记录",
         "macro": "宏观信号：计算因子的存在性/方向性信号（带时间衰减加权）、查看信号计算日志",
         "strategy": "策略快照：获取当前策略配置快照",
@@ -70,6 +76,7 @@ def _build_system_prompt() -> str:
 5. 保持客观中立，不做具体投资建议
 6. 如果工具返回空结果或无数据，如实告知用户"""
 
+
 CHAT_SYSTEM_PROMPT = _build_system_prompt()
 
 
@@ -90,17 +97,20 @@ async def chat(request: ChatRequest, req: Request):
     """统一的 Agent 对话接口，支持 SSE 流式和非流式两种模式。"""
 
     # 解析用户身份
-    username = getattr(req.state, 'username', 'anonymous')
+    username = getattr(req.state, "username", "anonymous")
     user_id = 0
-    if username and username != 'anonymous':
+    if username and username != "anonymous":
         try:
-            r = execute_query("SELECT id FROM users WHERE username=%s", (username,), one=True)
+            r = execute_query(
+                "SELECT id FROM users WHERE username=%s", (username,), one=True
+            )
             if r:
                 user_id = r[0]
         except Exception:
             pass
 
     if request.stream:
+
         async def event_stream():
             async for sse_event in run_agent_loop(
                 messages=[m.model_dump() for m in request.messages],

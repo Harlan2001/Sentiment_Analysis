@@ -9,16 +9,20 @@
 """
 
 import json
-import os
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-from backend.config.config import get_analysis_model_info, get_default_analysis_model_name, create_openai_http_client
 from backend.common.database import get_db_connection
 from backend.common.llm_logger import log_llm_usage
+from backend.config.config import (
+    create_openai_http_client,
+    get_analysis_model_info,
+    get_default_analysis_model_name,
+)
 
 logger = logging.getLogger("change_router")
 
@@ -32,8 +36,12 @@ _kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
 
 def _get_llm_client():
     from openai import OpenAI
-    return OpenAI(api_key=_kingstar_API_KEY, base_url=_kingstar_BASE_URL,
-                   http_client=create_openai_http_client())
+
+    return OpenAI(
+        api_key=_kingstar_API_KEY,
+        base_url=_kingstar_BASE_URL,
+        http_client=create_openai_http_client(),
+    )
 
 
 # ============================================================
@@ -153,6 +161,7 @@ def save_snapshot(snapshot: Dict[str, Any]) -> int:
 # 工具函数
 # ============================================================
 
+
 def _fmt(value: Any) -> Optional[str]:
     if value is None:
         return None
@@ -189,7 +198,10 @@ def _row_to_dict(row) -> Dict[str, Any]:
 def _build_model_priority_case() -> str:
     """构建分析模型优先级 CASE WHEN 子句（doubao > deepseek > ...）"""
     from backend.config.config import ANALYSIS_MODEL_PRIORITY
-    return " ".join([f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)])
+
+    return " ".join(
+        [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
+    )
 
 
 def get_latest_news_pub_time() -> Optional[datetime]:
@@ -205,7 +217,9 @@ def get_latest_news_pub_time() -> Optional[datetime]:
     return None
 
 
-def compute_window_from_news() -> Tuple[Optional[datetime], Optional[datetime], Optional[datetime]]:
+def compute_window_from_news() -> (
+    Tuple[Optional[datetime], Optional[datetime], Optional[datetime]]
+):
     """
     基于 news.pub_time 计算 24h 滚动窗口，返回 (version_time, window_start, window_end)。
 
@@ -266,7 +280,10 @@ def query_news_ids_analyzed(window_start: datetime, window_end: datetime) -> set
     """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)))
+            cur.execute(
+                sql,
+                (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)),
+            )
             return {row[0] for row in cur.fetchall()}
 
 
@@ -283,7 +300,7 @@ def extract_json(text: str) -> Dict[str, Any]:
         start = text.find("{")
         end = text.rfind("}")
         if start != -1 and end != -1 and end > start:
-            return json.loads(text[start:end + 1])
+            return json.loads(text[start : end + 1])
         raise
 
 
@@ -291,7 +308,10 @@ def extract_json(text: str) -> Dict[str, Any]:
 # 新闻查询（复用 ai_strategy_recommendation 的查询模式）
 # ============================================================
 
-def query_news_for_window(window_start: datetime, window_end: datetime) -> List[Dict[str, Any]]:
+
+def query_news_for_window(
+    window_start: datetime, window_end: datetime
+) -> List[Dict[str, Any]]:
     """查询窗口内的所有新闻，已分析的按模型优先级去重，未分析的也一并返回（content 作为 fallback）。"""
     from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
@@ -311,7 +331,10 @@ def query_news_for_window(window_start: datetime, window_end: datetime) -> List[
 
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)))
+            cur.execute(
+                sql,
+                (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)),
+            )
             rows = cur.fetchall()
 
     # 按模型优先级去重：同一条新闻有多条分析时，取最高优先级；无分析的行（model=NULL）直接保留
@@ -323,7 +346,9 @@ def query_news_for_window(window_start: datetime, window_end: datetime) -> List[
             seen[news_id] = row
         elif model and model in priority_map:
             existing_model = seen[news_id][6]
-            existing_rank = priority_map.get(existing_model, 999) if existing_model else 999
+            existing_rank = (
+                priority_map.get(existing_model, 999) if existing_model else 999
+            )
             new_rank = priority_map.get(model, 999)
             if new_rank < existing_rank:
                 seen[news_id] = row
@@ -341,7 +366,13 @@ def query_news_for_window(window_start: datetime, window_end: datetime) -> List[
         for row in seen.values()
     ]
     # 按 pub_time 排序（注意：pub_time 可能为 None 或 str，datetime 优先）
-    result.sort(key=lambda x: x["pub_time"] if isinstance(x["pub_time"], datetime) else (x["pub_time"] or ""))
+    result.sort(
+        key=lambda x: (
+            x["pub_time"]
+            if isinstance(x["pub_time"], datetime)
+            else (x["pub_time"] or "")
+        )
+    )
     return result
 
 
@@ -349,17 +380,24 @@ def query_news_for_window(window_start: datetime, window_end: datetime) -> List[
 # LLM 策略生成
 # ============================================================
 
+
 def _build_reason_text(news_rows: List[Dict[str, Any]]) -> str:
     lines = []
     for idx, item in enumerate(news_rows, 1):
         pub_time = item["pub_time"]
-        ts = pub_time.strftime("%Y-%m-%d %H:%M") if isinstance(pub_time, datetime) else str(pub_time)
+        ts = (
+            pub_time.strftime("%Y-%m-%d %H:%M")
+            if isinstance(pub_time, datetime)
+            else str(pub_time)
+        )
         reason = (item.get("reason") or "").strip()
         if not reason:
             # 未分析新闻：优先用 content 前 200 字作为摘要
             content = (item.get("content") or "").strip()
             if content:
-                reason = "【未分析】" + (content[:200] + "…" if len(content) > 200 else content)
+                reason = "【未分析】" + (
+                    content[:200] + "…" if len(content) > 200 else content
+                )
             else:
                 reason = "（暂无分析摘要）"
         lines.append(
@@ -437,7 +475,10 @@ JSON 格式：
         response = client.chat.completions.create(
             model=provider_model,
             messages=[
-                {"role": "system", "content": "你是严格输出 JSON 的中国债券市场策略分析师。"},
+                {
+                    "role": "system",
+                    "content": "你是严格输出 JSON 的中国债券市场策略分析师。",
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.4,
@@ -476,6 +517,7 @@ JSON 格式：
 # 对比计算
 # ============================================================
 
+
 def compute_diff(
     old_s: Dict[str, Any],
     new_s: Dict[str, Any],
@@ -500,7 +542,11 @@ def compute_diff(
 
     stock_added = [new_stock_map[c] for c in added_codes]
     stock_removed = [
-        {"code": c, "name": old_stock_map[c].get("name", ""), "prev_rating": old_stock_map[c].get("rating", "")}
+        {
+            "code": c,
+            "name": old_stock_map[c].get("name", ""),
+            "prev_rating": old_stock_map[c].get("rating", ""),
+        }
         for c in removed_codes
     ]
 
@@ -519,11 +565,13 @@ def compute_diff(
             changes["old_reason"] = old_item.get("reason", "")
             changes["new_reason"] = new_item.get("reason", "")
         if changes:
-            stock_modified.append({
-                "code": code,
-                "name": new_item.get("name", ""),
-                **changes,
-            })
+            stock_modified.append(
+                {
+                    "code": code,
+                    "name": new_item.get("name", ""),
+                    **changes,
+                }
+            )
 
     # --- 策略对比 ---
     old_strat_ids = {s["id"] for s in old_strategies}
@@ -538,7 +586,11 @@ def compute_diff(
 
     strategy_added = [new_strat_map[i] for i in added_ids]
     strategy_removed = [
-        {"id": i, "name": old_strat_map[i].get("name", ""), "prev_priority": old_strat_map[i].get("priority", 0)}
+        {
+            "id": i,
+            "name": old_strat_map[i].get("name", ""),
+            "prev_priority": old_strat_map[i].get("priority", 0),
+        }
         for i in removed_ids
     ]
 
@@ -557,11 +609,13 @@ def compute_diff(
             changes["old_trigger_logic"] = old_item.get("trigger_logic", "")
             changes["new_trigger_logic"] = new_item.get("trigger_logic", "")
         if changes:
-            strategy_modified.append({
-                "id": sid,
-                "name": new_item.get("name", ""),
-                **changes,
-            })
+            strategy_modified.append(
+                {
+                    "id": sid,
+                    "name": new_item.get("name", ""),
+                    **changes,
+                }
+            )
 
     return {
         "base_info": {
@@ -578,7 +632,9 @@ def compute_diff(
             "new_stocks": len(stock_added),
             "removed_stocks": len(stock_removed),
             "rating_changes": len([m for m in stock_modified if "old_rating" in m]),
-            "strategy_changes": len(strategy_added) + len(strategy_removed) + len(strategy_modified),
+            "strategy_changes": len(strategy_added)
+            + len(strategy_removed)
+            + len(strategy_modified),
         },
         "stock_changes": {
             "added": stock_added,

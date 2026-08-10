@@ -34,6 +34,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/change", tags=["change"])
 # Pydantic 请求模型
 # ============================================================
 
+
 class TriggerRequest(BaseModel):
     force: bool = False
 
@@ -48,6 +49,7 @@ class CompareRequest(BaseModel):
 # ============================================================
 # API 端点
 # ============================================================
+
 
 @router.post("/trigger")
 async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest())):
@@ -64,7 +66,10 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     version_time, window_start, window_end = compute_window_from_news()
 
     if version_time is None or window_start is None or window_end is None:
-        raise HTTPException(status_code=503, detail="news 表为空，无法确定窗口范围。请先执行新闻爬取与分析。")
+        raise HTTPException(
+            status_code=503,
+            detail="news 表为空，无法确定窗口范围。请先执行新闻爬取与分析。",
+        )
 
     # 查询窗口内所有新闻（已分析+未分析），供 LLM 生成推荐
     news_rows = query_news_for_window(window_start, window_end)
@@ -73,13 +78,18 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     total_news_raw = count_news_raw(window_start, window_end)
     analyzed_count = len([r for r in news_rows if (r.get("reason") or "").strip()])
     unanalyzed_count = max(0, total_news_raw - analyzed_count)
-    analysis_coverage = (analyzed_count / total_news_raw * 100) if total_news_raw > 0 else 0
+    analysis_coverage = (
+        (analyzed_count / total_news_raw * 100) if total_news_raw > 0 else 0
+    )
 
     logger.info(
         "窗口 [%s ~ %s]：总新闻=%d, 已分析=%d, 未分析=%d, 覆盖率=%.1f%%",
         window_start.strftime("%Y-%m-%d %H:%M"),
         window_end.strftime("%Y-%m-%d %H:%M"),
-        total_news_raw, analyzed_count, unanalyzed_count, analysis_coverage,
+        total_news_raw,
+        analyzed_count,
+        unanalyzed_count,
+        analysis_coverage,
     )
 
     if not news_rows and not request.force:
@@ -106,8 +116,12 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     news_removed_count = 0
 
     if prev:
-        prev_window_start = datetime.strptime(prev["window_start"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=CHANGE_TZ)
-        prev_window_end = datetime.strptime(prev["window_end"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=CHANGE_TZ)
+        prev_window_start = datetime.strptime(
+            prev["window_start"], "%Y-%m-%d %H:%M:%S"
+        ).replace(tzinfo=CHANGE_TZ)
+        prev_window_end = datetime.strptime(
+            prev["window_end"], "%Y-%m-%d %H:%M:%S"
+        ).replace(tzinfo=CHANGE_TZ)
         prev_news_ids = query_news_ids_analyzed(prev_window_start, prev_window_end)
         news_added_count = len(current_news_ids - prev_news_ids)
         news_removed_count = len(prev_news_ids - current_news_ids)
@@ -139,16 +153,22 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     time_gap_hours = abs((server_now - version_time).total_seconds()) / 3600
     if time_gap_hours > 2:
         generate_status = 2
-        warnings.append(f"数据源最新时间与服务器时间偏差 {time_gap_hours:.1f}h，可能爬虫或分析管道延迟")
+        warnings.append(
+            f"数据源最新时间与服务器时间偏差 {time_gap_hours:.1f}h，可能爬虫或分析管道延迟"
+        )
 
     # 2) 分析覆盖率不足
     if total_news_raw > 0 and analysis_coverage < 50:
         generate_status = 2
-        warnings.append(f"窗口内仅 {analysis_coverage:.0f}% 新闻已完成分析（{analyzed_count}/{total_news_raw}），推荐可能不完整")
+        warnings.append(
+            f"窗口内仅 {analysis_coverage:.0f}% 新闻已完成分析（{analyzed_count}/{total_news_raw}），推荐可能不完整"
+        )
 
     # 3) 新闻量波动超过 50%
     if prev and prev.get("news_total", 0) > 0 and analyzed_count > 0:
-        news_change_ratio = abs(analyzed_count - prev["news_total"]) / prev["news_total"]
+        news_change_ratio = (
+            abs(analyzed_count - prev["news_total"]) / prev["news_total"]
+        )
         if news_change_ratio > 0.5:
             generate_status = 2
             warnings.append(f"新闻量波动 {news_change_ratio:.0%}，超过 50% 阈值")
@@ -229,7 +249,10 @@ def compare_snapshots(request: CompareRequest = Body(default=CompareRequest())):
             old_snapshot = snapshot_by_id(all_items[1]["id"])
 
     if not new_snapshot:
-        raise HTTPException(status_code=404, detail=f"未找到快照数据，请先调用 {API_PREFIX}/change/trigger 生成")
+        raise HTTPException(
+            status_code=404,
+            detail=f"未找到快照数据，请先调用 {API_PREFIX}/change/trigger 生成",
+        )
 
     if not old_snapshot:
         raise HTTPException(

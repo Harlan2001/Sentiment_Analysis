@@ -1,17 +1,23 @@
 /**
  * 模块D：向量库 & 存储
  */
-import React from 'react';
-import type { VectorModuleData } from '@/types';
-import { PanelTitle, MetricCard, ProgressBar } from './Widgets';
-import { ALERT } from './constants';
+import React from 'react'
+import type { VectorModuleData } from '@/types'
+import { PanelTitle, MetricCard, ProgressBar } from './Widgets'
+import { ALERT } from './constants'
 
-interface Props { data: VectorModuleData; }
+interface Props {
+  data: VectorModuleData
+}
 
 export const VectorModule: React.FC<Props> = ({ data }) => {
-  const pendingStatus = data.pending_count > ALERT.VECTOR_PENDING_RED ? 'danger'
-    : data.pending_count > ALERT.VECTOR_PENDING_YELLOW ? 'warning' : 'normal';
-  const coverageStatus = data.coverage_pct < ALERT.VECTOR_COVERAGE_YELLOW ? 'warning' : 'normal';
+  const pendingStatus =
+    data.pending_count > ALERT.VECTOR_PENDING_RED
+      ? 'danger'
+      : data.pending_count > ALERT.VECTOR_PENDING_YELLOW
+        ? 'warning'
+        : 'normal'
+  const coverageStatus = data.coverage_pct < ALERT.VECTOR_COVERAGE_YELLOW ? 'warning' : 'normal'
 
   return (
     <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
@@ -27,5 +33,5 @@ export const VectorModule: React.FC<Props> = ({ data }) => {
         <ProgressBar label="向量化覆盖率" value={data.coverage_pct} status={coverageStatus} />
       </div>
     </div>
-  );
-};
+  )
+}
