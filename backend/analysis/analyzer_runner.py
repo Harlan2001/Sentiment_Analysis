@@ -2,30 +2,38 @@
 新闻分析执行器
 批量处理未分析的新闻，异步并发调用分析模块，处理结果并保存到数据库
 """
-# 添加在文件最开头，所有导入之前
-from dotenv import load_dotenv
-from pathlib import Path
+
+import argparse
 import asyncio
 import json
 import logging
 import time
-from typing import Dict, List, Any, Optional
-from datetime import datetime
 from dataclasses import dataclass
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import openai
 import pymysql
-import argparse
+
+# 添加在文件最开头，所有导入之前
+from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # 全局常量：项目根路径（消除重复路径计算）
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
-from backend.common.database import init_database, DatabaseConfig, get_db_connection
-from backend.config.config import MYSQL_CONFIG
-from backend.analysis.analyzer import analyze_bond_yield_async, MODEL_NAME
-from backend.common.db_operations import DBOperations
+from backend.analysis.analyzer import MODEL_NAME, analyze_bond_yield_async
 from backend.analysis.result_processor import AnalysisResultProcessor
+from backend.common.database import DatabaseConfig, get_db_connection, init_database
+from backend.common.db_operations import DBOperations
+from backend.config.config import MYSQL_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +41,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RunStatistics:
     """运行统计信息"""
+
     total_news: int = 0
     processed_news: int = 0
     success_news: int = 0
@@ -62,7 +71,7 @@ class RunStatistics:
             "duration_seconds": round(self.duration, 2),
             "processing_speed": round(self.processing_speed, 2),
             "start_time": datetime.fromtimestamp(self.start_time).isoformat(),
-            "end_time": datetime.fromtimestamp(self.end_time).isoformat()
+            "end_time": datetime.fromtimestamp(self.end_time).isoformat(),
         }
 
 
@@ -145,7 +154,10 @@ class NewsAnalyzerRunner:
                 logger.info(f"获取到 {len(pending_rows)} 条待分析新闻，开始处理")
 
                 # 并发处理这批新闻（消除冗余列表推导）
-                tasks = [self._process_news_with_semaphore(row["news_id"]) for row in pending_rows]
+                tasks = [
+                    self._process_news_with_semaphore(row["news_id"])
+                    for row in pending_rows
+                ]
                 results = await asyncio.gather(*tasks)
 
                 # 统计处理结果（删除死代码：异常判断）
@@ -158,11 +170,13 @@ class NewsAnalyzerRunner:
                     elif result.get("status") == "skipped":
                         self.stats.skipped_news += 1
                         self.skipped_records.append(result)
-                    
+
                     self.stats.processed_news += 1
 
-                logger.info(f"批次处理完成，累计处理: {self.stats.processed_news}, "
-                           f"成功: {self.stats.success_news}, 失败: {self.stats.failed_news}, 跳过: {self.stats.skipped_news}")
+                logger.info(
+                    f"批次处理完成，累计处理: {self.stats.processed_news}, "
+                    f"成功: {self.stats.success_news}, 失败: {self.stats.failed_news}, 跳过: {self.stats.skipped_news}"
+                )
 
                 # 检查是否达到处理上限
                 if limit is not None and self.stats.processed_news >= limit:
@@ -204,14 +218,16 @@ class NewsAnalyzerRunner:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type((
-            openai.APIError,
-            openai.APIConnectionError,
-            openai.RateLimitError,
-            pymysql.OperationalError,
-            pymysql.InterfaceError
-        )),
-        reraise=False
+        retry=retry_if_exception_type(
+            (
+                openai.APIError,
+                openai.APIConnectionError,
+                openai.RateLimitError,
+                pymysql.OperationalError,
+                pymysql.InterfaceError,
+            )
+        ),
+        reraise=False,
     )
     async def _process_single_news_with_retry(self, news_id: int) -> Dict[str, Any]:
         """带重试机制的单条新闻处理"""
@@ -228,7 +244,7 @@ class NewsAnalyzerRunner:
                 "news_id": news_id,
                 "status": "skipped",
                 "reason": "已存在分析结果",
-                "recorded_at": datetime.now().isoformat()
+                "recorded_at": datetime.now().isoformat(),
             }
 
         try:
@@ -251,14 +267,12 @@ class NewsAnalyzerRunner:
                         news_id=news_id,
                         analysis_result=analysis_result,
                         model=self.model_name,
-                        conn=conn
+                        conn=conn,
                     )
 
                     # 处理因子并保存关联关系
                     self.result_processor.process_analysis_result(
-                        news_id=news_id,
-                        analysis_result=analysis_result,
-                        conn=conn
+                        news_id=news_id, analysis_result=analysis_result, conn=conn
                     )
 
                     conn.commit()
@@ -266,12 +280,15 @@ class NewsAnalyzerRunner:
                     return {
                         "news_id": news_id,
                         "status": "success",
-                        "recorded_at": datetime.now().isoformat()
+                        "recorded_at": datetime.now().isoformat(),
                     }
 
                 except Exception as e:
                     conn.rollback()
-                    logger.error(f"保存新闻 {news_id} 结果时发生错误，事务回滚: {str(e)}", exc_info=True)
+                    logger.error(
+                        f"保存新闻 {news_id} 结果时发生错误，事务回滚: {str(e)}",
+                        exc_info=True,
+                    )
                     raise
 
         except Exception as e:
@@ -281,7 +298,7 @@ class NewsAnalyzerRunner:
                 "status": "failed",
                 "reason": str(e),
                 "error_type": type(e).__name__,
-                "recorded_at": datetime.now().isoformat()
+                "recorded_at": datetime.now().isoformat(),
             }
 
     def _write_issue_report(self) -> str:
@@ -290,7 +307,10 @@ class NewsAnalyzerRunner:
         report_dir = PROJECT_ROOT / "logs" / "analysis_issues"
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        report_file = report_dir / f"analysis_issues_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        report_file = (
+            report_dir
+            / f"analysis_issues_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         report = {
             "generated_at": datetime.now().isoformat(),
             "model_name": self.model_name,
@@ -310,7 +330,7 @@ class NewsAnalyzerRunner:
             "direction": "neutral",
             "horizon": "短期",
             "reason": "分析失败，使用默认结果",
-            "factors": []
+            "factors": [],
         }
 
 
@@ -323,10 +343,28 @@ async def main():
     parser.add_argument("--max-concurrent", type=int, default=10, help="最大并发数")
     parser.add_argument("--batch-size", type=int, default=100, help="每批处理数量")
     parser.add_argument("--limit", type=int, default=1000, help="最大处理数量")
-    parser.add_argument("--mode", type=str, default="model_missing", choices=["model_missing", "force_rerun"], help="执行模式")
-    parser.add_argument("--start-time", type=str, default=None, help="起始时间，格式如 2026-05-01 00:00:00")
-    parser.add_argument("--end-time", type=str, default=None, help="结束时间，格式如 2026-05-09 23:59:59")
-    parser.add_argument("--news-ids", type=str, default=None, help="新闻ID列表，逗号分隔")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="model_missing",
+        choices=["model_missing", "force_rerun"],
+        help="执行模式",
+    )
+    parser.add_argument(
+        "--start-time",
+        type=str,
+        default=None,
+        help="起始时间，格式如 2026-05-01 00:00:00",
+    )
+    parser.add_argument(
+        "--end-time",
+        type=str,
+        default=None,
+        help="结束时间，格式如 2026-05-09 23:59:59",
+    )
+    parser.add_argument(
+        "--news-ids", type=str, default=None, help="新闻ID列表，逗号分隔"
+    )
 
     args = parser.parse_args()
 
@@ -336,7 +374,9 @@ async def main():
 
     parsed_news_ids: Optional[List[int]] = None
     if args.news_ids:
-        parsed_news_ids = [int(x.strip()) for x in args.news_ids.split(",") if x.strip()]
+        parsed_news_ids = [
+            int(x.strip()) for x in args.news_ids.split(",") if x.strip()
+        ]
 
     await runner.run(
         batch_size=args.batch_size,
@@ -350,5 +390,6 @@ async def main():
 
 if __name__ == "__main__":
     from backend.common.logging_config import setup_logging
+
     setup_logging()
     asyncio.run(main())

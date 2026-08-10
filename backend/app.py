@@ -35,9 +35,12 @@ from backend.routers.auth import router as auth_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.macro_data import router as macro_data_router
 from backend.routers.discover import router as discover_router
-from backend.auth.dependencies import auth_middleware
 from backend.routers.strategy import router as strategy_router
 from backend.routers.strategy import start_strategy_services, stop_strategy_services
+from backend.repositories.message_repository import MessageRepository
+from backend.routers.workbench.sidebar import router as workbench_sidebar_router
+from backend.routers.workbench.projects import router as workbench_projects_router
+from backend.routers.workbench.conversations import router as workbench_conversations_router
 from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 
 app = FastAPI(title="Bond Yield Backend")
@@ -84,6 +87,9 @@ app.include_router(change_router)
 app.include_router(dashboard_router)
 app.include_router(macro_data_router)
 app.include_router(discover_router)
+app.include_router(workbench_sidebar_router)
+app.include_router(workbench_projects_router)
+app.include_router(workbench_conversations_router)
 
 
 @app.get("/health")
@@ -100,6 +106,16 @@ def startup_event():
         logger.info("FaissStore loaded | vectors=%d, dim=%d", store.size(), store.dim)
     except Exception as exc:
         logger.warning("FaissStore unavailable, startup continues: %s", exc)
+
+
+@app.on_event("startup")
+def startup_workbench():
+    """工作台仓储映射迁移：启动时确保 workbench_* 表存在并清理遗留 streaming 状态。"""
+    app.state.repository = MessageRepository.from_environment()
+    app.state.repository.ensure_tables()
+    interrupted = app.state.repository.mark_streaming_messages_interrupted()
+    if interrupted:
+        logger.warning("已将 %d 条未完成工作台助手消息标记为 interrupted", interrupted)
 
 
 @app.on_event("startup")

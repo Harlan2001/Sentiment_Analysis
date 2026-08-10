@@ -242,6 +242,9 @@ TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
 # 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
 API_PREFIX = _get_env_str("API_PREFIX") or "/sapi"
 
+# 工作台会话历史长度上限（agent_chat_stream 传给 Agent 的最大历史消息数）
+CONVERSATION_HISTORY_LIMIT = _get_env_int("WORKBENCH_CONVERSATION_HISTORY_LIMIT", 50)
+
 # ====================== 看板配置 ======================
 # 情感方向映射
 DIR_MAP = {"positive": "看涨", "negative": "看跌", "neutral": "中性"}
