@@ -37,6 +37,11 @@ import type {
   AiStrategyConversationDetailResponse,
   AiStrategyConversationListResponse,
   AiStrategyPromptDraftResponse,
+  DiscoverNewsResponse,
+  MarketPanelResponse,
+  YieldDetailData,
+  FactorDetailData,
+  StrategyLatestData,
 } from '@/types'
 import { storage } from '@/utils/helpers'
 import { API_PREFIX } from '@/constants'
@@ -886,4 +891,69 @@ export async function confirmAiStrategyPromptDraft(
     throw new Error(error.detail || 'DreamStrategy generation failed')
   }
   return response.json()
+}
+
+// ── Discover 页面 API ────────────────────────────────────────────────
+
+export async function fetchDiscoverNews(params: {
+  page?: number;
+  page_size?: number;
+  direction?: string;
+  source?: string;
+  days?: number;
+}): Promise<DiscoverNewsResponse> {
+  const sp = new URLSearchParams();
+  if (params.page) sp.set('page', String(params.page));
+  if (params.page_size) sp.set('page_size', String(params.page_size));
+  if (params.direction) sp.set('direction', params.direction);
+  if (params.source) sp.set('source', params.source);
+  if (params.days) sp.set('days', String(params.days));
+  const r = await fetch(`${BASE}/discover/news?${sp}`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchMarketPanel(): Promise<MarketPanelResponse> {
+  const r = await fetch(`${BASE}/discover/market-panel`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchYieldDetail(period: string): Promise<YieldDetailData> {
+  const r = await fetch(`${BASE}/discover/yield-detail?period=${period}`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchFactorDetail(factorId: number): Promise<FactorDetailData> {
+  const r = await fetch(`${BASE}/discover/factor-detail?factor_id=${factorId}`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchStrategyLatest(): Promise<StrategyLatestData> {
+  const r = await fetch(`${BASE}/ai-strategy-recommendation/latest`, { headers: authHeaders() });
+  const raw = await r.json();
+  const d = raw?.data || raw || {};
+  const outcome = d.outcome || {};
+  const recs = (outcome.recommendations || []).map((rec: any) => {
+    const strategy_name =
+      (rec.strategy || {}).name || (rec.target || {}).name || (rec.reason || '').slice(0, 40);
+    const reason = rec.reason || '';
+    const risk = rec.risk_level || '';
+    const drivers = reason ? [reason] : [];
+    if (risk) drivers.unshift(`风险等级：${risk}`);
+    const priority = rec.priority || 1;
+    const confidence = Math.max(0.3, Math.round((1.0 - (priority - 1) * 0.2) * 100) / 100);
+    return {
+      recommendation: strategy_name,
+      confidence,
+      reasons: drivers.slice(0, 2),
+      analysis_date: d.analysis_date || '',
+    };
+  });
+  return {
+    recommendations: recs,
+    market_overview: outcome.market_overview || '',
+    sentiment_summary: outcome.sentiment_summary || '',
+    risk_alert: outcome.risk_alert || '',
+    not_recommended: outcome.not_recommended || [],
+    analysis_date: d.analysis_date || '',
+  };
 }

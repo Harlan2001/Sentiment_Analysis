@@ -30,6 +30,12 @@ from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.report import router as report_router
 from backend.routers.research import router as research_router
+from backend.routers.change import router as change_router
+from backend.routers.auth import router as auth_router
+from backend.routers.dashboard import router as dashboard_router
+from backend.routers.macro_data import router as macro_data_router
+from backend.routers.discover import router as discover_router
+from backend.auth.dependencies import auth_middleware
 from backend.routers.strategy import router as strategy_router
 from backend.routers.strategy import start_strategy_services, stop_strategy_services
 from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
@@ -77,6 +83,7 @@ app.include_router(research_router)
 app.include_router(change_router)
 app.include_router(dashboard_router)
 app.include_router(macro_data_router)
+app.include_router(discover_router)
 
 
 @app.get("/health")

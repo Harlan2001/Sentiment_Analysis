@@ -1227,3 +1227,120 @@ export interface AiStrategyConversationCreateResponse {
   success: boolean
   data: AiStrategyConversation
 }
+
+// ── Discover 页面类型 ────────────────────────────────────────────────
+
+export interface DiscoverNewsItem {
+  id: number;
+  title: string;
+  summary: string;
+  pub_time: string;
+  source: string;
+  source_name: string;
+  thumbnail: string | null;
+  direction: string | null;       // positive | negative | neutral
+  reason: string;
+  factors: { id: number; name: string }[];
+}
+
+export interface DiscoverNewsResponse {
+  items: DiscoverNewsItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
+export interface YieldRateItem {
+  period: string;
+  label: string;
+  value: number;
+  diff_bp: number;
+  direction: 'up' | 'down' | 'flat';
+  sparkline: { dates: string[]; values: number[] };
+}
+
+export interface SpreadData {
+  value: number;
+  diff_bp: number;
+  direction: 'up' | 'down' | 'flat';
+}
+
+export interface MarketPanelYields {
+  items: YieldRateItem[];
+  spread_10y2y: SpreadData | null;
+  update_date: string;
+}
+
+export interface FactorActivity {
+  id: number;
+  name: string;
+  category: string;
+  news_count: number;
+  activity_score: number;
+}
+
+export interface AIMarketSummaryData {
+  date: string;
+  text: string;
+  direction: string;
+  drivers: string[];
+}
+
+export interface StrategySignalData {
+  recommendation: string;
+  confidence: number;
+  reasons: string[];
+  analysis_date: string;
+}
+
+export interface YieldDetailData {
+  period: string;
+  label: string;
+  value: number;
+  diff_bp: number;
+  direction: 'up' | 'down' | 'flat';
+  sparkline: { dates: string[]; values: number[] };
+  key_metrics: { label: string; value: string }[];
+  significant_dates: {
+    date: string;
+    value: number;
+    diff_bp: number;
+    direction: 'up' | 'down' | 'flat';
+    news: { id: number; title: string; direction: string | null }[];
+  }[];
+  update_date: string;
+}
+
+export interface FactorDetailData {
+  id: number;
+  name: string;
+  category: string;
+  news_count: number;
+  activity_score: number;
+  daily_counts: { date: string; count: number }[];
+  related_news: {
+    id: number;
+    title: string;
+    pub_time: string;
+    direction: string | null;
+    reason: string;
+  }[];
+  related_factors: { id: number; name: string; category: string }[];
+}
+
+export interface StrategyLatestData {
+  recommendations: StrategySignalData[];
+  market_overview: string;
+  sentiment_summary: string;
+  risk_alert: string;
+  not_recommended: string[];
+  analysis_date: string;
+}
+
+export interface MarketPanelResponse {
+  yields: MarketPanelYields;
+  factors: FactorActivity[];
+  ai_summary: AIMarketSummaryData | null;
+  strategy_signals: StrategySignalData[];
+}
