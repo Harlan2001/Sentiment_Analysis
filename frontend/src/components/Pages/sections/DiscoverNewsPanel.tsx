@@ -1,8 +1,6 @@
 /**
  * 新闻发现面板 — Perplexity 风格错落有致布局
- *
- * 算法（2列）：
- *   每组 = 1大窗口(整行) + 中窗口(左)·小窗口(右堆叠)逐行配对
+ * 每组 = 1大窗口(整行) + 2行[中窗口+小窗口]，去掉多余小窗口行
  */
 import React, { useRef, useEffect, useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -42,18 +40,15 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick }) => {
   if (isError) return <div className="flex items-center justify-center h-64 text-[#8b949e] text-sm">加载失败</div>
   if (all.length === 0) return <div className="flex items-center justify-center h-64 text-[#8b949e] text-sm">暂无新闻数据</div>
 
-  // ===== 布局引擎（2列） =====
   const rows: React.ReactNode[] = []
-  let wi = 0
-  let ni = 0
-  let flip = false // 交替中窗口左右位置
+  let wi = 0, ni = 0, flip = false
 
   while (wi < withImg.length) {
-    // 大窗口（整行，每隔3行一次）
+    // 大窗口（整行）
     const large = withImg[wi++]
     rows.push(<NewsCardLarge key={large.id} item={large} onClick={() => onNewsClick(large.id)} />)
 
-    // 每组大窗口下配2行中窗口+小窗口（共消耗2个中窗口）
+    // 大窗口下配2行[中窗口+小窗口]
     for (let r = 0; r < 2 && wi < withImg.length; r++) {
       const medium = withImg[wi++]
       const smalls = withoutImg.slice(ni, ni + 2)
@@ -79,25 +74,11 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick }) => {
       )
       flip = !flip
     }
-
-    // 剩余小窗口
-    const leftover = withoutImg.slice(ni, ni + 2)
-    ni += leftover.length
-    if (leftover.length > 0) {
-      rows.push(
-        <div key={`smalls-${large.id}`} className="grid grid-cols-2 gap-3">
-          {leftover.map(s => (
-            <NewsCardSmall key={s.id} item={s} onClick={() => onNewsClick(s.id)} />
-          ))}
-        </div>,
-      )
-    }
   }
 
-  // 全局剩余小窗口
+  // 剩余无图小窗口
   const remaining = withoutImg.slice(ni)
   if (remaining.length > 0) {
-    // 2列分组
     for (let i = 0; i < remaining.length; i += 2) {
       rows.push(
         <div key={`rem-${i}`} className="grid grid-cols-2 gap-3">
@@ -113,8 +94,8 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick }) => {
     <div className="p-4 space-y-3">
       {rows}
       <div ref={sentinel} className="flex justify-center py-4">
-        {isFetchingNextPage && <div className="w-5 h-5 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />}
-        {!hasNextPage && all.length > 0 && <span className="text-xs text-[#8b949e]">已加载全部新闻</span>}
+        {isFetchingNextPage && <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />}
+        {!hasNextPage && all.length > 0 && <span className="text-sm text-[#8b949e]">已加载全部新闻</span>}
       </div>
     </div>
   )

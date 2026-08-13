@@ -11,8 +11,8 @@ interface Props {
 }
 
 const DIR_TAG: Record<string, { label: string; cls: string }> = {
-  bullish: { label: '看涨', cls: 'bg-[#22c55e]/15 text-[#22c55e]' },
-  bearish: { label: '看跌', cls: 'bg-[#ef4444]/15 text-[#ef4444]' },
+  bullish: { label: '看涨', cls: 'bg-[#ef4444]/15 text-[#ef4444]' },
+  bearish: { label: '看跌', cls: 'bg-[#22c55e]/15 text-[#22c55e]' },
   neutral: { label: '中性', cls: 'bg-[#6b7280]/15 text-[#6b7280]' },
 }
 
@@ -38,14 +38,14 @@ const AIMarketSummary: React.FC<Props> = ({ data, onClick }) => {
       </div>
 
       <div className="px-3 py-2">
-        <div className="border-l-2 border-[#8b5cf6] pl-3 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent rounded-r-md">
+        <div className="border-l-2 border-[#f59e0b] pl-3 bg-gradient-to-r from-[#f59e0b]/5 to-transparent rounded-r-md">
           <p className={`text-[12px] text-[#8b949e] leading-relaxed whitespace-pre-line ${expanded ? '' : 'line-clamp-4'}`}>
             {data.text}
           </p>
           {data.text.length > 200 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-[11px] text-[#3b82f6] hover:text-[#60a5fa] mt-1 transition-colors"
+              className="text-[11px] text-[#f59e0b] hover:text-[#fbbf24] mt-1 transition-colors"
             >
               {expanded ? '收起' : '展开'}
             </button>
@@ -56,7 +56,7 @@ const AIMarketSummary: React.FC<Props> = ({ data, onClick }) => {
           <div className="mt-2 space-y-0.5">
             {data.drivers.slice(0, 3).map((d, i) => (
               <div key={i} className="text-[11px] text-[#6b7280] flex items-start gap-1">
-                <span className="text-[#3b82f6] flex-shrink-0">{i + 1}.</span>
+                <span className="text-[#f59e0b] flex-shrink-0">{i + 1}.</span>
                 <span className="truncate">{d}</span>
               </div>
             ))}

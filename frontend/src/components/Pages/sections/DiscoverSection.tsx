@@ -3,23 +3,23 @@
  * 点击新闻/收益率/因子/摘要/策略后显示对应的详情覆盖层
  */
 import React, { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import DiscoverNewsPanel from './DiscoverNewsPanel'
 import MarketSidePanel from './MarketSidePanel'
 import NewsDetailPanel from './NewsDetailPanel'
 import YieldDetailPanel from './YieldDetailPanel'
 import FactorDetailPanel from './FactorDetailPanel'
-import ForecastDetailPanel from './ForecastDetailPanel'
 import StrategyDetailPanel from './StrategyDetailPanel'
 
 type DetailView =
   | { type: 'news'; newsId: number }
   | { type: 'yield'; period: string }
   | { type: 'factor'; factorId: number }
-  | { type: 'forecast' }
   | { type: 'strategy' }
   | null
 
 const DiscoverSection: React.FC = () => {
+  const navigate = useNavigate()
   const [detailView, setDetailView] = useState<DetailView>(null)
   // 同步到 history，使得点击返回可回到上一页面而不是固定回到发现首页
   React.useEffect(() => {
@@ -51,10 +51,8 @@ const DiscoverSection: React.FC = () => {
   }, [])
 
   const handleSummaryClick = useCallback(() => {
-    const v = { type: 'forecast' } as DetailView
-    try { window.history.pushState({ ...window.history.state, detailView: v }, '') } catch(e) {}
-    setDetailView(v)
-  }, [])
+    navigate('/forecast')
+  }, [navigate])
 
   const handleStrategyClick = useCallback(() => {
     const v = { type: 'strategy' } as DetailView
@@ -111,9 +109,6 @@ const DiscoverSection: React.FC = () => {
           onClose={handleCloseDetail}
           onNewsClick={handleNewsClick}
         />
-      )}
-      {detailView?.type === 'forecast' && (
-        <ForecastDetailPanel onClose={handleCloseDetail} />
       )}
       {detailView?.type === 'strategy' && (
         <StrategyDetailPanel onClose={handleCloseDetail} />

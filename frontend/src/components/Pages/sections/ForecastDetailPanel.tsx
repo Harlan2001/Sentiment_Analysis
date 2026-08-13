@@ -8,7 +8,7 @@ import { API_PREFIX } from '@/constants'
 interface Props { onClose: () => void }
 
 const SC: Record<string, { bg: string; bd: string; tx: string }> = {
-  '基准': { bg: 'bg-[#3b82f6]/8', bd: 'border-[#3b82f6]/25', tx: 'text-[#3b82f6]' },
+  '基准': { bg: 'bg-[#f59e0b]/8', bd: 'border-[#f59e0b]/25', tx: 'text-[#f59e0b]' },
   '牛市': { bg: 'bg-[#22c55e]/8', bd: 'border-[#22c55e]/25', tx: 'text-[#22c55e]' },
   '熊市': { bg: 'bg-[#ef4444]/8', bd: 'border-[#ef4444]/25', tx: 'text-[#ef4444]' },
   '黑天鹅': { bg: 'bg-[#f59e0b]/8', bd: 'border-[#f59e0b]/25', tx: 'text-[#f59e0b]' },
@@ -53,7 +53,7 @@ const ForecastDetailPanel: React.FC<Props> = ({ onClose }) => {
         </button>
       </div>
 
-      <div className="mx-auto w-full px-4 md:px-6 pb-16" style={{ maxWidth: '720px' }}>
+      <div className="mx-auto w-full px-3 md:px-4 pb-16" style={{ maxWidth: '960px' }}>
         {loading ? (
           <div className="py-20 flex justify-center"><Loading text="加载中..." /></div>
         ) : !report ? (
@@ -69,7 +69,7 @@ const ForecastDetailPanel: React.FC<Props> = ({ onClose }) => {
             {pred['市场概览'] && (
               <div className="detail-card">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1 h-4 rounded-full bg-[#8b5cf6]" />
+                  <div className="w-1 h-4 rounded-full bg-[#d97706]" />
                   <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wide">市场概览</span>
                 </div>
                 <p className="text-[13px] text-[#8b949e] leading-relaxed whitespace-pre-line">{pred['市场概览']}</p>
@@ -80,7 +80,7 @@ const ForecastDetailPanel: React.FC<Props> = ({ onClose }) => {
             {pred['预测结果'] && (
               <div className="detail-card">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1 h-4 rounded-full bg-[#3b82f6]" />
+                  <div className="w-1 h-4 rounded-full bg-[#f59e0b]" />
                   <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wide">预测结果</span>
                 </div>
                 <div className="space-y-3">

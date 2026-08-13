@@ -18,7 +18,7 @@ const FactorActivityBar: React.FC<Props> = ({ factors, onFactorClick }) => {
           <span className="text-[11px] text-[#6b7280] w-4 text-right tabular-nums">{i + 1}</span>
           <span className="text-[12px] text-[#e0e0e0] w-20 truncate" title={f.name}>{f.name}</span>
           <div className="flex-1 h-1.5 rounded-full bg-[#1f1f1f] overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] transition-all duration-500"
+            <div className="h-full rounded-full bg-gradient-to-r from-[#f59e0b] to-[#d97706] transition-all duration-500"
               style={{ width: `${f.activity_score * 100}%` }}
             />
           </div>

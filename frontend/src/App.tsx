@@ -18,6 +18,7 @@ import {
 } from './components/Pages'
 import {
   MarketSection,
+  FactorsSection,
   ReturnsSection,
   ForecastSection,
   WatchlistSection,
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/market" replace />} />
         {/* 市场板块页（保留原 WorkspaceLayout 内容） */}
         <Route path="/market" element={<MarketSection />} />
+        <Route path="/factors" element={<FactorsSection />} />
         <Route path="/returns" element={<ReturnsSection />} />
         <Route path="/forecast" element={<ForecastSection />} />
         <Route path="/watchlist" element={<WatchlistSection />} />

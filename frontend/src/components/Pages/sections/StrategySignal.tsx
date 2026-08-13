@@ -42,7 +42,7 @@ const StrategySignal: React.FC<Props> = ({ signals, onClick }) => {
             {data.reasons.length > 0 && (
               <div className="mt-1.5 flex gap-1 flex-wrap">
                 {data.reasons.slice(0, 2).map((r, j) => (
-                  <span key={j} className="px-1.5 py-0.5 rounded-md text-[10px] bg-[#3b82f6]/10 text-[#3b82f6] truncate max-w-[150px]">
+                  <span key={j} className="px-1.5 py-0.5 rounded-md text-[10px] bg-[#f59e0b]/10 text-[#f59e0b] truncate max-w-[150px]">
                     {r}
                   </span>
                 ))}
