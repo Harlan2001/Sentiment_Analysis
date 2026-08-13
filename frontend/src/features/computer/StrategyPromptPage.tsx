@@ -132,6 +132,11 @@ export function StrategyPromptPage() {
   const isDone = !!lastVersion
   const tags = useMemo(() => extractTags(draft || systemDraft || ''), [draft, systemDraft])
   const metrics = useMemo(() => backtestCards(lastVersion), [lastVersion])
+  const newsReferences = useMemo(() => {
+    const references = lastAssistant?.references_json
+    return Array.isArray(references) ? references as Array<Record<string, unknown>> : []
+  }, [lastAssistant])
+  const backtestLog = lastVersion?.backtest_summary?.trim() || ''
 
   const activeStep = isDone ? 4 : isRunning ? 3 : isDraftReady ? 2 : detail && detail.messages.length > 0 ? 1 : 0
   const stepLabels = ['需求确认', '提示词草稿', '用户确认', '代码与回测', '生成完成']
@@ -141,6 +146,7 @@ export function StrategyPromptPage() {
 
   return (
     <section className={`strategy-prompt-page${isDraftReady ? ' strategy-prompt-page--confirmation' : ''}`}>
+      <div className="strategy-prompt-scroll">
       <header className="strategy-detail-head">
         <button className="computer-button" onClick={() => navigate('/computer/strategies')}>← 返回策略开发</button>
         <div><h1>{detail?.conversation?.title || '新策略对话'}</h1><p>策略会话 #{conversationId}</p></div>
@@ -194,35 +200,42 @@ export function StrategyPromptPage() {
 
       {/* 下半区：回测代码 + 回测结果，全宽 */}
       {(isDone || isRunning) && (
-        <>
-          <section className="project-card" style={{marginTop:14}}>
-            <header><h2>回测代码</h2></header>
-            {lastVersion?.code ? (
-              <textarea value={lastVersion.code} readOnly style={{width:'100%',minHeight:240,resize:'vertical',border:'1px solid #31453b',borderRadius:9,outline:'none',background:'#0d1713',color:'#dbe7e1',padding:13,font:'12px/1.65 Consolas,"Microsoft YaHei",sans-serif'}} />
-            ) : (
-              <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:120,border:'1px solid #31453b',borderRadius:9,background:'#0d1713',color:'#809188',fontSize:12}}>
-                <span className="computer-progress" style={{width:180,display:'block'}}><i style={{width:'68%'}} /></span>
+        <div className="strategy-output-grid">
+          <section className="project-card strategy-output-panel strategy-news-panel">
+            <header><h2>相关新闻</h2><span>{newsReferences.length} 条</span></header>
+            {newsReferences.length > 0 ? (
+              <div className="strategy-news-list">
+                {newsReferences.slice(0, 8).map((news, index) => (
+                  <article key={String(news.news_id || news.id || index)}>
+                    <strong>{String(news.title || '未命名新闻')}</strong>
+                    <small>{[news.source, news.publish_time || news.pub_time].filter(Boolean).join(' · ') || '来源信息暂缺'}</small>
+                  </article>
+                ))}
               </div>
+            ) : <p className="strategy-empty-state">本次策略未返回可展示的新闻引用。</p>}
+          </section>
+
+          <section className="project-card strategy-output-panel strategy-code-panel">
+            <header><h2>回测代码</h2><span>{lastVersion ? `版本 ${lastVersion.local_version_no}` : '生成中'}</span></header>
+            {lastVersion?.code ? <textarea className="strategy-code-output" value={lastVersion.code} readOnly /> : (
+              <div className="strategy-running-state"><span className="computer-progress"><i /></span><small>正在生成策略代码…</small></div>
             )}
           </section>
 
-          <section className="project-card" style={{marginTop:14}}>
-            <header><h2>回测结果与信号</h2></header>
-            {metrics.length === 0 ? (
-              <p style={{color:'#809188',fontSize:12}}>{isRunning ? '等待回测完成…' : '暂无回测数据'}</p>
-            ) : (
-              <div className="strategy-metrics-grid" style={{marginTop:8}}>
-                {metrics.map((m, i) => (
-                  <div className="metric-card" key={i}><small>{m.label}</small><strong>{m.value}</strong></div>
-                ))}
-              </div>
-            )}
-            {lastVersion?.backtest_summary && (
-              <p className="requirement-box" style={{marginTop:12}}>{lastVersion.backtest_summary}</p>
-            )}
+          <section className="project-card strategy-output-panel strategy-metrics-panel">
+            <header><h2>回测指标</h2><span>{lastVersion?.backtest_passed === null || !lastVersion ? '待回测' : lastVersion.backtest_passed ? '通过' : '未通过'}</span></header>
+            {metrics.length > 0 ? <div className="strategy-metrics-grid">{metrics.map((metric, index) => (
+              <div className="metric-card" key={`${metric.label}-${index}`}><small>{metric.label}</small><strong>{metric.value}</strong></div>
+            ))}</div> : <p className="strategy-empty-state">回测完成后将在这里显示指标。</p>}
           </section>
-        </>
+
+          <section className="project-card strategy-output-panel strategy-log-panel">
+            <header><h2>回测日志</h2><span>{lastVersion?.backtest_exit_code !== null && lastVersion?.backtest_exit_code !== undefined ? `退出码 ${lastVersion.backtest_exit_code}` : '等待输出'}</span></header>
+            {backtestLog ? <pre className="strategy-backtest-log">{backtestLog}</pre> : <p className="strategy-empty-state">暂无回测日志。</p>}
+          </section>
+        </div>
       )}
+      </div>
 
       {/* 底部聊天框 */}
       <form className="report-composer" ref={formRef} onSubmit={sendChat}>

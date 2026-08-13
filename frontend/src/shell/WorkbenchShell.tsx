@@ -125,7 +125,7 @@ export function WorkbenchShell() {
     <div className="workbench-shell">
       <aside className="sidebar">
         <div className="sidebar-top">
-          <NavLink className="brand" to="/market"><span className="brand-mark">B</span><strong>债券信号</strong></NavLink>
+          <NavLink className="brand" to="/market"><span className="brand-mark">B</span><span className="brand-text"><strong>债券信号</strong><small>返回首页</small></span></NavLink>
           <nav className="primary-nav" aria-label="主要功能">
             <NavLink className="new-chat" to="/chat/new"><span>＋</span><span>新建对话</span></NavLink>
             {productLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}><span>{item.icon}</span>{item.label}</NavLink>)}
