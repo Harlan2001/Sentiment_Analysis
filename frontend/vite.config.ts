@@ -17,6 +17,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
       "/sapi/augment": {
         target: "http://10.253.50.113:8080",

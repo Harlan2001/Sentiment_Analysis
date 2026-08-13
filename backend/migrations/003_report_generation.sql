@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS report_generation_tasks (
+  id CHAR(36) PRIMARY KEY,
+  owner_username VARCHAR(128) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  requirement TEXT NOT NULL,
+  date_start DATE NULL,
+  date_end DATE NULL,
+  report_ids_json JSON NOT NULL,
+  source_snapshot_json JSON NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'queued',
+  model_name VARCHAR(128) NULL,
+  result_markdown MEDIUMTEXT NULL,
+  error_message TEXT NULL,
+  retry_count INT NOT NULL DEFAULT 0,
+  started_at DATETIME(6) NULL,
+  finished_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  KEY idx_report_generation_owner_updated (owner_username, updated_at),
+  KEY idx_report_generation_owner_status (owner_username, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

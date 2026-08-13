@@ -381,7 +381,7 @@ const AgentPage: React.FC = () => {
                     onKeyDown={handleKeyDown}
                     placeholder="向智能助手提问..."
                     className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white
-                               placeholder-gray-400 resize-none focus:border-purple-500 focus:outline-none
+                               placeholder-gray-400 resize-none focus:border-gray-500 focus:outline-none
                                text-sm"
                     rows={2}
                   />
@@ -428,7 +428,7 @@ const AgentPage: React.FC = () => {
                     onKeyDown={handleKeyDown}
                     placeholder="向智能助手提问..."
                     className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white
-                               placeholder-gray-400 resize-none focus:border-purple-500 focus:outline-none
+                               placeholder-gray-400 resize-none focus:border-gray-500 focus:outline-none
                                text-sm"
                     rows={2}
                     disabled={isProcessing}

@@ -103,7 +103,7 @@ def _resolve_user_id(username: str) -> int:
 
 
 async def agent_chat_stream(
-    messages: list[dict], username: str
+    messages: list[dict], username: str, project_context: str | None = None
 ) -> AsyncIterator[str]:
     """运行 Agent 循环，逐段产出最终回复的 content 增量（不含 SSE 包装）。
 
@@ -111,7 +111,12 @@ async def agent_chat_stream(
     """
     async for sse_event in run_agent_loop(
         messages=messages,
-        system_prompt=CHAT_SYSTEM_PROMPT,
+        system_prompt=(
+            f"{CHAT_SYSTEM_PROMPT}\n\n{project_context}\n\n"
+            "项目记忆可能过时；回答时应以实时工具数据为准，并在冲突时明确指出。"
+            if project_context
+            else CHAT_SYSTEM_PROMPT
+        ),
         client=kingstar_client,
         model=CHAT_MODEL,
         model_name="doubao",

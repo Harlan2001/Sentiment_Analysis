@@ -26,9 +26,10 @@ interface ResearchUploadModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmitted: () => void
+  variant?: 'default' | 'computer'
 }
 
-export default function ResearchUploadModal({ isOpen, onClose, onSubmitted }: ResearchUploadModalProps) {
+export default function ResearchUploadModal({ isOpen, onClose, onSubmitted, variant = 'default' }: ResearchUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('select')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -146,8 +147,8 @@ export default function ResearchUploadModal({ isOpen, onClose, onSubmitted }: Re
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="上传研报 PDF" size="md">
-      <div className="space-y-4">
+    <Modal isOpen={isOpen} onClose={handleClose} title="上传研报 PDF" size="md" panelClassName={variant === 'computer' ? 'computer-upload-dialog' : ''} contentClassName={variant === 'computer' ? 'computer-upload-dialog-content' : ''}>
+      <div className={`space-y-4 ${variant === 'computer' ? 'computer-upload-modal' : ''}`}>
         {/* ===== 状态 1：选择文件 ===== */}
         {(step === 'select' || step === 'uploading' || step === 'error') && (
           <>
@@ -272,7 +273,7 @@ export default function ResearchUploadModal({ isOpen, onClose, onSubmitted }: Re
 
         {/* ===== 状态 2：解析完成，等待触发分析 ===== */}
         {(step === 'parsed' || step === 'analyzing') && (
-          <div className="space-y-4">
+          <div className={`space-y-4 ${variant === 'computer' ? 'computer-upload-modal' : ''}`}>
             {/* 成功提示 */}
             <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
               <svg
@@ -334,7 +335,7 @@ export default function ResearchUploadModal({ isOpen, onClose, onSubmitted }: Re
 
         {/* ===== 状态 3：分析已提交 ===== */}
         {step === 'submitted' && (
-          <div className="space-y-4">
+          <div className={`space-y-4 ${variant === 'computer' ? 'computer-upload-modal' : ''}`}>
             <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <svg
                 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"

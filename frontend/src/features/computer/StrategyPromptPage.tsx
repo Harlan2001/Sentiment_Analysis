@@ -85,6 +85,15 @@ export function StrategyPromptPage() {
       .finally(() => setSubmitting(false))
   }, [detail, autoDraftDone, conversationId, loadDetail])
 
+  /* 确认后轮询：Dream 量化生成是异步的，持续拉取直到结果返回 */
+  const lastAssistant = detail ? [...detail.messages].reverse().find((m) => m.role === 'assistant') : null
+  const isRunning = lastAssistant?.status === 'running'
+  useEffect(() => {
+    if (!isRunning) return
+    const timer = window.setInterval(() => void loadDetail(), 4000)
+    return () => window.clearInterval(timer)
+  }, [isRunning, loadDetail])
+
   async function handleConfirm() {
     if (!draftData) return
     setSubmitting(true)
@@ -118,10 +127,8 @@ export function StrategyPromptPage() {
     finally { setSubmitting(false) }
   }
 
-  const lastAssistant = detail ? [...detail.messages].reverse().find((m) => m.role === 'assistant') : null
   const lastVersion: StrategyVersion | null = detail?.versions?.[0] || null
   const isDraftReady = draftData?.status === 'pending_confirmation'
-  const isRunning = lastAssistant?.status === 'running'
   const isDone = !!lastVersion
   const tags = useMemo(() => extractTags(draft || systemDraft || ''), [draft, systemDraft])
   const metrics = useMemo(() => backtestCards(lastVersion), [lastVersion])
@@ -133,7 +140,7 @@ export function StrategyPromptPage() {
   if (error && !detail) return <section className="strategy-prompt-page"><p className="chat-error">无法读取：{error}</p></section>
 
   return (
-    <section className="strategy-prompt-page">
+    <section className={`strategy-prompt-page${isDraftReady ? ' strategy-prompt-page--confirmation' : ''}`}>
       <header className="strategy-detail-head">
         <button className="computer-button" onClick={() => navigate('/computer/strategies')}>← 返回策略开发</button>
         <div><h1>{detail?.conversation?.title || '新策略对话'}</h1><p>策略会话 #{conversationId}</p></div>
@@ -218,7 +225,7 @@ export function StrategyPromptPage() {
       )}
 
       {/* 底部聊天框 */}
-      <form className="report-composer" ref={formRef} onSubmit={sendChat} style={{marginTop:14}}>
+      <form className="report-composer" ref={formRef} onSubmit={sendChat}>
         <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); formRef.current?.requestSubmit() } }} placeholder={isDone ? '输入新的需求以生成新策略…' : '修改或补充策略需求…'} rows={2} />
         <div><span className="composer-status">策略对话 · 发送后将重新生成提示词</span><button className="report-send" type="submit" disabled={!chatInput.trim() || submitting} aria-label="发送">↑</button></div>
       </form>

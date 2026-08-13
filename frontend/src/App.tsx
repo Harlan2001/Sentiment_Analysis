@@ -32,55 +32,56 @@ import { PlaceholderPage } from './shell/PlaceholderPage'
 import { HomePage } from './features/home/HomePage'
 import { ChatPage } from './features/chat/ChatPage'
 import { ComputerPage } from './features/computer/ComputerPage'
-import { ReportPage } from './features/computer/ReportPage'
+import { ReportGenerationPage } from './features/computer/ReportGenerationPage'
+import { ReportGenerationDetailPage } from './features/computer/ReportGenerationDetailPage'
 import { StrategyPage } from './features/computer/StrategyPage'
 import { NewsPage as ComputerNewsPage } from './features/computer/NewsPage'
 import { StrategyPromptPage } from './features/computer/StrategyPromptPage'
-import { FactorLibraryPage } from './features/custom/FactorLibraryPage'
-import { FactorDetailPage } from './features/custom/FactorDetailPage'
-import { MacroPage } from './features/custom/MacroPage'
-import { ProjectPage } from './features/project/ProjectPage'
 import { SkillsPage } from './features/custom/SkillsPage'
+import { McpPage } from './features/custom/McpPage'
+import { ProjectManagementPage } from './features/project/ProjectManagementPage'
+import { ProjectCreatePage } from './features/project/ProjectCreatePage'
+import './features/computer/ReportGeneration.css'
 
 /**
  * 路由表：
  * - 新工作台「壳」（默认首页）：/market /returns /forecast /watchlist /portfolio /workflow
- * - 旧页面（保留原路径）：/news /factors /prediction /dashboard 等
+ * - Legacy pages remain available at their existing routes.
  */
 function AppRoutes() {
   return (
     <Routes>
-      {/* 工作台壳（并入的 bondsense-workbench 侧栏）+ 市场板块页 */}
+      {/* Workspace shell and market pages */}
       <Route element={<WorkbenchShell />}>
         <Route path="/" element={<Navigate to="/market" replace />} />
-        {/* 市场板块页（保留原 WorkspaceLayout 内容） */}
+        {/* Market pages */}
         <Route path="/market" element={<MarketSection />} />
         <Route path="/returns" element={<ReturnsSection />} />
         <Route path="/forecast" element={<ForecastSection />} />
         <Route path="/watchlist" element={<WatchlistSection />} />
         <Route path="/portfolio" element={<PortfolioSection />} />
         <Route path="/workflow" element={<WorkflowSection />} />
-        {/* 工作台页面 */}
+        {/* Workspace pages */}
         <Route path="/home" element={<HomePage />} />
         <Route path="/chat/new" element={<ChatPage />} />
         <Route path="/chat/:conversationId" element={<ChatPage />} />
         <Route path="/computer" element={<ComputerPage />} />
-        <Route path="/computer/reports" element={<ReportPage />} />
+        <Route path="/computer/reports" element={<ReportGenerationPage />} />
+        <Route path="/computer/reports/:taskId" element={<ReportGenerationDetailPage />} />
         <Route path="/computer/strategies" element={<StrategyPage />} />
         <Route path="/computer/strategies/prompt" element={<StrategyPromptPage />} />
         <Route path="/computer/news" element={<ComputerNewsPage />} />
-        <Route path="/custom/factors" element={<FactorLibraryPage />} />
-        <Route path="/custom/factors/:factorId" element={<FactorDetailPage />} />
-        <Route path="/custom/macro" element={<MacroPage />} />
         <Route path="/custom/skills" element={<SkillsPage />} />
-        <Route path="/projects" element={<ProjectPage />} />
-        <Route path="/projects/:projectId" element={<ProjectPage />} />
+        <Route path="/custom/mcp" element={<McpPage />} />
+        <Route path="/projects" element={<Navigate to="/projects/new" replace />} />
+        <Route path="/projects/new" element={<ProjectCreatePage />} />
+        <Route path="/projects/:projectId" element={<ProjectManagementPage />} />
         <Route
           path="/settings"
           element={
             <PlaceholderPage
               title="设置"
-              description="基础账号信息和退出入口将在后续模块实现。"
+              description="Account settings and sign-out will be available in a later module."
             />
           }
         />
@@ -111,8 +112,8 @@ function AppRoutes() {
 }
 
 /**
- * 受保护的路由组件：
- * - 免登录模式（authEnabled=false）：直接渲染子路由
+ * Protected routing component.
+ * - Authentication disabled: render application routes directly.
  * - 登录模式（authEnabled=true）：未认证则重定向到 /login
  */
 function ProtectedRoutes() {
@@ -121,7 +122,7 @@ function ProtectedRoutes() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <Loading text="加载中..." />
+        <Loading text="Loading..." />
       </div>
     )
   }
@@ -131,7 +132,7 @@ function ProtectedRoutes() {
     return <AppRoutes />
   }
 
-  // 登录模式，未认证 → 重定向到登录页
+  // Authentication enabled and not authenticated: redirect to login.
   if (!isAuthenticated) {
     return (
       <Routes>
