@@ -143,7 +143,14 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
         parts: list[str] = []
         try:
             history = repository.get_agent_history(request.state.username, conversation_id, CONVERSATION_HISTORY_LIMIT)
-            async for delta in agent_chat_stream(history, request.state.username):
+            conversation = repository.get_conversation(request.state.username, conversation_id)
+            project_context = None
+            if conversation.get("project_id") and hasattr(repository, "get_project_memory_context"):
+                project_context = repository.get_project_memory_context(
+                    request.state.username,
+                    conversation["project_id"],
+                )
+            async for delta in agent_chat_stream(history, request.state.username, project_context):
                 parts.append(delta)
                 yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
             completed = repository.finish_assistant_message(assistant_message["id"], "".join(parts), "completed")

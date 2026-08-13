@@ -2,7 +2,7 @@
  * 发现页 — 新闻（flex-1）+ 市场数据（w-80）
  * 点击新闻/收益率/因子/摘要/策略后显示对应的详情覆盖层
  */
-import React, { useState, useCallback } from 'react'
+import React, { FormEvent, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DiscoverNewsPanel from './DiscoverNewsPanel'
 import MarketSidePanel from './MarketSidePanel'
@@ -10,109 +10,95 @@ import NewsDetailPanel from './NewsDetailPanel'
 import YieldDetailPanel from './YieldDetailPanel'
 import FactorDetailPanel from './FactorDetailPanel'
 import StrategyDetailPanel from './StrategyDetailPanel'
+import ForecastDetailPanel from './ForecastDetailPanel' // main新增，务必补上
 
 type DetailView =
   | { type: 'news'; newsId: number }
   | { type: 'yield'; period: string }
   | { type: 'factor'; factorId: number }
+  | { type: 'forecast' } // main新增forecast类型
   | { type: 'strategy' }
   | null
 
 const DiscoverSection: React.FC = () => {
   const navigate = useNavigate()
+  const formRef = useRef<HTMLFormElement>(null)
   const [detailView, setDetailView] = useState<DetailView>(null)
-  // 同步到 history，使得点击返回可回到上一页面而不是固定回到发现首页
+  const [question, setQuestion] = useState('')
+
   React.useEffect(() => {
-    const onPop = (e: PopStateEvent) => {
-      const st: any = (e.state as any) || window.history.state || {}
-      if (st && st.detailView) setDetailView(st.detailView)
-      else setDetailView(null)
+    const onPop = (event: PopStateEvent) => {
+      const state = (event.state as { detailView?: DetailView } | null) || window.history.state
+      setDetailView(state?.detailView || null)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  const handleNewsClick = useCallback((newsId: number) => {
-    const v = { type: 'news', newsId } as DetailView
-    try { window.history.pushState({ ...window.history.state, detailView: v }, '') } catch(e) {}
-    setDetailView(v)
-  }, [])
-
-  const handleYieldClick = useCallback((period: string) => {
-    const v = { type: 'yield', period } as DetailView
-    try { window.history.pushState({ ...window.history.state, detailView: v }, '') } catch(e) {}
-    setDetailView(v)
-  }, [])
-
-  const handleFactorClick = useCallback((factorId: number) => {
-    const v = { type: 'factor', factorId } as DetailView
-    try { window.history.pushState({ ...window.history.state, detailView: v }, '') } catch(e) {}
-    setDetailView(v)
-  }, [])
-
-  const handleSummaryClick = useCallback(() => {
-    navigate('/forecast')
-  }, [navigate])
-
-  const handleStrategyClick = useCallback(() => {
-    const v = { type: 'strategy' } as DetailView
-    try { window.history.pushState({ ...window.history.state, detailView: v }, '') } catch(e) {}
-    setDetailView(v)
+  const openDetail = useCallback((view: NonNullable<DetailView>) => {
+    try {
+      window.history.pushState({ ...window.history.state, detailView: view }, '')
+    } catch(e) {
+      // 兼容异常兜底
+    }
+    setDetailView(view)
   }, [])
 
   const handleCloseDetail = useCallback(() => {
-    // 优先使用浏览器历史返回，若无历史则直接关闭
-    try {
-      if (window.history.state && window.history.state.detailView) {
-        window.history.back()
-        return
-      }
-    } catch (e) {}
+    if (window.history.state?.detailView) {
+      window.history.back()
+      return
+    }
     setDetailView(null)
   }, [])
 
+  function submitQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const draft = question.trim()
+    navigate(draft ? `/chat/new?draft=${encodeURIComponent(draft)}` : '/chat/new')
+  }
+
   return (
-    <div className="relative flex gap-0 h-full">
-      {/* 中间：新闻发现区 */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <DiscoverNewsPanel onNewsClick={handleNewsClick} />
+    <div className="market-workspace">
+      <div className="market-workspace-body">
+        <div className="market-discover-panel">
+          <DiscoverNewsPanel onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />
+        </div>
+        <div className="market-side-panel">
+          <MarketSidePanel
+            onYieldClick={(period) => openDetail({ type: 'yield', period })}
+            onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })}
+            onSummaryClick={() => openDetail({ type: 'forecast' })}
+            onStrategyClick={() => openDetail({ type: 'strategy' })}
+          />
+        </div>
       </div>
 
-      {/* 右侧：市场数据面板 */}
-      <div className="w-80 flex-shrink-0 border-l border-[#2a2a2a] overflow-y-auto bg-[#0a0a0a]">
-        <MarketSidePanel
-          onYieldClick={handleYieldClick}
-          onFactorClick={handleFactorClick}
-          onSummaryClick={handleSummaryClick}
-          onStrategyClick={handleStrategyClick}
+      <form className="market-chat-dock" onSubmit={submitQuestion} ref={formRef}>
+        <textarea
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              formRef.current?.requestSubmit()
+            }
+          }}
+          placeholder="询问关于今日债券市场的任何问题…"
+          rows={2}
         />
-      </div>
+        <div className="market-chat-actions">
+          <span>BondSense · Agent 对话</span>
+          <span className="market-chat-hint">Enter 发送，Shift + Enter 换行</span>
+          <button type="submit" disabled={!question.trim()} aria-label="进入新会话">↑</button>
+        </div>
+      </form>
 
-      {/* 详情覆盖层：根据类型显示不同面板 */}
-      {detailView?.type === 'news' && (
-        <NewsDetailPanel
-          newsId={detailView.newsId}
-          onClose={handleCloseDetail}
-          onNewsClick={handleNewsClick}
-        />
-      )}
-      {detailView?.type === 'yield' && (
-        <YieldDetailPanel
-          period={detailView.period}
-          onClose={handleCloseDetail}
-          onNewsClick={handleNewsClick}
-        />
-      )}
-      {detailView?.type === 'factor' && (
-        <FactorDetailPanel
-          factorId={detailView.factorId}
-          onClose={handleCloseDetail}
-          onNewsClick={handleNewsClick}
-        />
-      )}
-      {detailView?.type === 'strategy' && (
-        <StrategyDetailPanel onClose={handleCloseDetail} />
-      )}
+      {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
+      {detailView?.type === 'yield' && <YieldDetailPanel period={detailView.period} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
+      {detailView?.type === 'factor' && <FactorDetailPanel factorId={detailView.factorId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
+      {detailView?.type === 'forecast' && <ForecastDetailPanel onClose={handleCloseDetail} />}
+      {detailView?.type === 'strategy' && <StrategyDetailPanel onClose={handleCloseDetail} />}
     </div>
   )
 }

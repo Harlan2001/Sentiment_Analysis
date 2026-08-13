@@ -24,6 +24,7 @@ export type Project = {
   id: string
   name: string
   description: string | null
+  role?: 'owner' | 'editor' | 'viewer'
   created_at: string
   updated_at: string
 }
@@ -48,7 +49,7 @@ function authorizationHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function request<T>(path: string, options: RequestInit = {}) {
+export async function request<T>(path: string, options: RequestInit = {}) {
   const response = await fetch(apiBaseUrl + path, {
     ...options,
     headers: { ...authorizationHeader(), ...options.headers },
@@ -252,4 +253,109 @@ export function confirmStrategyDraft(conversationId: number, assistantMessageId:
 
 export function archiveStrategyConversation(conversationId: number) {
   return request<{ archived: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}/archive`, { method: 'PATCH' })
+}
+
+// ── 每日新闻总结 ──────────────────────────────────────────
+
+export type NewsSourceOption = {
+  key: string
+  name: string
+  enabled: boolean
+}
+
+export type DailyNewsSummaryReference = {
+  news_id: number
+  title: string
+  publish_time: string
+  source: string
+  direction: string
+  horizon: string
+}
+
+export type DailyNewsSummaryTask = {
+  id: number
+  owner_username: string
+  start_date: string
+  end_date: string
+  sources_json: string[]
+  focus: string | null
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'empty'
+  news_count: number
+  source_stats_json: Record<string, number> | null
+  summary: string | null
+  references_json: DailyNewsSummaryReference[] | null
+  error_message: string | null
+  retry_of_id: number | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function getNewsSources() {
+  const response = await fetch('/sapi/news/sources', {
+    headers: authorizationHeader(),
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(payload?.detail || '读取新闻来源失败')
+  return payload as { sources: NewsSourceOption[] }
+}
+
+export async function getLatestNewsDate() {
+  const response = await fetch('/sapi/news/latest-trading-day', {
+    headers: authorizationHeader(),
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(payload?.detail || '读取最新新闻日期失败')
+  return payload as { latest_date: string }
+}
+
+export function getDailyNewsSummaries(limit = 50) {
+  return request<{ items: DailyNewsSummaryTask[] }>(`/sapi/daily-news-summaries?limit=${limit}`)
+}
+
+export function getDailyNewsSummary(taskId: number) {
+  return request<DailyNewsSummaryTask>(`/sapi/daily-news-summaries/${taskId}`)
+}
+
+export function createDailyNewsSummary(input: {
+  start_date: string
+  end_date: string
+  sources: string[]
+  focus: string
+}) {
+  return request<DailyNewsSummaryTask>('/sapi/daily-news-summaries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export function retryDailyNewsSummary(taskId: number) {
+  return request<DailyNewsSummaryTask>(`/sapi/daily-news-summaries/${taskId}/retry`, {
+    method: 'POST',
+  })
+}
+
+// ── Computer 总览聚合 ──────────────────────────────────────
+
+export type ComputerTask = {
+  task_id: string
+  task_type: 'report_generation' | 'strategy' | 'daily_news'
+  module: '研报生成' | '策略开发' | '每日新闻总结'
+  title: string
+  description: string
+  source: string
+  result: string
+  status: string
+  status_label: string
+  date: string | null
+  updated_at: string
+  needs_action: boolean
+}
+
+export function getComputerTasks() {
+  return request<{ items: ComputerTask[]; totals: Record<string, number> }>(
+    '/sapi/workbench/computer/tasks',
+  )
 }

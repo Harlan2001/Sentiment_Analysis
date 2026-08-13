@@ -24,6 +24,19 @@ from backend.common.llm_logger import log_llm_usage
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 5
+MODEL_REQUEST_TIMEOUT_SECONDS = 45.0
+
+
+async def _request_completion(client: OpenAI, **kwargs):
+    """Run the sync OpenAI client outside FastAPI's event loop."""
+    configured_client = client.with_options(
+        timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
+    return await asyncio.to_thread(
+        configured_client.chat.completions.create,
+        **kwargs,
+    )
 
 
 def _log_token(
@@ -107,7 +120,8 @@ async def run_agent_loop(
         for round_num in range(max_tool_rounds):
             yield _sse({"type": "thinking"})
 
-            response = client.chat.completions.create(
+            response = await _request_completion(
+                client,
                 model=model,
                 messages=full_messages,
                 tools=TOOL_DEFINITIONS,
@@ -261,7 +275,8 @@ async def run_agent_loop(
                 "content": "你已经达到了工具调用的最大轮次，请基于现有信息用中文回答用户的问题。",
             }
         )
-        response = client.chat.completions.create(
+        response = await _request_completion(
+                client,
             model=model,
             messages=full_messages,
             temperature=0.7,

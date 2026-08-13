@@ -49,6 +49,23 @@ export function StrategyPage() {
   const [showAllHistory, setShowAllHistory] = useState(false)
   const calRef = useRef<HTMLDivElement>(null)
 
+  /* dropdown 状态 */
+  const [statusFilter, setStatusFilter] = useState<string>('全部')
+  const [sourceFilter, setSourceFilter] = useState<string>('全部')
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [sourceOpen, setSourceOpen] = useState(false)
+  const statusRef = useRef<HTMLDivElement>(null)
+  const sourceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function outside(e: MouseEvent) {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false)
+      if (sourceRef.current && !sourceRef.current.contains(e.target as Node)) setSourceOpen(false)
+    }
+    if (statusOpen || sourceOpen) document.addEventListener('mousedown', outside)
+    return () => document.removeEventListener('mousedown', outside)
+  }, [statusOpen, sourceOpen])
+
   useEffect(() => {
     function outside(e: MouseEvent) { if (calRef.current && !calRef.current.contains(e.target as Node)) setCalOpen(false) }
     if (calOpen) document.addEventListener('mousedown', outside)
@@ -83,13 +100,16 @@ export function StrategyPage() {
   const visibleItems = useMemo(() => {
     let items = archivedOnly ? archivedItems : activeItems
     if (selectedDate) items = items.filter((c) => matchesDate(c.updated_at, selectedDate))
+    if (statusFilter === '待确认') items = items.filter((c) => c.current_local_version_no === 0)
+    if (statusFilter === '已完成') items = items.filter((c) => c.current_local_version_no > 0)
+    if (sourceFilter === '用户生成') items = items.filter((c) => !c.instrument)
     return items
-  }, [activeItems, archivedItems, archivedOnly, selectedDate])
+  }, [activeItems, archivedItems, archivedOnly, selectedDate, statusFilter, sourceFilter])
   const pendingItems = visibleItems.filter((c) => c.current_local_version_no === 0)
   const historyItems = visibleItems.filter((c) => c.current_local_version_no > 0)
 
-  const displayPending = showAllPending ? pendingItems : pendingItems.slice(0, 3)
-  const displayHistory = showAllHistory ? historyItems : historyItems.slice(0, 5)
+  const displayPending = showAllPending ? pendingItems : pendingItems.slice(0, 2)
+  const displayHistory = showAllHistory ? historyItems : historyItems.slice(0, 4)
   const totalCount = visibleItems.length
 
   return (
@@ -100,13 +120,34 @@ export function StrategyPage() {
         <button className="active">策略开发</button>
         <button onClick={() => navigate('/computer/news')}>每日新闻总结</button>
         <span className="computer-spacer" />
-        <button className="computer-button">自动推荐设置</button>
         <button className="computer-button primary" onClick={() => { const ta = document.querySelector<HTMLTextAreaElement>('.report-composer textarea'); ta?.focus() }}>＋ 新建策略</button>
       </div>
 
       <div className="computer-toolbar">
-        <button className="computer-chip dropdown-chip">状态：全部<i className="inline-caret" aria-hidden="true" /></button>
-        <button className="computer-chip dropdown-chip">来源：全部<i className="inline-caret" aria-hidden="true" /></button>
+        <div className="computer-dropdown" ref={statusRef}>
+          <button className={'computer-chip dropdown-chip ' + (statusFilter !== '全部' ? 'selected' : '')} onClick={() => { setStatusOpen((v) => !v); setSourceOpen(false) }}>
+            状态：{statusFilter}<i className="inline-caret" aria-hidden="true" />
+          </button>
+          {statusOpen && (
+            <div className="computer-dropdown-menu">
+              {['全部', '待确认', '已完成'].map((opt) => (
+                <button key={opt} className={statusFilter === opt ? 'active' : ''} onClick={() => { setStatusFilter(opt); setStatusOpen(false) }}>{opt}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="computer-dropdown" ref={sourceRef}>
+          <button className={'computer-chip dropdown-chip ' + (sourceFilter !== '全部' ? 'selected' : '')} onClick={() => { setSourceOpen((v) => !v); setStatusOpen(false) }}>
+            来源：{sourceFilter}<i className="inline-caret" aria-hidden="true" />
+          </button>
+          {sourceOpen && (
+            <div className="computer-dropdown-menu">
+              {['全部', '用户生成'].map((opt) => (
+                <button key={opt} className={sourceFilter === opt ? 'active' : ''} onClick={() => { setSourceFilter(opt); setSourceOpen(false) }}>{opt}</button>
+              ))}
+            </div>
+          )}
+        </div>
         <button className={'computer-chip ' + (unreadOnly ? 'selected' : '')} onClick={() => setUnreadOnly((v) => !v)}>仅未读</button>
         <div style={{position:'relative',display:'inline-flex'}} ref={calRef}>
           <button className={'computer-chip ' + (selectedDate ? 'selected' : '')} onClick={() => { const t = selectedDate ? new Date(selectedDate + 'T00:00:00') : todayDate(); setCalYear(t.getFullYear()); setCalMonth(t.getMonth()); setCalOpen((v) => !v) }}>
@@ -141,7 +182,7 @@ export function StrategyPage() {
         <div className="computer-attention-head"><strong>需要处理 · {pendingItems.length}</strong><span>⌃</span></div>
         {pendingItems.length === 0 ? (
           <div className="computer-attention-row">
-            <span className="attention-dot" style={{background:'#4a5550'}} />
+            <span className="attention-dot" />
             <div><strong>当前无待处理的策略开发</strong><small>新建策略后将在此展示待确认项</small></div>
             <span className="computer-spacer" />
           </div>
@@ -149,14 +190,14 @@ export function StrategyPage() {
           <>
             {displayPending.map((item) => (
               <div className="computer-attention-row" key={item.id}>
-                <span className="attention-dot" />
+                <span className="attention-dot running" />
                 <div><strong>{item.title || '新策略对话'}</strong><small>{timeLabel(item.last_message_at)}</small></div>
                 <span className="computer-badge warning">等待确认</span>
                 <button className="computer-button primary" onClick={() => navigate(`/computer/strategies/prompt?id=${item.id}`)}>查看并确认</button>
                 <time>{timeLabel(item.updated_at)}</time>
               </div>
             ))}
-            {pendingItems.length > 3 && (
+            {pendingItems.length > 2 && (
               <div style={{textAlign:'center',padding:'6px 0 2px'}}>
                 <button className="expand-toggle" onClick={() => setShowAllPending((v) => !v)} aria-label={showAllPending ? '收起' : '展开'}>
                   <i className={'expand-arrow ' + (showAllPending ? 'up' : 'down')} />
@@ -192,7 +233,7 @@ export function StrategyPage() {
               })}
           </tbody>
         </table>
-        {historyItems.length > 5 && (
+        {historyItems.length > 4 && (
           <div style={{textAlign:'center',padding:'6px 0 10px'}}>
             <button className="expand-toggle" onClick={() => setShowAllHistory((v) => !v)} aria-label={showAllHistory ? '收起' : '展开'}>
               <i className={'expand-arrow ' + (showAllHistory ? 'up' : 'down')} />

@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS daily_news_summary_tasks (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner_username VARCHAR(100) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    sources_json JSON NULL,
+    focus VARCHAR(1000) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    news_count INT UNSIGNED NOT NULL DEFAULT 0,
+    source_stats_json JSON NULL,
+    summary MEDIUMTEXT NULL,
+    references_json JSON NULL,
+    error_message VARCHAR(1000) NULL,
+    retry_of_id BIGINT UNSIGNED NULL,
+    started_at DATETIME(6) NULL,
+    completed_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    KEY idx_daily_news_summary_owner_updated (owner_username, updated_at),
+    KEY idx_daily_news_summary_owner_status (owner_username, status),
+    KEY idx_daily_news_summary_range (start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
