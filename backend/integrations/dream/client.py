@@ -11,7 +11,6 @@ import zlib
 from collections import deque
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # 与服务端 Protobuf 协议对应的命令编号。
@@ -51,7 +50,7 @@ def prepare_protobuf_modules():
             from grpc_tools import protoc
         except ImportError as exc:
             raise RuntimeError(
-                "缺少依赖，请执行: uv pip install websocket-client protobuf grpcio-tools"
+                "缺少 grpcio-tools，请执行: uv pip install grpcio-tools protobuf"
             ) from exc
 
         arguments = [
@@ -82,7 +81,10 @@ class DreamClient:
             raise RuntimeError("缺少依赖 websocket-client") from exc
 
         # Keep proxy handling local to Dream; changing NO_PROXY here would affect all backend clients.
-        self.ws = websocket.create_connection(url, timeout=15, http_proxy_host=None)
+        # http_proxy_host=None alone does NOT disable the proxy — websocket-client falls back to the
+        # HTTP_PROXY/HTTPS_PROXY env vars, which hijack this connection to an unreachable proxy.
+        # no_proxy=["*"] forces a direct connection regardless of the destination host.
+        self.ws = websocket.create_connection(url, timeout=15, http_no_proxy=["*"])
         self.ws.settimeout(timeout)
         self.flow_no = 0
         self.closed = False
@@ -93,7 +95,10 @@ class DreamClient:
 
     @staticmethod
     def build_frame(flow_no: int, command_no: int, payload: bytes = b"") -> bytes:
-        return struct.pack(">BBiiiI", 66, 70, flow_no, command_no, 0, len(payload)) + payload
+        return (
+            struct.pack(">BBiiiI", 66, 70, flow_no, command_no, 0, len(payload))
+            + payload
+        )
 
     @staticmethod
     def parse_frame(frame: bytes) -> tuple[int, int, bytes]:
@@ -105,7 +110,11 @@ class DreamClient:
         if tag0 != 66 or tag1 != 70 or length != len(frame) - 18:
             raise RuntimeError("数据帧格式错误")
         payload = frame[18:]
-        return flow_no, command_no, zlib.decompress(payload) if data_type == 1 else payload
+        return (
+            flow_no,
+            command_no,
+            zlib.decompress(payload) if data_type == 1 else payload,
+        )
 
     def _heartbeat_loop(self) -> None:
         while not self.closed:

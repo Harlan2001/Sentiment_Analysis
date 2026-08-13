@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -27,6 +28,8 @@ from backend.integrations.dream.client import (
     DreamClient,
     prepare_protobuf_modules,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -64,7 +67,9 @@ class DreamStrategySettings:
 
 def _ensure_success(operation: str, response: Any) -> None:
     if response.response_info.code != 0:
-        raise RuntimeError(f"{operation}失败，服务端 code={response.response_info.code}")
+        raise RuntimeError(
+            f"{operation}失败，服务端 code={response.response_info.code}"
+        )
 
 
 def _load_portal_connection(settings: DreamStrategySettings) -> tuple[str, str]:
@@ -86,7 +91,9 @@ def _load_portal_connection(settings: DreamStrategySettings) -> tuple[str, str]:
     return f"{ws_base_url.rstrip('/')}/{token}", token
 
 
-def _connect_and_login(url: str, token: str, timeout_seconds: int, common_pb2: Any) -> DreamClient:
+def _connect_and_login(
+    url: str, token: str, timeout_seconds: int, common_pb2: Any
+) -> DreamClient:
     client = DreamClient(url, timeout_seconds)
     try:
         while True:
@@ -99,7 +106,9 @@ def _connect_and_login(url: str, token: str, timeout_seconds: int, common_pb2: A
 
         response = client.request(
             CI_LOGIN,
-            common_pb2.LoginRequest(access_token=session_key_message.session_key + token),
+            common_pb2.LoginRequest(
+                access_token=session_key_message.session_key + token
+            ),
             common_pb2.LoginResponse,
         )
         _ensure_success("DreamStrategy 登录", response)
@@ -143,11 +152,45 @@ def _fetch_final_answer(
         extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
     )
     _ensure_success("读取 DreamStrategy 最终消息", response)
-    if generation_message_id:
-        for message in response.messages:
-            if message.open_id == generation_message_id:
-                return message.content
-    return next((message.content for message in reversed(response.messages) if message.role == 2), "")
+    return next(
+        (
+            message.content
+            for message in reversed(response.messages)
+            if message.role == 2
+            and len(str(message.content or "").strip()) > 1
+            and not str(message.content or "").strip().isdigit()
+        ),
+        "",
+    )
+
+
+def _fetch_final_message(
+    client: DreamClient,
+    extension_pb2: Any,
+    template_id: str,
+    session_id: str,
+    generation_message_id: str,
+) -> Any | None:
+    response = client.request(
+        EI_LIST_MESSAGES,
+        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
+            template_id=template_id,
+            session_id=session_id,
+            count=100,
+            start_pos=0,
+            return_total_count=False,
+        ),
+        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
+    )
+    _ensure_success("Read DreamStrategy final message", response)
+    candidates = [
+        message
+        for message in response.messages
+        if message.role == 2
+        and len(str(message.content or "").strip()) > 1
+        and not str(message.content or "").strip().isdigit()
+    ]
+    return candidates[-1] if candidates else None
 
 
 def _fetch_strategy(
@@ -210,13 +253,33 @@ def _merge_backtest_log(previous: str, incoming: str) -> str:
 
 
 _BACKTEST_STATISTIC_NAMES = (
-    "Total Orders", "Average Win", "Average Loss", "Compounding Annual Return",
-    "Drawdown", "Expectancy", "Start Equity", "End Equity", "Net Profit",
-    "Sharpe Ratio", "Sortino Ratio", "Probabilistic Sharpe Ratio", "Loss Rate",
-    "Win Rate", "Profit-Loss Ratio", "Alpha", "Beta", "Annual Standard Deviation",
-    "Annual Variance", "Information Ratio", "Tracking Error", "Treynor Ratio",
-    "Total Fees", "Estimated Strategy Capacity", "Lowest Capacity Asset",
-    "Portfolio Turnover", "Drawdown Recovery",
+    "Total Orders",
+    "Average Win",
+    "Average Loss",
+    "Compounding Annual Return",
+    "Drawdown",
+    "Expectancy",
+    "Start Equity",
+    "End Equity",
+    "Net Profit",
+    "Sharpe Ratio",
+    "Sortino Ratio",
+    "Probabilistic Sharpe Ratio",
+    "Loss Rate",
+    "Win Rate",
+    "Profit-Loss Ratio",
+    "Alpha",
+    "Beta",
+    "Annual Standard Deviation",
+    "Annual Variance",
+    "Information Ratio",
+    "Tracking Error",
+    "Treynor Ratio",
+    "Total Fees",
+    "Estimated Strategy Capacity",
+    "Lowest Capacity Asset",
+    "Portfolio Turnover",
+    "Drawdown Recovery",
 )
 
 
@@ -230,12 +293,14 @@ def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
         statistic = line.split("STATISTICS::", 1)[1].strip()
         for label in _BACKTEST_STATISTIC_NAMES:
             if statistic == label or statistic.startswith(f"{label} "):
-                value = statistic[len(label):].strip()
-                metrics.append({
-                    "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
-                    "label": label,
-                    "value": value,
-                })
+                value = statistic[len(label) :].strip()
+                metrics.append(
+                    {
+                        "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
+                        "label": label,
+                        "value": value,
+                    }
+                )
                 break
     return metrics
 
@@ -255,6 +320,12 @@ def generate_strategy(
     if not prompt.strip():
         raise ValueError("策略提示词不能为空")
     settings = settings or DreamStrategySettings.from_environment()
+    settings = DreamStrategySettings(
+        portal_config_url=settings.portal_config_url,
+        template_id=settings.template_id,
+        agent=settings.agent,
+        timeout_seconds=settings.timeout_seconds,
+    )
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)
     client = _connect_and_login(ws_url, token, settings.timeout_seconds, common_pb2)
@@ -293,29 +364,48 @@ def generate_strategy(
         backtest_log = ""
         while True:
             if time.monotonic() - started_at >= settings.timeout_seconds:
-                raise TimeoutError(f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒")
-            client.ws.settimeout(max(0.1, settings.timeout_seconds - (time.monotonic() - started_at)))
+                raise TimeoutError(
+                    f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒"
+                )
+            client.ws.settimeout(
+                max(0.1, settings.timeout_seconds - (time.monotonic() - started_at))
+            )
             _, command, payload = client.receive()
             if command != EI_PUSH_MESSAGE:
                 continue
             push = extension_pb2.PushAiStrategyV2TemplateChatMessage()
             push.ParseFromString(payload)
-            if push.template_id != settings.template_id or push.session_id != session_id:
+            if (
+                push.template_id != settings.template_id
+                or push.session_id != session_id
+            ):
                 continue
 
             message = push.message
+            # Dream may push a user echo before the assistant result.
+            if message.role != 2:
+                continue
             if message.content:
                 streamed_answer_parts.append(message.content)
-            if not generation_message_id and not message.backtest_log:
+            if not generation_message_id and message.open_id:
                 generation_message_id = message.open_id
             if message.backtest_log:
                 backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
-            if push.done and (message.open_id == generation_message_id or message.content_type == 5):
+            if push.done:
                 final_message = message
                 break
 
         if final_message is None:
             raise RuntimeError("DreamStrategy 未返回完成消息")
+        hydrated_message = _fetch_final_message(
+            client,
+            extension_pb2,
+            settings.template_id,
+            session_id,
+            generation_message_id,
+        )
+        if hydrated_message:
+            final_message = hydrated_message
         answer = _fetch_final_answer(
             client,
             extension_pb2,
@@ -323,21 +413,30 @@ def generate_strategy(
             session_id,
             generation_message_id,
         ) or "".join(streamed_answer_parts)
-        strategy = _fetch_strategy(
-            client,
-            extension_pb2,
-            settings.template_id,
-            final_message.template_version_id,
-        )
+        artifact_deadline = time.monotonic()
+        strategy: dict[str, str] | None = None
+        while True:
+            try:
+                strategy = _fetch_strategy(
+                    client,
+                    extension_pb2,
+                    settings.template_id,
+                    final_message.template_version_id,
+                )
+                if strategy and str(strategy.get("code") or "").strip():
+                    break
+            except Exception as exc:
+                logger.warning(
+                    "DreamStrategy reply has no readable strategy artifact: %s", exc
+                )
+            if time.monotonic() >= artifact_deadline:
+                break
+            time.sleep(1)
 
-        # A completed chat message is not sufficient: Sentiment only persists a successful version when Dream returned executable strategy artifacts.
+        # Persist an assistant reply even when Dream does not attach code.
         if not str(answer or "").strip():
             raise RuntimeError("DreamStrategy completed without a final answer")
-        if not final_message.open_id or not final_message.template_version_id:
-            raise RuntimeError("DreamStrategy completed without a message or strategy version id")
-        if not strategy or not str(strategy.get("code") or "").strip():
-            raise RuntimeError("DreamStrategy completed without strategy code")
-
+        # Text-only assistant replies may not include persistent strategy identifiers.
         return {
             "template_id": settings.template_id,
             "session_id": session_id,

@@ -9,9 +9,11 @@ interface ModalProps {
   children: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
   showCloseButton?: boolean
+  panelClassName?: string
+  contentClassName?: string
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', showCloseButton = true }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', showCloseButton = true, panelClassName = '', contentClassName = '' }) => {
   const sizeClasses = {
     sm: 'max-w-md',
     md: 'max-w-2xl',
@@ -47,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel
-                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-2xl bg-gray-900 border border-gray-600 shadow-2xl transition-all`}
+                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-2xl bg-gray-900 border border-gray-600 shadow-2xl transition-all ${panelClassName}`}
               >
                 {/* Header */}
                 {(title || showCloseButton) && (
@@ -67,7 +69,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
                 )}
 
                 {/* Content */}
-                <div className="px-6 py-4">{children}</div>
+                <div className={`px-6 py-4 ${contentClassName}`}>{children}</div>
               </Dialog.Panel>
             </Transition.Child>
           </div>

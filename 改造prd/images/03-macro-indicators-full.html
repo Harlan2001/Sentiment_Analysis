@@ -1,0 +1,211 @@
+﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>宏观指标全局页面</title><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#07100e;color:#eaf1ee}body{overflow:hidden}
+:root{--background:#07100e;--foreground:#eaf1ee;--card:#121a18;--card-foreground:#eaf1ee;--popover:#17211e;--popover-foreground:#eaf1ee;--primary:#e6ece9;--primary-foreground:#101614;--secondary:#1c2723;--secondary-foreground:#dfe7e3;--muted:#1a2421;--muted-foreground:#83928c;--accent:#26352f;--accent-foreground:#edf4f1;--destructive:#d66e67;--border:#2c3935;--input:#34433e;--ring:#64caaa;--viz-series-1:#61c7a7;--viz-series-2:#dc786e;--viz-series-3:#a994df;--viz-series-4:#5cb9d0}
+button,input,select,textarea{font:inherit}.app{display:grid;grid-template-columns:270px 1fr;height:100vh}.sidebar{background:#161918;border-right:1px solid #2b322f;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden}.brand{display:flex;align-items:center;gap:10px;padding:3px 8px 17px}.brandmark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#68d0b2,#77a7e4 58%,#bc92dc);display:grid;place-items:center;color:#09100e;font-weight:800}.brand strong{font-size:17px}.brand small{display:block;color:#75837e}.new{height:44px;border:0;border-radius:10px;background:#f1f4f2;color:#101513;text-align:left;padding:0 15px;font-weight:700}.nav{display:grid;gap:4px;margin-top:14px}.navitem{height:42px;border-radius:9px;display:flex;align-items:center;gap:10px;padding:0 12px;color:#b7c1bd}.navitem.active{background:#29322f;color:#fff}.navicon{width:22px;text-align:center;color:#92a09b}.sidehead{display:flex;justify-content:space-between;color:#77857f;font-size:13px;margin:23px 8px 7px}.sideitem{padding:7px 10px;border-radius:7px;color:#b5c0bc;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sideitem.current{background:#26302d;color:#fff}.sidebottom{margin-top:auto;border-top:1px solid #2b322f;padding-top:10px}.user{display:flex;gap:9px;align-items:center;padding:7px}.avatar{width:29px;height:29px;border-radius:50%;background:#30413b;display:grid;place-items:center}.user small{display:block;color:#73817c}
+.work{display:grid;grid-template-rows:68px 55px 1fr;min-width:0}.top{display:flex;align-items:center;gap:18px;padding:0 28px;border-bottom:1px solid var(--border);background:#0b1210}.top h1{font-size:20px;margin:0;white-space:nowrap}.globalsearch{height:40px;max-width:620px;flex:1;margin:0 auto;border:1px solid #35433e;border-radius:10px;color:#74837d;background:#121917;display:flex;align-items:center;padding:0 14px}.topbtns{display:flex;gap:8px}.topbtn{height:38px;border:1px solid #35433e;border-radius:9px;background:#121917;color:#cbd4d0;padding:0 13px}.topbtn.light{background:#eef2f0;color:#111614;font-weight:700}.tabs{display:flex;gap:28px;align-items:flex-end;padding:0 30px;border-bottom:1px solid var(--border);background:#09100e}.apptab{height:55px;display:flex;align-items:center;border-bottom:2px solid transparent;color:#879690;font-size:14px}.apptab.active{border-bottom-color:#62c8a8;color:#fff}.content{overflow:auto;padding:22px 30px 30px}.content-inner{max-width:1260px;margin:0 auto}
+.card{background:var(--card);color:var(--card-foreground);border:1px solid var(--border);border-radius:10px;padding:14px}.btn{min-height:34px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--foreground);padding:7px 11px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.btn:hover,.btn.is-selected,.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-foreground)}.btn-primary{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}.btn-ghost{border-color:transparent}.form-label{display:grid;gap:5px;color:var(--muted-foreground);font-size:12px}.form-control,.form-select{height:37px;border:1px solid var(--input);border-radius:8px;background:#111816;color:var(--foreground);padding:0 10px}.viz-badge{display:inline-flex;align-items:center;border:1px solid var(--border);background:var(--muted);border-radius:999px;padding:4px 8px;font-size:11px}.viz-controls,.viz-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.viz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.viz-stat{display:grid;gap:4px}.viz-stat-value{font-size:19px;font-weight:500}.table-responsive{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px 9px;border-bottom:1px solid var(--border);font-size:12px;text-align:left}.table th{color:var(--muted-foreground);font-weight:500}.table-sm th,.table-sm td{padding:8px}.text-muted{color:var(--muted-foreground)}.text-small{font-size:11px}.text-end{text-align:right!important}.text-nowrap{white-space:nowrap}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}code{color:#8fa09a}</style></head><body>
+<div class="app">
+<aside class="sidebar"><div class="brand"><div class="brandmark">B</div><div><strong>债券信号</strong><small>BondSense</small></div></div><button class="new">＋ 新建对话</button>
+<div class="nav"><div class="navitem"><span class="navicon">▣</span>Computer</div><div class="navitem"><span class="navicon">◇</span>工件</div><div class="navitem active"><span class="navicon">⬡</span>自定义</div></div>
+<div class="sidehead"><span>项目</span><span>＋⌄</span></div><div class="sideitem">▣ 国债策略研究</div><div class="sideitem">▣ 信用债跟踪</div>
+<div class="sidehead"><span>对话</span><span>⌄</span></div><div class="sideitem">流动性对债市影响分析</div><div class="sideitem current">因子与宏观指标设计</div><div class="sideitem">本周利率债复盘</div><div class="sideitem">信用利差变化原因</div><div class="sideitem">央行政策解读</div>
+<div class="sidebottom"><div class="navitem"><span class="navicon">⚙</span>设置</div><div class="user"><div class="avatar">李</div><div>junlin.li<small>研究员</small></div></div></div></aside>
+<main class="work"><header class="top"><h1>研究资源与技能</h1><div class="globalsearch">⌕&nbsp;&nbsp;搜索因子、宏观指标或 Skill…</div><div class="topbtns"><button class="topbtn">通知</button><button class="topbtn light">分享</button></div></header>
+<nav class="tabs"><div class="apptab">因子库</div><div class="apptab active">宏观指标</div><div class="apptab">Skills</div></nav>
+<section class="content"><div class="content-inner"><div id="macro-indicator-reference">
+  <style>
+    #macro-indicator-reference { display: grid; gap: 14px; width: 100%; }
+    #macro-indicator-reference .mi-head,
+    #macro-indicator-reference .mi-title,
+    #macro-indicator-reference .mi-controls,
+    #macro-indicator-reference .mi-compare-head,
+    #macro-indicator-reference .mi-basket { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #macro-indicator-reference .mi-head,
+    #macro-indicator-reference .mi-compare-head { justify-content: space-between; }
+    #macro-indicator-reference .mi-search { flex: 1; min-width: 210px; }
+    #macro-indicator-reference .mi-layout { display: grid; grid-template-columns: minmax(150px,.4fr) minmax(0,1.6fr); gap: 14px; align-items: start; }
+    #macro-indicator-reference .mi-family { display: grid; gap: 6px; }
+    #macro-indicator-reference .mi-family button { justify-content: space-between; width: 100%; }
+    #macro-indicator-reference .mi-indicators { display: grid; }
+    #macro-indicator-reference .mi-indicator { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    #macro-indicator-reference .mi-indicator:last-child { border-bottom: 0; }
+    #macro-indicator-reference .mi-copy { display: grid; gap: 2px; }
+    #macro-indicator-reference .mi-chart { width: 100%; height: auto; }
+    #macro-indicator-reference .mi-axis,
+    #macro-indicator-reference .mi-grid { stroke: var(--border); stroke-width: 1; }
+    #macro-indicator-reference .mi-grid { opacity: .55; }
+    #macro-indicator-reference .mi-line-1 { stroke: var(--viz-series-1); }
+    #macro-indicator-reference .mi-line-2 { stroke: var(--viz-series-2); }
+    #macro-indicator-reference .mi-line-3 { stroke: var(--viz-series-3); }
+    #macro-indicator-reference .mi-path { fill: none; stroke-width: 2.5; }
+    #macro-indicator-reference .mi-dot-1 { fill: var(--viz-series-1); }
+    #macro-indicator-reference .mi-dot-2 { fill: var(--viz-series-2); }
+    #macro-indicator-reference .mi-dot-3 { fill: var(--viz-series-3); }
+    #macro-indicator-reference .mi-label { fill: var(--muted-foreground); font-size: 11px; }
+    #macro-indicator-reference .mi-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+    #macro-indicator-reference .mi-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    #macro-indicator-reference .mi-swatch { width: 12px; height: 3px; display: inline-block; }
+    #macro-indicator-reference .mi-swatch.one { background: var(--viz-series-1); }
+    #macro-indicator-reference .mi-swatch.two { background: var(--viz-series-2); }
+    #macro-indicator-reference .mi-swatch.three { background: var(--viz-series-3); }
+    @media (max-width: 620px) {
+      #macro-indicator-reference .mi-layout { grid-template-columns: 1fr; }
+      #macro-indicator-reference .mi-family { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    }
+  </style>
+
+  <div class="mi-head">
+    <div class="mi-title">
+      <strong>宏观指标</strong>
+      <span class="viz-badge">200+ 指标</span>
+    </div>
+    <button type="button" class="btn"><i data-lucide="star" aria-hidden="true"></i>我的关注</button>
+  </div>
+
+  <div class="mi-controls">
+    <label class="form-label mi-search">搜索指标
+      <input class="form-control" id="mi-search" placeholder="CPI、社融、工业增加值…">
+    </label>
+    <label class="form-label">时间范围
+      <select class="form-select" id="mi-range">
+        <option>近1年</option>
+        <option selected>近5年</option>
+        <option>近10年</option>
+        <option>全部</option>
+      </select>
+    </label>
+    <label class="form-label">比较方式
+      <select class="form-select" id="mi-mode">
+        <option>原始值</option>
+        <option selected>起始值 = 100</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="mi-layout">
+    <div class="mi-family" role="group" aria-label="宏观指标分类">
+      <button type="button" class="btn is-selected" data-family="prices" aria-pressed="true"><span>通胀价格</span><span>28</span></button>
+      <button type="button" class="btn" data-family="growth" aria-pressed="false"><span>经济增长</span><span>35</span></button>
+      <button type="button" class="btn" data-family="credit" aria-pressed="false"><span>货币信贷</span><span>31</span></button>
+      <button type="button" class="btn" data-family="rates" aria-pressed="false"><span>流动性利率</span><span>24</span></button>
+      <button type="button" class="btn" data-family="property" aria-pressed="false"><span>房地产</span><span>26</span></button>
+      <button type="button" class="btn" data-family="trade" aria-pressed="false"><span>外贸外部</span><span>22</span></button>
+    </div>
+
+    <div class="card mi-indicators" id="mi-indicators"></div>
+  </div>
+
+  <div class="mi-compare-head">
+    <div>
+      <strong>指标比较</strong>
+      <div class="text-muted text-small" id="mi-selection-text">已选 3/4，使用标准化曲线比较不同单位指标</div>
+    </div>
+    <div class="mi-basket" id="mi-basket"></div>
+  </div>
+
+  <svg class="mi-chart" viewBox="0 0 640 240" role="img" aria-labelledby="mi-chart-title mi-chart-desc">
+    <title id="mi-chart-title">宏观指标标准化比较</title>
+    <desc id="mi-chart-desc">CPI同比、PPI同比和十年期国债收益率近五年以起始值一百标准化后的趋势比较。</desc>
+    <line class="mi-grid" x1="50" x2="620" y1="40" y2="40"></line>
+    <line class="mi-grid" x1="50" x2="620" y1="90" y2="90"></line>
+    <line class="mi-axis" x1="50" x2="620" y1="140" y2="140"></line>
+    <line class="mi-grid" x1="50" x2="620" y1="190" y2="190"></line>
+    <text class="mi-label" x="10" y="44">120</text>
+    <text class="mi-label" x="10" y="94">110</text>
+    <text class="mi-label" x="10" y="144">100</text>
+    <text class="mi-label" x="18" y="194">90</text>
+
+    <path class="mi-path mi-line-1" d="M55 140 C110 132 145 115 190 104 S280 82 330 96 S425 118 475 88 S560 72 615 78"></path>
+    <path class="mi-path mi-line-2" d="M55 140 C110 122 150 86 200 70 S290 118 345 145 S435 172 485 148 S560 118 615 126"></path>
+    <path class="mi-path mi-line-3" d="M55 140 C115 148 160 156 205 145 S295 128 345 112 S435 98 485 107 S565 120 615 101"></path>
+
+    <circle class="mi-dot-1" cx="615" cy="78" r="4"></circle>
+    <circle class="mi-dot-2" cx="615" cy="126" r="4"></circle>
+    <circle class="mi-dot-3" cx="615" cy="101" r="4"></circle>
+
+    <text class="mi-label" x="55" y="225">2022</text>
+    <text class="mi-label" x="190" y="225">2023</text>
+    <text class="mi-label" x="330" y="225">2024</text>
+    <text class="mi-label" x="475" y="225">2025</text>
+    <text class="mi-label" x="590" y="225">2026</text>
+  </svg>
+
+  <div class="mi-legend text-small">
+    <span><i class="mi-swatch one"></i>CPI 同比</span>
+    <span><i class="mi-swatch two"></i>PPI 同比</span>
+    <span><i class="mi-swatch three"></i>10年期国债收益率</span>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('macro-indicator-reference');
+      const container = root.querySelector('#mi-indicators');
+      const basket = root.querySelector('#mi-basket');
+      const selectionText = root.querySelector('#mi-selection-text');
+      const search = root.querySelector('#mi-search');
+      const familyButtons = Array.from(root.querySelectorAll('[data-family]'));
+      let family = 'prices';
+      let selected = new Set(['CPI_YOY','PPI_YOY','CGB10Y']);
+
+      const items = [
+        { code:'CPI_YOY', name:'居民消费价格指数同比', family:'prices', meta:'月度 · % · 国家统计局' },
+        { code:'PPI_YOY', name:'工业生产者出厂价格同比', family:'prices', meta:'月度 · % · 国家统计局' },
+        { code:'CORE_CPI', name:'核心 CPI 同比', family:'prices', meta:'月度 · % · 国家统计局' },
+        { code:'GDP_YOY', name:'国内生产总值同比', family:'growth', meta:'季度 · % · 国家统计局' },
+        { code:'PMI_MFG', name:'制造业 PMI', family:'growth', meta:'月度 · 指数 · 国家统计局' },
+        { code:'TSF', name:'社会融资规模增量', family:'credit', meta:'月度 · 亿元 · 人民银行' },
+        { code:'M2_YOY', name:'M2 同比', family:'credit', meta:'月度 · % · 人民银行' },
+        { code:'CGB10Y', name:'10年期国债收益率', family:'rates', meta:'日度 · % · 市场数据' },
+        { code:'DR007', name:'DR007', family:'rates', meta:'日度 · % · 市场数据' },
+        { code:'RE_INVEST', name:'房地产开发投资同比', family:'property', meta:'月度 · % · 国家统计局' },
+        { code:'EXPORT_YOY', name:'出口金额同比', family:'trade', meta:'月度 · % · 海关总署' }
+      ];
+
+      function render() {
+        const q = search.value.trim().toLowerCase();
+        const visible = items.filter(item => item.family === family && (!q || item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q)));
+        container.replaceChildren(...visible.map(item => {
+          const label = document.createElement('label');
+          label.className = 'mi-indicator';
+          label.innerHTML = '<input class="form-check-input" type="checkbox" value="' + item.code + '"' + (selected.has(item.code) ? ' checked' : '') + '><div class="mi-copy"><span>' + item.name + '</span><span class="text-muted text-small">' + item.meta + '</span></div><code>' + item.code + '</code>';
+          const input = label.querySelector('input');
+          input.addEventListener('change', () => {
+            if (input.checked && selected.size >= 4) {
+              input.checked = false;
+            } else if (input.checked) {
+              selected.add(item.code);
+            } else {
+              selected.delete(item.code);
+            }
+            renderBasket();
+          });
+          return label;
+        }));
+        renderBasket();
+      }
+
+      function renderBasket() {
+        const chosen = items.filter(item => selected.has(item.code));
+        basket.replaceChildren(...chosen.map(item => {
+          const badge = document.createElement('span');
+          badge.className = 'viz-badge';
+          badge.textContent = item.name;
+          return badge;
+        }));
+        selectionText.textContent = '已选 ' + selected.size + '/4，使用标准化曲线比较不同单位指标';
+      }
+
+      familyButtons.forEach(button => button.addEventListener('click', () => {
+        family = button.dataset.family;
+        familyButtons.forEach(peer => {
+          const active = peer === button;
+          peer.classList.toggle('is-selected', active);
+          peer.setAttribute('aria-pressed', String(active));
+        });
+        render();
+      }));
+      search.addEventListener('input', render);
+      render();
+    })();
+  </script>
+</div>
+</div></section></main></div></body></html>

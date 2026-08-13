@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -18,9 +18,41 @@ def _clean_required(value: str) -> str:
     return value
 
 
+class InitialMemoryRequest(BaseModel):
+    category: Literal["background", "goal", "constraint", "preference", "conclusion", "other"] = "other"
+    title: str = Field(min_length=1, max_length=120)
+    content: str = Field(min_length=1, max_length=10000)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        return _clean_required(value)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("不能为空")
+        return value
+
+
+class InitialMemberRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=191)
+    role: Literal["editor", "viewer"] = "viewer"
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        return _clean_required(value)
+
+
 class ProjectCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: Optional[str] = Field(default=None, max_length=1000)
+    client_request_id: Optional[str] = Field(default=None, min_length=1, max_length=191)
+    initial_memories: list[InitialMemoryRequest] = Field(default_factory=list, max_length=20)
+    initial_members: list[InitialMemberRequest] = Field(default_factory=list, max_length=20)
 
     @field_validator("name")
     @classmethod
@@ -31,6 +63,14 @@ class ProjectCreateRequest(BaseModel):
     @classmethod
     def validate_description(cls, value: Optional[str]) -> Optional[str]:
         return value.strip() or None if value else None
+
+
+    @model_validator(mode="after")
+    def validate_initial_members(self):
+        usernames = [member.username for member in self.initial_members]
+        if len(usernames) != len(set(usernames)):
+            raise ValueError("初始成员不能重复")
+        return self
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -67,7 +107,16 @@ def list_projects(request: Request, limit: int = Query(default=20, ge=1, le=50),
 def create_project(request: Request, body: ProjectCreateRequest):
     repository: ConversationRepository = request.app.state.repository
     try:
-        return {"data": repository.create_project(request.state.username, body.name, body.description)}
+        return {
+            "data": repository.create_project(
+                request.state.username,
+                body.name,
+                body.description,
+                body.client_request_id,
+                [item.model_dump() for item in body.initial_memories],
+                [item.model_dump() for item in body.initial_members],
+            )
+        }
     except Exception as exc:
         raise_repository_error(exc)
 
