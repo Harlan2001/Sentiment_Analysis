@@ -10,7 +10,7 @@ interface Props {
 }
 
 const CONFIDENCE_COLOR = (v: number) =>
-  v >= 0.7 ? 'text-[#22c55e]' : v >= 0.5 ? 'text-[#f59e0b]' : 'text-[#ef4444]'
+  v >= 0.7 ? 'text-[#22c55e]' : v >= 0.5 ? 'text-[#9ca3af]' : 'text-[#ef4444]'
 
 const StrategySignal: React.FC<Props> = ({ signals, onClick }) => {
   return (
@@ -42,7 +42,7 @@ const StrategySignal: React.FC<Props> = ({ signals, onClick }) => {
             {data.reasons.length > 0 && (
               <div className="mt-1.5 flex gap-1 flex-wrap">
                 {data.reasons.slice(0, 2).map((r, j) => (
-                  <span key={j} className="px-1.5 py-0.5 rounded-md text-[10px] bg-[#f59e0b]/10 text-[#f59e0b] truncate max-w-[150px]">
+                  <span key={j} className="px-1.5 py-0.5 rounded-md text-[10px] bg-[#9ca3af]/10 text-[#9ca3af] truncate max-w-[150px]">
                     {r}
                   </span>
                 ))}

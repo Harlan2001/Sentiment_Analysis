@@ -1,6 +1,6 @@
 /**
  * AI 市场摘要 — 默认展示 4 行，可展开
- * 显示方向标签（看涨/看跌/中性）+ 驱动因素
+ * 显示方向标签（看涨/看跌/中性），正文去黄改浅灰、字体改白
  */
 import React, { useState } from 'react'
 import type { AIMarketSummaryData } from '@/types'
@@ -38,30 +38,19 @@ const AIMarketSummary: React.FC<Props> = ({ data, onClick }) => {
       </div>
 
       <div className="px-3 py-2">
-        <div className="border-l-2 border-[#f59e0b] pl-3 bg-gradient-to-r from-[#f59e0b]/5 to-transparent rounded-r-md">
-          <p className={`text-[12px] text-[#8b949e] leading-relaxed whitespace-pre-line ${expanded ? '' : 'line-clamp-4'}`}>
+        <div className="border-l-2 border-[#9ca3af] pl-3 bg-gradient-to-r from-[#9ca3af]/5 to-transparent rounded-r-md">
+          <p className={`text-[12px] text-white leading-relaxed whitespace-pre-line ${expanded ? '' : 'line-clamp-4'}`}>
             {data.text}
           </p>
           {data.text.length > 200 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-[11px] text-[#f59e0b] hover:text-[#fbbf24] mt-1 transition-colors"
+              className="text-[11px] text-[#9ca3af] hover:text-[#c0c0c0] mt-1 transition-colors"
             >
               {expanded ? '收起' : '展开'}
             </button>
           )}
         </div>
-
-        {data.drivers.length > 0 && (
-          <div className="mt-2 space-y-0.5">
-            {data.drivers.slice(0, 3).map((d, i) => (
-              <div key={i} className="text-[11px] text-[#6b7280] flex items-start gap-1">
-                <span className="text-[#f59e0b] flex-shrink-0">{i + 1}.</span>
-                <span className="truncate">{d}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

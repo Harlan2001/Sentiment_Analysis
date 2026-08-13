@@ -254,6 +254,23 @@ PERIOD_LIST = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
 
 # 页面路由 → 中文标题映射
 PAGE_TITLES = {
+    # 新版工作台板块
+    "/market": "市场",
+    "/returns": "收益",
+    "/forecast": "预测",
+    "/watchlist": "关注列表",
+    "/portfolio": "投资组合",
+    "/workflow": "工作流",
+    "/computer/strategies": "策略开发",
+    "/computer/reports": "研报生成",
+    "/computer/news": "每日新闻总结",
+    "/computer": "工作台",
+    "/custom/mcp": "MCP连接",
+    "/custom/skills": "Skills",
+    "/projects": "项目",
+    "/chat": "对话",
+    "/settings": "设置",
+    # 旧页面
     "/news": "新闻",
     "/factors": "因子",
     "/prediction": "预测",
@@ -270,17 +287,23 @@ PAGE_TITLES = {
 
 # 看板页面分布图表中应展示的完整路由列表（含未访问页面的零值补全）
 ALL_PAGE_ROUTES = [
-    "/news",
+    "/market",
+    "/returns",
+    "/forecast",
+    "/watchlist",
+    "/portfolio",
+    "/workflow",
+    "/computer",
+    "/computer/strategies",
+    "/computer/reports",
+    "/computer/news",
+    "/custom/mcp",
+    "/custom/skills",
+    "/projects",
+    "/chat",
+    "/settings",
     "/factors",
-    "/prediction",
-    "/agents",
-    "/strategies",
-    "/change",
-    "/dashboard",
-    "/macro-data",
-    "/research",
-    "/login",
-    "/ai-strategy-generation",
+    "/news",
 ]
 
 # 会话冷却时间（秒）：冷却时间内复用同一会话

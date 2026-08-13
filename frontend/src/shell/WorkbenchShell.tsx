@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '../api/workbench'
 import { DeletedItemsPanel } from '../features/computer/DeletedItemsPanel'
 import { AccountInfoPanel } from '../features/computer/AccountInfoPanel'
+import { MonitorDashboardPanel } from '../components/Pages/sections/monitor/MonitorDashboardPanel'
+import { useAuth } from '../contexts/AuthContext'
 
 const productLinks = [
   { to: '/computer', label: 'Computer', icon: '◉' },
@@ -39,6 +41,12 @@ function resolveTitle(pathname: string, conversationTopic: string): string {
 
 type SidebarProject = Project & { recent_conversations: Conversation[] }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: '管理员',
+  manager: '经理',
+  user: '普通用户',
+}
+
 export function WorkbenchShell() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -51,10 +59,11 @@ export function WorkbenchShell() {
   const [conversationsOpen, setConversationsOpen] = useState(true)
   const [conversationTopic, setConversationTopic] = useState('新建对话')
   const [sidebarError, setSidebarError] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(true)
+  const { isAuthenticated, username, displayName, role, authEnabled, logout } = useAuth()
   const [accountOpen, setAccountOpen] = useState(false)
   const [accountInfoPanelOpen, setAccountInfoPanelOpen] = useState(false)
   const [deletedPanelOpen, setDeletedPanelOpen] = useState(false)
+  const [monitorPanelOpen, setMonitorPanelOpen] = useState(false)
   const isHome = HOME_PATHS.has(location.pathname) || SECTIONS.some((s) => location.pathname === s.to)
   const topbarTitle = resolveTitle(location.pathname, conversationTopic)
 
@@ -121,6 +130,16 @@ export function WorkbenchShell() {
 
   const conversations = allRecent || recent
 
+  function handleLogout() {
+    logout()
+    setAccountOpen(false)
+    setAccountInfoPanelOpen(false)
+    if (!authEnabled) {
+      // 免登录模式：刷新页面重新以 admin 自动登录
+      window.location.reload()
+    }
+  }
+
   return (
     <div className="workbench-shell">
       <aside className="sidebar">
@@ -157,15 +176,16 @@ export function WorkbenchShell() {
           </section>
         </div>
         <div className="sidebar-bottom">
-          {isLoggedIn ? <>
+          {isAuthenticated ? <>
             {accountOpen && <div className="account-menu">
-              <div className="account-menu-profile"><span className="avatar">你</span><div><strong>当前用户</strong><small>BondSense 工作台</small></div></div>
+              <div className="account-menu-profile"><span className="avatar">你</span><div><strong>{displayName || username || 'admin'}</strong><small>{ROLE_LABELS[role] || role} · BondSense 工作台</small></div></div>
               <button className="account-menu-item" onClick={() => { setAccountInfoPanelOpen(true); setAccountOpen(false) }}><span>◉</span>账户信息<i className="account-menu-caret-right" /></button>
               <button className="account-menu-item" onClick={() => { setDeletedPanelOpen(true); setAccountOpen(false) }}><span>🗑</span>最近删除<i className="account-menu-caret-right" /></button>
-              <button className="account-menu-item logout" onClick={() => { setIsLoggedIn(false); setAccountOpen(false) }}><span>↪</span>退出</button>
+              <button className="account-menu-item" onClick={() => { setMonitorPanelOpen(true); setAccountOpen(false) }}><span>▦</span>监控看板<i className="account-menu-caret-right" /></button>
+              <button className="account-menu-item logout" onClick={handleLogout}><span>↪</span>退出</button>
             </div>}
-            <button className={'account-button' + (accountOpen ? ' active' : '')} onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}><span className="avatar">你</span><span className="account-copy"><strong>当前用户</strong><small>账户与设置</small></span><span className="account-arrow" aria-hidden="true" /></button>
-          </> : <button className="login-button" onClick={() => { setIsLoggedIn(true); setAccountOpen(true) }}><span>◉</span>登录</button>}
+            <button className={'account-button' + (accountOpen ? ' active' : '')} onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}><span className="avatar">你</span><span className="account-copy"><strong>{displayName || username || 'admin'}</strong><small>账户与设置</small></span><span className="account-arrow" aria-hidden="true" /></button>
+          </> : <button className="login-button" onClick={() => navigate('/login')}><span>◉</span>登录</button>}
         </div>
       </aside>
       <main className="workspace-main" style={{ gridTemplateRows: isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
@@ -188,7 +208,8 @@ export function WorkbenchShell() {
         <div className="workspace-content"><Outlet /></div>
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
-      <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={() => setIsLoggedIn(false)} />
+      <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />
+      <MonitorDashboardPanel open={monitorPanelOpen} onClose={() => setMonitorPanelOpen(false)} />
     </div>
   )
 }

@@ -7,7 +7,7 @@ import ReactECharts from 'echarts-for-react'
 import type { BehaviorStats, AuditLogEntry } from '@/types'
 import { useBehaviorLogs } from '@/hooks/useSimpleBehavior'
 import { pageTitle } from '@/utils/pageTitle'
-import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP } from '@/config/labels'
+import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP, matchNewPage, NEW_PAGE_GROUPS } from '@/config/labels'
 import { MetricCard } from './Widgets'
 
 interface Props {
@@ -70,32 +70,49 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
   const dateRangeLabel =
     dateStart && dateEnd ? `${dateStart} ~ ${dateEnd}` : dateStart ? `${dateStart} 起` : dateEnd ? `至 ${dateEnd}` : ''
 
-  // ========== L9: 页面访问分布环形图 ==========
-  const ringOption = {
+  // ========== L9: 页面访问分布旭日图（仅统计新版页面） ==========
+  const sunburstData = useMemo(() => {
+    if (!stats?.page_distribution?.length) return []
+    const countMap: Record<string, number> = {}
+    for (const d of stats.page_distribution) {
+      const key = matchNewPage(d.page_route)
+      if (key) countMap[key] = (countMap[key] || 0) + d.count
+    }
+    return Object.entries(NEW_PAGE_GROUPS).map(([group, routes]) => ({
+      name: group,
+      children: routes.map((r) => ({ name: pageTitle(r), value: countMap[r] || 0 })),
+    }))
+  }, [stats?.page_distribution])
+
+  const sunburstOption = {
     tooltip: {
-      trigger: 'item',
       backgroundColor: 'rgba(17,24,39,0.95)',
       borderColor: '#374151',
       textStyle: { color: '#e5e7eb', fontSize: 12 },
+      formatter: (p: { name: string; value?: number }) =>
+        `${p.name}<br/>访问量: <b>${p.value ?? 0}</b>`,
     },
-    legend: { orient: 'vertical', right: 5, top: 'center', textStyle: { color: '#9ca3af', fontSize: 9 } },
     series: [
       {
-        type: 'pie',
-        radius: ['45%', '70%'],
-        center: ['35%', '50%'],
-        label: { show: false },
-        data:
-          stats?.page_distribution?.map((d, i) => ({
-            name: d.page_title,
-            value: d.count,
-            itemStyle: { color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'][i % 7] },
-          })) || [],
+        type: 'sunburst',
+        data: sunburstData,
+        radius: ['15%', '90%'],
+        emphasis: { focus: 'ancestor' },
+        itemStyle: { borderWidth: 1, borderColor: '#111827' },
+        label: { color: '#e5e7eb', fontSize: 11 },
+        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'],
       },
     ],
   }
 
-  // ========== L12: 页面平均停留排行 ==========
+  // ========== L12: 页面平均停留排行（仅新版页面，停留时长从长到短） ==========
+  const dwellData = useMemo(() => {
+    if (!stats?.page_avg_duration?.length) return []
+    return stats.page_avg_duration
+      .filter((d) => matchNewPage(d.page_route))
+      .sort((a, b) => b.avg_sec - a.avg_sec)
+  }, [stats?.page_avg_duration])
+
   const durationBarOption = {
     tooltip: {
       trigger: 'axis',
@@ -112,19 +129,18 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
     },
     yAxis: {
       type: 'category',
-      data: stats?.page_avg_duration?.map((d) => pageTitle(d.page_route)).reverse() || [],
+      data: dwellData.map((d) => pageTitle(matchNewPage(d.page_route) || d.page_route)).reverse(),
       axisLabel: { color: '#9ca3af', fontSize: 9 },
     },
     series: [
       {
         type: 'bar',
-        data:
-          stats?.page_avg_duration
-            ?.map((d) => ({
-              value: d.avg_sec,
-              itemStyle: { color: '#3b82f6', borderRadius: [0, 4, 4, 0] },
-            }))
-            .reverse() || [],
+        data: dwellData
+          .map((d) => ({
+            value: d.avg_sec,
+            itemStyle: { color: '#3b82f6', borderRadius: [0, 4, 4, 0] },
+          }))
+          .reverse(),
         label: { show: true, position: 'right', color: '#9ca3af', fontSize: 10, formatter: '{c}s' },
       },
     ],
@@ -350,8 +366,8 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
           <div className="text-xs text-gray-400 font-medium mb-2">📊 页面访问分布 ({days}日)</div>
-          {stats?.page_distribution?.length ? (
-            <ReactECharts option={ringOption} style={{ height: 220 }} opts={{ renderer: 'svg' }} />
+          {sunburstData.length ? (
+            <ReactECharts option={sunburstOption} style={{ height: 260 }} opts={{ renderer: 'svg' }} />
           ) : (
             <div className="text-gray-500 text-sm py-6 text-center">暂无数据</div>
           )}
@@ -359,7 +375,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
 
         <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
           <div className="text-xs text-gray-400 font-medium mb-2">⏱️ 平均停留时长排行</div>
-          {stats?.page_avg_duration?.length ? (
+          {dwellData.length ? (
             <ReactECharts option={durationBarOption} style={{ height: 220 }} opts={{ renderer: 'svg' }} />
           ) : (
             <div className="text-gray-500 text-sm py-6 text-center">暂无数据</div>
