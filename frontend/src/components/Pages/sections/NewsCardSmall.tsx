@@ -1,5 +1,6 @@
 /**
  * 无图迷你新闻卡片 — 纯文字紧凑型，高度为有图卡片的 1/2
+ * 已脱敏：仅移除来源标签，保留时间与方向标签
  */
 import React from 'react'
 import type { DiscoverNewsItem } from '@/types'
@@ -22,8 +23,6 @@ function fmtTime(t: string): string {
 
 const NewsCardSmall: React.FC<Props> = ({ item, onClick }) => {
   const dir = DIR_TAG[item.direction || '']
-  const domain = item.source_name || item.source || ''
-  const favicon = item.source ? `https://www.google.com/s2/favicons?sz=32&domain=${item.source}.com` : ''
 
   return (
     <div onClick={onClick}
@@ -31,14 +30,9 @@ const NewsCardSmall: React.FC<Props> = ({ item, onClick }) => {
                  transition-all duration-200 hover:-translate-y-0.5
                  hover:shadow-[0_8px_30px_rgba(0,0,0,0.6)] border border-[#2a2a2a] hover:border-[#3a3a3a]
                  flex flex-col gap-2 justify-center min-h-0">
-      {/* 来源行 */}
-      <div className="flex items-center gap-1.5 min-w-0">
-        {favicon && <div className="relative shrink-0 overflow-hidden rounded-full w-4 h-4 bg-white"><img src={favicon} alt="" className="w-4 h-4 block" /></div>}
-        <span className="text-xs text-[#8b949e] truncate">{domain}</span>
-      </div>
       {/* 标题 */}
       <h4 className="text-[15px] font-semibold leading-snug line-clamp-4 text-[#e0e0e0] group-hover:text-white transition-colors">{item.title}</h4>
-      {/* 底部 */}
+      {/* 底部：时间 + 方向 */}
       <div className="flex items-center gap-1.5 mt-auto">
         <span className="text-xs text-[#6b7280] flex-shrink-0">{fmtTime(item.pub_time)}</span>
         {dir && <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-medium ml-auto flex-shrink-0 ${dir.cls}`}>{dir.label}</span>}

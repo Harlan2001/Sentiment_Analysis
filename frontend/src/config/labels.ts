@@ -12,6 +12,15 @@ export const PAGE_TITLE_MAP: Record<string, string> = {
   '/watchlist': '关注列表',
   '/portfolio': '投资组合',
   '/workflow': '工作流',
+  '/computer/strategies': '策略开发',
+  '/computer/reports': '研报生成',
+  '/computer/news': '每日新闻总结',
+  '/computer': '工作台',
+  '/custom/mcp': 'MCP连接',
+  '/custom/skills': 'Skills',
+  '/projects': '项目',
+  '/chat': '对话',
+  '/settings': '设置',
   // 旧页面
   '/news': '新闻',
   '/factors': '因子',
@@ -147,6 +156,54 @@ export function getPageTitle(route: string): string {
 /** 模型名称 → 中文显示名 */
 export function getModelLabel(model: string): string {
   return MODEL_NAME_MAP[model] || model
+}
+
+// ========== 新版页面路由（页面分布统计筛选用） ==========
+
+// 新版产品中真实存在的页面路由（与 App.tsx 路由表一致）
+export const NEW_PAGE_ROUTES: string[] = [
+  '/market',
+  '/factors',
+  '/returns',
+  '/forecast',
+  '/watchlist',
+  '/portfolio',
+  '/workflow',
+  '/computer/strategies',
+  '/computer/reports',
+  '/computer/news',
+  '/computer',
+  '/custom/mcp',
+  '/custom/skills',
+  '/projects',
+  '/chat',
+  '/settings',
+]
+
+// 旭日图分组（顶层分类 → 页面路由列表）
+export const NEW_PAGE_GROUPS: Record<string, string[]> = {
+  市场板块: ['/market', '/factors', '/returns', '/forecast', '/watchlist', '/portfolio', '/workflow'],
+  工作台: ['/computer', '/computer/strategies', '/computer/reports', '/computer/news'],
+  自定义: ['/custom/mcp', '/custom/skills'],
+  项目与对话: ['/projects', '/chat'],
+  设置: ['/settings'],
+}
+
+/** 将原始路由归并到新版页面（最长前缀匹配），非新版页面返回 null */
+export function matchNewPage(route: string): string | null {
+  if (!route) return null
+  let best: string | null = null
+  for (const r of NEW_PAGE_ROUTES) {
+    if (route === r || route.startsWith(r + '/')) {
+      if (!best || r.length > best.length) best = r
+    }
+  }
+  return best
+}
+
+/** 判断路由是否属于新版页面 */
+export function isNewPage(route: string): boolean {
+  return matchNewPage(route) !== null
 }
 
 /** 操作类型 → 中文标签 */

@@ -10,13 +10,11 @@ import NewsDetailPanel from './NewsDetailPanel'
 import YieldDetailPanel from './YieldDetailPanel'
 import FactorDetailPanel from './FactorDetailPanel'
 import StrategyDetailPanel from './StrategyDetailPanel'
-import ForecastDetailPanel from './ForecastDetailPanel' // main新增，务必补上
 
 type DetailView =
   | { type: 'news'; newsId: number }
   | { type: 'yield'; period: string }
   | { type: 'factor'; factorId: number }
-  | { type: 'forecast' } // main新增forecast类型
   | { type: 'strategy' }
   | null
 
@@ -68,7 +66,7 @@ const DiscoverSection: React.FC = () => {
           <MarketSidePanel
             onYieldClick={(period) => openDetail({ type: 'yield', period })}
             onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })}
-            onSummaryClick={() => openDetail({ type: 'forecast' })}
+            onSummaryClick={() => navigate('/forecast')}
             onStrategyClick={() => openDetail({ type: 'strategy' })}
           />
         </div>
@@ -97,7 +95,6 @@ const DiscoverSection: React.FC = () => {
       {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'yield' && <YieldDetailPanel period={detailView.period} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'factor' && <FactorDetailPanel factorId={detailView.factorId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
-      {detailView?.type === 'forecast' && <ForecastDetailPanel onClose={handleCloseDetail} />}
       {detailView?.type === 'strategy' && <StrategyDetailPanel onClose={handleCloseDetail} />}
     </div>
   )

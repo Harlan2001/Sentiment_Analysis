@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getModelLabel, getPageTitle } from '@/config/labels'
+import { getModelLabel, getPageTitle, isNewPage } from '@/config/labels'
 
 const API_PREFIX = '/sapi'
 
@@ -79,7 +79,7 @@ const MyUsagePage: React.FC<MyUsagePageProps> = ({ embedded = false }) => {
       ])
       setOverview(ov)
       setTrend(tr.trend || [])
-      setPages(bh.page_distribution || [])
+      setPages((bh.page_distribution || []).filter((p: PageDistItem) => isNewPage(p.route)))
       setHourDist(bh.hour_distribution || {})
       setModelPrefs(bh.model_preferences || [])
     } catch (e) {

@@ -1,5 +1,6 @@
 /**
  * 有图新闻卡片 — 大窗口(整行) / 中窗口(2×2网格 compact 模式)
+ * 已脱敏：仅移除来源标签，保留时间与方向标签
  */
 import React from 'react'
 import type { DiscoverNewsItem } from '@/types'
@@ -22,8 +23,6 @@ function fmtTime(t: string): string {
 
 const NewsCardLarge: React.FC<Props> = ({ item, onClick, compact }) => {
   const dir = DIR_TAG[item.direction || '']
-  const domain = item.source_name || item.source || ''
-  const favicon = item.source ? `https://www.google.com/s2/favicons?sz=32&domain=${item.source}.com` : ''
 
   if (compact) {
     // 中窗口模式：2×2 网格中的有图卡片
@@ -36,12 +35,8 @@ const NewsCardLarge: React.FC<Props> = ({ item, onClick, compact }) => {
           <img src={item.thumbnail!} alt={item.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
         </div>
         <div className="p-2.5 flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {favicon && <div className="relative shrink-0 overflow-hidden rounded-full w-3 h-3 bg-white"><img src={favicon} alt="" className="w-3 h-3 block" /></div>}
-            <span className="text-[10px] text-[#8b949e] truncate">{domain}</span>
-          </div>
           <h4 className="text-[13px] font-medium leading-snug line-clamp-4 text-[#e0e0e0] group-hover:text-white transition-colors">{item.title}</h4>
-          <div className="flex items-center gap-1.5 mt-0.5">
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-[#6b7280] flex-shrink-0">{fmtTime(item.pub_time)}</span>
             {dir && <span className={`px-1 py-0.5 rounded-full text-[9px] font-medium ml-auto flex-shrink-0 ${dir.cls}`}>{dir.label}</span>}
           </div>
@@ -60,13 +55,11 @@ const NewsCardLarge: React.FC<Props> = ({ item, onClick, compact }) => {
         <img src={item.thumbnail!} alt={item.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
       </div>
       <div className="p-4 flex flex-col gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {favicon && <div className="relative shrink-0 overflow-hidden rounded-full w-4 h-4 bg-white"><img src={favicon} alt="" className="w-4 h-4 block" /></div>}
-          <span className="text-[12px] text-[#8b949e] truncate">{domain}</span>
-          <span className="text-[12px] text-[#6b7280] flex-shrink-0 ml-auto">{fmtTime(item.pub_time)}</span>
-          {dir && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${dir.cls}`}>{dir.label}</span>}
-        </div>
         <h3 className="text-[1.3rem] md:text-[1.6rem] font-semibold leading-tight line-clamp-2 text-white group-hover:text-[#e0e0e0] transition-colors">{item.title}</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-[#6b7280] flex-shrink-0">{fmtTime(item.pub_time)}</span>
+          {dir && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ml-auto flex-shrink-0 ${dir.cls}`}>{dir.label}</span>}
+        </div>
       </div>
     </div>
   )
