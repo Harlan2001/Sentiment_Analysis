@@ -9,7 +9,7 @@ import { API_PREFIX } from '@/constants'
 interface Props { period: string; onClose: () => void; onNewsClick: (newsId: number) => void }
 
 const CH = 220
-const G = '#22c55e', R = '#ef4444', GRD = '#2a2a2a', AX = '#6b7280', FG = '#8b949e'
+const G = '#ef4444', R = '#22c55e', GRD = '#2a2a2a', AX = '#6b7280', FG = '#8b949e'
 
 const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => {
   const [data, setData] = useState<any>(null)
@@ -64,7 +64,7 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
   const dir = data.direction || 'flat'
   const lc = dir === 'up' ? G : dir === 'down' ? R : AX
   const dArrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→'
-  const dCol = dir === 'up' ? 'text-[#22c55e]' : dir === 'down' ? 'text-[#ef4444]' : 'text-[#6b7280]'
+  const dCol = dir === 'up' ? 'text-[#ef4444]' : dir === 'down' ? 'text-[#22c55e]' : 'text-[#6b7280]'
 
   const sw = 680, pl = 46, pr = 4, pt = 14, pb = 28
   const pw = sw - pl - pr, ph = CH - pt - pb
@@ -117,7 +117,7 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
         </div>
       </div>
 
-      <div className="mx-auto w-full px-4 md:px-6 pb-16" style={{ maxWidth: '720px' }}>
+      <div className="mx-auto w-full px-4 md:px-6 pb-16" style={{ maxWidth: '1060px' }}>
         <div className="space-y-5 pt-5">
           {/* Price Header */}
           <div>
@@ -145,11 +145,11 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
           {/* Metrics */}
           <div className="detail-card overflow-hidden">
             <div className="grid grid-cols-3 gap-px bg-[#1f1f1f]">
-              {m1.map((m: any) => (<div key={m.label} className="bg-[#111111] px-4 py-3.5"><div className="text-[11px] text-[#6b7280]">{m.label}</div><div className="text-[14px] font-mono font-medium text-white mt-1">{m.value}</div></div>))}
+              {m1.map((m: any) => (<div key={m.label} className="bg-[#111111] px-4 py-4"><div className="text-sm text-[#6b7280]">{m.label}</div><div className="text-base font-mono font-semibold text-white mt-1">{m.value}</div></div>))}
             </div>
             {m2.length > 0 && (
               <div className="grid grid-cols-3 gap-px bg-[#1f1f1f] border-t border-[#1f1f1f]">
-                {m2.map((m: any) => (<div key={m.label} className="bg-[#111111] px-4 py-3.5"><div className="text-[11px] text-[#6b7280]">{m.label}</div><div className="text-[14px] font-mono font-medium text-white mt-1">{m.value}</div></div>))}
+                {m2.map((m: any) => (<div key={m.label} className="bg-[#111111] px-4 py-4"><div className="text-sm text-[#6b7280]">{m.label}</div><div className="text-base font-mono font-semibold text-white mt-1">{m.value}</div></div>))}
               </div>
             )}
           </div>
@@ -157,7 +157,7 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
           {/* Significant Dates — Perplexity Timeline Style */}
           {sigDates.length > 0 && (
             <div>
-              <h3 className="text-[15px] font-semibold text-white mb-4">显著价格变动</h3>
+              <h3 className="text-lg font-bold text-white mb-4">显著价格变动</h3>
               <div className="relative detail-card overflow-hidden">
                 <div className="divide-y divide-[#1f1f1f]">
                   {sigDates.map((sd: any, idx: number) => {
@@ -172,9 +172,9 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
                         <div className="p-4">
                           {/* Date + price row */}
                           <div className="flex items-center gap-3 mb-2">
-                            <span className={`relative z-10 w-2.5 h-2.5 rounded-full border-2 ${up ? 'border-[#22c55e] bg-[#22c55e]' : 'border-[#ef4444] bg-[#ef4444]'} ${sd.news?.length ? 'ring-2 ring-offset-2 ring-offset-[#111111] ' + (up ? 'ring-[#22c55e]/30' : 'ring-[#ef4444]/30') : ''}`} />
+                            <span className={`relative z-10 w-2.5 h-2.5 rounded-full border-2 ${up ? 'border-[#ef4444] bg-[#ef4444]' : 'border-[#22c55e] bg-[#22c55e]'} ${sd.news?.length ? 'ring-2 ring-offset-2 ring-offset-[#111111] ' + (up ? 'ring-[#ef4444]/30' : 'ring-[#22c55e]/30') : ''}`} />
                             <span className="text-[13px] text-white font-medium">{sd.date}</span>
-                            <span className={`text-[13px] font-mono font-semibold ${up ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                            <span className={`text-[13px] font-mono font-semibold ${up ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                               {up ? '↑' : '↓'} {Math.abs(sd.diff_bp).toFixed(1)}BP
                             </span>
                           </div>
@@ -185,7 +185,7 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
                                 <div key={n.id} onClick={(e) => { e.stopPropagation(); onNewsClick(n.id) }}
                                   className="rounded-lg bg-[#0a0a0a] border border-[#1f1f1f] p-3 hover:bg-[#151515] hover:border-[#2a2a2a] transition-colors cursor-pointer">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.direction === 'positive' ? 'bg-[#22c55e]' : 'bg-[#ef4444]'}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.direction === 'positive' ? 'bg-[#ef4444]' : 'bg-[#22c55e]'}`} />
                                     <span className="text-[13px] text-[#e0e0e0] leading-snug">{n.title}</span>
                                   </div>
                                 </div>

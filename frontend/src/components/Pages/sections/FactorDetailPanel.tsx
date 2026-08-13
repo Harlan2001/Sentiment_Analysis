@@ -49,10 +49,10 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
     const h = Math.max(2, (c / cRange) * ch)
     const by = pt + ch - h
     const alpha = c / cMax
-    const color = alpha > 0.6 ? '#818cf8' : alpha > 0.3 ? '#6366f1' : '#4f46e5'
+    const color = alpha > 0.6 ? '#f59e0b' : alpha > 0.3 ? '#d97706' : '#b45309'
     bars += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${color}" fill-opacity="${(0.4 + alpha * 0.6).toFixed(2)}"/>`
-    bars += `<text x="${(bx + barW / 2).toFixed(1)}" y="${pt + ch + 15}" fill="#8b949e" font-size="10" text-anchor="middle">${days[i]}</text>`
-    bars += `<text x="${(bx + barW / 2).toFixed(1)}" y="${by - 4}" fill="#c4b5fd" font-size="10" text-anchor="middle">${c}</text>`
+    bars += `<text x="${(bx + barW / 2).toFixed(1)}" y="${pt + ch + 15}" fill="#8b949e" font-size="11" text-anchor="middle">${days[i]}</text>`
+    bars += `<text x="${(bx + barW / 2).toFixed(1)}" y="${by - 4}" fill="#fde68a" font-size="11" text-anchor="middle">${c}</text>`
   })
 
   // Y axis labels
@@ -77,7 +77,7 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
         </button>
       </div>
 
-      <div className="mx-auto w-full px-4 md:px-6 pb-16" style={{ maxWidth: '720px' }}>
+      <div className="mx-auto w-full px-4 md:px-6 pb-16" style={{ maxWidth: '1060px' }}>
         <div className="space-y-5 pt-5">
           {/* Header */}
           <div>
@@ -86,8 +86,8 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#1a1a1a] text-[#8b949e] border border-[#2a2a2a]">{data.category}</span>
               ) : null}
             </div>
-            <h1 className="text-[1.8rem] font-semibold text-white">{data.name}</h1>
-            <div className="flex items-center gap-5 mt-2 text-[13px] text-[#8b949e]">
+            <h1 className="text-2xl font-bold text-white">{data.name}</h1>
+            <div className="flex items-center gap-5 mt-2 text-sm text-[#8b949e]">
               <span>7日新闻数 <span className="text-white font-mono font-medium">{data.news_count}</span></span>
               <span>活跃度 <span className="text-white font-mono font-medium">{(data.activity_score * 100).toFixed(0)}%</span></span>
             </div>
@@ -97,7 +97,7 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
           {counts.length > 0 && (
             <div className="detail-card">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-1 h-4 rounded-full bg-[#818cf8]" />
+                <div className="w-1 h-4 rounded-full bg-[#f59e0b]" />
                 <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wide">7日活跃度趋势</span>
               </div>
               <div className="w-full overflow-hidden rounded-lg bg-[#0a0a0a] p-3 pt-4">
@@ -110,14 +110,14 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
           {/* Related News */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-4 rounded-full bg-[#22c55e]" />
+              <div className="w-1 h-4 rounded-full bg-[#ef4444]" />
               <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wide">关联新闻 ({data.related_news?.length || 0})</span>
             </div>
             <div className="space-y-2">
               {data.related_news?.map((n: any) => {
-                const dirCls = n.direction === 'positive' ? 'border-l-[#22c55e]' : n.direction === 'negative' ? 'border-l-[#ef4444]' : 'border-l-[#6b7280]'
+                const dirCls = n.direction === 'positive' ? 'border-l-[#ef4444]' : n.direction === 'negative' ? 'border-l-[#22c55e]' : 'border-l-[#6b7280]'
                 const dirLabel = n.direction === 'positive' ? '利多' : n.direction === 'negative' ? '利空' : '中性'
-                const dirStyle = n.direction === 'positive' ? 'bg-[#22c55e]/15 text-[#22c55e]' : n.direction === 'negative' ? 'bg-[#ef4444]/15 text-[#ef4444]' : 'bg-[#6b7280]/15 text-[#6b7280]'
+                const dirStyle = n.direction === 'positive' ? 'bg-[#ef4444]/15 text-[#ef4444]' : n.direction === 'negative' ? 'bg-[#22c55e]/15 text-[#22c55e]' : 'bg-[#6b7280]/15 text-[#6b7280]'
                 return (
                   <div key={n.id} onClick={() => onNewsClick(n.id)}
                     className={`rounded-xl bg-[#111111] border border-[#2a2a2a] border-l-2 ${dirCls} p-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer`}>

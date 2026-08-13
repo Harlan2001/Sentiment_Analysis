@@ -12,8 +12,8 @@ interface Props {
 
 const PERIOD_ORDER = ['3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '30Y']
 
-const UP_COLOR = '#22c55e'
-const DOWN_COLOR = '#ef4444'
+const UP_COLOR = '#ef4444'
+const DOWN_COLOR = '#22c55e'
 
 /**
  * 生成 Perplexity 风格分段 sparkline SVG

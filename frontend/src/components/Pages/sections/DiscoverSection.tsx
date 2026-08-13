@@ -1,18 +1,22 @@
-﻿import React, { FormEvent, useState, useCallback, useRef } from 'react'
+/**
+ * 发现页 — 新闻（flex-1）+ 市场数据（w-80）
+ * 点击新闻/收益率/因子/摘要/策略后显示对应的详情覆盖层
+ */
+import React, { FormEvent, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DiscoverNewsPanel from './DiscoverNewsPanel'
 import MarketSidePanel from './MarketSidePanel'
 import NewsDetailPanel from './NewsDetailPanel'
 import YieldDetailPanel from './YieldDetailPanel'
 import FactorDetailPanel from './FactorDetailPanel'
-import ForecastDetailPanel from './ForecastDetailPanel'
 import StrategyDetailPanel from './StrategyDetailPanel'
+import ForecastDetailPanel from './ForecastDetailPanel' // main新增，务必补上
 
 type DetailView =
   | { type: 'news'; newsId: number }
   | { type: 'yield'; period: string }
   | { type: 'factor'; factorId: number }
-  | { type: 'forecast' }
+  | { type: 'forecast' } // main新增forecast类型
   | { type: 'strategy' }
   | null
 
@@ -32,7 +36,11 @@ const DiscoverSection: React.FC = () => {
   }, [])
 
   const openDetail = useCallback((view: NonNullable<DetailView>) => {
-    window.history.pushState({ ...window.history.state, detailView: view }, '')
+    try {
+      window.history.pushState({ ...window.history.state, detailView: view }, '')
+    } catch(e) {
+      // 兼容异常兜底
+    }
     setDetailView(view)
   }, [])
 
@@ -67,8 +75,23 @@ const DiscoverSection: React.FC = () => {
       </div>
 
       <form className="market-chat-dock" onSubmit={submitQuestion} ref={formRef}>
-        <textarea value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); formRef.current?.requestSubmit() } }} placeholder="询问关于今日债券市场的任何问题…" rows={2} />
-        <div className="market-chat-actions"><span>BondSense · Agent 对话</span><span className="market-chat-hint">Enter 发送，Shift + Enter 换行</span><button type="submit" disabled={!question.trim()} aria-label="进入新会话">↑</button></div>
+        <textarea
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              formRef.current?.requestSubmit()
+            }
+          }}
+          placeholder="询问关于今日债券市场的任何问题…"
+          rows={2}
+        />
+        <div className="market-chat-actions">
+          <span>BondSense · Agent 对话</span>
+          <span className="market-chat-hint">Enter 发送，Shift + Enter 换行</span>
+          <button type="submit" disabled={!question.trim()} aria-label="进入新会话">↑</button>
+        </div>
       </form>
 
       {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}

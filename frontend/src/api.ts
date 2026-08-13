@@ -957,3 +957,21 @@ export async function fetchStrategyLatest(): Promise<StrategyLatestData> {
     analysis_date: d.analysis_date || '',
   };
 }
+
+// ── 收益日历 API ──────────────────────────────────────────────────
+
+import type { ReturnsCalendarResponse } from '@/types'
+
+export async function fetchReturnsCalendar(params: {
+  start: string;
+  end: string;
+  selected?: string;
+}): Promise<ReturnsCalendarResponse> {
+  const sp = new URLSearchParams();
+  sp.set('start', params.start);
+  sp.set('end', params.end);
+  if (params.selected) sp.set('selected', params.selected);
+  const r = await fetch(`${BASE}/returns/calendar?${sp.toString()}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('收益日历加载失败');
+  return r.json();
+}

@@ -1344,3 +1344,48 @@ export interface MarketPanelResponse {
   ai_summary: AIMarketSummaryData | null;
   strategy_signals: StrategySignalData[];
 }
+
+// ── 收益日历 ──
+
+export interface CalendarDayItem {
+  date: string;
+  weekday: string;
+  bullish_count: number;
+  bearish_count: number;
+  neutral_count: number;
+  active_factors: { id: number; name: string; category: string; news_count: number }[];
+}
+
+export interface YieldChangeItem {
+  label: string;
+  value: number;
+  diff_bp: number;
+  direction: 'up' | 'down' | 'flat';
+}
+
+export interface CalendarNewsItem {
+  id: number;
+  title: string;
+  pub_time: string;
+  source: string;
+  direction: string;
+  reason: string;
+  horizon: string;
+  factors: { id: number; name: string; direction: string }[];
+}
+
+export interface MacroDataSnapshot {
+  code: string;
+  name: string;
+  value: number | null;
+  datestr: string;
+}
+
+export interface ReturnsCalendarResponse {
+  days: CalendarDayItem[];
+  selected_date: string;
+  yields: Record<string, YieldChangeItem>;
+  news: CalendarNewsItem[];
+  macro_data: MacroDataSnapshot[];
+  query: { start: string; end: string };
+}

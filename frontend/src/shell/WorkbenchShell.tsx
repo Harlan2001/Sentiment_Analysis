@@ -12,6 +12,7 @@ const productLinks = [
 /** 市场板块标签 */
 const SECTIONS = [
   { name: '市场', to: '/market' },
+  { name: '因子', to: '/factors' },
   { name: '收益', to: '/returns' },
   { name: '预测', to: '/forecast' },
   { name: '关注列表', to: '/watchlist' },
