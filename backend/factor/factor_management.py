@@ -27,7 +27,7 @@ def get_factors_from_db() -> list:
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
                 cursor.execute(
                     """
-                    SELECT f.code, f.name, f.category, f.factor_type,
+                    SELECT f.id, f.code, f.name, f.category, f.factor_type,
                            COUNT(nf.factor_id) AS news_count,
                            SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS recent_news_count
                     FROM factor f
@@ -61,7 +61,7 @@ def get_factors_paged(page: int = 1, page_size: int = 20) -> dict:
                 cursor.execute("SELECT COUNT(*) AS total FROM factor")
                 total = cursor.fetchone()["total"] or 0
                 cursor.execute(
-                    """SELECT code, name, category, factor_type
+                    """SELECT id, code, name, category, factor_type
                        FROM factor
                        ORDER BY category, code
                        LIMIT %s OFFSET %s""",
