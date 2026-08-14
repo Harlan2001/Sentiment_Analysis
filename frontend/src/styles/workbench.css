@@ -401,3 +401,8 @@ select:focus,
   .strategy-prompt-page--confirmation .strategy-prompt-layout{height:540px!important;min-height:540px!important;max-height:540px!important;overflow:hidden!important}
   .strategy-prompt-page--confirmation .strategy-requirements{height:100%!important;max-height:100%!important;overflow:hidden!important}
 }
+/* Shared Agent composer for the six non-market home sections. */
+.workspace-main{position:relative}
+.home-agent-chat-dock{right:16px!important;bottom:0!important;left:16px!important;border-radius:16px 16px 0 0!important}
+.workspace-main:has(.home-agent-chat-dock) .workspace-content{padding-bottom:132px}
+@media(max-width:900px){.home-agent-chat-dock{right:12px!important;left:12px!important}.workspace-main:has(.home-agent-chat-dock) .workspace-content{padding-bottom:132px}}
