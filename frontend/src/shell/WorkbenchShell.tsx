@@ -185,8 +185,14 @@ export function WorkbenchShell() {
             ))}
           </nav>
         )}
-        <div className="workspace-content"><Outlet /></div>
-        {homeChatPlaceholder && <HomeChatDock className="home-agent-chat-dock" placeholder={homeChatPlaceholder} />}
+        <div className="workspace-content">
+          {homeChatPlaceholder ? (
+            <div className="home-chat-workspace">
+              <div className="home-chat-scroll"><Outlet /></div>
+              <HomeChatDock className="home-agent-chat-dock" placeholder={homeChatPlaceholder} />
+            </div>
+          ) : <Outlet />}
+        </div>
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
       <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />
