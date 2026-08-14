@@ -5,6 +5,7 @@ import { DeletedItemsPanel } from '@/features/account/DeletedItemsPanel'
 import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
+import { HomeChatDock } from '@/features/market/components/HomeChatDock'
 
 // 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
 const MonitorDashboardPanel = lazy(() => import('@/features/monitor/MonitorDashboardPanel'))
@@ -17,6 +18,14 @@ const ROLE_LABELS: Record<string, string> = {
   user: '普通用户',
 }
 
+const HOME_CHAT_PLACEHOLDERS: Record<string, string> = {
+  '/factors': '\u8be2\u95ee\u56e0\u5b50\u8868\u73b0\u3001\u7b5b\u9009\u6761\u4ef6\u6216\u56e0\u5b50\u89e3\u8bfb\u2026',
+  '/returns': '\u8be2\u95ee\u6536\u76ca\u7387\u53d8\u52a8\u3001\u6536\u76ca\u65e5\u5386\u6216\u5173\u8054\u65b0\u95fb\u2026',
+  '/forecast': '\u8be2\u95ee\u9884\u6d4b\u7ed3\u8bba\u3001\u60c5\u666f\u5047\u8bbe\u6216\u98ce\u9669\u63d0\u793a\u2026',
+  '/watchlist': '\u8be2\u95ee\u5173\u6ce8\u6807\u7684\u3001\u5f02\u52a8\u63d0\u9192\u6216\u8ddf\u8e2a\u5efa\u8bae\u2026',
+  '/portfolio': '\u8be2\u95ee\u8d44\u4ea7\u914d\u7f6e\u3001\u7ec4\u5408\u98ce\u9669\u6216\u8c03\u4ed3\u601d\u8def\u2026',
+  '/workflow': '\u8be2\u95ee\u5de5\u4f5c\u6d41\u3001\u4efb\u52a1\u72b6\u6001\u6216\u6570\u636e\u5904\u7406\u8fdb\u5ea6\u2026',
+}
 export function WorkbenchShell() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -35,6 +44,7 @@ export function WorkbenchShell() {
   const [deletedPanelOpen, setDeletedPanelOpen] = useState(false)
   const [monitorPanelOpen, setMonitorPanelOpen] = useState(false)
   const isHome = HOME_PATHS.has(location.pathname)
+  const homeChatPlaceholder = HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
 
   const loadSidebar = useCallback(() => {
@@ -175,7 +185,14 @@ export function WorkbenchShell() {
             ))}
           </nav>
         )}
-        <div className="workspace-content"><Outlet /></div>
+        <div className="workspace-content">
+          {homeChatPlaceholder ? (
+            <div className="home-chat-workspace">
+              <div className="home-chat-scroll"><Outlet /></div>
+              <HomeChatDock className="home-agent-chat-dock" placeholder={homeChatPlaceholder} />
+            </div>
+          ) : <Outlet />}
+        </div>
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
       <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />

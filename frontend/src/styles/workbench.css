@@ -401,3 +401,38 @@ select:focus,
   .strategy-prompt-page--confirmation .strategy-prompt-layout{height:540px!important;min-height:540px!important;max-height:540px!important;overflow:hidden!important}
   .strategy-prompt-page--confirmation .strategy-requirements{height:100%!important;max-height:100%!important;overflow:hidden!important}
 }
+/* Shared Agent composer for the six non-market home sections. */
+.workspace-content:has(.home-chat-workspace){overflow:hidden}
+.home-chat-workspace{position:relative;height:100%;min-height:0}
+.home-chat-scroll{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px 112px 0;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.home-chat-scroll::-webkit-scrollbar{width:8px}
+.home-chat-scroll::-webkit-scrollbar-thumb{border:2px solid #0e0e0e;border-radius:999px;background:#4e4e4e}
+.home-agent-chat-dock{right:auto!important;bottom:0!important;left:16px!important;width:calc(100% - 20rem - 32px);border-radius:16px!important}
+@media(max-width:900px){.home-chat-scroll{padding-right:0}.home-agent-chat-dock{right:16px!important;left:16px!important;width:auto}}
+/* Workflow content must clear the fixed Agent composer. */
+.home-chat-scroll:has(.workflow-page){padding-bottom:164px}
+/* Watchlist: the shared Agent dock occupies only the research pane, never its detail sidebar. */
+.home-chat-workspace:has(.watchlist-workspace) .home-agent-chat-dock{width:calc(100% - 22rem - 32px)}
+/* Details are the only persistent watchlist sidebar state; row selection updates this panel. */
+.watchlist-workspace>aside>div:first-child{display:none}
+/* Align the watchlist research pane with the shared composer; reserve the detail drawer separately. */
+.home-chat-workspace:has(.watchlist-workspace) .home-agent-chat-dock{width:calc(100% - 22rem - 16px)}
+/* The left feed already identifies the item; the detail drawer starts with analysis, not duplicate identity. */
+.watchlist-workspace>aside>div.space-y-5>section:first-child{display:none}
+/* The watchlist dock has explicit boundaries: main pane only, never the 350px detail panel. */
+.home-chat-workspace:has(.watchlist-workspace) .home-agent-chat-dock{left:16px!important;right:22rem!important;width:auto!important}
+/* One shared 22rem boundary: research pane and chat end exactly where details begin. */
+.watchlist-workspace>aside{width:22rem!important}
+.home-chat-workspace:has(.watchlist-workspace) .home-agent-chat-dock{right:22rem!important}
+/* Watchlist owns its scroll area. This removes the outer empty tail and keeps all horizontal measurements in one coordinate system. */
+.home-chat-scroll:has(.watchlist-workspace){overflow:hidden;padding-bottom:0}
+.home-chat-workspace:has(.watchlist-workspace){--watchlist-detail-width:22rem}
+.watchlist-workspace{height:100%;min-height:0;padding-bottom:0!important}
+.watchlist-workspace>main{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:132px!important;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.watchlist-workspace>aside{width:var(--watchlist-detail-width)!important;min-height:0;height:100%;overflow-y:auto}
+.home-chat-workspace:has(.watchlist-workspace) .home-agent-chat-dock{left:16px!important;right:var(--watchlist-detail-width)!important;width:auto!important}
+/* Slightly widen the research pane while keeping its composer and detail boundary aligned. */
+.home-chat-workspace:has(.watchlist-workspace){--watchlist-detail-width:21rem}
+.watchlist-workspace>aside{scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.watchlist-workspace>aside::-webkit-scrollbar{width:8px}
+.watchlist-workspace>aside::-webkit-scrollbar-thumb{border:2px solid #111;border-radius:999px;background:#4e4e4e}

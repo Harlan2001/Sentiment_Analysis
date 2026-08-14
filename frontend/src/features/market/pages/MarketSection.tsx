@@ -2,8 +2,9 @@
  * 发现页 — 新闻（flex-1）+ 市场数据（w-80）
  * 点击新闻/收益率/因子/摘要/策略后显示对应的详情覆盖层
  */
-import React, { FormEvent, useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { HomeChatDock } from '../components/HomeChatDock'
 import DiscoverNewsPanel from '../components/DiscoverNewsPanel'
 import MarketSidePanel from '../components/MarketSidePanel'
 import NewsDetailPanel from '../components/NewsDetailPanel'
@@ -20,9 +21,7 @@ type DetailView =
 
 const MarketSection: React.FC = () => {
   const navigate = useNavigate()
-  const formRef = useRef<HTMLFormElement>(null)
   const [detailView, setDetailView] = useState<DetailView>(null)
-  const [question, setQuestion] = useState('')
 
   React.useEffect(() => {
     const onPop = (event: PopStateEvent) => {
@@ -72,25 +71,7 @@ const MarketSection: React.FC = () => {
         </div>
       </div>
 
-      <form className="market-chat-dock" onSubmit={submitQuestion} ref={formRef}>
-        <textarea
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              formRef.current?.requestSubmit()
-            }
-          }}
-          placeholder="询问关于今日债券市场的任何问题…"
-          rows={2}
-        />
-        <div className="market-chat-actions">
-          <span>BondSense · Agent 对话</span>
-          <span className="market-chat-hint">Enter 发送，Shift + Enter 换行</span>
-          <button type="submit" disabled={!question.trim()} aria-label="进入新会话">↑</button>
-        </div>
-      </form>
+      <HomeChatDock placeholder={'\u8be2\u95ee\u5173\u4e8e\u4eca\u65e5\u503a\u5238\u5e02\u573a\u7684\u4efb\u4f55\u95ee\u9898\u2026'} />
 
       {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'yield' && <YieldDetailPanel period={detailView.period} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
