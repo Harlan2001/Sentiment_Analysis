@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react'
 import { Loading } from '@/components/UI'
 import { API_PREFIX } from '@/constants'
+import { authHeaders } from '@/api'
 
 interface Props { factorId: number; onClose: () => void; onNewsClick: (newsId: number) => void }
 
@@ -13,7 +14,7 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick }) 
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_PREFIX}/discover/factor-detail?factor_id=${factorId}`)
+    fetch(`${API_PREFIX}/discover/factor-detail?factor_id=${factorId}`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))

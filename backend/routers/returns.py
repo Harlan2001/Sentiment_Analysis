@@ -26,12 +26,12 @@ def returns_calendar(
     selected: str = Query(None, description="选中日期 YYYY-MM-DD，默认取 start"),
 ):
     """
-    收益日历聚合接口：
+    收益日历聚合接口（一次返回整周数据，前端本地切换日期，避免重复请求）：
     - 每日利多/利空新闻计数
     - 每日收益率变动（各期限 bp 变化）
     - 每日活跃因子 top5
-    - 本月宏观数据
-    - 选中日期的方向性新闻列表
+    - 每日方向性新闻列表
+    - 各月宏观数据
     """
     try:
         start_dt = datetime.strptime(start, "%Y-%m-%d").date()
@@ -41,13 +41,18 @@ def returns_calendar(
     if start_dt > end_dt:
         return {"error": "start 不能晚于 end"}
 
-    selected_dt = datetime.strptime(selected, "%Y-%m-%d").date() if selected else start_dt
-
     periods = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
     period_labels = {
         "3M": "3月", "6M": "6月", "1Y": "1年", "2Y": "2年", "3Y": "3年",
         "5Y": "5年", "7Y": "7年", "10Y": "10年", "30Y": "30年",
     }
+
+    # 本周日期列表（含前一天用于计算每日收益率变动）
+    week_days: List[date] = []
+    current = start_dt
+    while current <= end_dt:
+        week_days.append(current)
+        current += timedelta(days=1)
 
     with get_db_connection() as conn:
         cur = conn.cursor()
@@ -61,13 +66,10 @@ def returns_calendar(
                GROUP BY DATE(n.pub_time), a.direction""",
             (start, end),
         )
-        dir_rows = cur.fetchall()
-
         day_dir: Dict[str, Dict[str, int]] = defaultdict(lambda: {"利多": 0, "利空": 0, "中性": 0})
-        for d, direction, cnt in dir_rows:
+        for d, direction, cnt in cur.fetchall():
             ds = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
             direction_str = str(direction) if direction else "中性"
-            # 统一方向标签
             if direction_str in ("positive", "bullish", "利多", "利好", "涨"):
                 day_dir[ds]["利多"] += cnt
             elif direction_str in ("negative", "bearish", "利空", "跌"):
@@ -75,34 +77,33 @@ def returns_calendar(
             else:
                 day_dir[ds]["中性"] += cnt
 
-        # ── 2. 收益率变动（每个期限当天 vs 前一天 bp 差异）──
-        yield_changes: Dict[str, List[Dict]] = {}
+        # ── 2. 每日收益率变动（整周，按期限一次查询 + Python 计算逐日 diff）──
+        yields_by_date: Dict[str, Dict[str, Dict]] = defaultdict(dict)
+        prev_start = start_dt - timedelta(days=1)
         for p in periods:
             cur.execute(
                 """SELECT date, value FROM yield_data
-                   WHERE period = %s AND date >= DATE_SUB(%s, INTERVAL 1 DAY) AND date <= %s
-                   ORDER BY date DESC""",
-                (p, selected_dt - timedelta(days=1), selected_dt),
+                   WHERE period = %s AND date >= %s AND date <= %s
+                   ORDER BY date ASC""",
+                (p, prev_start, end_dt),
             )
-            ypts = cur.fetchall()
-            if len(ypts) >= 2:
-                today_val = float(ypts[0][1])
-                prev_val = float(ypts[1][1])
-                diff_bp = round((today_val - prev_val) * 100, 1)
-                direction = "up" if diff_bp > 0 else ("down" if diff_bp < 0 else "flat")
-                yield_changes[p] = {
-                    "label": period_labels.get(p, p),
-                    "value": today_val,
-                    "diff_bp": diff_bp,
-                    "direction": direction,
-                }
-            elif len(ypts) == 1:
-                yield_changes[p] = {
-                    "label": period_labels.get(p, p),
-                    "value": float(ypts[0][1]),
-                    "diff_bp": 0,
-                    "direction": "flat",
-                }
+            val_map: Dict[str, float] = {}
+            for d, v in cur.fetchall():
+                ds = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
+                val_map[ds] = float(v)
+            for day in week_days:
+                ds = day.strftime("%Y-%m-%d")
+                prev_ds = (day - timedelta(days=1)).strftime("%Y-%m-%d")
+                if ds in val_map:
+                    prev_val = val_map.get(prev_ds)
+                    diff_bp = round((val_map[ds] - prev_val) * 100, 1) if prev_val is not None else 0
+                    direction = "up" if diff_bp > 0 else ("down" if diff_bp < 0 else "flat")
+                    yields_by_date[ds][p] = {
+                        "label": period_labels.get(p, p),
+                        "value": val_map[ds],
+                        "diff_bp": diff_bp,
+                        "direction": direction,
+                    }
 
         # ── 3. 每日活跃因子 top5（按新闻数）──
         cur.execute(
@@ -115,10 +116,8 @@ def returns_calendar(
                ORDER BY d, cnt DESC""",
             (start, end),
         )
-        factor_rows = cur.fetchall()
-
         day_factors: Dict[str, List[Dict]] = defaultdict(list)
-        for d, fid, fname, fcat, cnt in factor_rows:
+        for d, fid, fname, fcat, cnt in cur.fetchall():
             ds = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
             if len(day_factors[ds]) < 5:
                 day_factors[ds].append({
@@ -126,18 +125,42 @@ def returns_calendar(
                     "news_count": cnt,
                 })
 
-        # ── 4. 选中日期方向性新闻列表 ──
+        # ── 4. 整周方向性新闻列表（一次查询 + 批量取因子）──
         cur.execute(
             """SELECT n.id, n.title, n.pub_time, n.source, a.direction, a.reason, a.horizon
                FROM news n
                JOIN analysis a ON n.id = a.news_id AND a.model = 'doubao'
-               WHERE DATE(n.pub_time) = %s
+               WHERE DATE(n.pub_time) BETWEEN %s AND %s
                  AND a.direction IS NOT NULL
                ORDER BY n.pub_time DESC""",
-            (selected_dt,),
+            (start, end),
         )
-        selected_news = []
-        for r in cur.fetchall():
+        news_rows = cur.fetchall()
+
+        news_factors_map: Dict[int, List[Dict]] = defaultdict(list)
+        if news_rows:
+            news_ids = [r[0] for r in news_rows]
+            placeholders = ",".join(["%s"] * len(news_ids))
+            cur.execute(
+                f"""SELECT nf.news_id, f.id, f.name, nf.direction, nf.model
+                    FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
+                    WHERE nf.news_id IN ({placeholders})
+                    ORDER BY nf.news_id,
+                             CASE nf.model WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ELSE 2 END,
+                             f.id""",
+                tuple(news_ids),
+            )
+            for nid, fid, fname, fdir, _model in cur.fetchall():
+                if len(news_factors_map[nid]) >= 3:
+                    continue
+                fd_raw = str(fdir) if fdir else ""
+                fd = "利多" if fd_raw in ("positive", "bullish", "利多") else (
+                    "利空" if fd_raw in ("negative", "bearish", "利空") else ""
+                )
+                news_factors_map[nid].append({"id": fid, "name": fname or "", "direction": fd})
+
+        news_by_date: Dict[str, List[Dict]] = defaultdict(list)
+        for r in news_rows:
             direction_raw = str(r[4]) if r[4] else "中性"
             if direction_raw in ("positive", "bullish", "利多", "利好", "涨"):
                 direction = "利多"
@@ -147,77 +170,61 @@ def returns_calendar(
                 direction = "中性"
 
             nid = r[0]
-            # 取该新闻的关联因子
-            cur.execute(
-                """SELECT f.id, f.name, nf.direction
-                   FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
-                   WHERE nf.news_id = %s
-                   ORDER BY CASE nf.model WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ELSE 2 END
-                   LIMIT 3""",
-                (nid,),
-            )
-            factors = []
-            for fr in cur.fetchall():
-                fd_raw = str(fr[2]) if fr[2] else ""
-                fd = "利多" if fd_raw in ("positive", "bullish", "利多") else (
-                    "利空" if fd_raw in ("negative", "bearish", "利空") else ""
-                )
-                factors.append({"id": fr[0], "name": fr[1] or "", "direction": fd})
-
-            selected_news.append({
+            pub_dt = r[2]
+            ds = pub_dt.strftime("%Y-%m-%d") if hasattr(pub_dt, "strftime") else str(pub_dt)[:10]
+            news_by_date[ds].append({
                 "id": nid,
                 "title": r[1] or "",
-                "pub_time": r[2].strftime("%Y-%m-%d %H:%M:%S") if r[2] else "",
+                "pub_time": pub_dt.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pub_dt, "strftime") else str(pub_dt),
                 "source": r[3] or "",
                 "direction": direction,
                 "reason": r[5] or "",
                 "horizon": r[6] or "",
-                "factors": factors,
+                "factors": news_factors_map.get(nid, []),
             })
 
-        # ── 5. 本月宏观数据 ──
-        current_month = selected_dt.strftime("%Y%m")
-        macro_data = []
-        try:
-            cur.execute(
-                """SELECT zbcode, name, value, datestr
-                   FROM macro_indicator_data
-                   WHERE datestr = %s
-                   LIMIT 10""",
-                (current_month,),
-            )
-            for mr in cur.fetchall():
-                macro_data.append({
-                    "code": mr[0],
-                    "name": mr[1] or "",
-                    "value": float(mr[2]) if mr[2] is not None else None,
-                    "datestr": mr[3],
-                })
-        except Exception as e:
-            logger.warning("returns/calendar macro_data query failed: %s", e)
+        # ── 5. 各月宏观数据 ──
+        months = sorted({day.strftime("%Y%m") for day in week_days})
+        macro_by_month: Dict[str, List[Dict]] = {}
+        for m in months:
+            try:
+                cur.execute(
+                    """SELECT zbcode, name, value, datestr
+                       FROM macro_indicator_data
+                       WHERE datestr = %s
+                       LIMIT 10""",
+                    (m,),
+                )
+                macro_by_month[m] = [
+                    {
+                        "code": mr[0],
+                        "name": mr[1] or "",
+                        "value": float(mr[2]) if mr[2] is not None else None,
+                        "datestr": mr[3],
+                    }
+                    for mr in cur.fetchall()
+                ]
+            except Exception as e:
+                logger.warning("returns/calendar macro query failed for %s: %s", m, e)
 
         # ── 构建 days 数组 ──
         days = []
-        current = start_dt
-        while current <= end_dt:
-            ds = current.strftime("%Y-%m-%d")
-            wd_idx = current.weekday()  # 0=周一 ... 6=周日
+        for day in week_days:
+            ds = day.strftime("%Y-%m-%d")
             dir_counts = day_dir.get(ds, {"利多": 0, "利空": 0, "中性": 0})
             days.append({
                 "date": ds,
-                "weekday": WEEKDAYS[wd_idx],
+                "weekday": WEEKDAYS[day.weekday()],
                 "bullish_count": dir_counts["利多"],
                 "bearish_count": dir_counts["利空"],
                 "neutral_count": dir_counts["中性"],
                 "active_factors": day_factors.get(ds, []),
             })
-            current += timedelta(days=1)
 
     return {
         "days": days,
-        "selected_date": selected_dt.strftime("%Y-%m-%d"),
-        "yields": yield_changes,
-        "news": selected_news,
-        "macro_data": macro_data,
+        "yields_by_date": dict(yields_by_date),
+        "news_by_date": dict(news_by_date),
+        "macro_by_month": macro_by_month,
         "query": {"start": start, "end": end},
     }

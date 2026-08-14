@@ -1,6 +1,10 @@
 /**
  * 监控看板 — 全屏详情页（仅保留左侧边栏）
- * 一级导航：系统监控 / 用户管理 / 流量统计（按角色权限展示，与旧版一致）
+ * 一级导航（按角色权限展示，与旧版一致）：
+ *   系统监控 — admin + manager
+ *   用户管理 — admin
+ *   部门概览 — manager
+ *   流量统计 — 所有用户
  * 二级导航由各 Tab 内部管理
  */
 import React, { useEffect, useMemo, useState } from 'react'
@@ -8,9 +12,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { SystemMonitorTab } from './SystemMonitorTab'
 import { UserManagementTab } from './UserManagementTab'
 import { TrafficStatsTab } from './TrafficStatsTab'
+import DeptOverviewPanel from '@/components/Dashboard/DeptOverviewPanel'
 import './monitor-dashboard.css'
 
-type TopTab = 'system' | 'user' | 'traffic'
+type TopTab = 'system' | 'user' | 'dept' | 'traffic'
 
 export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { isAdmin, role } = useAuth()
@@ -22,16 +27,19 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
       [
         { key: 'system' as TopTab, label: '系统监控', visible: canViewMonitor },
         { key: 'user' as TopTab, label: '用户管理', visible: isAdmin },
+        { key: 'dept' as TopTab, label: '部门概览', visible: isManager },
         { key: 'traffic' as TopTab, label: '流量统计', visible: true },
       ]
     ).filter((t) => t.visible)
-  }, [canViewMonitor, isAdmin])
+  }, [canViewMonitor, isAdmin, isManager])
 
-  const [tab, setTab] = useState<TopTab>(canViewMonitor ? 'system' : 'traffic')
+  const defaultTab = (): TopTab => (isAdmin ? 'system' : isManager ? 'dept' : 'traffic')
+  const [tab, setTab] = useState<TopTab>(defaultTab())
 
   useEffect(() => {
-    if (open) setTab(canViewMonitor ? 'system' : 'traffic')
-  }, [open, canViewMonitor])
+    if (open) setTab(defaultTab())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isAdmin, isManager])
 
   useEffect(() => {
     if (!open) return
@@ -70,6 +78,7 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
         <div className="monitor-drawer-body">
           {tab === 'system' && <SystemMonitorTab />}
           {tab === 'user' && <UserManagementTab />}
+          {tab === 'dept' && <DeptOverviewPanel />}
           {tab === 'traffic' && <TrafficStatsTab />}
         </div>
       </section>

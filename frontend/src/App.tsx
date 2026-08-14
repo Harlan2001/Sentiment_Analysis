@@ -1,47 +1,51 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/Layout/MainLayout'
-import {
-  NewsPage,
-  FactorPage,
-  PredictionPage,
-  AgentPage,
-  StrategyListPage,
-  ChangePage,
-  LoginPage,
-  DashboardPage,
-  MacroDataPage,
-  ResearchListPage,
-  ResearchDetailPage,
-  AiStrategyGenerationPreviewPage,
-  AiStrategyHistoryPage,
-} from './components/Pages'
-import {
-  MarketSection,
-  FactorsSection,
-  ReturnsSection,
-  ForecastSection,
-  WatchlistSection,
-  PortfolioSection,
-  WorkflowSection,
-} from './components/Pages/sections'
 import { useAuth } from './contexts/AuthContext'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
 import { Loading } from './components/UI/Loading'
 import { WorkbenchShell } from './shell/WorkbenchShell'
 import { PlaceholderPage } from './shell/PlaceholderPage'
-import { HomePage } from './features/home/HomePage'
-import { ChatPage } from './features/chat/ChatPage'
-import { ComputerPage } from './features/computer/ComputerPage'
-import { ReportGenerationPage } from './features/computer/ReportGenerationPage'
-import { ReportGenerationDetailPage } from './features/computer/ReportGenerationDetailPage'
-import { StrategyPage } from './features/computer/StrategyPage'
-import { NewsPage as ComputerNewsPage } from './features/computer/NewsPage'
-import { StrategyPromptPage } from './features/computer/StrategyPromptPage'
-import { SkillsPage } from './features/custom/SkillsPage'
-import { McpPage } from './features/custom/McpPage'
-import { ProjectManagementPage } from './features/project/ProjectManagementPage'
-import { ProjectCreatePage } from './features/project/ProjectCreatePage'
+
+// 旧页面（不依赖 ECharts，直接导入）
+import AgentPage from './components/Pages/AgentPage'
+import StrategyListPage from './components/Pages/StrategyListPage'
+import ChangePage from './components/Pages/ChangePage'
+import LoginPage from './components/Pages/LoginPage'
+import ResearchListPage from './components/Pages/ResearchListPage'
+import ResearchDetailPage from './components/Pages/ResearchDetailPage'
+import AiStrategyGenerationPreviewPage from './components/Pages/AiStrategyGenerationPreviewPage'
+import AiStrategyHistoryPage from './components/Pages/AiStrategyHistoryPage'
+
+// 工作台板块（不依赖 ECharts，直接导入）
+import MarketSection from './components/Pages/sections/DiscoverSection'
+import FactorsSection from './components/Pages/sections/FactorsSection'
+import ReturnsSection from './components/Pages/sections/ReturnsSection'
+import WatchlistSection from './components/Pages/sections/WatchlistSection'
+import PortfolioSection from './components/Pages/sections/PortfolioSection'
+import WorkflowSection from './components/Pages/sections/WorkflowSection'
+
+// 依赖 ECharts 的页面懒加载，避免首屏加载 1MB+ 的 ECharts
+const NewsPage = lazy(() => import('./components/Pages/NewsPage'))
+const FactorPage = lazy(() => import('./components/Pages/FactorPage'))
+const PredictionPage = lazy(() => import('./components/Pages/PredictionPage'))
+const DashboardPage = lazy(() => import('./components/Pages/DashboardPage'))
+const MacroDataPage = lazy(() => import('./components/Pages/MacroDataPage'))
+const ForecastSection = lazy(() => import('./components/Pages/sections/ForecastSection'))
+
+// 工作台功能页（懒加载，减小首屏体积）
+const HomePage = lazy(() => import('./features/home/HomePage').then((m) => ({ default: m.HomePage })))
+const ChatPage = lazy(() => import('./features/chat/ChatPage').then((m) => ({ default: m.ChatPage })))
+const ComputerPage = lazy(() => import('./features/computer/ComputerPage').then((m) => ({ default: m.ComputerPage })))
+const ReportGenerationPage = lazy(() => import('./features/computer/ReportGenerationPage').then((m) => ({ default: m.ReportGenerationPage })))
+const ReportGenerationDetailPage = lazy(() => import('./features/computer/ReportGenerationDetailPage').then((m) => ({ default: m.ReportGenerationDetailPage })))
+const StrategyPage = lazy(() => import('./features/computer/StrategyPage').then((m) => ({ default: m.StrategyPage })))
+const ComputerNewsPage = lazy(() => import('./features/computer/NewsPage').then((m) => ({ default: m.NewsPage })))
+const StrategyPromptPage = lazy(() => import('./features/computer/StrategyPromptPage').then((m) => ({ default: m.StrategyPromptPage })))
+const SkillsPage = lazy(() => import('./features/custom/SkillsPage').then((m) => ({ default: m.SkillsPage })))
+const McpPage = lazy(() => import('./features/custom/McpPage').then((m) => ({ default: m.McpPage })))
+const ProjectManagementPage = lazy(() => import('./features/project/ProjectManagementPage').then((m) => ({ default: m.ProjectManagementPage })))
+const ProjectCreatePage = lazy(() => import('./features/project/ProjectCreatePage').then((m) => ({ default: m.ProjectCreatePage })))
 import './features/computer/ReportGeneration.css'
 
 /**
@@ -51,7 +55,8 @@ import './features/computer/ReportGeneration.css'
  */
 function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<Loading text="加载中..." />}>
+      <Routes>
       {/* Workspace shell and market pages */}
       <Route element={<WorkbenchShell />}>
         <Route path="/" element={<Navigate to="/market" replace />} />
@@ -59,7 +64,7 @@ function AppRoutes() {
         <Route path="/market" element={<MarketSection />} />
         <Route path="/factors" element={<FactorsSection />} />
         <Route path="/returns" element={<ReturnsSection />} />
-        <Route path="/forecast" element={<ForecastSection />} />
+        <Route path="/forecast" element={<Suspense fallback={<Loading text="加载中..." />}><ForecastSection /></Suspense>} />
         <Route path="/watchlist" element={<WatchlistSection />} />
         <Route path="/portfolio" element={<PortfolioSection />} />
         <Route path="/workflow" element={<WorkflowSection />} />
@@ -109,7 +114,8 @@ function AppRoutes() {
       </Route>
 
       <Route path="*" element={<Navigate to="/market" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }
 

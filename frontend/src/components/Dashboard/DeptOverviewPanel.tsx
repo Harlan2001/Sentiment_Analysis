@@ -2,10 +2,10 @@
  * 部门概览 — 经理专属面板
  * 全局汇总卡片 + 部门行为图表 + Token趋势 + 模型分布 + 用户排行
  */
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { fetchTokenTrend, fetchTokenByModel, fetchUserTokenList } from '@/api'
-import { getPageTitle } from '@/config/labels'
+import { getPageTitle, matchNewPage, NEW_PAGE_GROUPS } from '@/config/labels'
 import type { TokenTrendItem, TokenModelDist, UserTokenItem } from '@/types'
 
 const API_PREFIX = '/sapi'
@@ -198,31 +198,39 @@ const DeptOverviewPanel: React.FC = () => {
     }
   }, [behavior?.hourly_heatmap])
 
-  const ringOption = useCallback(
-    () => ({
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: 'rgba(17,24,39,0.95)',
-        borderColor: '#374151',
-        textStyle: { color: '#e5e7eb', fontSize: 12 },
+  const sunburstData = useMemo(() => {
+    if (!behavior?.page_distribution?.length) return []
+    const countMap: Record<string, number> = {}
+    for (const d of behavior.page_distribution) {
+      const key = matchNewPage(d.page_route)
+      if (key) countMap[key] = (countMap[key] || 0) + d.count
+    }
+    return Object.entries(NEW_PAGE_GROUPS).map(([group, routes]) => ({
+      name: group,
+      children: routes.map((r) => ({ name: getPageTitle(r), value: countMap[r] || 0 })),
+    }))
+  }, [behavior?.page_distribution])
+
+  const sunburstOption = {
+    tooltip: {
+      backgroundColor: 'rgba(17,24,39,0.95)',
+      borderColor: '#374151',
+      textStyle: { color: '#e5e7eb', fontSize: 12 },
+      formatter: (p: { name: string; value?: number }) =>
+        `${p.name}<br/>访问量: <b>${p.value ?? 0}</b>`,
+    },
+    series: [
+      {
+        type: 'sunburst',
+        data: sunburstData,
+        radius: ['15%', '90%'],
+        emphasis: { focus: 'ancestor' },
+        itemStyle: { borderWidth: 1, borderColor: '#111827' },
+        label: { color: '#e5e7eb', fontSize: 11 },
+        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'],
       },
-      legend: { orient: 'vertical', right: 5, top: 'center', textStyle: { color: '#9ca3af', fontSize: 9 } },
-      series: [
-        {
-          type: 'pie',
-          radius: ['45%', '70%'],
-          center: ['35%', '50%'],
-          label: { show: false },
-          data: (behavior?.page_distribution || []).map((d, i) => ({
-            name: getPageTitle(d.page_title) || d.page_title,
-            value: d.count,
-            itemStyle: { color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'][i % 7] },
-          })),
-        },
-      ],
-    }),
-    [behavior?.page_distribution]
-  )
+    ],
+  }
 
   const barOption = useCallback(
     () => ({
@@ -356,8 +364,8 @@ const DeptOverviewPanel: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-4">
           <div className="text-xs text-gray-400 font-medium mb-2">📊 页面访问分布</div>
-          {(behavior?.page_distribution || []).length > 0 ? (
-            <ReactECharts option={ringOption()} style={{ height: 220 }} opts={{ renderer: 'svg' }} />
+          {sunburstData.length > 0 ? (
+            <ReactECharts option={sunburstOption} style={{ height: 260 }} opts={{ renderer: 'svg' }} />
           ) : (
             <div className="text-gray-500 text-sm py-10 text-center">暂无数据</div>
           )}

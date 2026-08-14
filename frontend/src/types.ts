@@ -1383,9 +1383,8 @@ export interface MacroDataSnapshot {
 
 export interface ReturnsCalendarResponse {
   days: CalendarDayItem[];
-  selected_date: string;
-  yields: Record<string, YieldChangeItem>;
-  news: CalendarNewsItem[];
-  macro_data: MacroDataSnapshot[];
+  yields_by_date: Record<string, Record<string, YieldChangeItem>>;
+  news_by_date: Record<string, CalendarNewsItem[]>;
+  macro_by_month: Record<string, MacroDataSnapshot[]>;
   query: { start: string; end: string };
 }

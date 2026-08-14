@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react'
 import { Loading } from '@/components/UI'
 import { API_PREFIX } from '@/constants'
+import { authHeaders } from '@/api'
 
 interface Props { onClose: () => void }
 function clean(s: any): string { if (!s) return ''; return String(s).replace(/[\ud800-\udfff]/g, '?') }
@@ -44,7 +45,7 @@ const StrategyDetailPanel: React.FC<Props> = ({ onClose }) => {
 
   useEffect(() => {
     let c = false
-    fetch(`${API_PREFIX}/ai-strategy-recommendation/latest`)
+    fetch(`${API_PREFIX}/ai-strategy-recommendation/latest`, { headers: authHeaders() })
       .then(r => { if (!r.ok) throw Error(); return r.json() })
       .then(raw => { if (!c) { setData((raw?.data) || raw || {}); setLoading(false) } })
       .catch(() => { if (!c) { setErr(true); setLoading(false) } })

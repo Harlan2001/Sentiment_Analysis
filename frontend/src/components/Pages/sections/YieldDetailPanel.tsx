@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Loading } from '@/components/UI'
 import { API_PREFIX } from '@/constants'
+import { authHeaders } from '@/api'
 
 interface Props { period: string; onClose: () => void; onNewsClick: (newsId: number) => void }
 
@@ -19,7 +20,7 @@ const YieldDetailPanel: React.FC<Props> = ({ period, onClose, onNewsClick }) => 
   const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch(`${API_PREFIX}/discover/yield-detail?period=${period}`)
+    fetch(`${API_PREFIX}/discover/yield-detail?period=${period}`, { headers: authHeaders() })
       .then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [period])
 

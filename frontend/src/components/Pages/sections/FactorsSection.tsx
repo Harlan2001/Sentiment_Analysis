@@ -3,7 +3,7 @@
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchAllFactors, fetchMacroIndicators, fetchMacroData } from '@/api'
+import { fetchAllFactors, fetchFactorsPage, fetchMacroIndicators, fetchMacroData } from '@/api'
 import { Skeleton } from '@/components/UI'
 
 const PAGE_SIZE = 20
@@ -40,15 +40,25 @@ function FactorLibrary() {
   const [sort, setSort] = useState('heat')
   const [page, setPage] = useState(1)
 
-  const { data, isLoading, isError } = useQuery({
+  // 第一页因子（快速首屏显示）
+  const { data: firstPageData, isLoading: firstLoading, isError: firstError } = useQuery({
+    queryKey: ['factors-page', 1],
+    queryFn: () => fetchFactorsPage(1, PAGE_SIZE),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 全量因子（后台加载，用于分类/搜索/排序）
+  const { data: allData } = useQuery({
     queryKey: ['factors-all'],
     queryFn: fetchAllFactors,
     staleTime: 5 * 60 * 1000,
   })
 
+  const fullLoaded = !!allData?.factors
+
   const factors = useMemo(() => {
-    if (!data?.factors) return []
-    let list = data.factors.map((f: any) => ({
+    const source = fullLoaded ? allData.factors : (firstPageData?.factors || [])
+    let list = source.map((f: any) => ({
       code: f.code || '',
       name: f.name || f.code || '',
       category: mapCategory(f.category || ''),
@@ -58,30 +68,33 @@ function FactorLibrary() {
       events: Math.floor(Math.random() * 20) + 1,
       updated: randomTime(),
     }))
-    if (category !== '全部') list = list.filter((f: any) => f.category === category)
-    if (query.trim()) {
-      const q = query.trim().toLowerCase()
-      list = list.filter((f: any) => (f.name + f.code).toLowerCase().includes(q))
+    if (fullLoaded) {
+      if (category !== '全部') list = list.filter((f: any) => f.category === category)
+      if (query.trim()) {
+        const q = query.trim().toLowerCase()
+        list = list.filter((f: any) => (f.name + f.code).toLowerCase().includes(q))
+      }
+      if (sort === 'heat') list.sort((a: any, b: any) => b.events - a.events)
+      else if (sort === 'name') list.sort((a: any, b: any) => a.name.localeCompare(b.name, 'zh'))
     }
-    if (sort === 'heat') list.sort((a: any, b: any) => b.events - a.events)
-    else if (sort === 'name') list.sort((a: any, b: any) => a.name.localeCompare(b.name, 'zh'))
     return list
-  }, [data, category, query, sort])
+  }, [allData, firstPageData, fullLoaded, category, query, sort])
 
-  const totalPages = Math.max(1, Math.ceil(factors.length / PAGE_SIZE))
+  const totalFactors = fullLoaded ? allData.factors.length : (firstPageData?.total || 0)
+  const totalPages = fullLoaded ? Math.max(1, Math.ceil(factors.length / PAGE_SIZE)) : 1
   // Reset page when filter changes
   useMemo(() => { setPage(1) }, [category, query, sort])
   const paged = factors.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  if (isLoading) return <div className="space-y-3"><Skeleton height="48px" variant="rectangular" /><Skeleton height="240px" variant="rectangular" /></div>
-  if (isError) return <div className="text-center py-12 text-gray-500 text-sm">因子数据加载失败</div>
+  if (firstLoading && !firstPageData) return <div className="space-y-3"><Skeleton height="48px" variant="rectangular" /><Skeleton height="240px" variant="rectangular" /></div>
+  if (firstError && !firstPageData) return <div className="text-center py-12 text-gray-500 text-sm">因子数据加载失败</div>
 
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-bold text-white">因子库</h2>
-          <span className="text-sm text-gray-500">{factors.length} 个因子</span>
+          <span className="text-sm text-gray-500">{totalFactors} 个因子{!fullLoaded && <span className="ml-1 text-gray-600">· 正在加载全部…</span>}</span>
         </div>
         <div className="flex items-center gap-2">
           {(['heat', 'name'] as const).map(s => (

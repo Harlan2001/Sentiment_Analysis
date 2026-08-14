@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from backend.config.config import API_PREFIX
-from backend.factor.factor_management import get_factors_from_db
+from backend.factor.factor_management import get_factors_from_db, get_factors_paged
 
 router = APIRouter(prefix=API_PREFIX, tags=["factors"])
 
@@ -12,6 +12,15 @@ router = APIRouter(prefix=API_PREFIX, tags=["factors"])
 def get_all_factors_api():
     factors = get_factors_from_db()
     return {"factors": factors, "structure": factors}
+
+
+@router.get("/factors/paged")
+def get_factors_paged_api(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    """分页返回因子基础信息（不含新闻活跃度聚合），用于因子库首屏快速加载"""
+    return get_factors_paged(page, page_size)
 
 
 @router.get("/factors/by-category/{category}")

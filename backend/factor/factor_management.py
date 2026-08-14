@@ -47,6 +47,33 @@ def get_factors_from_db() -> list:
         raise
 
 
+def get_factors_paged(page: int = 1, page_size: int = 20) -> dict:
+    """分页加载因子基础信息（不做新闻活跃度聚合，查询更快）。
+
+    用于因子库首屏快速展示：仅返回 code/name/category/factor_type + 总数。
+    """
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    offset = (page - 1) * page_size
+    try:
+        with pymysql.connect(**MYSQL_CONFIG) as conn:
+            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+                cursor.execute("SELECT COUNT(*) AS total FROM factor")
+                total = cursor.fetchone()["total"] or 0
+                cursor.execute(
+                    """SELECT code, name, category, factor_type
+                       FROM factor
+                       ORDER BY category, code
+                       LIMIT %s OFFSET %s""",
+                    (page_size, offset),
+                )
+                rows = list(cursor.fetchall())
+    except Exception as e:
+        logger.error("分页加载因子失败: %s", e, exc_info=True)
+        raise
+    return {"factors": rows, "total": total, "page": page, "page_size": page_size}
+
+
 def get_factor_codes() -> Set[str]:
     """获取所有因子代码"""
     return {f["code"] for f in get_factors_from_db()}

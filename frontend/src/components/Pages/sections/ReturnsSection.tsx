@@ -48,8 +48,8 @@ const ReturnsSection: React.FC = () => {
   const { start, end } = useMemo(() => getWeekRange(baseDate), [weekOffset])
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['returns-calendar', start, end, selectedDate],
-    queryFn: () => fetchReturnsCalendar({ start, end, selected: selectedDate }),
+    queryKey: ['returns-calendar', start, end],
+    queryFn: () => fetchReturnsCalendar({ start, end }),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -71,13 +71,22 @@ const ReturnsSection: React.FC = () => {
     return `${formatDateLabel(start)}-${formatDateLabel(end)}`
   }, [data, start, end])
 
+  const selectedYields = useMemo(() => {
+    return data?.yields_by_date?.[selectedDate] || {}
+  }, [data, selectedDate])
+
+  const selectedMonth = selectedDate.slice(0, 7).replace('-', '')
+  const selectedMacro = useMemo(() => {
+    return data?.macro_by_month?.[selectedMonth] || []
+  }, [data, selectedMonth])
+
   const { liduoNews, likongNews } = useMemo(() => {
-    if (!data) return { liduoNews: [], likongNews: [] }
+    const news = data?.news_by_date?.[selectedDate] || []
     return {
-      liduoNews: data.news.filter(n => n.direction === '利多'),
-      likongNews: data.news.filter(n => n.direction === '利空'),
+      liduoNews: news.filter(n => n.direction === '利多'),
+      likongNews: news.filter(n => n.direction === '利空'),
     }
-  }, [data])
+  }, [data, selectedDate])
 
   const activeFactors = useMemo(() => {
     return data?.days.find(d => d.date === selectedDate)?.active_factors || []
@@ -165,12 +174,12 @@ const ReturnsSection: React.FC = () => {
             </div>
 
             {/* ── 国债收益率变动 ── */}
-            {Object.keys(data.yields).length > 0 && (
+            {Object.keys(selectedYields).length > 0 && (
               <div className="rounded-xl border border-[#2a2a2e] bg-[#111111] p-4">
                 <h3 className="text-xs font-medium text-gray-500 mb-3">国债收益率变动</h3>
                 <div className="grid grid-cols-5 sm:grid-cols-9 gap-2">
                   {['3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','30Y'].map(p => {
-                    const item = data.yields[p]
+                    const item = selectedYields[p]
                     if (!item) return null
                     return (
                       <div key={p} className="text-center">
@@ -248,13 +257,13 @@ const ReturnsSection: React.FC = () => {
             </div>
 
             {/* ── 本月宏观数据 ── */}
-            {data.macro_data.length > 0 && (
+            {selectedMacro.length > 0 && (
               <div className="rounded-xl border border-[#2a2a2e] bg-[#111111] p-4">
                 <h3 className="text-xs font-medium text-gray-500 mb-3">
                   本月宏观数据（{formatMonthLabel(selectedDate)}）
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {data.macro_data.map(m => (
+                  {selectedMacro.map(m => (
                     <span key={m.code} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1b1e] border border-[#2a2a2e] text-sm">
                       <span className="text-gray-400">{m.name}</span>
                       <span className="text-white font-medium">{m.value != null ? m.value : '-'}</span>

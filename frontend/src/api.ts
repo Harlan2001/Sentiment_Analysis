@@ -51,7 +51,7 @@ const BASE = API_PREFIX
 /**
  * 获取认证请求头（如果已登录）
  */
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const token = storage.get<string>('auth_token')
   if (token) {
     return { Authorization: `Bearer ${token}` }
@@ -229,6 +229,19 @@ export async function fetchNewsByFactor(factorCode: string, model?: string): Pro
 
 export async function fetchAllFactors(): Promise<AllFactorsResponse> {
   const r = await fetch(`${BASE}/factors`, { headers: authHeaders() })
+  return r.json()
+}
+
+export interface FactorsPagedResponse {
+  factors: { code: string; name: string; category: string; factor_type: string }[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export async function fetchFactorsPage(page: number = 1, pageSize: number = 20): Promise<FactorsPagedResponse> {
+  const r = await fetch(`${BASE}/factors/paged?page=${page}&page_size=${pageSize}`, { headers: authHeaders() })
+  if (!r.ok) throw new Error('因子列表加载失败')
   return r.json()
 }
 

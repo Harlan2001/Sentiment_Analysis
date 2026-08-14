@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '../api/workbench'
 import { DeletedItemsPanel } from '../features/computer/DeletedItemsPanel'
 import { AccountInfoPanel } from '../features/computer/AccountInfoPanel'
-import { MonitorDashboardPanel } from '../components/Pages/sections/monitor/MonitorDashboardPanel'
 import { useAuth } from '../contexts/AuthContext'
+
+// 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
+const MonitorDashboardPanel = lazy(() => import('../components/Pages/sections/monitor/MonitorDashboardPanel'))
 
 const productLinks = [
   { to: '/computer', label: 'Computer', icon: '◉' },
@@ -209,7 +211,9 @@ export function WorkbenchShell() {
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
       <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />
-      <MonitorDashboardPanel open={monitorPanelOpen} onClose={() => setMonitorPanelOpen(false)} />
+      <Suspense fallback={null}>
+        <MonitorDashboardPanel open={monitorPanelOpen} onClose={() => setMonitorPanelOpen(false)} />
+      </Suspense>
     </div>
   )
 }
