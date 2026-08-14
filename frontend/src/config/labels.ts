@@ -7,6 +7,7 @@
 export const PAGE_TITLE_MAP: Record<string, string> = {
   // 新工作台板块
   '/market': '市场',
+  '/factors': '因子',
   '/returns': '收益',
   '/forecast': '预测',
   '/watchlist': '关注列表',
@@ -21,19 +22,8 @@ export const PAGE_TITLE_MAP: Record<string, string> = {
   '/projects': '项目',
   '/chat': '对话',
   '/settings': '设置',
-  // 旧页面
-  '/news': '新闻',
-  '/factors': '因子',
-  '/prediction': '预测',
-  '/agents': 'Agent',
-  '/strategies': '策略',
-  '/change': '变动对比',
-  '/dashboard': '看板',
+  // 登录
   '/login': '登录',
-  '/my-usage': '我的使用',
-  '/research': '研报',
-  '/ai-strategy-generation': 'AI策略生成',
-  '/macro-data': '宏观数据',
 }
 
 // ========== 模型名称 → 中文显示名 ==========
@@ -145,7 +135,6 @@ export const UI_LABELS = {
 
 /** 路由 → 中文页面标题 */
 export function getPageTitle(route: string): string {
-  if (route === '/' || route.startsWith('/news')) return '新闻'
   if (PAGE_TITLE_MAP[route]) return PAGE_TITLE_MAP[route]
   for (const [prefix, title] of Object.entries(PAGE_TITLE_MAP)) {
     if (route.startsWith(prefix)) return title

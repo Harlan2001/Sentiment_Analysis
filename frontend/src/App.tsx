@@ -1,21 +1,6 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import MainLayout from './components/Layout/MainLayout'
-import {
-  NewsPage,
-  FactorPage,
-  PredictionPage,
-  AgentPage,
-  StrategyListPage,
-  ChangePage,
-  LoginPage,
-  DashboardPage,
-  MacroDataPage,
-  ResearchListPage,
-  ResearchDetailPage,
-  AiStrategyGenerationPreviewPage,
-  AiStrategyHistoryPage,
-} from './components/Pages'
+import LoginPage from './components/Pages/LoginPage'
 import {
   MarketSection,
   FactorsSection,
@@ -47,7 +32,6 @@ import './features/computer/ReportGeneration.css'
 /**
  * 路由表：
  * - 新工作台「壳」（默认首页）：/market /returns /forecast /watchlist /portfolio /workflow
- * - Legacy pages remain available at their existing routes.
  */
 function AppRoutes() {
   return (
@@ -87,25 +71,6 @@ function AppRoutes() {
             />
           }
         />
-      </Route>
-
-      {/* 旧页面（保留原路径） */}
-      <Route element={<MainLayout />}>
-        <Route path="/news" element={<NewsPage />} />
-        <Route path="/factors" element={<FactorPage />} />
-        <Route path="/prediction" element={<PredictionPage />} />
-        <Route path="/agents" element={<AgentPage />} />
-        <Route path="/macro-signal-logs" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/select-strategy" element={<Navigate to="/strategies" replace />} />
-        <Route path="/strategies" element={<StrategyListPage />} />
-        <Route path="/change" element={<ChangePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/macro-data" element={<MacroDataPage />} />
-        <Route path="/research" element={<ResearchListPage />} />
-        <Route path="/research/:id" element={<ResearchDetailPage />} />
-        <Route path="/ai-strategy-generation-preview" element={<AiStrategyGenerationPreviewPage />} />
-        <Route path="/ai-strategy-generation-preview/:conversationId" element={<AiStrategyGenerationPreviewPage />} />
-        <Route path="/ai-strategy-generation-history" element={<AiStrategyHistoryPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/market" replace />} />

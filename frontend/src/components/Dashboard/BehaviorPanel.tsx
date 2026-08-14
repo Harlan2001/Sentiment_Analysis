@@ -7,7 +7,7 @@ import ReactECharts from 'echarts-for-react'
 import type { BehaviorStats, AuditLogEntry } from '@/types'
 import { useBehaviorLogs } from '@/hooks/useSimpleBehavior'
 import { pageTitle } from '@/utils/pageTitle'
-import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP, matchNewPage, NEW_PAGE_GROUPS } from '@/config/labels'
+import { getActionLabel, getExitTypeLabel, getActionTargetLabel, ACTION_LABEL_MAP, matchNewPage, NEW_PAGE_GROUPS, NEW_PAGE_ROUTES } from '@/config/labels'
 import { MetricCard } from './Widgets'
 
 interface Props {
@@ -411,19 +411,7 @@ export const BehaviorPanel: React.FC<Props> = ({ stats, statsLoading, days }) =>
             defaultValue=""
           >
             <option value="">全部页面</option>
-            {[
-              '/news',
-              '/factors',
-              '/prediction',
-              '/agents',
-              '/strategies',
-              '/change',
-              '/dashboard',
-              '/macro-data',
-              '/research',
-              '/login',
-              '/ai-strategy-generation',
-            ].map((r) => (
+            {[...NEW_PAGE_ROUTES, '/login'].map((r) => (
               <option key={r} value={r}>
                 {pageTitle(r)}
               </option>
