@@ -39,7 +39,7 @@ export type DeletedItemsData = {
 
 type ListData<T> = { items: T[]; next_cursor?: string | null }
 
-import { storage } from '../utils/helpers'
+import { storage } from '@/utils/helpers'
 
 // 与主前端同域：开发环境经 Vite 代理转发，部署时可由同域反向代理提供此路径。
 const apiBaseUrl = ''

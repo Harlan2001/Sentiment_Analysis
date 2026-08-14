@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { StrategyConversation, createStrategyConversation, createStrategyDraft, getStrategyConversations } from '../../api/workbench'
+import { StrategyConversation, createStrategyConversation, createStrategyDraft, getStrategyConversations } from '@/api/workbench'
 
 function timeLabel(value: string | null) {
   if (!value) return ''

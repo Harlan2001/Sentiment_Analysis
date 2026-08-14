@@ -5,7 +5,7 @@ import {
   createDailyNewsSummary, DailyNewsSummaryTask, getDailyNewsSummaries, getDailyNewsSummary,
   getLatestNewsDate, getNewsSources, NewsSourceOption, retryDailyNewsSummary,
 } from '@/api/workbench'
-import { ComputerDatePicker } from './ComputerDatePicker'
+import { NewsCalendarPicker } from '@/features/computer/components/NewsCalendarPicker'
 
 const STATUS: Record<DailyNewsSummaryTask['status'], string> = {
   pending: '等待生成', running: '正在生成', succeeded: '生成成功', failed: '生成失败', empty: '范围内无新闻',
@@ -154,7 +154,7 @@ export function NewsPage() {
           </div>
         )}
       </div>
-      <ComputerDatePicker label="日期" value={historyDate} onChange={setHistoryDate} emptyLabel="全部日期" />
+      <NewsCalendarPicker label="日期" value={historyDate} onChange={setHistoryDate} emptyLabel="全部日期" />
       {historyDate && <button type="button" className="computer-chip" onClick={() => setHistoryDate('')}>清除日期</button>}
       <span className="computer-spacer" /><span className="computer-count">{loading ? '读取中…' : `${history.length} 段新闻总结`}</span>
     </div>
@@ -194,7 +194,7 @@ export function NewsPage() {
     <form className="report-composer daily-news-composer" onSubmit={submit}>
       <textarea ref={composerRef} value={focus} maxLength={1000} onChange={(event) => setFocus(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="输入本次新闻总结的关注重点，例如信用风险、资金面或政策影响…" rows={2} />
       <div className="daily-news-composer-controls">
-        <ComputerDatePicker label="开始" value={startDate} max={endDate} onChange={setStartDate} /><ComputerDatePicker label="结束" value={endDate} min={startDate} onChange={setEndDate} />
+        <NewsCalendarPicker label="开始" value={startDate} max={endDate} onChange={setStartDate} /><NewsCalendarPicker label="结束" value={endDate} min={startDate} onChange={setEndDate} />
         <button type="button" className={'computer-chip ' + (!selectedSources.length ? 'selected' : '')} onClick={() => setSelectedSources([])}>全部来源</button>
         {sources.map((source) => <button type="button" key={source.key} className={'computer-chip ' + (selectedSources.includes(source.key) ? 'selected' : '')} onClick={() => setSelectedSources((current) => current.includes(source.key) ? current.filter((key) => key !== source.key) : [...current, source.key])}>{source.name}</button>)}
         <span className="computer-badge">{selectedSources.length ? `已选 ${selectedSources.length} 个来源` : '全部来源'} · 真实新闻</span>

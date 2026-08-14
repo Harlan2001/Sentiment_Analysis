@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { API_PREFIX } from '../../constants'
-import { storage } from '../../utils/helpers'
+import { API_PREFIX } from '@/api/client'
+import { storage } from '@/utils/helpers'
 
 interface Evidence {
   text: string

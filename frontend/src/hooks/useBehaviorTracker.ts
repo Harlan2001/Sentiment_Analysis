@@ -7,7 +7,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { logPageVisit, logAction, initBehaviorLogger } from '@/utils/behaviorLogger'
-import { pageTitle as getPageTitle } from '@/utils/pageTitle'
+import { routeTitle as getPageTitle } from '@/config/routes'
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000
 
