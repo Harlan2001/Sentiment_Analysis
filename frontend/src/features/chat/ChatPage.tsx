@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Conversation, Message, createConversation, getConversation, sendMessage } from '../../api/workbench'
+import { Conversation, Message, createConversation, getConversation, sendMessage } from '@/api/workbench'
 
 type ChatMessage = Message & { id: string }
 

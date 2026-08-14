@@ -20,7 +20,7 @@ import {
   updateProject,
   updateProjectMemory,
   upsertProjectMember,
-} from '../../api/projectManagement'
+} from '@/api/projectManagement'
 import './project-management.css'
 import './project-detail-refine.css'
 
@@ -390,7 +390,7 @@ export function ProjectManagementPage() {
             </button>
           )}
           {canWrite && (
-            <button className="pm-button primary" onClick={() => navigate(`/chat/new?project=${project.id}`)}>
+            <button className="pm-button primary" onClick={() => navigate(`/chat?project=${project.id}`)}>
               ＋ 新建项目会话
             </button>
           )}
@@ -498,7 +498,7 @@ export function ProjectManagementPage() {
               <strong>{search ? '没有匹配的会话' : showArchived ? '暂无已归档会话' : '还没有项目会话'}</strong>
               <p>{showArchived ? '归档后的会话会保留在这里。' : '创建会话并发送第一条消息后，它才会出现在历史中。'}</p>
               {canWrite && !showArchived && (
-                <button className="pm-button primary" onClick={() => navigate(`/chat/new?project=${project.id}`)}>
+                <button className="pm-button primary" onClick={() => navigate(`/chat?project=${project.id}`)}>
                   新建项目会话
                 </button>
               )}

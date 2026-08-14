@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ReportGenerationTask, getReportGenerationTask, retryReportGenerationTask } from '../../api/reportGeneration'
+import { ReportGenerationTask, getReportGenerationTask, retryReportGenerationTask } from '@/api/reportGeneration'
 import { ReportGenerationExportButtons } from './ReportGenerationExportButtons'
 import { ReportSourceDetailPanel } from './ReportSourceDetailPanel'
 

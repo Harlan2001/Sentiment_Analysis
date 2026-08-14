@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ReportGenerationTask } from '../../api/reportGeneration'
-import { storage } from '../../utils/helpers'
+import { ReportGenerationTask } from '@/api/reportGeneration'
+import { storage } from '@/utils/helpers'
 
 type Props = { task: ReportGenerationTask; onError: (message: string) => void }
 

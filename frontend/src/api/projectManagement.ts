@@ -1,4 +1,4 @@
-import { storage } from '../utils/helpers'
+import { storage } from '@/utils/helpers'
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer'
 export type MemoryCategory = 'background' | 'goal' | 'constraint' | 'preference' | 'conclusion' | 'other'

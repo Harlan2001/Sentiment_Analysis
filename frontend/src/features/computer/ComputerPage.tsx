@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ComputerTask, getComputerTasks } from '../../api/workbench'
+import { ComputerTask, getComputerTasks } from '@/api/workbench'
 import { ComputerDatePicker } from './components/ComputerDatePicker'
 
 type ModuleKey = '全部' | '研报生成' | '策略开发' | '每日新闻总结'

@@ -33,7 +33,7 @@ export function HomePage() {
   function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const draft = question.trim()
-    navigate(draft ? `/chat/new?draft=${encodeURIComponent(draft)}` : '/chat/new')
+    navigate(draft ? `/chat?draft=${encodeURIComponent(draft)}` : '/chat')
   }
 
   return <section className="home-page">

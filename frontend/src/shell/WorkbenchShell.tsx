@@ -1,43 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '../api/workbench'
-import { DeletedItemsPanel } from '../features/computer/DeletedItemsPanel'
-import { AccountInfoPanel } from '../features/computer/AccountInfoPanel'
-import { MonitorDashboardPanel } from '../components/Pages/sections/monitor/MonitorDashboardPanel'
-import { useAuth } from '../contexts/AuthContext'
-
-const productLinks = [
-  { to: '/computer', label: 'Computer', icon: '◉' },
-  { to: '/custom/mcp', label: '自定义', icon: '◌' },
-]
-
-/** 市场板块标签 */
-const SECTIONS = [
-  { name: '市场', to: '/market' },
-  { name: '因子', to: '/factors' },
-  { name: '收益', to: '/returns' },
-  { name: '预测', to: '/forecast' },
-  { name: '关注列表', to: '/watchlist' },
-  { name: '投资组合', to: '/portfolio' },
-  { name: '工作流', to: '/workflow' },
-]
-
-const HOME_PATHS = new Set(SECTIONS.map((s) => s.to).concat(['/home', '/']))
-
-function resolveTitle(pathname: string, conversationTopic: string): string {
-  if (pathname.startsWith('/chat/')) return `对话 · ${conversationTopic}`
-  if (pathname.startsWith('/computer/strategies')) return 'Computer · 策略开发'
-  if (pathname.startsWith('/computer/reports')) return 'Computer · 研报生成'
-  if (pathname.startsWith('/computer/news')) return 'Computer · 每日新闻总结'
-  if (pathname.startsWith('/computer')) return 'Computer'
-  if (pathname.startsWith('/custom/mcp')) return '自定义 · MCP 连接'
-  if (pathname.startsWith('/custom/skills')) return '自定义 · Skills'
-  if (pathname.startsWith('/custom')) return '自定义'
-  if (pathname.startsWith('/projects/new')) return '项目 · 新建'
-  if (pathname.startsWith('/projects/')) return '项目空间'
-  if (pathname.startsWith('/settings')) return '设置'
-  return '债券市场智能分析'
-}
+import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '@/api/workbench'
+import { DeletedItemsPanel } from '@/features/account/DeletedItemsPanel'
+import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
+import { MonitorDashboardPanel } from '@/features/monitor/MonitorDashboardPanel'
+import { useAuth } from '@/contexts/AuthContext'
+import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
 
 type SidebarProject = Project & { recent_conversations: Conversation[] }
 
@@ -64,8 +32,8 @@ export function WorkbenchShell() {
   const [accountInfoPanelOpen, setAccountInfoPanelOpen] = useState(false)
   const [deletedPanelOpen, setDeletedPanelOpen] = useState(false)
   const [monitorPanelOpen, setMonitorPanelOpen] = useState(false)
-  const isHome = HOME_PATHS.has(location.pathname) || SECTIONS.some((s) => location.pathname === s.to)
-  const topbarTitle = resolveTitle(location.pathname, conversationTopic)
+  const isHome = HOME_PATHS.has(location.pathname)
+  const topbarTitle = shellTitle(location.pathname, conversationTopic)
 
   const loadSidebar = useCallback(() => {
     getSidebar().then((data) => {
@@ -146,8 +114,8 @@ export function WorkbenchShell() {
         <div className="sidebar-top">
           <NavLink className="brand" to="/market"><span className="brand-mark">B</span><span className="brand-text"><strong>债券信号</strong><small>返回首页</small></span></NavLink>
           <nav className="primary-nav" aria-label="主要功能">
-            <NavLink className="new-chat" to="/chat/new"><span>＋</span><span>新建对话</span></NavLink>
-            {productLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}><span>{item.icon}</span>{item.label}</NavLink>)}
+            <NavLink className="new-chat" to="/chat"><span>＋</span><span>新建对话</span></NavLink>
+            {PRODUCT_LINKS.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}><span>{item.icon}</span>{item.label}</NavLink>)}
           </nav>
         </div>
         <div className="sidebar-scroll">
@@ -159,7 +127,7 @@ export function WorkbenchShell() {
                 <button className="project-row-caret" onClick={() => void toggleProject(project.id)} aria-label="展开项目会话">⌄</button>
                 <span style={{marginLeft:'auto',display:'flex',gap:0}}>
                   {project.role === 'owner' && <button className="project-row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteProject(project.id, project.name) }} aria-label="删除项目">🗑</button>}
-                  {project.role !== 'viewer' && <button className="project-row-create" onClick={() => navigate(`/chat/new?project=${project.id}`)} aria-label="新建项目会话" style={{marginLeft:0}}>＋</button>}
+                  {project.role !== 'viewer' && <button className="project-row-create" onClick={() => navigate(`/chat?project=${project.id}`)} aria-label="新建项目会话" style={{marginLeft:0}}>＋</button>}
                 </span>
               </div>
               {expandedProjectId === project.id && <div className="project-conversation-list">{expandedConversations.map((conversation) => <div className="conversation-row" key={conversation.id}>
@@ -170,7 +138,7 @@ export function WorkbenchShell() {
             </div>)}
           </section>
           <section className="sidebar-section conversations">
-            <div className="sidebar-section-heading"><button className="section-heading" onClick={() => setConversationsOpen((open) => !open)} aria-expanded={conversationsOpen}><span>最近会话<i className="section-caret" /></span></button><button className="section-create" onClick={() => navigate('/chat/new')} aria-label="新建普通会话" /></div>
+            <div className="sidebar-section-heading"><button className="section-heading" onClick={() => setConversationsOpen((open) => !open)} aria-expanded={conversationsOpen}><span>最近会话<i className="section-caret" /></span></button><button className="section-create" onClick={() => navigate('/chat')} aria-label="新建普通会话" /></div>
             {conversationsOpen && <>{conversations.map((conversation) => <div className="conversation-row" key={conversation.id}><NavLink to={`/chat/${conversation.id}`} className="side-row conversation" title={conversation.title || '新建对话'}>{conversation.title || '新建对话'}</NavLink><button className="row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteConversation(conversation.id, conversation.title) }} aria-label="删除会话">🗑</button></div>)}{recent.length > 0 && <button className="more-button" onClick={() => void toggleRecent()}>{allRecent ? '收起会话' : '查看更多'}</button>}</>}
             {sidebarError && <small className="sidebar-error">{sidebarError}</small>}
           </section>
@@ -200,7 +168,7 @@ export function WorkbenchShell() {
         </header>
         {isHome && (
           <nav className="workspace-tabs" aria-label="市场板块">
-            {SECTIONS.map((s) => (
+            {SECTION_TABS.map((s) => (
               <NavLink key={s.to} to={s.to} className={({ isActive }) => `workspace-tab${isActive ? ' active' : ''}`}>{s.name}</NavLink>
             ))}
           </nav>

@@ -11,11 +11,11 @@ import {
   getResearchList,
   getResearchSummary,
   retryReportGenerationTask,
-} from '../../api/reportGeneration'
+} from '@/api/reportGeneration'
 import { ComputerDateRangePicker } from './components/ComputerDateRangePicker'
 import { ComputerDatePicker } from './components/ComputerDatePicker'
 import { ReportSourceDetailPanel } from './ReportSourceDetailPanel'
-import ResearchUploadModal from '../../components/Pages/ResearchUploadModal'
+import ResearchUploadModal from '@/features/computer/components/ResearchUploadModal'
 
 function formatDateTime(value: string | null) {
   if (!value) return '—'

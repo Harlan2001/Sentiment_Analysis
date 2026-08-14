@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { InitialProjectMember, InitialProjectMemory, MemoryCategory, createProject } from '../../api/projectManagement'
+import { InitialProjectMember, InitialProjectMemory, MemoryCategory, createProject } from '@/api/projectManagement'
 import './project-create.css'
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = {

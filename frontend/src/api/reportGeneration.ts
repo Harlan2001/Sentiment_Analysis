@@ -1,5 +1,5 @@
 import { request } from './workbench'
-import { storage } from '../utils/helpers'
+import { storage } from '@/utils/helpers'
 
 // 旧 API 不包裹 { data: ... }，直接返回数据体
 async function requestLegacy<T>(path: string, options: RequestInit = {}): Promise<T> {
