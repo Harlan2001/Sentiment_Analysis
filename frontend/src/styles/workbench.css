@@ -365,3 +365,39 @@ select:focus,
 .workspace-content:has(.strategy-prompt-page){padding-top:12px!important}
 /* Align the session header's top divider with the Computer content boundary. */
 .workspace-content:has(.strategy-prompt-page){padding-top:0!important}
+/* Prompt confirmation: the card never scrolls; only the editable draft text does. */
+.strategy-prompt-page--confirmation .strategy-prompt-layout{
+  height:600px!important;
+  min-height:600px!important;
+  max-height:600px!important;
+  overflow:hidden!important;
+}
+.strategy-prompt-page--confirmation .strategy-requirements{
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr) auto!important;
+  gap:12px!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:100%!important;
+  overflow:hidden!important;
+  padding-bottom:16px!important;
+}
+.strategy-prompt-page--confirmation .strategy-draft-textarea{
+  display:block;
+  width:100%;
+  min-height:0!important;
+  height:100%!important;
+  max-height:none!important;
+  resize:none!important;
+  overflow-y:auto!important;
+}
+.strategy-prompt-page--confirmation .strategy-prompt-actions{
+  min-height:50px;
+  margin-top:0!important;
+  padding:6px 4px 8px!important;
+  overflow:visible!important;
+}
+@media(max-width:850px){
+  .strategy-prompt-page--confirmation .strategy-prompt-layout{height:540px!important;min-height:540px!important;max-height:540px!important;overflow:hidden!important}
+  .strategy-prompt-page--confirmation .strategy-requirements{height:100%!important;max-height:100%!important;overflow:hidden!important}
+}
