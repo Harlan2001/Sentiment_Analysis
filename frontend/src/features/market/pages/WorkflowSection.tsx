@@ -1,21 +1,36 @@
-import React from 'react'
-import SectionLayout from '@/components/Layout/SectionLayout'
-import { Empty } from '@/components/UI'
+import React, { useMemo, useState } from 'react'
+
+type Kind = '市场日报' | '事件研判' | '主体跟踪' | '因子复盘'
+type Workflow = { id: string; kind: Kind; icon: string; title: string; description: string; trigger: string; sources: string[]; results: string[]; time: string }
+
+const workflows: Workflow[] = [
+  { id: 'daily', kind: '市场日报', icon: '☷', title: '债市情绪日报', description: '汇总最新交易日新闻情绪、收益率变化、活跃因子与策略信号，形成开盘前研究摘要。', trigger: '选择交易日期和关注方向', sources: ['新闻情绪', '收益率曲线', '市场因子'], results: ['市场情绪总览', '主要驱动因素', '风险与策略信号'], time: '今日 08:40' },
+  { id: 'event', kind: '事件研判', icon: '↗', title: '新闻事件传导分析', description: '对一条政策、信用或宏观新闻拆解影响路径，定位受影响的市场变量、行业与债券。', trigger: '选择新闻，或输入事件描述', sources: ['新闻正文', '事件因子', '相似新闻'], results: ['事件传导链', '情绪方向', '重点观察项'], time: '昨日 14:26' },
+  { id: 'issuer', kind: '主体跟踪', icon: '◎', title: '发债主体舆情跟踪', description: '围绕单一主体聚合近期新闻与风险标签，识别负面情绪的来源、变化和关联证据。', trigger: '输入主体名称或债券代码', sources: ['主体新闻', '情绪标签', '关联债券'], results: ['情绪时间线', '风险事件清单', '证据来源'], time: '昨日 17:12' },
+  { id: 'factor', kind: '因子复盘', icon: '∿', title: '市场因子复盘', description: '查看利率、流动性、政策、风险偏好等因子的活跃度，并解释其与新闻情绪的关联。', trigger: '选择时间区间与因子范围', sources: ['因子库', '宏观指标', '新闻情绪'], results: ['活跃因子排序', '因子变化解释', '后续验证指标'], time: '08/12 16:30' },
+]
+
+const recent = [
+  ['债市情绪日报', '今日 08:40 · 已完成', 'daily'],
+  ['城投主体舆情跟踪', '昨日 17:12 · 已完成', 'issuer'],
+  ['政策新闻传导分析', '昨日 14:26 · 已完成', 'event'],
+  ['流动性因子复盘', '08/12 16:30 · 已完成', 'factor'],
+] as const
 
 const WorkflowSection: React.FC = () => {
-  return (
-    <SectionLayout
-      title="工作流"
-      main={
-        <Empty
-          title="工作流板块开发中"
-          message="此处将展示数据流水线、最近任务等 · 由 C 负责"
-          icon={<span className="text-5xl">⚙️</span>}
-        />
-      }
-      side={<Empty title="侧栏" message="该板块自己的固定侧栏" icon={<span className="text-4xl">🔁</span>} />}
-    />
-  )
+  const [kind, setKind] = useState<Kind | '全部'>('全部')
+  const [search, setSearch] = useState('')
+  const [active, setActive] = useState<Workflow | null>(null)
+  const [notice, setNotice] = useState('')
+  const filtered = useMemo(() => workflows.filter((workflow) => (kind === '全部' || workflow.kind === kind) && `${workflow.title}${workflow.description}`.includes(search)), [kind, search])
+  const open = (id: string) => setActive(workflows.find((workflow) => workflow.id === id) ?? null)
+
+  return <div className="mx-auto grid max-w-[1280px] grid-cols-[minmax(0,1fr)_286px] gap-4 px-1 pt-1 text-[#eee] max-[900px]:grid-cols-1">
+    {active ? <main className="-mt-8 min-w-0 rounded-xl border border-[#363636] bg-[#151515]"><header className="flex items-start justify-between border-b border-[#333] px-6 py-5"><div><button className="mb-4 text-xs text-[#969696] hover:text-white" onClick={() => { setActive(null); setNotice('') }}>← 返回工作流</button><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-[#4a4a4a] bg-[#202020] text-xl">{active.icon}</span><div><span className="text-[11px] text-[#939393]">{active.kind}</span><h1 className="m-0 mt-1 text-xl">{active.title}</h1></div></div></div><span className="rounded-md border border-[#40594a] bg-[#172219] px-2 py-1 text-[10px] text-[#8db79a]">可运行</span></header><div className="grid gap-4 p-6"><section className="rounded-xl border border-[#353535] bg-[#191919] p-5"><h2 className="m-0 text-sm">创建研究任务</h2><p className="mb-4 mt-2 text-xs leading-5 text-[#a5a5a5]">{active.description}</p><label className="grid gap-2 text-[11px] text-[#b4b4b4]">任务范围<input autoFocus className="h-10 rounded-lg border border-[#464646] bg-[#111] px-3 text-xs text-[#eee] outline-none" placeholder={active.trigger} /></label></section><section className="grid grid-cols-2 gap-4 max-[650px]:grid-cols-1"><InfoCard title="使用数据" items={active.sources} dot="bg-[#8fa9c1]" /><InfoCard title="生成结果" items={active.results} dot="bg-[#8aae94]" /></section>{notice && <div className="rounded-lg border border-[#40594a] bg-[#172219] px-3 py-2 text-xs text-[#a8cbae]">{notice}</div>}<button className="h-11 rounded-lg bg-[#e8e8e8] text-sm font-semibold text-[#171717] hover:bg-white" onClick={() => setNotice(`${active.title} 已创建，等待接入任务执行接口。`)}>开始分析 →</button></div></main> : <main className="-mt-8 min-w-0"><header className="border-b border-[#303030] px-1 pb-5 pt-2"><span className="block text-[10px] font-semibold tracking-[.14em] text-[#888]">SENTIMENT RESEARCH · WORKFLOWS</span><div className="mt-2 flex items-end justify-between gap-5 max-[680px]:items-start max-[680px]:flex-col"><div><h1 className="m-0 text-[26px] tracking-[-.04em]">情绪研究工作流</h1><p className="mb-0 mt-2 whitespace-nowrap text-[12px] text-[#9b9b9b] max-[850px]:whitespace-normal">基于你的新闻、因子、收益率和策略信号，快速建立可追溯的研究任务。</p></div><label className="flex h-9 w-[220px] items-center gap-2 rounded-lg border border-[#404040] bg-[#151515] px-3 text-[#888] max-[680px]:w-full">⌕<input className="w-full border-0 bg-transparent text-xs text-[#eee] outline-none" placeholder="搜索研究任务" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></header><nav className="flex gap-2 overflow-auto py-4">{(['全部', '市场日报', '事件研判', '主体跟踪', '因子复盘'] as Array<Kind | '全部'>).map((option) => <button key={option} onClick={() => setKind(option)} className={`h-7 shrink-0 rounded-md border px-3 text-xs ${kind === option ? 'border-[#777] bg-[#292929] text-white' : 'border-[#373737] text-[#a3a3a3]'}`}>{option}</button>)}</nav><section className="grid grid-cols-2 gap-3 max-[650px]:grid-cols-1">{filtered.map((workflow) => <button key={workflow.id} className="group flex min-h-[218px] flex-col rounded-xl border border-[#373737] bg-[#181818] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#777]" onClick={() => setActive(workflow)}><div className="flex items-center justify-between"><span className="grid h-10 w-10 place-items-center rounded-lg border border-[#484848] bg-[#202020] text-lg">{workflow.icon}</span><span className="text-[10px] text-[#888]">{workflow.kind}</span></div><h2 className="mb-2 mt-4 text-[16px] font-semibold">{workflow.title}</h2><p className="m-0 text-xs leading-5 text-[#a7a7a7]">{workflow.description}</p><footer className="mt-auto flex items-center justify-between border-t border-[#303030] pt-3"><span className="text-[10px] text-[#777]">更新于 {workflow.time}</span><span className="text-[11px] text-[#d5d5d5] group-hover:text-white">打开任务 →</span></footer></button>)}</section>{!filtered.length && <p className="py-16 text-center text-sm text-[#888]">没有找到匹配的研究任务。</p>}</main>}
+    <Sidebar activeId={active?.id ?? null} onOpen={open} />
+  </div>
 }
 
+function InfoCard({ title, items, dot }: { title: string; items: string[]; dot: string }) { return <section className="rounded-xl border border-[#353535] bg-[#191919] p-5"><h2 className="m-0 text-sm">{title}</h2><div className="mt-4 grid gap-2">{items.map((item) => <span key={item} className="flex items-center gap-2 text-xs text-[#b5b5b5]"><i className={`h-1.5 w-1.5 rounded-full ${dot}`} />{item}</span>)}</div></section> }
+function Sidebar({ activeId, onOpen }: { activeId: string | null; onOpen: (id: string) => void }) { return <aside className="grid content-start gap-3"><section className="rounded-xl border border-[#3c3c3c] bg-[#171717] p-4"><div className="mb-3 flex items-center justify-between"><h2 className="m-0 text-sm">最近任务</h2><button className="text-[10px] text-[#909090]">全部记录</button></div>{recent.map(([name, meta, id]) => <button key={id} onClick={() => onOpen(id)} className={`grid w-full grid-cols-[18px_minmax(0,1fr)] gap-2 rounded-lg px-2 py-2 text-left ${activeId === id ? 'bg-[#2a2a2a]' : 'hover:bg-[#202020]'}`}><span className="mt-0.5 grid h-4 w-4 place-items-center rounded-full border border-[#4b674f] text-[9px] text-[#91bb99]">✓</span><span className="min-w-0"><strong className="block truncate text-[11px] font-normal text-[#cecece]">{name}</strong><small className="mt-1 block text-[9px] text-[#797979]">{meta}</small></span></button>)}</section><section className="rounded-xl border border-[#3c3c3c] bg-[#171717] p-4"><h2 className="m-0 text-sm">数据状态</h2><div className="mt-4 grid gap-3 text-[11px]">{[['新闻情绪', '已更新'], ['市场因子', '已更新'], ['收益率数据', '最新交易日'], ['策略信号', '可用']].map(([name, status]) => <div className="flex items-center justify-between" key={name}><span className="text-[#aaa]">{name}</span><span className="flex items-center gap-1.5 text-[#8eae95]"><i className="h-1.5 w-1.5 rounded-full bg-[#74a27d]" />{status}</span></div>)}</div></section></aside> }
 export default WorkflowSection
