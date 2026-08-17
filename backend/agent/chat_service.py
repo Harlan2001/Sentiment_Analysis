@@ -14,7 +14,11 @@ from openai import OpenAI
 
 from backend.agent.agent_loop import run_agent_loop
 from backend.common.database import execute_query
-from backend.config.config import create_openai_http_client
+from backend.config.config import (
+    create_openai_http_client,
+    get_analysis_model_info,
+    get_chat_model_name,
+)
 
 
 class AgentGenerationError(RuntimeError):
@@ -38,9 +42,9 @@ kingstar_client = OpenAI(
     http_client=create_openai_http_client(),
 )
 
-CHAT_MODEL = (
-    os.getenv("CHAT_MODEL_NAME") or "aliyun/glm-5.2"
-)
+# 聊天默认模型：CHAT_MODEL_NAME 填注册表短名（如 glm），与分析模型命名统一；
+# 这里解析成 provider model 供 OpenAI 客户端使用。缺省跟随默认分析模型。
+CHAT_MODEL = get_analysis_model_info(get_chat_model_name())["provider_model"]
 
 
 # ── 系统提示词 ──

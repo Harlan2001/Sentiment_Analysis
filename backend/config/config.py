@@ -180,6 +180,12 @@ def get_analysis_model_name_by_provider_model(provider_model: str) -> str:
     return provider_model
 
 
+def get_chat_model_name() -> str:
+    # Agent 聊天默认模型短名，与分析模型统一风格：
+    # 填短名（如 glm），provider model 由注册表解析；缺省跟随默认分析模型。
+    return _get_env_str("CHAT_MODEL_NAME") or get_default_analysis_model_name()
+
+
 # ====================== 新闻源配置 ======================
 NEWS_SOURCES = {
     "wallstreetcn": "华尔街见闻",
