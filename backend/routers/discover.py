@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
@@ -448,38 +448,77 @@ def factor_detail(factor_id: int = Query(...)):
 
         fid, fname, fcat = fr
 
-        # 7 天逐日新闻计数
+        # Use the factor's latest available news as the detail-window anchor.
+        # This keeps historical datasets from rendering an empty detail panel.
         cur.execute(
-            """SELECT DATE(n.pub_time) as d, COUNT(*) as c
-               FROM news_factor nf JOIN news n ON nf.news_id = n.id
-               WHERE nf.factor_id=%s AND n.pub_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               GROUP BY DATE(n.pub_time) ORDER BY d""",
+            """SELECT MAX(DATE(nf.pub_time))
+               FROM news_factor nf
+               WHERE nf.factor_id=%s""",
             (fid,),
         )
-        daily = [{"date": str(r[0]), "count": r[1]} for r in cur.fetchall()]
+        latest_news_date = cur.fetchone()[0]
+        if latest_news_date is None:
+            return {
+                "id": fid,
+                "name": fname or "",
+                "category": fcat or "",
+                "news_count": 0,
+                "activity_score": 0,
+                "daily_counts": [],
+                "related_news": [],
+                "related_factors": [],
+            }
+
+        # 7 天逐日新闻计数
+        anchor_date = latest_news_date.date() if isinstance(latest_news_date, datetime) else latest_news_date
+        if isinstance(anchor_date, str):
+            anchor_date = date.fromisoformat(anchor_date[:10])
+
+        cur.execute(
+            """SELECT DATE(nf.pub_time) as d, COUNT(*) as c
+               FROM news_factor nf
+               WHERE nf.factor_id=%s
+                 AND DATE(nf.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 6 DAY) AND %s
+               GROUP BY DATE(nf.pub_time) ORDER BY d""",
+            (fid, anchor_date, anchor_date),
+        )
+        daily_counts = {str(row[0]): row[1] for row in cur.fetchall()}
+        daily = [
+            {
+                "date": str(anchor_date - timedelta(days=offset)),
+                "count": daily_counts.get(str(anchor_date - timedelta(days=offset)), 0),
+            }
+            for offset in range(6, -1, -1)
+        ]
         total_count = sum(d["count"] for d in daily)
         max_daily = max((d["count"] for d in daily), default=1)
         activity_score = round(total_count / max(max_daily * 7, 1), 2)
 
         # 关联新闻（带方向 + 摘要）
         cur.execute(
-            """SELECT n.id, n.title, n.pub_time, a.direction, a.reason
-               FROM news_factor nf JOIN news n ON nf.news_id = n.id
+            """SELECT nf.news_id,
+                      COALESCE(NULLIF(n.title, ''), NULLIF(nf.driver, ''), CONCAT('关联事件 #', nf.news_id)),
+                      COALESCE(n.pub_time, nf.pub_time),
+                      COALESCE(a.direction, nf.direction),
+                      COALESCE(a.reason, nf.driver)
+               FROM news_factor nf
+               LEFT JOIN news n ON nf.news_id = n.id
                LEFT JOIN analysis a ON n.id = a.news_id AND a.model='doubao'
-               WHERE nf.factor_id=%s AND n.pub_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               ORDER BY n.pub_time DESC LIMIT 20""",
-            (fid,),
+               WHERE nf.factor_id=%s
+                 AND DATE(nf.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 6 DAY) AND %s
+               ORDER BY nf.pub_time DESC LIMIT 20""",
+            (fid, anchor_date, anchor_date),
         )
         # 映射方向为 front-end 使用的 positive/negative/None
         def map_dir_local(d):
             if not d:
-                return None
+                return 'neutral'
             dv = str(d).lower()
             if dv in ('bullish', 'positive', 'up', '涨', '利多', '利好'):
                 return 'positive'
             if dv in ('bearish', 'negative', 'down', '跌', '利空'):
                 return 'negative'
-            return None
+            return 'neutral'
 
         related_news = []
         for r in cur.fetchall():
