@@ -408,7 +408,51 @@ select:focus,
 .home-chat-scroll::-webkit-scrollbar{width:8px}
 .home-chat-scroll::-webkit-scrollbar-thumb{border:2px solid #0e0e0e;border-radius:999px;background:#4e4e4e}
 .home-agent-chat-dock{right:auto!important;bottom:0!important;left:16px!important;width:calc(100% - 20rem - 32px);border-radius:16px!important}
+.home-section-page{display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;min-height:0;padding:0 16px}
+.home-section-heading{min-height:76px;padding:4px 0 14px;flex:none}
+.home-section-heading h1{margin:0}
+.factor-section-heading{display:flex;align-items:flex-start;min-height:44px;padding-top:0;padding-bottom:8px}
+.factor-view-tabs{position:relative;top:-8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #2f2f2f}
+.factor-activity-label{position:relative;top:8px;width:20rem;margin:0 0 0 auto;padding-left:16px;color:#fff;font-size:14px;font-weight:600}
+.factor-view-tab{height:34px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:#858585;font-size:14px;cursor:pointer;transition:color .15s,border-color .15s}
+.factor-view-tab:hover,.factor-view-tab.active{color:#f1f1f1}.factor-view-tab.active{border-bottom-color:#f1f1f1}
+.factor-filter-tab{padding:5px 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#858585;font-size:12px;cursor:pointer;transition:color .15s,border-color .15s}
+.factor-filter-tab:hover,.factor-filter-tab.active{color:#f1f1f1}.factor-filter-tab.active{border-bottom-color:#f1f1f1}
+.factor-mode-tabs{display:flex;align-items:center;border-bottom:1px solid #2f2f2f}
+.factor-mode-tab{height:28px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:#858585;font-size:12px;cursor:pointer}.factor-mode-tab:hover,.factor-mode-tab.active{color:#f1f1f1}.factor-mode-tab.active{border-bottom-color:#f1f1f1}
+.factor-signal-table{scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}.factor-signal-table th,.factor-signal-table td{white-space:nowrap}.factor-direction,.factor-heat{display:inline-flex;padding:3px 7px;border-radius:5px;font-size:11px;line-height:1}.factor-direction.up{background:rgba(248,113,113,.1);color:#f87171}.factor-direction.down{background:rgba(74,222,128,.1);color:#4ade80}.factor-direction.neutral,.factor-heat.中{background:#252525;color:#b1b1b1}.factor-heat.高{background:rgba(245,158,11,.1);color:#fbbf24}.factor-heat.低{background:#1c1c1c;color:#777}.home-chat-workspace:has(.factor-signal-sidebar) .factor-signal-sidebar{height:calc(100% + 112px)}.factor-detail-sidebar{display:grid;grid-template-rows:minmax(150px,2fr) minmax(0,3fr);gap:16px;height:100%;min-height:0}.factor-detail-sidebar>section{min-height:0;overflow-y:auto}.factor-detail-activity .factor-seven-day-chart{height:88px;margin-top:18px}.factor-seven-day-chart{display:block;width:100%;height:36px}.factor-seven-day-chart polyline{fill:none;stroke:#b1b1b1;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.factor-table-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;color:#777;font-size:11px}.factor-table-pagination div{display:flex;gap:6px}.factor-table-pagination button{padding:5px 8px;border:1px solid #303030;border-radius:5px;background:#171717;color:#b5b5b5;font-size:11px;cursor:pointer}.factor-table-pagination button:disabled{opacity:.4;cursor:not-allowed}
+.home-chat-workspace:has(.factor-macro-sidebar) .factor-macro-sidebar{height:calc(100% + 112px)}
+.factor-seven-day-chart polyline{stroke:#f59e0b}
+.factor-seven-day-chart circle{fill:#f59e0b}.factor-seven-day-empty{display:grid;place-items:center;height:88px;color:#777;font-size:12px}
+.factor-seven-day-chart path{fill:none;stroke:#f59e0b;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.factor-detail-activity{overflow:hidden!important}
+.returns-section-heading{display:grid;grid-template-columns:minmax(0,1fr) 20rem;align-items:end}
+.returns-section-heading>div{position:relative;top:-4px}
+.returns-calendar-label{margin:0;padding-left:16px;color:#fff;font-size:14px;font-weight:600}
+.home-section-grid{display:grid;grid-template-columns:minmax(0,1fr) 20rem;min-height:0;height:100%}
+.home-section-main{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 0 132px;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.home-section-sidebar{min-width:0;min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:0 0 0 16px;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.home-section-main::-webkit-scrollbar,.home-section-sidebar::-webkit-scrollbar{width:8px}
+.home-section-main::-webkit-scrollbar-thumb,.home-section-sidebar::-webkit-scrollbar-thumb{border:2px solid #111;border-radius:999px;background:#4e4e4e}
+/* The forecast history panel intentionally occupies the chat dock's reserved lower space. */
+.home-chat-workspace:has(.forecast-history-sidebar) .forecast-history-sidebar{display:flex;height:calc(100% + 112px)}
+.forecast-history-sidebar>section{flex:1;min-height:0}
+.forecast-summary-card{padding:1rem}
+.forecast-summary-card h2{position:relative;top:-3px;color:#fff;font-weight:600}
+/* Returns keeps its calendar and active-factor cards as two equal panes beside the chat dock. */
+.home-chat-workspace:has(.returns-sidebar) .returns-sidebar{display:grid;grid-template-rows:minmax(0,2fr) minmax(0,3fr);gap:16px;height:calc(100% + 112px);overflow:hidden}
+.returns-calendar-pane{min-height:0}.returns-calendar-pane>section{height:100%}
+.returns-calendar-month-controls{margin-bottom:8px}.returns-calendar-month-controls h3{margin:0;color:#d6d6d6;font-size:12px;font-weight:600}.returns-calendar-month-controls button{width:24px;height:24px;font-size:14px}
+.returns-factor-heading{position:relative;left:-16px}
+.returns-sidebar-card{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
+.returns-month-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
+.returns-calendar-weekday{padding:2px 0 5px;color:#777;font-size:10px}
+.returns-calendar-day{display:grid;place-items:center;min-height:34px;padding:2px;border:0;border-radius:6px;background:transparent;color:#cfcfcf;font-size:11px;cursor:pointer}
+.returns-calendar-day:hover{background:#202020}.returns-calendar-day.selected{background:rgba(245,158,11,.16);box-shadow:inset 0 0 0 1px rgba(245,158,11,.65);color:#f3f3f3}
+.returns-calendar-day i{display:flex;gap:2px;font-size:8px;font-style:normal;line-height:1}.returns-calendar-day b{color:#f87171;font-weight:500}.returns-calendar-day em{color:#4ade80;font-style:normal}
+.returns-calendar-legend{display:flex;gap:12px;margin-top:12px;color:#858585;font-size:10px}.returns-calendar-legend span{display:flex;align-items:center;gap:4px}.returns-calendar-legend i{width:6px;height:6px;border-radius:50%}.returns-calendar-legend .bullish{background:#f87171}.returns-calendar-legend .bearish{background:#4ade80}
 @media(max-width:900px){.home-chat-scroll{padding-right:0}.home-agent-chat-dock{right:16px!important;left:16px!important;width:auto}}
+@media(max-width:900px){.home-chat-workspace:has(.returns-sidebar) .returns-sidebar{height:auto;grid-template-rows:auto;overflow:visible}}
+@media(max-width:900px){.home-section-page{height:auto;min-height:100%;padding:0}.home-section-heading{padding:4px 0 14px}.returns-section-heading{grid-template-columns:1fr}.returns-calendar-label{display:none}.home-section-grid{grid-template-columns:1fr;height:auto}.home-section-main,.home-section-sidebar{height:auto;overflow:visible;padding:0 0 16px}.home-section-sidebar{padding-top:16px}}
 /* Workflow content must clear the fixed Agent composer. */
 .home-chat-scroll:has(.workflow-page){padding-bottom:164px}
 /* Watchlist: the shared Agent dock occupies only the research pane, never its detail sidebar. */
