@@ -12,10 +12,21 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
+from backend.common.db_operations import DBOperations
 from backend.config.config import API_PREFIX, NEWS_SOURCES
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["discover"])
+
+# 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
+MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
+# 按新闻选最高优先级模型的 analysis 的关联子句（参考 db_operations.get_news_reason_rows）
+_BEST_ANALYSIS_JOIN = (
+    "LEFT JOIN analysis a ON n.id = a.news_id"
+    " AND a.model = (SELECT a2.model FROM analysis a2"
+    " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
+    f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
+)
 
 
 # ── 1. 发现页新闻列表 ──────────────────────────────────────────────────
@@ -34,7 +45,13 @@ def discover_news(
     dir_join = ""
     dir_clause = ""
     if direction:
-        dir_join = "JOIN analysis a ON n.id = a.news_id AND a.model = 'doubao'"
+        # 按最佳模型（glm 优先，历史 doubao 兜底）取每条新闻的方向做过滤
+        dir_join = (
+            "LEFT JOIN analysis a ON n.id = a.news_id"
+            " AND a.model = (SELECT a2.model FROM analysis a2"
+            " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
+            f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
+        )
         dir_clause = f"AND a.direction = '{direction}'"
 
     with get_db_connection() as conn:
@@ -81,7 +98,9 @@ def discover_news(
         ph = ",".join(["%s"] * len(news_ids))
         cur.execute(f"""
             SELECT news_id, direction, reason
-            FROM analysis WHERE news_id IN ({ph}) AND model='doubao'
+            FROM analysis
+            WHERE news_id IN ({ph}) AND model IN ('doubao','glm')
+            ORDER BY news_id, CASE model WHEN 'glm' THEN 1 ELSE 0 END
         """, news_ids)
         analysis_rows = cur.fetchall()
 
@@ -393,11 +412,11 @@ def yield_detail(period: str = Query("10Y")):
         top_changes = [dc for dc in daily_changes if abs(dc["diff_bp"]) >= 0.1][:5]
         top_changes.sort(key=lambda x: x["date"], reverse=True)
 
-        # 为显著日期关联新闻（含未分析新闻，LEFT JOIN）
+        # 为显著日期关联新闻（含未分析新闻，LEFT JOIN；按最佳模型取方向）
         for tc in top_changes:
             cur.execute(
-                """SELECT n.id, n.title, a.direction
-                   FROM news n LEFT JOIN analysis a ON n.id = a.news_id AND a.model = 'doubao'
+                f"""SELECT n.id, n.title, a.direction
+                   FROM news n {_BEST_ANALYSIS_JOIN}
                    WHERE DATE(n.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 1 DAY) AND DATE_ADD(%s, INTERVAL 1 DAY)
                    ORDER BY n.pub_time DESC LIMIT 5""",
                 (tc["date"], tc["date"]),
@@ -496,14 +515,14 @@ def factor_detail(factor_id: int = Query(...)):
 
         # 关联新闻（带方向 + 摘要）
         cur.execute(
-            """SELECT nf.news_id,
+            f"""SELECT nf.news_id,
                       COALESCE(NULLIF(n.title, ''), NULLIF(nf.driver, ''), CONCAT('关联事件 #', nf.news_id)),
                       COALESCE(n.pub_time, nf.pub_time),
                       COALESCE(a.direction, nf.direction),
                       COALESCE(a.reason, nf.driver)
                FROM news_factor nf
                LEFT JOIN news n ON nf.news_id = n.id
-               LEFT JOIN analysis a ON n.id = a.news_id AND a.model='doubao'
+               {_BEST_ANALYSIS_JOIN}
                WHERE nf.factor_id=%s
                  AND DATE(nf.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 6 DAY) AND %s
                ORDER BY nf.pub_time DESC LIMIT 20""",

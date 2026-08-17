@@ -3,7 +3,7 @@
 - 分批读取 status='parsed' 的研报
 - 先抢占任务锁（UPDATE status='processing'），再执行
 - 支持重试、冷却、超时、图片校验
-- 统一用 doubao 模型（支持多模态识图）
+- 统一用模型分析（默认 glm，支持多模态识图）
 """
 import json as json_mod
 import logging
@@ -49,8 +49,8 @@ DB_CONFIG = {
 
 DATA_ROOT = BASE_DIR / "data"
 
-MODEL_NAME = os.getenv("RESEARCH_ANALYSIS_MODEL", "doubao")
-MODEL_FULL = MODEL_OPTIONS.get(MODEL_NAME, MODEL_OPTIONS["doubao"])
+MODEL_NAME = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
+MODEL_FULL = MODEL_OPTIONS.get(MODEL_NAME, MODEL_OPTIONS["glm"])
 
 BATCH_SIZE = int(os.getenv("RESEARCH_BATCH_SIZE", "5"))
 RATE_LIMIT_SEC = float(os.getenv("RESEARCH_RATE_LIMIT_SEC", "0.8"))

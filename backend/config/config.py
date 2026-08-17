@@ -143,15 +143,10 @@ FACTOR_CATEGORY_MAP = {
 }
 
 # ====================== 分析模型配置 ======================
-ANALYSIS_MODEL_PRIORITY = ["doubao", "deepseek", "qwen", "default"]
+ANALYSIS_MODEL_PRIORITY = ["glm", "deepseek", "qwen", "default"]
 
 # 简化注册表
 ANALYSIS_MODEL_REGISTRY = {
-    "doubao": {
-        "provider_model": "volcengine/doubao-seed-2-0-code-preview-260215",
-        "description": "豆包模型",
-        "enabled": True,
-    },
     "deepseek": {
         "provider_model": "deepseek/deepseek-v4-pro",
         "description": "DeepSeek 模型",
@@ -171,11 +166,11 @@ ANALYSIS_MODEL_REGISTRY = {
 
 
 def get_default_analysis_model_name() -> str:
-    return _get_env_str("ANALYSIS_MODEL_NAME") or "doubao"
+    return _get_env_str("ANALYSIS_MODEL_NAME") or "glm"
 
 
 def get_analysis_model_info(model_name: str) -> dict:
-    return ANALYSIS_MODEL_REGISTRY.get(model_name, ANALYSIS_MODEL_REGISTRY["doubao"])
+    return ANALYSIS_MODEL_REGISTRY.get(model_name, ANALYSIS_MODEL_REGISTRY["glm"])
 
 
 def get_analysis_model_name_by_provider_model(provider_model: str) -> str:
@@ -216,7 +211,7 @@ STRATEGY_AUTO_CRON = _get_env_str("STRATEGY_AUTO_CRON") or "0 9 * * *"
 
 # 组合策略默认模型：可通过环境变量 PORTFOLIO_STRATEGY_MODEL 覆盖
 PORTFOLIO_MODEL = os.getenv(
-    "PORTFOLIO_STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215"
+    "PORTFOLIO_STRATEGY_MODEL", "aliyun/glm-5.2"
 )
 
 # 债券评级枚举：AI 输出中允许的最低评级取值集合

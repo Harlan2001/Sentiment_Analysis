@@ -54,6 +54,7 @@ const TokenOverviewPanel: React.FC = () => {
   if (!overview) return null
 
   const modelColors: Record<string, string> = {
+    glm: '#8b5cf6',
     doubao: '#8b5cf6',
     deepseek: '#10b981',
     qwen: '#f59e0b',

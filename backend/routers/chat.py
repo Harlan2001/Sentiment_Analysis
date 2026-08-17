@@ -52,7 +52,7 @@ async def chat(request: ChatRequest, req: Request):
                 system_prompt=CHAT_SYSTEM_PROMPT,
                 client=kingstar_client,
                 model=CHAT_MODEL,
-                model_name="doubao",
+                model_name="glm",
                 user_id=user_id,
                 username=username or "anonymous",
             ):
@@ -78,7 +78,7 @@ async def chat(request: ChatRequest, req: Request):
         system_prompt=CHAT_SYSTEM_PROMPT,
         client=kingstar_client,
         model=CHAT_MODEL,
-        model_name="doubao",
+        model_name="glm",
         user_id=user_id,
         username=username or "anonymous",
     ):

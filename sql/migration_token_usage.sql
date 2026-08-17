@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `llm_usage_log` (
   `user_id` int(11) NOT NULL DEFAULT 0 COMMENT '用户ID，系统调用为0',
   `username` varchar(100) NOT NULL DEFAULT 'system' COMMENT '用户名',
   `call_source` varchar(50) NOT NULL COMMENT '调用来源: chat/analysis/strategy/change',
-  `model_name` varchar(128) NOT NULL COMMENT '模型名称，如 doubao/deepseek/qwen',
+  `model_name` varchar(128) NOT NULL COMMENT '模型名称，如 glm/deepseek/qwen',
   `provider_model` varchar(255) DEFAULT NULL COMMENT 'provider完整模型名',
   `prompt_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '输入Token数',
   `completion_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '输出Token数',

@@ -196,7 +196,7 @@ def _row_to_dict(row) -> Dict[str, Any]:
 
 
 def _build_model_priority_case() -> str:
-    """构建分析模型优先级 CASE WHEN 子句（doubao > deepseek > ...）"""
+    """构建分析模型优先级 CASE WHEN 子句（glm > deepseek > ...）"""
     from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
     return " ".join(

@@ -25,8 +25,8 @@ DATA_ROOT = BASE_DIR / "data"
 FIGURE_ROOT = DATA_ROOT / "pdf" / "research"
 PDF_ROOT = DATA_ROOT / "pdf" / "research" / "original"
 
-DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "doubao")
-MODEL_FULL = MODEL_OPTIONS.get(DEFAULT_MODEL, MODEL_OPTIONS["doubao"])
+DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
+MODEL_FULL = MODEL_OPTIONS.get(DEFAULT_MODEL, MODEL_OPTIONS["glm"])
 
 
 # ========================================================================
@@ -228,7 +228,7 @@ def run_analysis_async(report_id: int, model: str | None = None):
 
     参数:
         report_id: 研报 ID
-        model: 模型短名 doubao / glm / deepseek / qwen，默认取环境变量
+        model: 模型短名 glm / deepseek / qwen，默认取环境变量
     """
     model = model or MODEL_FULL
 

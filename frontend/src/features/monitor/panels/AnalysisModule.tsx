@@ -12,6 +12,7 @@ interface Props {
 }
 
 const modelColors: Record<string, string> = {
+  glm: '#3b82f6',
   doubao: '#3b82f6',
   deepseek: '#10b981',
   qwen: '#f59e0b',

@@ -38,7 +38,7 @@ MODEL_PROVIDER_MODEL = (
     if isinstance(MODEL_INFO, dict)
     else str(MODEL_INFO)
 )
-PROMPT_VERSION = "v2.3"  # v2.3: 修复豆包模型过度拒绝问题，优化分析指令适配实际可用数据
+PROMPT_VERSION = "v2.3"  # v2.3: 修复模型过度拒绝问题，优化分析指令适配实际可用数据
 KINGSTAR_API_KEY = os.getenv("kingstar_API_KEY")
 KINGSTAR_BASE_URL = os.getenv("kingstar_BASE_URL")
 

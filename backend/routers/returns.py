@@ -11,10 +11,21 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
+from backend.common.db_operations import DBOperations
 from backend.config.config import API_PREFIX
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["returns"])
+
+# 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
+MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
+# 按新闻选最高优先级模型的 analysis 的关联子句（参考 db_operations.get_news_reason_rows）
+_BEST_ANALYSIS_JOIN = (
+    "JOIN analysis a ON n.id = a.news_id"
+    " AND a.model = (SELECT a2.model FROM analysis a2"
+    " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
+    f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
+)
 
 WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
@@ -59,9 +70,9 @@ def returns_calendar(
 
         # ── 1. 每日新闻方向统计 ──
         cur.execute(
-            """SELECT DATE(n.pub_time) as d, a.direction, COUNT(*)
+            f"""SELECT DATE(n.pub_time) as d, a.direction, COUNT(*)
                FROM news n
-               JOIN analysis a ON n.id = a.news_id AND a.model = 'doubao'
+               {_BEST_ANALYSIS_JOIN}
                WHERE DATE(n.pub_time) BETWEEN %s AND %s
                GROUP BY DATE(n.pub_time), a.direction""",
             (start, end),
@@ -127,9 +138,9 @@ def returns_calendar(
 
         # ── 4. 整周方向性新闻列表（一次查询 + 批量取因子）──
         cur.execute(
-            """SELECT n.id, n.title, n.pub_time, n.source, a.direction, a.reason, a.horizon
+            f"""SELECT n.id, n.title, n.pub_time, n.source, a.direction, a.reason, a.horizon
                FROM news n
-               JOIN analysis a ON n.id = a.news_id AND a.model = 'doubao'
+               {_BEST_ANALYSIS_JOIN}
                WHERE DATE(n.pub_time) BETWEEN %s AND %s
                  AND a.direction IS NOT NULL
                ORDER BY n.pub_time DESC""",
@@ -146,7 +157,7 @@ def returns_calendar(
                     FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
                     WHERE nf.news_id IN ({placeholders})
                     ORDER BY nf.news_id,
-                             CASE nf.model WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ELSE 2 END,
+                             CASE nf.model WHEN 'glm' THEN 0 WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ELSE 2 END,
                              f.id""",
                 tuple(news_ids),
             )

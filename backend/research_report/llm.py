@@ -56,13 +56,12 @@ PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报�
 
 # 模型短名 → provider/model
 MODEL_OPTIONS = {
-    "doubao": "volcengine/doubao-seed-2-0-code-preview-260215",
     "glm": "aliyun/glm-5.2",
     "deepseek": "deepseek/deepseek-v4-pro",
     "qwen": "aliyun/qwen3.6-flash",
 }
 
-DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "doubao")
+DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
 
 
 def _encode_image(image_path: Path) -> str:
@@ -71,7 +70,7 @@ def _encode_image(image_path: Path) -> str:
 
 
 def _resolve_model(short_name: str) -> str:
-    return MODEL_OPTIONS.get(short_name, MODEL_OPTIONS["doubao"])
+    return MODEL_OPTIONS.get(short_name, MODEL_OPTIONS["glm"])
 
 
 def analyze_report(

@@ -42,7 +42,7 @@ async def _request_completion(client: OpenAI, **kwargs):
 def _log_token(
     response,
     call_source: str = "chat",
-    model_name: str = "doubao",
+    model_name: str = "glm",
     provider_model: str = "",
     user_id: int = 0,
     username: str = "system",
@@ -79,7 +79,7 @@ async def run_agent_loop(
     client: OpenAI,
     model: str,
     max_tool_rounds: int = MAX_TOOL_ROUNDS,
-    model_name: str = "doubao",
+    model_name: str = "glm",
     user_id: int = 0,
     username: str = "system",
 ) -> AsyncGenerator[str, None]:
@@ -95,11 +95,11 @@ async def run_agent_loop(
     client : OpenAI
         Kingstar (OpenAI 兼容) 客户端
     model : str
-        模型标识符，如 volcengine/doubao-seed-2-0-code-preview-260215
+        模型标识符，如 aliyun/glm-5.2
     max_tool_rounds : int
         最大工具调用轮数，防止死循环
     model_name : str
-        模型短名（如 doubao），用于 token 日志
+        模型短名（如 glm），用于 token 日志
     user_id : int
         调用用户ID
     username : str

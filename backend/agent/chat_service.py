@@ -39,7 +39,7 @@ kingstar_client = OpenAI(
 )
 
 CHAT_MODEL = (
-    os.getenv("CHAT_MODEL_NAME") or "volcengine/doubao-seed-2-0-code-preview-260215"
+    os.getenv("CHAT_MODEL_NAME") or "aliyun/glm-5.2"
 )
 
 
@@ -119,7 +119,7 @@ async def agent_chat_stream(
         ),
         client=kingstar_client,
         model=CHAT_MODEL,
-        model_name="doubao",
+        model_name="glm",
         user_id=_resolve_user_id(username),
         username=username or "anonymous",
     ):

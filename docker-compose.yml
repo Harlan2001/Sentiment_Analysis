@@ -25,7 +25,8 @@ services:
       - MYSQL_CHARSET=${MYSQL_CHARSET:-utf8mb4}
       - MYSQL_AUTOCOMMIT=${MYSQL_AUTOCOMMIT:-true}
       # ===== 分析模型 =====
-      - ANALYSIS_MODEL_NAME=${ANALYSIS_MODEL_NAME:-doubao}
+      - ANALYSIS_MODEL_NAME=${ANALYSIS_MODEL_NAME:-glm}
+      - CHAT_MODEL_NAME=${CHAT_MODEL_NAME:-aliyun/glm-5.2}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # ===== 策略 & 标的推荐（必填，代码启动时校验） =====
       - QUANT_STRATEGY_BASE_URL=${QUANT_STRATEGY_BASE_URL}

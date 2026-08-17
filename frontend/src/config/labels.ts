@@ -6,6 +6,7 @@
 // ========== 模型名称 → 中文显示名 ==========
 export const MODEL_NAME_MAP: Record<string, string> = {
   doubao: '豆包',
+  glm: 'GLM',
   deepseek: 'DeepSeek',
   qwen: '通义千问',
   'gpt-4': 'GPT-4',

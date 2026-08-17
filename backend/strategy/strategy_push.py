@@ -16,7 +16,7 @@ from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
 STRATEGY_TZ = ZoneInfo("Asia/Shanghai")
 STRATEGY_MODEL = os.getenv(
-    "STRATEGY_MODEL", "volcengine/doubao-seed-2-0-code-preview-260215"
+    "STRATEGY_MODEL", "aliyun/glm-5.2"
 )
 
 

@@ -545,7 +545,7 @@ class DBOperations:
         用于在关联查询中选取最高优先级模型的 analysis 记录。
 
         Returns:
-            SQL CASE 片段，如 "WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ..."
+            SQL CASE 片段，如 "WHEN 'glm' THEN 0 WHEN 'deepseek' THEN 1 ..."
         """
         return " ".join(
             [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]

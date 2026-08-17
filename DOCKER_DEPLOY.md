@@ -67,7 +67,8 @@ MYSQL_CHARSET=utf8mb4
 MYSQL_AUTOCOMMIT=true
 
 # ===== 分析模型 =====
-ANALYSIS_MODEL_NAME=doubao
+ANALYSIS_MODEL_NAME=glm
+CHAT_MODEL_NAME=aliyun/glm-5.2
 
 # ===== 网络代理 =====
 OUTBOUND_PROXY_ENABLED=true

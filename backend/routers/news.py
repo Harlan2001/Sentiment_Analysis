@@ -335,7 +335,11 @@ def get_news_detail(
                 selected_model = model_name
                 break
     if not selected_model:
-        selected_model = "default"
+        # 历史数据可能只有 doubao 分析（已不在优先级列表），回退到任一可用模型
+        if analyses_by_model:
+            selected_model = next(iter(analyses_by_model))
+        else:
+            selected_model = "default"
 
     selected_analysis = analyses_by_model.get(
         selected_model,
@@ -585,7 +589,7 @@ def get_news_yield_data(
 async def analyze_news(
     news_id: int,
     model_name: Optional[str] = Query(
-        None, description="分析模型短名，如 kingstar / doubao / deepseek"
+        None, description="分析模型短名，如 glm / deepseek / qwen"
     ),
 ):
     result = await process_single_news_analysis(news_id, model_name=model_name)
