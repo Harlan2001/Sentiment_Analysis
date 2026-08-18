@@ -58,7 +58,15 @@ LOG_MAX_DAYS = int(_get_env_str("LOG_MAX_DAYS") or "30")
 # ====================== 本地快照配置 ======================
 # 【临时兼容】SaaS 无法访问内网 API 时，使用本地快照文件替代实时 API 调用
 # 使用前需在内网环境运行 scripts/generate_snapshot.py 生成快照文件
-SNAPSHOT_DIR = DATA_DIR / "snapshots"
+# 本地快照目录：默认 data/snapshots；可用 SNAPSHOT_DIR 环境变量覆盖
+# （相对路径基于项目根目录解析，绝对路径直接使用）
+_snapshot_dir_env = _get_env_str("SNAPSHOT_DIR")
+if _snapshot_dir_env:
+    SNAPSHOT_DIR = Path(_snapshot_dir_env)
+    if not SNAPSHOT_DIR.is_absolute():
+        SNAPSHOT_DIR = BASE_DIR / SNAPSHOT_DIR
+else:
+    SNAPSHOT_DIR = DATA_DIR / "snapshots"
 USE_LOCAL_SNAPSHOT = _is_truthy(_get_env_str("USE_LOCAL_SNAPSHOT") or "false")
 
 

@@ -49,10 +49,11 @@ app = FastAPI(title="Bond Yield Backend")
 
 logger = logging.getLogger(__name__)
 
+# CORS：认证走 Bearer header / query param（不使用 cookie），
+# 故去掉 allow_credentials，使 allow_origins=["*"] 组合合法；若将来需要带凭证请改白名单。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
