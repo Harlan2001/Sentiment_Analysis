@@ -257,7 +257,7 @@ PAGE_TITLES = {
     "/portfolio": "投资组合",
     "/workflow": "工作流",
     "/computer/strategies": "策略开发",
-    "/computer/reports": "研报生成",
+    "/computer/reports": "研报分析",
     "/computer/news": "每日新闻总结",
     "/computer": "工作台",
     "/custom/mcp": "MCP连接",

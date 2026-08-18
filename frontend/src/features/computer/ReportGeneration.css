@@ -121,6 +121,8 @@
 .report-generation-page .report-composer{padding:8px 10px 6px}.report-generation-page .report-composer textarea{min-height:40px;text-align:left}
 .attention-action-cell{display:flex;align-items:center;gap:8px;white-space:nowrap}.attention-action-cell .computer-button{flex:none}.attention-action-cell time{flex:none}
 .report-generation-page .computer-attention-row{padding:10px 13px}
+.report-library-page .report-library-filters{margin:0 0 12px}.report-library-results{margin-bottom:0}.report-library-page .report-source-card,.report-generation-page .report-source-card{grid-template-columns:minmax(0,1fr) auto;font:inherit;text-align:left;color:inherit}
+.daily-news-detail-page{margin-top:18px}
 /* 统计卡片 */
 .report-stat-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:6px 0 14px}
 .report-stat-chip{display:flex;flex-direction:column;justify-content:center;padding:10px 12px;border:1px solid #373737;border-radius:9px;background:#191919;text-align:center}
