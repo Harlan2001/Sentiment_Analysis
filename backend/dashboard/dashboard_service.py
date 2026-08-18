@@ -16,7 +16,7 @@ from backend.config.config import (
     CACHE_TTL_SEC,
     DIR_MAP,
     FACTOR_CATEGORY_MAP,
-    NEWS_SOURCES,
+    NEWS_SOURCE_LABELS,
     PERIOD_LIST,
     PERIOD_REVERSE_MAP,
 )
@@ -119,7 +119,7 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
     )
     lt = []
     for source, cnt, max_pub in s:
-        name = NEWS_SOURCES.get(source, source)
+        name = NEWS_SOURCE_LABELS.get(source, source)
         v = max_pub
         st = "ok"
         if v is None:
@@ -134,11 +134,11 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
 
     return {
         "total": total,
-        "trend_7d": assemble_trend(t, NEWS_SOURCES),
+        "trend_7d": assemble_trend(t, NEWS_SOURCE_LABELS),
         "source_distribution": [
             {
                 "source": x,
-                "name": NEWS_SOURCES.get(x, x),
+                "name": NEWS_SOURCE_LABELS.get(x, x),
                 "count": c,
                 "percentage": pct(c, total),
             }
