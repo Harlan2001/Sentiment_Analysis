@@ -145,6 +145,7 @@ export function getResearchList(params: {
   institution?: string
   industry?: string
   market_view?: string
+  status?: string
   keyword?: string
 }) {
   return requestLegacy<{
@@ -157,6 +158,7 @@ export function getResearchList(params: {
     institution: params.institution,
     industry: params.industry,
     market_view: params.market_view,
+    status: params.status,
     keyword: params.keyword,
   })}`)
 }

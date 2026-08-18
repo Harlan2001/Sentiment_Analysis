@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = 80
 MAX_REFERENCES = 500
 MODEL_CALL_TIMEOUT_SECONDS = 90
-CHUNK_OUTPUT_MAX_TOKENS = 700
-FINAL_OUTPUT_MAX_TOKENS = 1200
+CHUNK_OUTPUT_MAX_TOKENS = 4096
+FINAL_OUTPUT_MAX_TOKENS = 4096
 FINAL_CHUNK_CHARS = 1800
 SYSTEM_PROMPT = """你是专业的中国债券市场新闻编辑。请只基于用户提供的真实新闻条目生成中文 Markdown 总结。
 要求：归纳主题与因果链，不逐条堆砌；区分事实与判断；保留日期范围和来源统计；列出重要事件、利率债/信用债/宏观流动性影响、风险与后续关注；不得编造条目中没有的数据，不给出具体投资建议。"""

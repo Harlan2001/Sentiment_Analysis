@@ -68,6 +68,7 @@ def get_research_list(
     keyword: Optional[str] = Query(
         None, description="标题/机构/行业关键词搜索"
     ),
+    status: Optional[str] = Query(None, description="分析状态筛选"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -90,6 +91,9 @@ def get_research_list(
                 "(title LIKE %s OR institution LIKE %s OR industry LIKE %s)"
             )
             params.extend([f"%{keyword}%"] * 3)
+        if status:
+            conditions.append("status = %s")
+            params.append(status)
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 

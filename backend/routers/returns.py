@@ -12,7 +12,7 @@ from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.config.config import API_PREFIX
+from backend.config.config import API_PREFIX, mask_news_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["returns"])
@@ -186,7 +186,7 @@ def returns_calendar(
                 "id": nid,
                 "title": r[1] or "",
                 "pub_time": pub_dt.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pub_dt, "strftime") else str(pub_dt),
-                "source": r[3] or "",
+                "source": mask_news_source(r[3]),
                 "direction": direction,
                 "reason": r[5] or "",
                 "horizon": r[6] or "",

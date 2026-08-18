@@ -13,7 +13,7 @@ from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.config.config import API_PREFIX, NEWS_SOURCES
+from backend.config.config import API_PREFIX, NEWS_SOURCE_LABELS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["discover"])
@@ -161,7 +161,7 @@ def discover_news(
             "summary": "",
             "pub_time": pub_time.strftime("%Y-%m-%d %H:%M:%S") if pub_time else "",
             "source": src or "",
-            "source_name": NEWS_SOURCES.get(src, src or ""),
+            "source_name": NEWS_SOURCE_LABELS.get(src, src or ""),
             "thumbnail": thumbs.get(nid),
             "direction": adir,
             "reason": areason or "",

@@ -111,8 +111,7 @@ export function NewsPage() {
   }
 
   async function open(taskId: number) {
-    try { setDetail(await getDailyNewsSummary(taskId)) }
-    catch (e) { setError(e instanceof Error ? e.message : '读取详情失败') }
+    navigate(`/computer/news/${taskId}`)
   }
 
   async function retry(taskId: number) {
@@ -126,7 +125,7 @@ export function NewsPage() {
 
   return <section className="computer-page daily-news-page">
     <div className="computer-tabs">
-      <button onClick={() => navigate('/computer')}>全部</button><button onClick={() => navigate('/computer/reports')}>研报生成</button><button onClick={() => navigate('/computer/strategies')}>策略开发</button><button className="active">每日新闻总结</button>
+      <button onClick={() => navigate('/computer')}>全部</button><button onClick={() => navigate('/computer/reports')}>研报分析</button><button onClick={() => navigate('/computer/strategies')}>策略开发</button><button className="active">每日新闻总结</button>
       <span className="computer-spacer" /><button className="computer-button" onClick={() => void load(true)}>刷新</button><button className="computer-button primary" onClick={() => composerRef.current?.focus()}>＋ 立即生成</button>
     </div>
     <div className="computer-toolbar daily-news-history-toolbar">
@@ -183,7 +182,7 @@ export function NewsPage() {
       </tbody></table>
       {history.length > 4 && <div className="daily-news-expand"><button className="expand-toggle" onClick={() => setShowAll((current) => !current)}><i className={'expand-arrow ' + (showAll ? 'up' : 'down')} /></button></div>}
     </div>
-    {detail && <aside className="daily-news-detail" aria-live="polite">
+    {false && detail && <aside className="daily-news-detail" aria-live="polite">
       <div className="daily-news-detail-head"><div><span className="computer-badge">{STATUS[detail.status]}</span><h2>{range(detail)} 新闻总结</h2><p>覆盖 {detail.news_count} 条新闻 · {detail.source_stats_json ? Object.entries(detail.source_stats_json).map(([name, count]) => `${name} ${count} 条`).join(' · ') : '暂无来源统计'}</p></div><button className="computer-button" onClick={() => setDetail(null)}>关闭</button></div>
       {['pending', 'running'].includes(detail.status) && <div className="daily-news-detail-state"><span className="daily-news-spinner" />AI 正在基于真实新闻生成总结，页面会自动刷新。</div>}
       {detail.error_message && <div className="daily-news-error">{detail.error_message}<button className="computer-button primary" disabled={retrying === detail.id} onClick={() => void retry(detail.id)}>{retrying === detail.id ? '正在重试…' : '重试'}</button></div>}

@@ -342,7 +342,7 @@ export function retryDailyNewsSummary(taskId: number) {
 export type ComputerTask = {
   task_id: string
   task_type: 'report_generation' | 'strategy' | 'daily_news'
-  module: '研报生成' | '策略开发' | '每日新闻总结'
+  module: '研报分析' | '策略开发' | '每日新闻总结'
   title: string
   description: string
   source: string
