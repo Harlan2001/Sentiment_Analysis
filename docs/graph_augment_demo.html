@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图谱补全 · 思维链可视化演示</title>
+<style>
+  /* ============ 角色 / 调色板 (dataviz reference palette) ============ */
+  .viz-root{
+    color-scheme: light;
+    --surface-1:#fcfcfb;          /* 卡片面 */
+    --surface-2:#ffffff;
+    --page:#f9f9f7;               /* 页面 */
+    --ink-1:#0b0b0b;              /* 主文字 */
+    --ink-2:#52514e;              /* 次级文字 */
+    --ink-3:#898781;              /* 弱文字/标签 */
+    --line:#e1e0d9;               /* 网格线 */
+    --border:rgba(11,11,11,.10);  /* 卡片描边 */
+    --c-event:#2a78d6;            /* 类别1 蓝  Event */
+    --c-change:#eb6834;           /* 类别2 橙  VariableChange */
+    --c-var:#1baf7a;              /* 类别3 水  MarketVariable */
+    --c-outcome:#e87ba4;          /* 类别5 品红 ValuationOutcome */
+    --good:#0ca30c;
+    --warn:#fab219;
+    --edge-stroke:#a4a29b;
+    --ghost:#f4f3ef;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])) .viz-root{
+      color-scheme: dark;
+      --surface-1:#1a1a19; --surface-2:#232322; --page:#0d0d0d;
+      --ink-1:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
+      --line:#2c2c2a; --border:rgba(255,255,255,.10);
+      --c-event:#3987e5; --c-change:#d95926; --c-var:#199e70; --c-outcome:#d55181;
+      --good:#0ca30c; --warn:#fab219;
+      --edge-stroke:#5a5953; --ghost:#242423;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink-1);
+       font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .viz-root{max-width:1200px;margin:0 auto;padding:28px 24px 40px}
+  code,.mono{font-variant-numeric:tabular-nums}
+
+  /* ============ 头部 ============ */
+  .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;
+        padding-bottom:20px;border-bottom:1px solid var(--line)}
+  .hero h1{margin:0 0 6px;font-size:26px;font-weight:650;letter-spacing:.2px}
+  .sub{margin:0;color:var(--ink-2);font-size:13.5px}
+  .runpill{display:flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid var(--line);
+           border-radius:999px;background:var(--surface-1);font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.warn{background:var(--warn);box-shadow:0 0 0 4px color-mix(in srgb, var(--warn) 22%, transparent)}
+  .dot.pulse{animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .runid{color:var(--ink-3);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .runid::before{content:"· ";color:var(--ink-3)}
+
+  /* ============ 统计块 ============ */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:22px 0 20px}
+  .tile{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .tile .lbl{font-size:12px;color:var(--ink-3);letter-spacing:.4px}
+  .tile .val{font-size:24px;font-weight:650;margin-top:6px;display:flex;align-items:baseline;gap:8px}
+  .tile .val small{font-size:13px;font-weight:500;color:var(--ink-2)}
+  .tile .bar{margin-top:10px;height:6px;border-radius:3px;background:var(--ghost);overflow:hidden}
+  .tile .bar i{display:block;height:100%;width:71%;border-radius:3px;
+               background:linear-gradient(90deg,var(--c-event),var(--c-change))}
+  .tile .bar + .stext{font-size:11.5px;color:var(--ink-3);margin-top:6px}
+
+  /* ============ 卡片 ============ */
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;
+        padding:18px 20px;margin-bottom:20px;overflow:hidden}
+  .card-title{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:650;margin-bottom:14px}
+  .card-title .tag{font-size:11px;font-weight:500;color:var(--ink-3);
+                   border:1px solid var(--line);border-radius:999px;padding:2px 9px;letter-spacing:.3px}
+  /* ============ 区块布局 ============ */
+  .cards{display:flex;flex-direction:column;gap:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  @media (max-width:980px){.grid2{grid-template-columns:1fr}.stats{grid-template-columns:1fr}}
+
+  /* ============ 流水线 ============ */
+  .flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;overflow-x:auto;padding:4px 0}
+  .flow .src{flex:none;display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:9px;
+             background:var(--ghost);border:1px solid var(--line);font-size:12.5px;color:var(--ink-2)}
+  .flow .arr{flex:none;color:var(--ink-3);margin:0 9px;font-size:13px}
+  .chip{flex:none;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;
+        border:1px solid var(--line);background:var(--surface-2);font-size:12.5px}
+  .chip .en{font-size:10.5px;color:var(--ink-3);font-family:ui-monospace,Consolas,monospace}
+  .chip.done{border-color:transparent;background:color-mix(in srgb, var(--good) 10%, var(--surface-2))}
+  .chip.done .mk{color:var(--good)}
+  .chip.cur{border-color:var(--warn);background:color-mix(in srgb, var(--warn) 12%, var(--surface-2));
+            font-weight:600;box-shadow:0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent)}
+  .chip.cur .mk{color:var(--warn)}
+  .chip.pend{color:var(--ink-3)}
+  .chip .mk{font-size:13px;line-height:1}
+
+  /* ============ 思维链日志 ============ */
+  .think-log{border:1px solid var(--line);border-radius:12px;background:var(--page);
+             max-width:860px;margin:0 auto;
+             max-height:520px;overflow-y:auto;padding:8px 14px;font-size:13.5px}
+  .think-log::-webkit-scrollbar{width:8px}
+  .think-log::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .phase{margin:12px 0;border-left:3px solid var(--accent,var(--line));padding-left:14px}
+  .phase-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .p-ico{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;
+         display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  .p-title{font-weight:650;font-size:13.5px}
+  .p-sub{font-size:11px;color:var(--ink-3);font-family:ui-monospace,Consolas,monospace}
+  .p-model{margin-left:auto;font-size:10.5px;color:var(--ink-2);border:1px solid var(--line);
+           border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .p-status{font-size:11px;font-weight:600}
+  .p-status.running{color:var(--warn)}
+  .p-status.done{color:var(--good)}
+  .p-lines{margin-top:2px}
+  .line{position:relative;margin:5px 0;padding-left:15px;color:var(--ink-2);line-height:1.65}
+  .line::before{content:"›";position:absolute;left:0;top:0;color:var(--accent,var(--ink-3));font-weight:700}
+  .line .cursor{display:inline-block;width:7px;height:14px;background:var(--accent,var(--ink-3));
+                vertical-align:-2px;animation:blink .8s step-end infinite;margin-left:1px}
+  @keyframes blink{50%{opacity:0}}
+  .think-foot{margin-top:12px;font-size:11.5px;color:var(--ink-3);line-height:1.6}
+  .btn{border:1px solid var(--line);background:var(--surface-2);color:var(--ink-1);
+       border-radius:9px;padding:5px 13px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--ink-3)}
+  .toggle{display:inline-flex;align-items:center;gap:7px;margin-left:auto;font-size:12.5px;color:var(--ink-2)}
+  .toggle input{accent-color:var(--c-event)}
+
+  /* ============ 因果图谱 ============ */
+  .graph-wrap{display:flex;flex-direction:column;gap:6px}
+  svg{width:100%;height:auto;display:block;max-height:520px}
+  .node rect{fill:var(--surface-1)}
+  .n-event rect{stroke:var(--c-event)}
+  .n-change rect{stroke:var(--c-change)}
+  .n-outcome rect{stroke:var(--c-outcome)}
+  .n-var rect{stroke:var(--c-var);stroke-dasharray:5 3;fill:color-mix(in srgb, var(--c-var) 7%, var(--surface-1))}
+  .node text{fill:var(--ink-1);font-size:13px;font-weight:550}
+  .node .ts{font-size:9px;letter-spacing:.6px;fill:var(--ink-3);font-weight:600}
+  .node .dir{fill:var(--ink-2);font-weight:700}
+  .e-causal{stroke:var(--edge-stroke);stroke-width:1.8}
+  .e-bind{stroke:var(--edge-stroke);stroke-width:1.3;stroke-dasharray:5 4;opacity:.85}
+  .e-lab{font-size:10px;fill:var(--ink-3)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);padding:4px 2px}
+  .legend .lg{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px;flex:none}
+  .sw.sw1{background:var(--c-event)} .sw.sw2{background:var(--c-change)}
+  .sw.sw3{background:var(--c-var)} .sw.sw4{background:var(--c-outcome)}
+  .sw.edge{width:24px;height:0;border-top:2px solid var(--edge-stroke)}
+  .sw.edge.dashed{border-top:2px dashed var(--edge-stroke)}
+  .graph-note{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+
+  /* ============ 底部数据 ============ */
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+  .kv dt{color:var(--ink-3)}
+  .kv dd{margin:0;display:flex;gap:7px;flex-wrap:wrap}
+  .chipx{font-size:12px;background:var(--ghost);border:1px solid var(--line);
+         border-radius:8px;padding:3px 10px;color:var(--ink-1)}
+  pre.snippet{background:var(--page);border:1px solid var(--line);border-radius:10px;
+              padding:12px 14px;font-size:12px;line-height:1.6;overflow-x:auto;color:var(--ink-2);
+              font-family:ui-monospace,Consolas,monospace}
+  pre.snippet .k{color:var(--c-event)} pre.snippet .s{color:var(--c-outcome)}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th{text-align:left;font-weight:600;color:var(--ink-3);font-size:11px;letter-spacing:.3px;
+               padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.tbl td{padding:10px;border-bottom:1px solid var(--line);color:var(--ink-1);
+               font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:nowrap}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+         border-radius:999px;padding:2px 9px;font-family:system-ui,sans-serif}
+  .badge.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--ink-1)}
+  table.tbl td.row-hint{white-space:normal;color:var(--ink-3);font-size:11px;font-family:system-ui}
+  caption.tbl-cap{caption-side:bottom;text-align:left;font-size:11.5px;color:var(--ink-3);
+                  padding-top:10px}
+  .footnote{margin-top:6px;font-size:12px;color:var(--ink-3);line-height:1.7;
+            background:color-mix(in srgb,var(--warn) 7%,transparent);
+            border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+  .footnote b{color:var(--ink-1);font-weight:600}
+</style>
+</head>
+<body>
+<main class="viz-root">
+
+  <!-- ============ 头部 ============ -->
+  <header class="hero">
+    <div>
+      <h1>图谱补全 · 思维链可视化</h1>
+      <p class="sub">新闻 → 实体抽取 → 相似度匹配 → 语义复核 → 链路生成 → LLM补全 → 人工审核 → 写入图谱</p>
+    </div>
+    <div class="runpill">
+      <span class="dot warn pulse"></span>
+      <b>WAITING_REVIEW · 待人工审核</b>
+      <span class="runid">run_20260818_150322_123_ab3f</span>
+    </div>
+  </header>
+
+  <!-- ============ 统计块 ============ -->
+  <section class="stats">
+    <div class="tile">
+      <div class="lbl">任务状态</div>
+      <div class="val">待审核<span class="dot warn" style="width:10px;height:10px"></span></div>
+      <div class="stext" style="font-size:11.5px;color:var(--ink-3);margin-top:8px">数据已生成，等待人工确认补全路径</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">流水线进度</div>
+      <div class="val">5<small>/ 6 已跑通 · 第 6 步审核中</small></div>
+      <div class="bar"><i></i></div>
+      <div class="stext">extract → similarity → audit → chains → augment ✓</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">本次产量</div>
+      <div class="val">11<small>节点 &nbsp;·&nbsp; 6 条 causes 链路</small></div>
+      <div class="stext" style="font-size:11.5px;color:var(--ink-3);margin-top:8px">2 事件 · 3 变量变化 · 3 绑定变量 · 3 估值结果</div>
+    </div>
+  </section>
+
+  <!-- ============ 流水线 ============ -->
+  <section class="card">
+    <div class="card-title">流水线 Pipeline <span class="tag">graph_augment_jobs.stage</span></div>
+    <div class="flow">
+      <div class="src">新闻输入</div>
+      <span class="arr">→</span>
+      <span class="chip done"><span class="mk">✓</span>实体抽取<span class="en">extract</span></span>
+      <span class="arr">→</span>
+      <span class="chip done"><span class="mk">✓</span>相似度匹配<span class="en">similarity</span></span>
+      <span class="arr">→</span>
+      <span class="chip done"><span class="mk">✓</span>语义复核<span class="en">similarity_audit</span></span>
+      <span class="arr">→</span>
+      <span class="chip done"><span class="mk">✓</span>链路生成<span class="en">chains</span></span>
+      <span class="arr">→</span>
+      <span class="chip done"><span class="mk">✓</span>LLM补全<span class="en">augment</span></span>
+      <span class="arr">→</span>
+      <span class="chip cur"><span class="dot warn pulse"></span>人工审核<span class="en">review</span></span>
+      <span class="arr">→</span>
+      <span class="chip pend"><span class="mk">○</span>写入图谱<span class="en">ttl</span></span>
+    </div>
+  </section>
+
+  <!-- ============ 思维链 + 因果图谱（通栏） ============ -->
+  <section class="cards">
+    <!-- 思维链 -->
+    <div class="card">
+      <div class="card-title">思维链 Chain of Thought <span class="tag">SSE 实时流</span>
+        <span class="toggle"><input type="checkbox" id="loop" checked><label for="loop">循环播放</label></span>
+        <button class="btn" id="replay" type="button">重播</button>
+      </div>
+      <div class="think-log" id="thinkLog"></div>
+      <div class="think-foot">思考文本由图谱服务 SSE 实时推送（<code>extract_thinking_delta</code> / <code>augment_thinking_delta</code>），仅流转、不入库；入库的是各阶段结构化结果。</div>
+    </div>
+
+    <!-- 因果图谱 -->
+    <div class="card">
+      <div class="card-title">补全因果图谱 result_json <span class="tag">05_normalized.json</span></div>
+      <div class="graph-wrap">
+        <svg viewBox="0 0 1000 440" role="img" aria-label="补全因果图谱：事件导致变量变化与估值结果">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#95938c"/>
+            </marker>
+            <marker id="ah-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#95938c"/>
+            </marker>
+          </defs>
+
+          <!-- 关系边 -->
+          <line class="e-causal" x1="225" y1="90" x2="270" y2="90" marker-end="url(#ah)"/>
+          <line class="e-causal" x1="480" y1="90" x2="760" y2="90" marker-end="url(#ah)"/>
+          <line class="e-bind"   x1="480" y1="90" x2="535" y2="90" marker-end="url(#ah-d)"/>
+          <line class="e-causal" x1="480" y1="225" x2="760" y2="225" marker-end="url(#ah)"/>
+          <line class="e-bind"   x1="480" y1="225" x2="535" y2="225" marker-end="url(#ah-d)"/>
+          <line class="e-causal" x1="225" y1="360" x2="270" y2="360" marker-end="url(#ah)"/>
+          <line class="e-causal" x1="480" y1="360" x2="760" y2="360" marker-end="url(#ah)"/>
+          <line class="e-bind"   x1="480" y1="360" x2="535" y2="360" marker-end="url(#ah-d)"/>
+          <path class="e-causal" d="M212 112 C 235 152, 262 175, 288 198" marker-end="url(#ah)" fill="none"/>
+
+          <!-- 事件 Event -->
+          <g class="node n-event">
+            <text class="ts" x="135" y="54" text-anchor="middle">EVENT</text>
+            <rect x="45" y="64" width="180" height="52" rx="10"/>
+            <text x="135" y="94" text-anchor="middle">美联储加息50个基点</text>
+          </g>
+          <g class="node n-event">
+            <text class="ts" x="135" y="326" text-anchor="middle">EVENT</text>
+            <rect x="45" y="336" width="180" height="52" rx="10"/>
+            <text x="135" y="366" text-anchor="middle">美股三大指数下跌</text>
+          </g>
+
+          <!-- 变量变化 VariableChange -->
+          <g class="node n-change">
+            <text class="ts" x="375" y="54" text-anchor="middle">VARIABLE CHANGE</text>
+            <rect x="270" y="64" width="210" height="52" rx="10"/>
+            <text x="375" y="94" text-anchor="middle"><tspan class="dir">▲</tspan> 联邦基金利率上升</text>
+          </g>
+          <g class="node n-change">
+            <text class="ts" x="375" y="189" text-anchor="middle">VARIABLE CHANGE</text>
+            <rect x="270" y="199" width="210" height="52" rx="10"/>
+            <text x="375" y="229" text-anchor="middle"><tspan class="dir">▲</tspan> 债券收益率上升</text>
+          </g>
+          <g class="node n-change">
+            <text class="ts" x="375" y="326" text-anchor="middle">VARIABLE CHANGE</text>
+            <rect x="270" y="336" width="210" height="52" rx="10"/>
+            <text x="375" y="366" text-anchor="middle"><tspan class="dir">▼</tspan> 股票市场指数下降</text>
+          </g>
+
+          <!-- 市场变量 MarketVariable（虚线绑定） -->
+          <g class="node n-var">
+            <text class="ts" x="610" y="60" text-anchor="middle">MARKET VARIABLE</text>
+            <rect x="535" y="73" width="150" height="34" rx="17"/>
+            <text x="610" y="95" text-anchor="middle" font-size="12">联邦基金利率</text>
+          </g>
+          <g class="node n-var">
+            <text class="ts" x="610" y="195" text-anchor="middle">MARKET VARIABLE</text>
+            <rect x="535" y="208" width="150" height="34" rx="17"/>
+            <text x="610" y="230" text-anchor="middle" font-size="12">10年期美债收益率</text>
+          </g>
+          <g class="node n-var">
+            <text class="ts" x="610" y="332" text-anchor="middle">MARKET VARIABLE</text>
+            <rect x="535" y="345" width="150" height="34" rx="17"/>
+            <text x="610" y="367" text-anchor="middle" font-size="12">标普500指数</text>
+          </g>
+
+          <!-- 估值结果 ValuationOutcome -->
+          <g class="node n-outcome">
+            <text class="ts" x="860" y="54" text-anchor="middle">VALUATION OUTCOME</text>
+            <rect x="760" y="64" width="200" height="52" rx="10"/>
+            <text x="860" y="94" text-anchor="middle"><tspan class="dir">▲</tspan> 融资成本上升</text>
+          </g>
+          <g class="node n-outcome">
+            <text class="ts" x="860" y="189" text-anchor="middle">VALUATION OUTCOME</text>
+            <rect x="760" y="199" width="200" height="52" rx="10"/>
+            <text x="860" y="229" text-anchor="middle"><tspan class="dir">▼</tspan> 债券价格承压</text>
+          </g>
+          <g class="node n-outcome">
+            <text class="ts" x="860" y="326" text-anchor="middle">VALUATION OUTCOME</text>
+            <rect x="760" y="336" width="200" height="52" rx="10"/>
+            <text x="860" y="366" text-anchor="middle"><tspan class="dir">▼</tspan> 股市估值缩水</text>
+          </g>
+        </svg>
+        <div class="legend">
+          <span class="lg"><span class="sw sw1"></span>Event 事件</span>
+          <span class="lg"><span class="sw sw2"></span>VariableChange 变量变化</span>
+          <span class="lg"><span class="sw sw3"></span>MarketVariable 市场变量</span>
+          <span class="lg"><span class="sw sw4"></span>ValuationOutcome 估值结果</span>
+          <span class="lg"><span class="sw edge"></span>causes 影响关系</span>
+          <span class="lg"><span class="sw edge dashed"></span>for_variable 绑定</span>
+        </div>
+        <div class="graph-note">本次新增 9 个节点（id 以 aug_ 前缀标识），3 条完整影响链路：加息→利率→融资成本 / 加息→收益率→债券价格 / 美股下跌→指数→估值。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 底部：结构化落库 ============ -->
+  <section class="grid2">
+    <div class="card">
+      <div class="card-title">抽取结果 extract_json <span class="tag">结构化落库</span></div>
+      <dl class="kv">
+        <dt>summary</dt><dd>美联储加息引发市场动荡</dd>
+        <dt>main_events</dt>
+        <dd><span class="chipx">美联储加息50个基点</span><span class="chipx">美股三大指数下跌</span></dd>
+        <dt>main_variable_changes</dt>
+        <dd><span class="chipx">联邦基金利率上升</span><span class="chipx">债券收益率上升</span><span class="chipx">股票市场指数下降</span></dd>
+        <dt>notes</dt><dd>[]</dd>
+      </dl>
+      <pre class="snippet" style="margin-top:14px">{
+  "summary": "<span class="s">美联储加息引发市场动荡</span>",
+  "main_events": ["<span class="s">美联储加息50个基点</span>", "<span class="s">美股三大指数下跌</span>"],
+  "main_variable_changes": ["<span class="s">联邦基金利率上升</span>", ...],
+  "notes": []
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title">任务落库 graph_augment_jobs <span class="tag">MySQL</span></div>
+      <table class="tbl">
+        <tr><th>id</th><th>news_id</th><th>run_id</th><th>status</th><th>stage</th><th>created_at</th><th>updated_at</th></tr>
+        <tr>
+          <td>8</td><td>10243</td>
+          <td>run_20260818_150322_123_ab3f</td>
+          <td><span class="badge warn">● 待审核 WAITING_REVIEW</span></td>
+          <td>review</td>
+          <td>2026-08-18 15:03:22</td>
+          <td>2026-08-18 15:05:41</td>
+        </tr>
+      </table>
+      <table class="tbl" style="margin-top:14px">
+        <tr><th>列</th><th>内容</th><th>说明</th></tr>
+        <tr><td>extract_json</td><td>↖ 上方抽取结果</td><td>JSON 列 · LLM 结构化输出</td></tr>
+        <tr><td>result_json</td><td>↖ 右图图谱 JSON</td><td>JSON 列 · 五数组（四类节点 + relationships）</td></tr>
+        <tr><td>run_id（唯一）</td><td>run_2026...ab3f</td><td>与外部图谱服务任务一一对应</td></tr>
+        <caption class="tbl-cap">对外查询：GET /sapi/graph-augment/job-by-news/{news_id} 按新闻取最新一条任务。</caption>
+      </table>
+    </div>
+  </section>
+
+  <footer class="footnote"><b>说明：</b>“思维链”（LLM 推理过程的思考文本）由图谱服务通过 SSE 实时推送（<code>extract / similarity_audit / augment _thinking_delta</code>），并保留在服务端中间产物（<code>01_extract_raw.txt / 04_llm_raw.txt</code>）；<code>graph_augment_jobs</code> 只落结构化结果。上图数据为演示示例。</footer>
+</main>
+
+<script>
+  (function(){
+    // ---- 思维链脚本（演示数据） ----
+    var PHASES = [
+      {icon:'①', title:'实体抽取',  sub:'extract',  model:'Qwen3-235b-a22b', color:'#2a78d6', lines:[
+        '读取新闻文本，识别关键实体与变量变化……',
+        '识别到事件：美联储加息50个基点',
+        '识别到事件：美股三大指数下跌、债券收益率攀升',
+        '输出 extract_json：summary / main_events / main_variable_changes ✓'
+      ]},
+      {icon:'②', title:'相似度匹配 · 语义复核', sub:'similarity + similarity_audit', model:'chatGPT5.2', color:'#eb6834', lines:[
+        '对抽取结果做 Embedding 语义相似度匹配……',
+        '候选：FederalFundsRate 0.91 · 10年期美债收益率 0.87 · 标普500指数 0.82',
+        '语义复核：确认「联邦基金利率上升」→ MarketVariable=FederalFundsRate ✓',
+        '过滤后留存 3 条候选，进入链路检索'
+      ]},
+      {icon:'③', title:'链路生成 · LLM补全', sub:'chains + augment', model:'chatGPT5.2', color:'#e87ba4', lines:[
+        '在图谱中检索与候选节点相关的影响链路……',
+        '命中链路：美联储加息 → 联邦基金利率 → 融资成本',
+        'LLM 补全：为本次新闻生成新增节点与 causes 影响关系',
+        '产出 05_normalized.json：2 事件 · 3 变量变化 · 3 估值结果 ✓'
+      ]},
+      {icon:'④', title:'人工审核', sub:'review · 当前阶段', model:'—', color:'#fab219', lines:[
+        '任务进入 WAITING_REVIEW，等待人工确认补全路径后批准写入 TTL。'
+      ]}
+    ];
+
+    var log = document.getElementById('thinkLog');
+    var loopBox = document.getElementById('loop');
+    var replayBtn = document.getElementById('replay');
+    var playing = false, timer = null, cursor = null, pending = [];
+
+    function build(){
+      log.innerHTML = '';
+      PHASES.forEach(function(p){
+        var ph = document.createElement('div');
+        ph.className = 'phase';
+        ph.style.setProperty('--accent', p.color);
+        ph.innerHTML =
+          '<div class="phase-head">' +
+          '<span class="p-ico">' + p.icon + '</span>' +
+          '<span class="p-title"></span>' +
+          '<span class="p-sub"></span>' +
+          '<span class="p-model"></span>' +
+          '<span class="p-status"></span>' +
+          '</div><div class="p-lines"></div>';
+        ph.querySelector('.p-title').textContent = p.title;
+        ph.querySelector('.p-sub').textContent = p.sub;
+        ph.querySelector('.p-model').textContent = p.model;
+        ph.dataset.script = JSON.stringify(p.lines);
+        log.appendChild(ph);
+      });
+    }
+
+    function state(p, s){
+      var st = log.children[p].querySelector('.p-status');
+      st.className = 'p-status ' + s;
+      st.textContent = s === 'running' ? '● 运行中' : '✓ 完成';
+    }
+
+    function typeChar(par, idx, text, cb){
+      var chunk = 3, n = Array.from(text);
+      (function tick(pos){
+        if (pos >= n.length){ if (cb) cb(); return; }
+        par.textContent = n.slice(0, Math.min(pos + chunk, n.length)).join('');
+        cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        par.appendChild(cursor);
+        setTimeout(function(){ if (cursor && cursor.parentNode) cursor.parentNode.removeChild(cursor); }, 0);
+        setTimeout(tick, 18, pos + chunk);
+      })(0);
+    }
+
+    function play(){
+      if (playing) return;
+      playing = true; replayBtn.textContent = '播放中';
+      if (timer){ clearTimeout(timer); timer = null; }
+      build();
+      var idx = 0, iph = 0, timeout = 260;
+
+      function step(){
+        if (iph >= PHASES.length){ done(); return; }
+        while (iph < PHASES.length && idx >= PHASES[iph].lines.length){
+          state(iph, 'done'); iph++; idx = 0;
+          if (iph >= PHASES.length){ done(); return; }
+          state(iph, 'running');
+        }
+        if (iph >= PHASES.length){ done(); return; }
+        var boxes = log.children[iph].querySelector('.p-lines');
+        var par = document.createElement('div');
+        par.className = 'line';
+        boxes.appendChild(par);
+        log.scrollTop = log.scrollHeight;
+        typeChar(par, 0, PHASES[iph].lines[idx], function(){
+          log.scrollTop = log.scrollHeight;
+          idx++;
+          timeout = idx >= PHASES[iph].lines.length ? 700 : 260;
+          timer = setTimeout(step, timeout);
+        });
+      }
+
+      function done(){
+        state(PHASES.length - 1, 'done');
+        playing = false; replayBtn.textContent = '重播';
+        if (loopBox.checked){ timer = setTimeout(play, 1600); }
+      }
+
+      state(0, 'running');
+      timer = setTimeout(step, 500);
+    }
+
+    replayBtn.addEventListener('click', play);
+    play();
+  })();
+</script>
+</body>
+</html>

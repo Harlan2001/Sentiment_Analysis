@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Iterator
@@ -11,10 +12,6 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from backend.config.config import MYSQL_CONFIG
-
-
-class HistoryStoreConfigurationError(RuntimeError):
-    """历史库未配置时阻止回退到项目业务库。"""
 
 
 class ArchivedConversationError(RuntimeError):
@@ -52,7 +49,13 @@ class AiStrategyHistoryRepository:
 
     @classmethod
     def from_environment(cls) -> "AiStrategyHistoryRepository":
-        return cls(dict(MYSQL_CONFIG))
+        # 独立历史库若配置了 AI_STRATEGY_HISTORY_MYSQL_DATABASE 则用它；
+        # 未配置时回退业务库，与建表脚本的目标保持一致
+        settings = dict(MYSQL_CONFIG)
+        history_db = os.getenv("AI_STRATEGY_HISTORY_MYSQL_DATABASE")
+        if history_db:
+            settings["database"] = history_db
+        return cls(settings)
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
@@ -280,77 +283,6 @@ class AiStrategyHistoryRepository:
                     )
             conn.commit()
         return confirmed
-
-    def begin_generation(
-        self,
-        owner_username: str,
-        conversation_id: int,
-        requirement: str,
-        generated_prompt: str,
-        references: list[dict[str, Any]],
-    ) -> dict[str, int]:
-        """Atomically append one user/assistant pair for an active conversation.
-
-        The assistant row is persisted as ``running`` before the remote call, so a
-        timeout or process-level error still leaves an auditable prompt and news
-        reference snapshot.
-        """
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT status FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s FOR UPDATE",
-                    (conversation_id, owner_username),
-                )
-                conversation = cursor.fetchone()
-                if not conversation:
-                    raise KeyError("conversation_not_found")
-                if conversation["status"] != "active":
-                    raise ArchivedConversationError("conversation_archived")
-                # A stale synchronous request must not block future turns forever.
-                cursor.execute(
-                    "UPDATE ai_strategy_messages SET status = 'timed_out', content = 'DreamStrategy generation timed out; retry this conversation.', public_error_message = 'DreamStrategy generation timed out; retry this conversation.', updated_at = CURRENT_TIMESTAMP WHERE conversation_id = %s AND owner_username = %s AND status = 'running' AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 16 MINUTE)",
-                    (conversation_id, owner_username),
-                )
-                cursor.execute(
-                    "SELECT id FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s AND status = 'running' LIMIT 1",
-                    (conversation_id, owner_username),
-                )
-                if cursor.fetchone():
-                    raise GenerationInProgressError("generation_in_progress")
-                cursor.execute(
-                    "SELECT COALESCE(MAX(sequence_no), 0) AS last_sequence FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s",
-                    (conversation_id, owner_username),
-                )
-                sequence_no = int(cursor.fetchone()["last_sequence"])
-                cursor.execute(
-                    """INSERT INTO ai_strategy_messages (conversation_id, owner_username, sequence_no, role, content, status)
-                                  VALUES (%s, %s, %s, 'user', %s, 'succeeded')""",
-                    (conversation_id, owner_username, sequence_no + 1, requirement),
-                )
-                user_message_id = cursor.lastrowid
-                cursor.execute(
-                    """INSERT INTO ai_strategy_messages (conversation_id, owner_username, sequence_no, role, content, status, generated_prompt, references_json)
-                                  VALUES (%s, %s, %s, 'assistant', '', 'running', %s, %s)""",
-                    (
-                        conversation_id,
-                        owner_username,
-                        sequence_no + 2,
-                        generated_prompt,
-                        json.dumps(
-                            references, ensure_ascii=False, default=_json_default
-                        ),
-                    ),
-                )
-                assistant_message_id = cursor.lastrowid
-                cursor.execute(
-                    "UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
-                    (conversation_id, owner_username),
-                )
-            conn.commit()
-        return {
-            "user_message_id": user_message_id,
-            "assistant_message_id": assistant_message_id,
-        }
 
     def save_remote_session(
         self,

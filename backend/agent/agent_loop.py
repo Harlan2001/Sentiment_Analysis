@@ -238,32 +238,29 @@ async def run_agent_loop(
 
             # 没有工具调用 → 流式输出最终回复
             if finish_reason == "stop" or not finish_reason:
-
-                # 如果有 content 但没有 tool_calls，非流式也够 → 但我们用流式来获得更好体验
-                if choice.message.content:
-                    # 已经拿到非流式回复，不用再调一次流式
-                    yield _sse({"type": "content", "content": choice.message.content})
-                    usage = response.usage
-                    yield _sse(
-                        {
-                            "type": "done",
-                            "usage": (
-                                {
-                                    "prompt_tokens": (
-                                        usage.prompt_tokens if usage else 0
-                                    ),
-                                    "completion_tokens": (
-                                        usage.completion_tokens if usage else 0
-                                    ),
-                                    "total_tokens": usage.total_tokens if usage else 0,
-                                }
-                                if usage
-                                else None
-                            ),
-                        }
-                    )
-                    yield "data: [DONE]\n\n"
-                    return
+                # 正常结束（含内容为空）：结束本轮，不落入"达到最大轮次"强制补答分支
+                yield _sse({"type": "content", "content": choice.message.content or ""})
+                usage = response.usage
+                yield _sse(
+                    {
+                        "type": "done",
+                        "usage": (
+                            {
+                                "prompt_tokens": (
+                                    usage.prompt_tokens if usage else 0
+                                ),
+                                "completion_tokens": (
+                                    usage.completion_tokens if usage else 0
+                                ),
+                                "total_tokens": usage.total_tokens if usage else 0,
+                            }
+                            if usage
+                            else None
+                        ),
+                    }
+                )
+                yield "data: [DONE]\n\n"
+                return
 
             # 正常情况下不应到这里，但保险起见
             break

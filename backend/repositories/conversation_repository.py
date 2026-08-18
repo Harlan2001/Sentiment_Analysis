@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from typing import Any, Optional
 
+import pymysql
+
 from backend.repositories.workbench_repository import (
     WorkbenchConflictError,
     WorkbenchNotFoundError,
@@ -30,7 +32,7 @@ class ConversationRepository(WorkbenchRepository):
                     (conversation_id, message_limit),
                 )
                 messages = cursor.fetchall()
-        return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages], "next_message_cursor": None}
+        return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages]}
 
     def list_conversations(self, username: str, project_id: Optional[str], limit: int, cursor: Optional[str] = None, archived: bool = False) -> dict[str, Any]:
         decoded = _decode_cursor(cursor)
@@ -166,51 +168,67 @@ class ConversationRepository(WorkbenchRepository):
         }
 
     def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str) -> dict[str, Any]:
-        """原子保存用户消息和占位助手消息，防止重试重复调用 Agent。"""
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                conversation = self._conversation_for_user(cursor, username, conversation_id)
-                if not conversation:
-                    raise WorkbenchNotFoundError("会话不存在或当前用户无权访问")
-                self._require_conversation_write(conversation, username)
-                if conversation["status"] == "archived":
-                    raise WorkbenchConflictError("已归档会话不能继续发送消息")
-                cursor.execute(
-                    "SELECT * FROM workbench_messages WHERE conversation_id = %s AND client_message_id = %s",
-                    (conversation_id, client_message_id),
-                )
-                user_message = cursor.fetchone()
-                if user_message:
+        """原子保存用户消息和占位助手消息，防止重试重复调用 Agent。
+        并发重试撞唯一索引时回查已存消息做幂等返回（对齐 create_project 的兜底）。"""
+        try:
+            with self._connection() as conn:
+                with conn.cursor() as cursor:
+                    conversation = self._conversation_for_user(cursor, username, conversation_id)
+                    if not conversation:
+                        raise WorkbenchNotFoundError("会话不存在或当前用户无权访问")
+                    self._require_conversation_write(conversation, username)
+                    if conversation["status"] == "archived":
+                        raise WorkbenchConflictError("已归档会话不能继续发送消息")
+                    cursor.execute(
+                        "SELECT * FROM workbench_messages WHERE conversation_id = %s AND client_message_id = %s",
+                        (conversation_id, client_message_id),
+                    )
+                    user_message = cursor.fetchone()
+                    if user_message:
+                        if user_message["content"] != content:
+                            raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
+                        cursor.execute("SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1", (user_message["id"],))
+                        return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(cursor.fetchone())}
+
+                    user_message_id, assistant_message_id = str(uuid.uuid4()), str(uuid.uuid4())
+                    cursor.execute(
+                        """INSERT INTO workbench_messages
+                             (id, conversation_id, role, content, status, client_message_id, completed_at)
+                           VALUES (%s, %s, 'user', %s, 'completed', %s, CURRENT_TIMESTAMP(6))""",
+                        (user_message_id, conversation_id, content, client_message_id),
+                    )
+                    cursor.execute(
+                        """INSERT INTO workbench_messages
+                             (id, conversation_id, parent_message_id, role, content, status)
+                           VALUES (%s, %s, %s, 'assistant', '', 'streaming')""",
+                        (assistant_message_id, conversation_id, user_message_id),
+                    )
+                    default_title = " ".join(content.split())[:120]
+                    cursor.execute(
+                        """UPDATE workbench_conversations
+                             SET title = COALESCE(title, %s), last_message_at = CURRENT_TIMESTAMP(6), updated_at = CURRENT_TIMESTAMP(6)
+                           WHERE id = %s""",
+                        (default_title, conversation_id),
+                    )
+                    if conversation.get("project_id"):
+                        cursor.execute("UPDATE workbench_projects SET updated_at = CURRENT_TIMESTAMP(6) WHERE id = %s", (conversation["project_id"],))
+                    cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (user_message_id,))
+                    user_message = cursor.fetchone()
+                    cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (assistant_message_id,))
+                    assistant_message = cursor.fetchone()
+                    conn.commit()
+        except pymysql.err.IntegrityError:
+            with self._connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT * FROM workbench_messages WHERE conversation_id = %s AND client_message_id = %s",
+                        (conversation_id, client_message_id),
+                    )
+                    user_message = cursor.fetchone()
+                    if not user_message:
+                        raise
                     if user_message["content"] != content:
                         raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
                     cursor.execute("SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1", (user_message["id"],))
                     return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(cursor.fetchone())}
-
-                user_message_id, assistant_message_id = str(uuid.uuid4()), str(uuid.uuid4())
-                cursor.execute(
-                    """INSERT INTO workbench_messages
-                         (id, conversation_id, role, content, status, client_message_id, completed_at)
-                       VALUES (%s, %s, 'user', %s, 'completed', %s, CURRENT_TIMESTAMP(6))""",
-                    (user_message_id, conversation_id, content, client_message_id),
-                )
-                cursor.execute(
-                    """INSERT INTO workbench_messages
-                         (id, conversation_id, parent_message_id, role, content, status)
-                       VALUES (%s, %s, %s, 'assistant', '', 'streaming')""",
-                    (assistant_message_id, conversation_id, user_message_id),
-                )
-                default_title = " ".join(content.split())[:120]
-                cursor.execute(
-                    """UPDATE workbench_conversations
-                         SET title = COALESCE(title, %s), last_message_at = CURRENT_TIMESTAMP(6), updated_at = CURRENT_TIMESTAMP(6)
-                       WHERE id = %s""",
-                    (default_title, conversation_id),
-                )
-                if conversation.get("project_id"):
-                    cursor.execute("UPDATE workbench_projects SET updated_at = CURRENT_TIMESTAMP(6) WHERE id = %s", (conversation["project_id"],))
-                cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (user_message_id,))
-                user_message = cursor.fetchone()
-                cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (assistant_message_id,))
-                assistant_message = cursor.fetchone()
-            conn.commit()
         return {"created": True, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(assistant_message)}

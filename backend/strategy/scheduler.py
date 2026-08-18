@@ -8,7 +8,11 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 
-from backend.config.config import STRATEGY_AUTO_CRON, STRATEGY_AUTO_ENABLED
+from backend.config.config import (
+    PORTFOLIO_TZ,
+    STRATEGY_AUTO_CRON,
+    STRATEGY_AUTO_ENABLED,
+)
 from backend.strategy.strategy_recommendation import get_or_create_recommendation
 
 logger = logging.getLogger(__name__)
@@ -31,7 +35,7 @@ async def _run_daily() -> None:
     hour = _parse_hour(STRATEGY_AUTO_CRON)
     logger.info("策略自动生成任务已启动，每日 %02d:00 运行", hour)
     while True:
-        now = datetime.now()
+        now = datetime.now(PORTFOLIO_TZ)
         next_run = now.replace(hour=hour, minute=0, second=0, microsecond=0)
         if next_run <= now:
             next_run += timedelta(days=1)

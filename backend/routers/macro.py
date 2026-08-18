@@ -17,6 +17,16 @@ from backend.macrosignal.macro_signal_log import (
 
 router = APIRouter(prefix=f"{API_PREFIX}/macro", tags=["macro"])
 
+shanghai_tz = ZoneInfo("Asia/Shanghai")
+
+
+def _normalize_shanghai_naive(value: str) -> datetime:
+    """把 ISO 时间归一化为上海墙钟的 naive datetime（存储约定：naive 上海墙钟）。"""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(shanghai_tz).replace(tzinfo=None)
+    return parsed
+
 
 @router.get("/signal")
 def get_macro_signal_api(
@@ -44,8 +54,8 @@ def get_macro_signal_api(
             )
 
         try:
-            start_dt = datetime.fromisoformat(start_time)
-            end_dt = datetime.fromisoformat(end_time)
+            start_dt = _normalize_shanghai_naive(start_time)
+            end_dt = _normalize_shanghai_naive(end_time)
         except ValueError:
             raise HTTPException(
                 status_code=400,
@@ -55,7 +65,9 @@ def get_macro_signal_api(
         if start_dt > end_dt:
             raise HTTPException(status_code=400, detail="start_time 不能晚于 end_time")
 
-        codes = [c.strip() for c in factor_code.split(",") if c.strip()]
+        codes = list(
+            dict.fromkeys(c.strip() for c in factor_code.split(",") if c.strip())
+        )
         if not codes:
             raise HTTPException(status_code=400, detail="factor_code 不能为空")
 
@@ -74,6 +86,7 @@ def get_macro_signal_api(
                 build_success_log_row(
                     request_id=request_id,
                     signal_result=result,
+                    signal_type=signal_type,
                     query_start_time=start_dt,
                     query_end_time=end_dt,
                     decay_lambda=decay_lambda,
@@ -145,8 +158,6 @@ def get_macro_signal_logs(
     start_time: Optional[str] = Query(None, description="started_at 开始时间"),
     end_time: Optional[str] = Query(None, description="started_at 结束时间"),
 ):
-    shanghai_tz = ZoneInfo("Asia/Shanghai")
-
     def _parse_filter_time_to_utc_naive(value: str, field_name: str) -> datetime:
         try:
             parsed = datetime.fromisoformat(value)
@@ -241,14 +252,22 @@ def get_macro_signal_logs(
             return dt_utc.astimezone(shanghai_tz).isoformat()
         return str(value)
 
+    def _fmt_query_time(value):
+        # query_start/end 按存储约定已是上海墙钟 naive，无需换时区
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.strftime("%Y-%m-%dT%H:%M:%S")
+        return str(value)
+
     items = [
         {
             "id": row[0],
             "request_id": row[1],
             "factor_code": row[2],
             "signal_type": row[3],
-            "query_start_time": _fmt_dt(row[4]),
-            "query_end_time": _fmt_dt(row[5]),
+            "query_start_time": _fmt_query_time(row[4]),
+            "query_end_time": _fmt_query_time(row[5]),
             "decay_lambda": float(row[6]) if row[6] is not None else None,
             "signal_value": float(row[7]) if row[7] is not None else None,
             "confidence": float(row[8]) if row[8] is not None else None,

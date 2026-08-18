@@ -1,15 +1,11 @@
 import logging
-from datetime import date
-from typing import Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.config.config import API_PREFIX
 from backend.strategy.strategy_recommendation import (
     get_all_strategies,
     get_latest_recommendation,
-    get_or_create_recommendation,
     get_recommendation_history,
 )
 
@@ -18,29 +14,6 @@ logger = logging.getLogger("ai_strategy_router")
 router = APIRouter(
     prefix=f"{API_PREFIX}/ai-strategy-recommendation", tags=["ai-strategy"]
 )
-
-
-class RecommendationRequest(BaseModel):
-    analysis_date: Optional[date] = None
-    force_refresh: bool = False
-    model_name: Optional[str] = None
-
-
-@router.post("/analyze")
-async def analyze_recommendation(
-    request: RecommendationRequest = Body(default=RecommendationRequest()),
-):
-    try:
-        return await get_or_create_recommendation(
-            target_date=request.analysis_date,
-            force_refresh=request.force_refresh,
-            model_name=request.model_name,
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("AI推荐生成失败")
-        raise HTTPException(status_code=500, detail=f"AI推荐生成失败: {exc}") from exc
 
 
 @router.get("/latest")

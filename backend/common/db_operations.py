@@ -61,9 +61,11 @@ class DBOperations:
                 params: List[Any] = []
 
                 if mode == "model_missing":
+                    # 只挑"当前模型还没分析过"的新闻，支持多模型各自补跑
                     conditions.append(
-                        "NOT EXISTS (SELECT 1 FROM analysis a WHERE a.news_id = n.id)"
+                        "NOT EXISTS (SELECT 1 FROM analysis a WHERE a.news_id = n.id AND a.model = %s)"
                     )
+                    params.append(model)
                 elif mode != "force_rerun":
                     raise ValueError(f"不支持的 mode: {mode}")
 
@@ -229,23 +231,28 @@ class DBOperations:
     @staticmethod
     def get_analysis_exists(news_id: int, model: Optional[str] = None) -> bool:
         """
-        检查新闻是否已经有分析结果
+        检查新闻是否已有对应模型的分析结果（model 为空时检查任意模型）。
 
         Args:
             news_id: 新闻ID
-            model: 模型名称（兼容参数，当前未使用）
-
-        Returns:
-            是否已存在分析结果
+            model: 模型名称，指定时只判断该模型是否已分析过
         """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT 1 FROM analysis WHERE news_id = %s
-                """,
-                    (news_id,),
-                )
+                if model:
+                    cur.execute(
+                        """
+                        SELECT 1 FROM analysis WHERE news_id = %s AND model = %s
+                    """,
+                        (news_id, model),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 1 FROM analysis WHERE news_id = %s
+                    """,
+                        (news_id,),
+                    )
                 return cur.fetchone() is not None
 
     @staticmethod

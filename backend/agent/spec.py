@@ -28,9 +28,6 @@ class Param:
     description: str = ""
     enum: Optional[List[Any]] = None
 
-    def cli_flag(self) -> str:
-        return "--" + self.name.replace("_", "-")
-
 
 @dataclass
 class Operation:
@@ -49,18 +46,8 @@ class Operation:
     def key(self) -> str:
         return f"{self.group} {self.name}"
 
-    @property
-    def op_id(self) -> str:
-        return f"{self.method} {self.path}"
-
     def path_params(self) -> List[Param]:
         return [p for p in self.params if p.location == "path"]
-
-    def query_params(self) -> List[Param]:
-        return [p for p in self.params if p.location == "query"]
-
-    def body_params(self) -> List[Param]:
-        return [p for p in self.params if p.location == "body"]
 
     def render_path(self, values: Dict[str, Any]) -> str:
         out = self.path
@@ -262,17 +249,9 @@ class Spec:
                 )
         return out
 
-    def find(self, group: str, name: str) -> Optional[Operation]:
-        for op in self.groups.get(group, []):
-            if op.name == name:
-                return op
-        return None
-
-
-def load_spec(path: Optional[str] = None) -> Spec:
-    """从指定路径或 bundled 副本加载 OpenAPI spec。"""
-    target = Path(path) if path else BUNDLED_SPEC
-    with open(target, "r", encoding="utf-8") as fh:
+def load_spec() -> Spec:
+    """从 bundled 副本加载 OpenAPI spec。"""
+    with open(BUNDLED_SPEC, "r", encoding="utf-8") as fh:
         return Spec(json.load(fh))
 
 
@@ -287,30 +266,6 @@ _TYPE_MAP = {
     "object": "object",
 }
 
-_GROUP_DISPLAY: Dict[str, str] = {
-    "news": "新闻",
-    "factors": "因子",
-    "forecast": "预测",
-    "macro": "宏观信号",
-    "strategy": "策略",
-    "recommend": "AI推荐",
-    "change": "变动监控",
-    "graph": "知识图谱",
-}
-
-_GROUP_ICONS: Dict[str, str] = {
-    "news": "📰",
-    "factors": "📊",
-    "forecast": "🔮",
-    "macro": "⚡",
-    "strategy": "🎯",
-    "recommend": "💡",
-    "change": "📈",
-    "graph": "🕸️",
-}
-
-
-# Agent 不关心的 API 组（auth 是登录、dashboard 是行为分析、report 是 PDF 下载）
 _AGENT_EXCLUDED_GROUPS = {"auth", "dashboard", "report", "pipeline"}
 
 
@@ -400,18 +355,3 @@ def generate_tool_executors(ops: List[Operation], client) -> Dict[str, callable]
         return executor
 
     return {_make_tool_name(op): _make_executor(op) for op in ops}
-
-
-def generate_display_metadata(
-    ops: List[Operation],
-) -> tuple[Dict[str, str], Dict[str, str]]:
-    """为所有 agent 工具生成中文名和图标映射。"""
-    display_names: Dict[str, str] = {}
-    icons: Dict[str, str] = {}
-    for op in ops:
-        name = _make_tool_name(op)
-        display_names[name] = (
-            op.summary or f"{_GROUP_DISPLAY.get(op.group, op.group)}-{op.name}"
-        )
-        icons[name] = _GROUP_ICONS.get(op.group, "🔧")
-    return display_names, icons

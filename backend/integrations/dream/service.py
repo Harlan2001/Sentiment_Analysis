@@ -31,6 +31,9 @@ from backend.integrations.dream.client import (
 
 logger = logging.getLogger(__name__)
 
+# 主消息就绪后，策略版本工件（code）可能稍晚持久化，给予短暂的轮询窗口
+_STRATEGY_ARTIFACT_RETRY_SECONDS = 10
+
 
 @dataclass(frozen=True)
 class DreamStrategySettings:
@@ -131,37 +134,6 @@ def _create_session(client: DreamClient, extension_pb2: Any, template_id: str) -
     if not response.session.open_id:
         raise RuntimeError("创建 DreamStrategy 会话后未返回 session_id")
     return response.session.open_id
-
-
-def _fetch_final_answer(
-    client: DreamClient,
-    extension_pb2: Any,
-    template_id: str,
-    session_id: str,
-    generation_message_id: str,
-) -> str:
-    response = client.request(
-        EI_LIST_MESSAGES,
-        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
-            template_id=template_id,
-            session_id=session_id,
-            count=100,
-            start_pos=0,
-            return_total_count=False,
-        ),
-        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
-    )
-    _ensure_success("读取 DreamStrategy 最终消息", response)
-    return next(
-        (
-            message.content
-            for message in reversed(response.messages)
-            if message.role == 2
-            and len(str(message.content or "").strip()) > 1
-            and not str(message.content or "").strip().isdigit()
-        ),
-        "",
-    )
 
 
 def _fetch_final_message(
@@ -406,14 +378,8 @@ def generate_strategy(
         )
         if hydrated_message:
             final_message = hydrated_message
-        answer = _fetch_final_answer(
-            client,
-            extension_pb2,
-            settings.template_id,
-            session_id,
-            generation_message_id,
-        ) or "".join(streamed_answer_parts)
-        artifact_deadline = time.monotonic()
+        answer = (final_message.content or "") or "".join(streamed_answer_parts)
+        artifact_deadline = time.monotonic() + _STRATEGY_ARTIFACT_RETRY_SECONDS
         strategy: dict[str, str] | None = None
         while True:
             try:

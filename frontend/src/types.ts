@@ -395,7 +395,6 @@ export interface FactorNewsResponse {
 
 export interface AllFactorsResponse {
   factors: FactorDefinition[]
-  structure: Record<string, Record<string, [string, string, string][]>>
 }
 
 export interface FactorsByCategoryResponse {

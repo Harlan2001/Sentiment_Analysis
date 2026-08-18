@@ -46,6 +46,7 @@ class ProjectManagementRepository(MessageRepository):
                 )
                 existing = cursor.fetchone()
         if existing:
+            self._revive_project(username, existing["id"])
             return self.get_project(username, existing["id"])
 
         project_id = str(uuid.uuid4())
@@ -97,9 +98,20 @@ class ProjectManagementRepository(MessageRepository):
                     cursor.execute("SELECT id FROM workbench_projects WHERE owner_username = %s AND client_request_id = %s", (username, client_request_id))
                     existing = cursor.fetchone()
             if existing:
+                self._revive_project(username, existing["id"])
                 return self.get_project(username, existing["id"])
             raise
         return self.get_project(username, project_id)
+
+    def _revive_project(self, username: str, project_id: str) -> None:
+        """同一幂等键命中的项目若处于软删状态，先恢复为可用再返回。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE workbench_projects SET deleted_at = NULL WHERE id = %s AND owner_username = %s",
+                    (project_id, username),
+                )
+            conn.commit()
 
     def list_project_memories(self, username: str, project_id: str, include_inactive: bool = True) -> list[dict[str, Any]]:
         self.get_project(username, project_id)

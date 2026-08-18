@@ -19,7 +19,6 @@ from backend.routers.ai_strategy_generation import (
 )
 from backend.routers.auth import router as auth_router
 from backend.routers.change import router as change_router
-from backend.routers.chat import router as chat_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.factors import router as factors_router
 from backend.routers.forecast import router as forecast_router
@@ -32,10 +31,6 @@ from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
 from backend.routers.report_generation_export import router as report_generation_export_router
 from backend.routers.research import router as research_router
-from backend.routers.change import router as change_router
-from backend.routers.auth import router as auth_router
-from backend.routers.dashboard import router as dashboard_router
-from backend.routers.macro_data import router as macro_data_router
 from backend.routers.discover import router as discover_router
 from backend.routers.returns import router as returns_router
 from backend.routers.daily_news_summary import router as daily_news_summary_router
@@ -86,7 +81,6 @@ app.include_router(factors_router)
 app.include_router(news_router)
 app.include_router(pipeline_router)
 app.include_router(forecast_router)
-app.include_router(chat_router)
 app.include_router(graph_augment_router)
 app.include_router(report_router)
 app.include_router(report_generation_router)

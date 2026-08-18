@@ -47,9 +47,10 @@ class DatabaseConfig:
 
 
 def init_database(config: DatabaseConfig, max_connections: int = 50):
-    """初始化数据库配置和连接池"""
+    """初始化数据库配置和连接池（重建前关闭旧池，避免 mincached=10 的连接泄漏）"""
     global _db_config, _db_pool
     _db_config = config
+    old_pool = _db_pool
 
     _db_pool = PooledDB(
         creator=pymysql,
@@ -59,6 +60,12 @@ def init_database(config: DatabaseConfig, max_connections: int = 50):
         ping=1,
         **config.get_connection_params(),
     )
+
+    if old_pool is not None:
+        try:
+            old_pool.close()
+        except Exception:
+            pass
 
 
 def get_database_config() -> DatabaseConfig:

@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 from fastapi import APIRouter, Query
 
@@ -34,7 +34,6 @@ WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"
 def returns_calendar(
     start: str = Query(..., description="起始日期 YYYY-MM-DD"),
     end: str = Query(..., description="结束日期 YYYY-MM-DD"),
-    selected: str = Query(None, description="选中日期 YYYY-MM-DD，默认取 start"),
 ):
     """
     收益日历聚合接口（一次返回整周数据，前端本地切换日期，避免重复请求）：
@@ -203,7 +202,7 @@ def returns_calendar(
                     """SELECT zbcode, name, value, datestr
                        FROM macro_indicator_data
                        WHERE datestr = %s
-                       LIMIT 10""",
+                       ORDER BY zbcode""",
                     (m,),
                 )
                 macro_by_month[m] = [

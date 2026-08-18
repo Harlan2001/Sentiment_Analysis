@@ -138,6 +138,16 @@ def save_snapshot(snapshot: Dict[str, Any]) -> int:
                      news_added_count, news_removed_count,
                      stock_recommend, strategy_recommend, summary_stats, generate_status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    window_start = VALUES(window_start),
+                    window_end = VALUES(window_end),
+                    news_total = VALUES(news_total),
+                    news_added_count = VALUES(news_added_count),
+                    news_removed_count = VALUES(news_removed_count),
+                    stock_recommend = VALUES(stock_recommend),
+                    strategy_recommend = VALUES(strategy_recommend),
+                    summary_stats = VALUES(summary_stats),
+                    generate_status = VALUES(generate_status)
                 """,
                 (
                     snapshot["version_time"],
@@ -153,8 +163,12 @@ def save_snapshot(snapshot: Dict[str, Any]) -> int:
                 ),
             )
             conn.commit()
-            cur.execute("SELECT LAST_INSERT_ID()")
-            return cur.fetchone()[0]
+            cur.execute(
+                "SELECT id FROM strategy_change_snapshot WHERE version_time = %s",
+                (snapshot["version_time"],),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
 
 
 # ============================================================

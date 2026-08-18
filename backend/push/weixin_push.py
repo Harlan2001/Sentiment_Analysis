@@ -12,7 +12,6 @@
 使用方式：
     python backend/weixin_push.py --pdf-path "data/pdf/2026-04-24.pdf"
     python backend/weixin_push.py                          # 自动找最新 PDF
-    python backend/weixin_push.py --publish                # 定时发布（暂未实现）
 """
 
 import argparse
@@ -53,7 +52,6 @@ add_logger_daily_file(
 logger = logging.getLogger("weixin_push")
 
 # ==================== 配置 ====================
-WECHAT_APPID = os.getenv("WECHAT_APPID", "")
 WECHAT_USERNAME = os.getenv("WECHAT_USERNAME", "")
 WECHAT_PASSWORD = os.getenv("WECHAT_PASSWORD", "")
 
@@ -77,7 +75,7 @@ def _extract_report_date(pdf_path: str | Path) -> str:
 
 
 def _cleanup_old_logs(keep_days: int = 7):
-    """清理超过 keep_days 天的旧日志。"""
+    """清理超过 keep_days 天的本模块日志（仅 weixin_push_*.log，不动其他模块日志）。"""
     from backend.config.config import LOG_DIR as _LOG_DIR
 
     now = datetime.now()
@@ -86,7 +84,7 @@ def _cleanup_old_logs(keep_days: int = 7):
     if not log_dir.exists():
         return
     for f in log_dir.iterdir():
-        if f.is_file():
+        if f.is_file() and f.name.startswith("weixin_push_"):
             try:
                 mtime = datetime.fromtimestamp(f.stat().st_mtime)
                 if mtime < cut_off:
@@ -338,7 +336,6 @@ def _save_as_draft(page) -> bool:
 
 def push_report_to_wechat(
     pdf_path: str | Path = None,
-    publish: bool = False,
     dpi: int = 200,
 ) -> bool:
     """
@@ -451,10 +448,9 @@ def main():
 示例:
   python backend/weixin_push.py --pdf-path "data/pdf/2026-04-24.pdf"
   python backend/weixin_push.py                           # 自动找最新 PDF
-  python backend/weixin_push.py --publish                 # 定时发布
 
 首次运行：用手机微信扫码登录，后续自动复用登录状态。
-配置（.env）：WECHAT_APPID, ARTICLE_AUTHOR 等
+配置（.env）：ARTICLE_AUTHOR 等
         """,
     )
     parser.add_argument(
@@ -462,18 +458,11 @@ def main():
         default=None,
         help="PDF 文件路径（默认自动查找 data/pdf/ 下最新文件）",
     )
-    parser.add_argument(
-        "--publish",
-        action="store_true",
-        default=False,
-        help="定时发布模式（默认仅保存草稿）",
-    )
     parser.add_argument("--dpi", type=int, default=200, help="图片 DPI（默认 200）")
     args = parser.parse_args()
 
     success = push_report_to_wechat(
         pdf_path=args.pdf_path,
-        publish=args.publish,
         dpi=args.dpi,
     )
     sys.exit(0 if success else 1)

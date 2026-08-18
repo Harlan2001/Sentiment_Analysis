@@ -18,11 +18,9 @@ DATA_DIR = BASE_DIR / "data"
 MODEL_DIR = BASE_DIR / "models"
 
 # 数据文件路径
-ANALYSIS_PATH = DATA_DIR / "analysis.jsonl"
 BOND_XLSX = DATA_DIR / "GovernmentBonds.xlsx"
 INDEX_PATH = DATA_DIR / "faiss.index"
 ID_MAP_PATH = DATA_DIR / "id_map.json"
-YIELD_INDEX_DIR = DATA_DIR / "yield_indices"
 
 
 # 工具函数：环境变量读取
@@ -173,13 +171,6 @@ def get_analysis_model_info(model_name: str) -> dict:
     return ANALYSIS_MODEL_REGISTRY.get(model_name, ANALYSIS_MODEL_REGISTRY["glm"])
 
 
-def get_analysis_model_name_by_provider_model(provider_model: str) -> str:
-    for short_name, info in ANALYSIS_MODEL_REGISTRY.items():
-        if info["provider_model"] == provider_model:
-            return short_name
-    return provider_model
-
-
 def get_chat_model_name() -> str:
     # Agent 聊天默认模型短名，与分析模型统一风格：
     # 填短名（如 glm），provider model 由注册表解析；缺省跟随默认分析模型。
@@ -191,7 +182,6 @@ NEWS_SOURCES = {
     "wallstreetcn": "华尔街见闻",
     "yicai": "第一财经",
 }
-DEFAULT_NEWS_SOURCES = []
 
 # 新闻源脱敏标签（合规）：对外展示通用数据源名，不暴露具体媒体名称
 NEWS_SOURCE_LABELS = {

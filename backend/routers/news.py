@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
-from backend.analysis.analyzer import process_single_news_analysis
 from backend.common.database import execute_query, get_db_connection
 from backend.common.db_operations import DBOperations
 from backend.common.vector_store import get_faiss_store
@@ -583,16 +582,3 @@ def get_news_yield_data(
         "window_start": window_start,
         "window_end": window_end,
     }
-
-
-@router.post("/news/{news_id}/analyze")
-async def analyze_news(
-    news_id: int,
-    model_name: Optional[str] = Query(
-        None, description="分析模型短名，如 glm / deepseek / qwen"
-    ),
-):
-    result = await process_single_news_analysis(news_id, model_name=model_name)
-    if result.get("success"):
-        return result
-    return {"error": result.get("message", "分析失败")}

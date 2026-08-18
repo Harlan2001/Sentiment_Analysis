@@ -105,9 +105,6 @@ class Client:
         except (urllib.error.URLError, OSError) as exc:
             raise NetworkError(f"cannot reach {url}: {exc}") from exc
 
-    def health(self) -> Tuple[int, Any]:
-        return self.request("GET", "/health")
-
 
 # ── 内部辅助 ──────────────────────────────────────────────────────────────────
 

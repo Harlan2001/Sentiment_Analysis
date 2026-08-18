@@ -1,7 +1,7 @@
 """Agent 对话共享服务：统一 LLM 客户端、系统提示词与流式内容产出。
 
-供主 ``/sapi/chat`` 路由与工作台（``/sapi/workbench/conversations``）复用，
-避免两处各自维护一套 LLM 调用与 SSE 解析逻辑。
+供工作台（``/sapi/workbench/conversations``）使用，
+避免多处各自维护一套 LLM 调用与 SSE 解析逻辑。
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ async def agent_chat_stream(
         ),
         client=kingstar_client,
         model=CHAT_MODEL,
-        model_name="glm",
+        model_name=get_chat_model_name(),
         user_id=_resolve_user_id(username),
         username=username or "anonymous",
     ):
