@@ -13,8 +13,8 @@ interface Props {
 }
 
 const sourceColors: Record<string, string> = {
-  华尔街见闻: '#f59e0b',
-  第一财经: '#8b5cf6',
+  数据源1: '#f59e0b',
+  数据源2: '#8b5cf6',
   wallstreetcn: '#f59e0b',
   yicai: '#8b5cf6',
 }

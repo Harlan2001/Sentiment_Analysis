@@ -2,10 +2,10 @@
  * 看板常量定义
  */
 
-// 新闻源名称映射
+// 新闻源名称映射（脱敏）
 export const NEWS_SOURCES: Record<string, string> = {
-  wallstreetcn: '华尔街见闻',
-  yicai: '第一财经',
+  wallstreetcn: '数据源1',
+  yicai: '数据源2',
 }
 
 // 告警阈值
