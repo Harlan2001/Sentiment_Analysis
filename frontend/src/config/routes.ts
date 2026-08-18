@@ -52,11 +52,13 @@ export const ROUTES: RouteMeta[] = [
 
   // ── Computer ——
   { path: '/computer', title: 'Computer', shellTitle: 'Computer', navLabel: 'Computer', navIcon: '◉', group: '工作台', track: true },
-  { path: '/computer/reports', title: '研报生成', shellTitle: 'Computer · 研报生成', group: '工作台', track: true },
-  { path: '/computer/reports/:taskId', title: '研报生成', shellTitle: 'Computer · 研报生成' },
+  { path: '/computer/reports', title: '研报分析', shellTitle: 'Computer · 研报分析', group: '工作台', track: true },
+  { path: '/computer/reports/library', title: '研报库', shellTitle: 'Computer · 研报库' },
+  { path: '/computer/reports/:taskId', title: '研报分析', shellTitle: 'Computer · 研报分析' },
   { path: '/computer/strategies', title: '策略开发', shellTitle: 'Computer · 策略开发', group: '工作台', track: true },
   { path: '/computer/strategies/prompt', title: '策略开发', shellTitle: 'Computer · 策略开发' },
   { path: '/computer/news', title: '每日新闻总结', shellTitle: 'Computer · 每日新闻总结', group: '工作台', track: true },
+  { path: '/computer/news/:taskId', title: '新闻总结详情', shellTitle: 'Computer · 新闻总结详情' },
 
   // ── 自定义 ──
   { path: '/custom', title: '自定义', shellTitle: '自定义', navLabel: '自定义', navIcon: '◌', group: '自定义', redirect: '/custom/mcp' },

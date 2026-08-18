@@ -35,7 +35,7 @@ export function ReportGenerationDetailPage() {
     finally { setRetrying(false) }
   }
   return <section className="computer-page report-detail-page">
-    <div className="computer-tabs"><button onClick={() => navigate('/computer/reports')}>← 返回研报生成</button><span className="computer-spacer" /><button className="computer-button" onClick={() => void load()}>刷新状态</button></div>
+    <div className="computer-tabs"><button onClick={() => navigate('/computer/reports')}>← 返回研报分析</button><span className="computer-spacer" /><button className="computer-button" onClick={() => void load()}>刷新状态</button></div>
     {loading ? <div className="report-detail-state">正在读取任务详情…</div>
       : error && !task ? <div className="report-detail-state error">{error}<button className="computer-button" onClick={() => void load()}>重试</button></div>
       : task && <>

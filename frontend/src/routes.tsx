@@ -8,8 +8,10 @@ import { ChatPage } from '@/features/chat/ChatPage'
 import { ComputerPage } from '@/features/computer/ComputerPage'
 import { ReportGenerationPage } from '@/features/computer/ReportGenerationPage'
 import { ReportGenerationDetailPage } from '@/features/computer/ReportGenerationDetailPage'
+import { ReportLibraryPage } from '@/features/computer/ReportLibraryPage'
 import { StrategyPage } from '@/features/computer/StrategyPage'
 import { NewsPage as ComputerNewsPage } from '@/features/computer/NewsPage'
+import { NewsSummaryDetailPage } from '@/features/computer/NewsSummaryDetailPage'
 import { StrategyPromptPage } from '@/features/computer/StrategyPromptPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
@@ -43,10 +45,12 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/chat/:conversationId': <ChatPage />,
   '/computer': <ComputerPage />,
   '/computer/reports': <ReportGenerationPage />,
+  '/computer/reports/library': <ReportLibraryPage />,
   '/computer/reports/:taskId': <ReportGenerationDetailPage />,
   '/computer/strategies': <StrategyPage />,
   '/computer/strategies/prompt': <StrategyPromptPage />,
   '/computer/news': <ComputerNewsPage />,
+  '/computer/news/:taskId': <NewsSummaryDetailPage />,
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
   '/projects/new': <ProjectCreatePage />,

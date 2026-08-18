@@ -28,14 +28,6 @@ const STATUS_LABEL: Record<ReportGenerationTask['status'], string> = {
   queued: '排队中', running: '正在生成', completed: '已完成', failed: '生成失败',
 }
 
-const VIEW_LABEL: Record<string, string> = { bullish: '看多', bearish: '看空', neutral: '中性' }
-const STATUS_ICON: Record<string, { label: string; css: string }> = {
-  parsed: { label: '已解析', css: 'waiting' },
-  processing: { label: '分析中', css: 'running' },
-  analyzed: { label: '已分析', css: 'done' },
-  failed: { label: '失败', css: 'failed' },
-}
-
 export function ReportGenerationPage() {
   const navigate = useNavigate()
 
@@ -118,31 +110,19 @@ export function ReportGenerationPage() {
     }
   }, [dateEnd, dateStart, libraryFilters])
 
-  const loadLibrary = useCallback(async () => {
-    setLoadingLibrary(true)
-    try {
-      const data = await getResearchList({
-        page: libraryPage,
-        page_size: PAGE_SIZE,
-        institution: libraryFilters.institution || undefined,
-        industry: libraryFilters.industry || undefined,
-        market_view: libraryFilters.market_view || undefined,
-        keyword: libraryFilters.keyword || undefined,
-      })
-      setLibrary(data.items)
-      setLibraryTotal(data.total)
-      setLibraryOptions(data.filters)
-      setSourceError('')
-    } catch (error) {
-      setSourceError(error instanceof Error ? error.message : '读取研报库失败')
-    } finally {
-      setLoadingLibrary(false)
-    }
-  }, [libraryFilters, libraryPage])
-
   const loadSummary = useCallback(async () => {
     try { setSummary(await getResearchSummary()) } catch { /* ignore */ }
   }, [])
+
+  const loadLibrary = useCallback(async () => {
+    setLoadingLibrary(true)
+    try {
+      const data = await getResearchList({ page: libraryPage, page_size: PAGE_SIZE, institution: libraryFilters.institution || undefined, industry: libraryFilters.industry || undefined, market_view: libraryFilters.market_view || undefined, keyword: libraryFilters.keyword || undefined })
+      setLibrary(data.items); setLibraryTotal(data.total); setLibraryOptions(data.filters); setSourceError('')
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : '读取研报库失败')
+    } finally { setLoadingLibrary(false) }
+  }, [libraryFilters, libraryPage])
 
   useEffect(() => { void loadTasks() }, [loadTasks])
   useEffect(() => { void loadSummary() }, [loadSummary])
@@ -192,12 +172,7 @@ export function ReportGenerationPage() {
   }
 
   function handleLibraryFilter(key: string, value: string) {
-    setLibraryFilters((prev) => ({ ...prev, [key]: value }))
-    setLibraryPage(1)
-  }
-
-  function toggleSelect(id: number) {
-    setSelectedIds((current) => current.includes(id) ? current.filter((i) => i !== id) : current.length >= 12 ? current : [...current, id])
+    setLibraryFilters((prev) => ({ ...prev, [key]: value })); setLibraryPage(1)
   }
 
   // ── 计算变量 ──
@@ -206,14 +181,13 @@ export function ReportGenerationPage() {
   const visibleHistory = showAllHistory ? historyTasks : historyTasks.slice(0, 4)
   const displayActive = showAllActive ? activeTasks : activeTasks.slice(0, 2)
   const totalPages = Math.ceil(libraryTotal / PAGE_SIZE)
-  const selectedSources = sources.filter((s) => selectedIds.includes(s.id))
 
   return (
     <section className="computer-page report-generation-page">
       {/* ── Tabs ── */}
       <div className="computer-tabs">
         <button onClick={() => navigate('/computer')}>全部</button>
-        <button className="active">研报生成</button>
+        <button className="active">研报分析</button>
         <button onClick={() => navigate('/computer/strategies')}>策略开发</button>
         <button onClick={() => navigate('/computer/news')}>每日新闻总结</button>
         <span className="computer-spacer" />
@@ -267,7 +241,7 @@ export function ReportGenerationPage() {
             <strong>研报库</strong>
             <span>· {libraryTotal} 份研报</span>
           </div>
-          <button type="button" className="computer-button" onClick={() => setUploadOpen(true)}>＋ 上传 PDF</button>
+          <button type="button" className="computer-button" onClick={() => navigate('/computer/reports/library')}>查看全部</button>
         </div>
 
         {/* 库筛选 */}
@@ -278,30 +252,6 @@ export function ReportGenerationPage() {
           <select value={libraryFilters.industry} onChange={(e) => handleLibraryFilter('industry', e.target.value)}><option value="">全部行业</option>{libraryOptions.industries.map((item) => <option key={item}>{item}</option>)}</select>
           <select value={libraryFilters.market_view} onChange={(e) => handleLibraryFilter('market_view', e.target.value)}><option value="">全部观点</option><option value="bullish">看多</option><option value="bearish">看空</option><option value="neutral">中性</option></select>
         </div>
-
-        {/* 选中 chips (composer 开启时显示) */}
-        {composerOpen && selectedSources.length > 0 && (
-          <div className="report-source-chips" style={{marginBottom:10}}>
-            {selectedSources.map((source) => (
-              <button key={source.id} type="button" onClick={() => setSelectedIds((c) => c.filter((id) => id !== source.id))}>{source.title}<span>×</span></button>
-            ))}
-          </div>
-        )}
-
-        {/* 选择工具栏 (composer 开启时显示) */}
-        {composerOpen && (
-          <div className="report-source-toolbar" style={{marginBottom:8}}>
-            <label><input type="checkbox" checked={library.length > 0 && library.every((item) => selectedIds.includes(item.id))} onChange={() => {
-              const allSelected = library.every((item) => selectedIds.includes(item.id))
-              if (allSelected) setSelectedIds([])
-              else {
-                const ids = library.slice(0, 12).map((item) => item.id)
-                setSelectedIds(ids)
-              }
-            }} /> 全选当前页</label>
-            <span>{selectedIds.length} / 12 已选择</span>
-          </div>
-        )}
 
         {/* 研报卡片列表 */}
         <div className="report-source-list">
@@ -314,20 +264,13 @@ export function ReportGenerationPage() {
           ) : (
             library.map((item) => {
               const status = STATUS_ICON[item.status] || { label: item.status, css: 'waiting' }
-              const checked = selectedIds.includes(item.id)
               return (
-                <label
-                  className={`report-source-card ${checked ? 'selected' : ''}`}
+                <button
+                  type="button"
+                  className="report-source-card"
                   key={item.id}
-                  onClick={() => setSelectedSourceId(item.id)}
+                  onClick={() => navigate(`/computer/reports/library?reportId=${item.id}`)}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleSelect(item.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ display: composerOpen ? undefined : 'none' }}
-                  />
                   <span>
                     <strong>{item.title}</strong>
                     <small>{item.institution || '未知机构'} · {item.publish_date || '日期未知'} · {item.industry || item.report_type || '未分类'}</small>
@@ -343,7 +286,7 @@ export function ReportGenerationPage() {
                       </em>
                     )}
                   </div>
-                </label>
+                </button>
               )
             })
           )}
@@ -412,6 +355,7 @@ export function ReportGenerationPage() {
           <textarea className="report-title-input" value={title} onChange={(event) => setTitle(event.target.value.replace(/[\r\n]+/g, ' '))} maxLength={255} rows={1} placeholder="报告标题，例如：8 月利率债市场观点综述" />
           <textarea value={requirement} onChange={(event) => setRequirement(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} maxLength={4000} rows={2} placeholder="描述分析重点、目标读者和希望比较的问题…" />
           <div className="report-task-submit">
+            <button type="button" className="computer-button" onClick={() => setUploadOpen(true)}>＋ 上传 PDF</button>
             <span className="composer-status">已选 {selectedIds.length} 份来源 · 发送后将创建真实生成任务</span>
             <button className="report-send" disabled={submitting} type="submit" aria-label="开始生成研报" title="开始生成研报">{submitting ? '…' : '↑'}</button>
           </div>
@@ -433,4 +377,10 @@ export function ReportGenerationPage() {
       {selectedSourceId && <ReportSourceDetailPanel reportId={selectedSourceId} onClose={() => setSelectedSourceId(null)} />}
     </section>
   )
+}
+
+const VIEW_LABEL: Record<string, string> = { bullish: '看多', bearish: '看空', neutral: '中性' }
+const STATUS_ICON: Record<string, { label: string; css: string }> = {
+  parsed: { label: '已解析', css: 'waiting' }, processing: { label: '分析中', css: 'running' },
+  analyzed: { label: '已分析', css: 'done' }, failed: { label: '失败', css: 'failed' },
 }

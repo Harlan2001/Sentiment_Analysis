@@ -48,10 +48,10 @@ def _normalize_report(task: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": f"report:{task['id']}",
         "task_type": "report_generation",
-        "module": "研报生成",
+        "module": "研报分析",
         "title": str(task.get("title") or "未命名研报"),
         "description": " ".join(str(task.get("requirement") or "").split())[:140],
-        "source": "研报生成",
+        "source": "研报分析",
         "result": f"{len(sources)} 份来源"
         if status == "completed"
         else f"{len(sources)} 份来源 · 待完成",

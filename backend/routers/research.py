@@ -67,6 +67,7 @@ def get_research_list(
     market_view: Optional[str] = Query(
         None, description="情感筛选：bullish/bearish/neutral"
     ),
+    status: Optional[str] = Query(None, description="分析状态筛选"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -84,6 +85,9 @@ def get_research_list(
         if market_view:
             conditions.append("ai_market_view = %s")
             params.append(market_view)
+        if status:
+            conditions.append("status = %s")
+            params.append(status)
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ComputerTask, getComputerTasks } from '@/api/workbench'
 import { ComputerDatePicker } from './components/ComputerDatePicker'
 
-type ModuleKey = '全部' | '研报生成' | '策略开发' | '每日新闻总结'
+type ModuleKey = '全部' | '研报分析' | '策略开发' | '每日新闻总结'
 
 /** 业务状态分组：对外展示用中文分类，对内映射到多个原始状态值 */
 const STATUS_GROUPS: { label: string; statuses: string[] }[] = [
@@ -27,7 +27,7 @@ const STATUS_ICON: Record<string, string> = {
 }
 
 const tabRoutes: Record<Exclude<ModuleKey, '全部'>, string> = {
-  '研报生成': '/computer/reports',
+  '研报分析': '/computer/reports',
   '策略开发': '/computer/strategies',
   '每日新闻总结': '/computer/news',
 }
@@ -80,7 +80,7 @@ export function ComputerPage() {
     let filtered = tasks
     if (activeTab !== '全部') {
       const map: Record<Exclude<ModuleKey, '全部'>, string> = {
-        '研报生成': 'report_generation',
+        '研报分析': 'report_generation',
         '策略开发': 'strategy',
         '每日新闻总结': 'daily_news',
       }
@@ -152,7 +152,7 @@ export function ComputerPage() {
   return (
     <section className="computer-page">
       <div className="computer-tabs">
-        {(['全部', '研报生成', '策略开发', '每日新闻总结'] as ModuleKey[]).map(
+        {(['全部', '研报分析', '策略开发', '每日新闻总结'] as ModuleKey[]).map(
           (tab) => (
             <button
               className={activeTab === tab ? 'active' : ''}
@@ -383,7 +383,7 @@ export function ComputerPage() {
           <strong style={{ display: 'block', marginBottom: 6 }}>
             暂无 Computer 任务
           </strong>
-          在研报生成、策略开发或每日新闻总结中创建第一个任务后，它将会出现在这里。
+          在研报分析、策略开发或每日新闻总结中创建第一个任务后，它将会出现在这里。
         </div>
       )}
     </section>

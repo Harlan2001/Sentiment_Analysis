@@ -116,7 +116,7 @@ export function StrategyPage() {
     <section className="computer-page">
       <div className="computer-tabs">
         <button onClick={() => navigate('/computer')}>全部</button>
-        <button onClick={() => navigate('/computer/reports')}>研报生成</button>
+        <button onClick={() => navigate('/computer/reports')}>研报分析</button>
         <button className="active">策略开发</button>
         <button onClick={() => navigate('/computer/news')}>每日新闻总结</button>
         <span className="computer-spacer" />
