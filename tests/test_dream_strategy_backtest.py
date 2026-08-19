@@ -1,5 +1,14 @@
-from backend.integrations.dream.service import _backtest_is_complete, _merge_backtest_log, _parse_backtest_metrics, _summarize_backtest_log
-from backend.strategy.dream_strategy_prompt import _default_trading_parameters
+from backend.integrations.dream.service import (
+    _backtest_is_complete,
+    _clean_strategy_description,
+    _merge_backtest_log,
+    _parse_backtest_metrics,
+    _summarize_backtest_log,
+)
+from backend.strategy.dream_strategy_prompt import (
+    _default_trading_parameters,
+    _resolve_instrument,
+)
 
 
 def test_backtest_is_not_failed_merely_because_the_boolean_defaults_to_false():
@@ -46,3 +55,15 @@ def test_backtest_parser_retains_unknown_platform_statistics_and_full_log():
     ]
     assert metrics[1]["value"] == "abc123"
     assert _summarize_backtest_log(log) == log.strip()
+
+
+def test_broad_strategy_request_uses_a_runnable_default_instrument():
+    instrument = _resolve_instrument("随便生成一个策略")
+
+    assert instrument.name == "10Y 国债期货 (FCT_T_MAIN)"
+
+
+def test_strategy_summary_removes_fenced_code():
+    description = "```python\ndef OnData(self):\n    pass\n```\n这是策略逻辑概要。"
+
+    assert _clean_strategy_description(description) == "这是策略逻辑概要。"
