@@ -22,6 +22,24 @@ DEFAULT_FREQUENCY = "日频"
 TECHNICAL_STATE = "价格与技术数据由量化宿主在策略运行时读取；Sentiment 不提供 OHLCV，不得伪造技术状态。"
 EDITABLE_SECTION_START = "[USER_EDITABLE_REQUIREMENT]"
 EDITABLE_SECTION_END = "[/USER_EDITABLE_REQUIREMENT]"
+TRADING_PARAMETERS_START = "[TRADING_PARAMETERS]"
+TRADING_PARAMETERS_END = "[/TRADING_PARAMETERS]"
+
+# Defaults keep an instrument-specific request runnable on its first attempt.
+# They remain in the user-editable section and are rendered as form fields.
+DEFAULT_TRADING_PARAMETERS = (
+    ("开仓规则", "5日均线上穿20日均线，且收盘价站上20日均线"),
+    ("平仓规则", "5日均线跌破20日均线，或触发止盈止损"),
+    ("单笔仓位", "20%资金"),
+    ("止损", "1.5%"),
+    ("止盈", "3.0%"),
+    ("回测区间", "最近2年"),
+    ("信号频率", "日频"),
+)
+
+
+def _default_trading_parameters() -> str:
+    return "\n".join(f"- {name}：{value}" for name, value in DEFAULT_TRADING_PARAMETERS)
 
 
 @dataclass(frozen=True)
@@ -140,7 +158,7 @@ def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
 [EXECUTION RULES]
 - Continue the existing DreamStrategy session and directly generate a complete strategy response now.
 - The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
-- If important execution parameters are missing, ask concise follow-up questions instead of inventing defaults. When the user supplies them, use those additions to generate the next strategy response in this same session.
+- If the user has named an instrument and objective but omitted ordinary execution parameters, use conservative, explicit defaults (including signal window, position size, stop loss, take profit, and test period) so that a complete, runnable strategy can be generated and backtested now. List those defaults in the strategy summary. Ask a follow-up only when the instrument, market, or core objective is genuinely ambiguous.
 - Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
 - If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies.
 - Return the complete strategy code, concise logic summary, and backtest result in the same language as the user request.
@@ -201,7 +219,12 @@ def build_dream_strategy_prompt(
     conclusion, action = _sentiment_guidance(counts, instrument.market_scope)
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     values = {
-        "USER_REQUIREMENT": f"{EDITABLE_SECTION_START}\n{normalized_requirement}\n{EDITABLE_SECTION_END}",
+        "USER_REQUIREMENT": (
+            f"{EDITABLE_SECTION_START}\n{TRADING_PARAMETERS_START}\n"
+            f"{_default_trading_parameters()}\n{TRADING_PARAMETERS_END}\n\n"
+            f"[STRATEGY_REQUIREMENT]\n{normalized_requirement}\n"
+            f"[/STRATEGY_REQUIREMENT]\n{EDITABLE_SECTION_END}"
+        ),
         "MARKET_AS_OF": context["reference_time"].strftime("%Y-%m-%d %H:%M"),
         "INSTRUMENT": instrument.name,
         "FREQUENCY": DEFAULT_FREQUENCY,

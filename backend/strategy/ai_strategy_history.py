@@ -311,6 +311,13 @@ class AiStrategyHistoryRepository:
     ) -> dict[str, Any] | None:
         """Persist the remote answer and its strategy version in one transaction."""
         strategy = result.get("strategy")
+        has_strategy_code = bool(strategy and str(strategy.get("code") or "").strip())
+        message_status = "succeeded" if has_strategy_code else "failed"
+        public_error = (
+            None
+            if has_strategy_code
+            else "DreamStrategy returned a text reply but did not create strategy code or a backtest artifact. Please retry generation."
+        )
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -321,10 +328,12 @@ class AiStrategyHistoryRepository:
                 if not conversation:
                     raise KeyError("conversation_not_found")
                 cursor.execute(
-                    """UPDATE ai_strategy_messages SET content = %s, status = 'succeeded', remote_message_id = %s, elapsed_seconds = %s, updated_at = CURRENT_TIMESTAMP
+                    """UPDATE ai_strategy_messages SET content = %s, status = %s, public_error_message = %s, remote_message_id = %s, elapsed_seconds = %s, updated_at = CURRENT_TIMESTAMP
                                   WHERE id = %s AND conversation_id = %s AND owner_username = %s""",
                     (
                         result.get("summary", ""),
+                        message_status,
+                        public_error,
                         result.get("message_id") or None,
                         result.get("elapsed_seconds"),
                         assistant_message_id,
@@ -335,7 +344,7 @@ class AiStrategyHistoryRepository:
                 if cursor.rowcount != 1:
                     raise KeyError("assistant_message_not_found")
                 version = None
-                if strategy and strategy.get("code"):
+                if has_strategy_code:
                     local_version_no = int(conversation["current_local_version_no"]) + 1
                     cursor.execute(
                         """INSERT INTO ai_strategy_versions (conversation_id, owner_username, source_message_id, local_version_no, remote_template_version_id, remote_template_version_no, name, description, code, backtest_passed, backtest_exit_code, backtest_summary, backtest_metrics_json)
