@@ -80,6 +80,12 @@ function displayMetricLabel(label: string) {
   return BACKTEST_METRIC_LABELS[label] || label
 }
 
+function cleanStrategySummary(description: string) {
+  const withoutCodeBlocks = description.replace(/```[^\n]*\n[\s\S]*?```/g, '').trim()
+  const withoutUnclosedCode = withoutCodeBlocks.includes('```') ? withoutCodeBlocks.split('```', 1)[0].trim() : withoutCodeBlocks
+  return withoutUnclosedCode || '策略代码与回测结果已生成，请在下方查看。'
+}
+
 export function StrategyPromptPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -205,6 +211,7 @@ export function StrategyPromptPage() {
     return Array.isArray(references) ? references as Array<Record<string, unknown>> : []
   }, [lastAssistant])
   const backtestLog = lastVersion?.backtest_summary?.trim() || ''
+  const strategySummary = lastVersion?.description ? cleanStrategySummary(lastVersion.description) : ''
 
   const activeStep = isDone ? 4 : isRunning ? 3 : isDraftReady ? 2 : detail && detail.messages.length > 0 ? 1 : 0
   const stepLabels = ['需求确认', '提示词草稿', '用户确认', '代码与回测', '生成完成']
@@ -263,8 +270,8 @@ export function StrategyPromptPage() {
         <section className="strategy-editor">
           <h2>策略概要</h2>
           <div className="strategy-editor-scroll">
-          {isDone && lastVersion?.description ? (
-            <p className="requirement-box" style={{marginTop:0}}>{lastVersion.description}</p>
+          {isDone && strategySummary ? (
+            <div className="strategy-summary-output">{strategySummary}</div>
           ) : hasTextOnlyReply ? (
             <pre className="strategy-backtest-log">{lastAssistant?.content}</pre>
           ) : (

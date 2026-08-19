@@ -348,7 +348,8 @@ select:focus,
 }
 .strategy-prompt-scroll .strategy-requirements{overflow-y:auto!important}
 .strategy-prompt-scroll .strategy-editor{display:flex!important;flex-direction:column!important}
-.strategy-prompt-scroll .strategy-editor .strategy-editor-scroll{flex:1;min-height:0;overflow-y:auto!important}
+.strategy-prompt-scroll .strategy-editor .strategy-editor-scroll{display:flex;flex:1;min-height:0;overflow:hidden!important}
+.strategy-summary-output{box-sizing:border-box;flex:1;min-height:0;margin:0;padding:11px;border:1px solid #3c3c3c;border-radius:8px;background:#1e1e1e;color:#d1d1d1;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word;overflow-y:auto}
 .strategy-prompt-scroll .strategy-editor textarea{min-height:0!important;height:100%!important;max-height:100%!important;resize:none!important;overflow:auto!important}
 .strategy-prompt-scroll .strategy-prompt-actions{flex:none!important}
 @media(max-width:850px){
