@@ -55,11 +55,10 @@ class StrategyPushService:
 
     @staticmethod
     def _next_half_hour(now: datetime) -> datetime:
-        this_hour_half = now.replace(minute=30, second=0, microsecond=0)
-        if now < this_hour_half:
-            return this_hour_half
-        next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-        return next_hour.replace(minute=30)
+        """返回下一个已对齐 :00 或 :30 的时刻，使市场快照每半小时刷新一次。"""
+        if now.minute < 30:
+            return now.replace(minute=30, second=0, microsecond=0)
+        return now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
     def _direction_normalized(self, direction: str) -> str:
         value = (direction or "").strip().lower()
@@ -195,6 +194,7 @@ class StrategyPushService:
                   SELECT a2.model
                   FROM analysis a2
                   WHERE a2.news_id = n.id
+                    AND TRIM(a2.reason) <> ''
                   ORDER BY CASE a2.model
                       {priority_cases}
                       ELSE 999
@@ -390,6 +390,7 @@ class StrategyPushService:
                 key
                 for key, value in self._snapshots.items()
                 if value.get("status") == "failed"
+                and key != self._slot_key(slot_time)
             ]
 
         for failed_slot in failed_slots:

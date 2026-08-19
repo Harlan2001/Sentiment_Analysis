@@ -10,8 +10,7 @@ router = APIRouter(prefix=API_PREFIX, tags=["factors"])
 
 @router.get("/factors")
 def get_all_factors_api():
-    factors = get_factors_from_db()
-    return {"factors": factors, "structure": factors}
+    return {"factors": get_factors_from_db()}
 
 
 @router.get("/factors/paged")

@@ -3,7 +3,6 @@
 - GET /research/summary       顶部概览统计
 - GET /research/list          研报列表（支持筛选 + 分页）
 - GET /research/{id}          研报详情（含 AI 分析 + 图表列表）
-- GET /research/figure/{hash}/{filename}  图表文件
 """
 
 from __future__ import annotations
@@ -11,10 +10,9 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
 
 from backend.common.database import get_db_connection
-from backend.config.config import API_PREFIX, BASE_DIR
+from backend.config.config import API_PREFIX
 from backend.research_report import pipeline
 from backend.research_report.parser import clean_display_text
 
@@ -67,6 +65,9 @@ def get_research_list(
     market_view: Optional[str] = Query(
         None, description="情感筛选：bullish/bearish/neutral"
     ),
+    keyword: Optional[str] = Query(
+        None, description="标题/机构/行业关键词搜索"
+    ),
     status: Optional[str] = Query(None, description="分析状态筛选"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -85,6 +86,11 @@ def get_research_list(
         if market_view:
             conditions.append("ai_market_view = %s")
             params.append(market_view)
+        if keyword:
+            conditions.append(
+                "(title LIKE %s OR institution LIKE %s OR industry LIKE %s)"
+            )
+            params.extend([f"%{keyword}%"] * 3)
         if status:
             conditions.append("status = %s")
             params.append(status)
@@ -348,14 +354,3 @@ def trigger_analysis(
         "status": "processing",
         "message": "分析任务已提交",
     }
-
-
-@router.get("/figure/{file_hash}/{filename}")
-def get_figure(file_hash: str, filename: str):
-    """提供图表文件"""
-    figure_path = (
-        BASE_DIR / "data" / "pdf" / "research" / "figure" / file_hash / filename
-    )
-    if not figure_path.exists():
-        raise HTTPException(status_code=404, detail="图片不存在")
-    return FileResponse(figure_path, media_type="image/png")

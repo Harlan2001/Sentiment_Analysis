@@ -34,6 +34,7 @@ from backend.common.llm_logger import log_llm_usage
 # 通过 config 模块动态读取，而非模块级导入，以便快照脚本能在运行时覆盖
 from backend.config import config as _config
 from backend.config.config import (
+    PORTFOLIO_TZ,
     create_openai_async_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
@@ -704,18 +705,34 @@ JSON格式要求：
         ) from exc
 
 
-def get_cached_recommendation(target_date: date) -> Optional[Dict[str, Any]]:
+def get_cached_recommendation(
+    target_date: date, model_name: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT id, analysis_date, news_summary, outcome, model_name, news_count, created_at, updated_at
-                FROM ai_strategy_recommendation
-                WHERE analysis_date = %s
-                """,
-                (target_date,),
-            )
+            if model_name:
+                cur.execute(
+                    """
+                    SELECT id, analysis_date, news_summary, outcome, model_name, news_count, created_at, updated_at
+                    FROM ai_strategy_recommendation
+                    WHERE analysis_date = %s AND model_name = %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (target_date, model_name),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, analysis_date, news_summary, outcome, model_name, news_count, created_at, updated_at
+                    FROM ai_strategy_recommendation
+                    WHERE analysis_date = %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (target_date,),
+                )
             row = cur.fetchone()
     except Exception as exc:
         raise RuntimeError(
@@ -793,11 +810,15 @@ async def get_or_create_recommendation(
     force_refresh: bool = False,
     model_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    selected_date = target_date or (date.today() - timedelta(days=1))
+    selected_date = target_date or (
+        datetime.now(PORTFOLIO_TZ).date() - timedelta(days=1)
+    )
     selected_model_name = model_name or MODEL_NAME
 
     try:
-        cached = None if force_refresh else get_cached_recommendation(selected_date)
+        cached = None if force_refresh else get_cached_recommendation(
+            selected_date, selected_model_name
+        )
         if cached:
             return {"success": True, "from_cache": True, "data": cached}
     except Exception as exc:
@@ -848,7 +869,7 @@ async def get_or_create_recommendation(
         ) from exc
 
     try:
-        data = get_cached_recommendation(selected_date)
+        data = get_cached_recommendation(selected_date, selected_model_name)
     except Exception as exc:
         raise RuntimeError(
             f"保存后回读推荐结果失败 (analysis_date={selected_date}): {exc}"

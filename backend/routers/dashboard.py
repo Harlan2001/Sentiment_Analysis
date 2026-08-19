@@ -67,20 +67,12 @@ def get_dashboard_core():
 
     cached = read_cache()
     if cached:
-        return {
-            "generated_at": datetime.now().isoformat(),
-            "from_cache": True,
-            **cached,
-        }
+        return {**cached, "from_cache": True}
 
     with cache_lock:
         cached = read_cache()
         if cached:
-            return {
-                "generated_at": datetime.now().isoformat(),
-                "from_cache": True,
-                **cached,
-            }
+            return {**cached, "from_cache": True}
 
         svc = check_service_health()
         base = get_base_stats()

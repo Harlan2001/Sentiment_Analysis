@@ -9,9 +9,10 @@ import json
 import logging
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -48,7 +49,7 @@ def generate_latest_pdf() -> Optional[Tuple[str, str]]:
             if not row or not row[0]:
                 logger.error("[PDF] forecast_report 表为空")
                 return None
-            report_date = row[0] if isinstance(row[0], date) else row[0]
+            report_date = row[0]
 
         pdf_path, _actual_trade_date = generate_prediction_pdf(report_date=report_date)
         return str(pdf_path), os.path.basename(pdf_path)
@@ -230,9 +231,9 @@ def main():
         sys.exit(1)
     pdf_path, pdf_name = result
 
-    # 日期校验：仅前一日报告才推送
+    # 日期校验：仅前一日报告才推送（报告日期按 Asia/Shanghai 生成，避免容器 UTC 时区差一天）
     report_date_str = pdf_name.replace(".pdf", "")
-    yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_str = (datetime.now(ZoneInfo("Asia/Shanghai")) - timedelta(days=1)).strftime("%Y-%m-%d")
     if report_date_str != yesterday_str:
         logger.info(
             "报告日期校验未通过，当前最新报告日期: %s，期望日期: %s，跳过推送",

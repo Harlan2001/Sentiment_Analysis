@@ -16,7 +16,7 @@ from backend.config.config import (
     CACHE_TTL_SEC,
     DIR_MAP,
     FACTOR_CATEGORY_MAP,
-    NEWS_SOURCES,
+    NEWS_SOURCE_LABELS,
     PERIOD_LIST,
     PERIOD_REVERSE_MAP,
 )
@@ -119,7 +119,7 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
     )
     lt = []
     for source, cnt, max_pub in s:
-        name = NEWS_SOURCES.get(source, source)
+        name = NEWS_SOURCE_LABELS.get(source, source)
         v = max_pub
         st = "ok"
         if v is None:
@@ -134,11 +134,11 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
 
     return {
         "total": total,
-        "trend_7d": assemble_trend(t, NEWS_SOURCES),
+        "trend_7d": assemble_trend(t, NEWS_SOURCE_LABELS),
         "source_distribution": [
             {
                 "source": x,
-                "name": NEWS_SOURCES.get(x, x),
+                "name": NEWS_SOURCE_LABELS.get(x, x),
                 "count": c,
                 "percentage": pct(c, total),
             }
@@ -291,8 +291,8 @@ def build_yield_module() -> Dict[str, Any]:
             "SELECT date,value FROM yield_data WHERE period=%s ORDER BY date DESC LIMIT 7",
             (dbp,),
         )
-        ld = v[-1][0] if v else None
-        lv = float(v[-1][1]) if v else None
+        ld = v[0][0] if v else None
+        lv = float(v[0][1]) if v else None
         sp.append(
             {
                 "period": dbp,
@@ -471,9 +471,12 @@ def compute_user_profile(user_id: int, username: str) -> Dict[str, Any]:
             user_id,
         )
     )
-    avg_daily_pages = round(
-        active_days_30d and total_page_views / active_days_30d or 0, 2
+    pv_30d = safe_one(
+        "SELECT COUNT(*) FROM user_page_view WHERE user_id=%s AND enter_time>=%s",
+        user_id,
+        d30,
     )
+    avg_daily_pages = round(active_days_30d and pv_30d / active_days_30d or 0, 2)
 
     # 页面偏好
     page_rows = execute_query(
@@ -515,8 +518,16 @@ def compute_user_profile(user_id: int, username: str) -> Dict[str, Any]:
     advanced_feature_used = adv_count > 0
 
     # 行为特征
+    active_sec_30d = int(
+        safe_one(
+            "SELECT COALESCE(SUM(duration_sec),0) FROM user_page_view"
+            " WHERE user_id=%s AND duration_sec>0 AND enter_time>=%s",
+            user_id,
+            d30,
+        )
+    )
     is_power_user = active_days_30d > 20 and (
-        total_active_sec / (max(active_days_30d, 1) * 60) > 30
+        active_sec_30d / (max(active_days_30d, 1) * 60) > 30
     )
     last_active_row = execute_query(
         "SELECT MAX(DATE(enter_time)) FROM user_page_view WHERE user_id=%s",

@@ -31,6 +31,9 @@ from backend.integrations.dream.client import (
 
 logger = logging.getLogger(__name__)
 
+# 主消息就绪后，策略版本工件（code）可能稍晚持久化，给予短暂的轮询窗口
+_STRATEGY_ARTIFACT_RETRY_SECONDS = 10
+
 
 # A chat stream may finish before the asynchronous backtest has written its
 # result to the strategy template.  Keep this separate from the total request
@@ -150,37 +153,6 @@ def _create_session(client: DreamClient, extension_pb2: Any, template_id: str) -
     if not response.session.open_id:
         raise RuntimeError("创建 DreamStrategy 会话后未返回 session_id")
     return response.session.open_id
-
-
-def _fetch_final_answer(
-    client: DreamClient,
-    extension_pb2: Any,
-    template_id: str,
-    session_id: str,
-    generation_message_id: str,
-) -> str:
-    response = client.request(
-        EI_LIST_MESSAGES,
-        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
-            template_id=template_id,
-            session_id=session_id,
-            count=100,
-            start_pos=0,
-            return_total_count=False,
-        ),
-        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
-    )
-    _ensure_success("读取 DreamStrategy 最终消息", response)
-    return next(
-        (
-            message.content
-            for message in reversed(response.messages)
-            if message.role == 2
-            and len(str(message.content or "").strip()) > 1
-            and not str(message.content or "").strip().isdigit()
-        ),
-        "",
-    )
 
 
 def _fetch_final_message(
@@ -502,28 +474,32 @@ def generate_strategy(
         )
         if hydrated_message:
             final_message = hydrated_message
-        answer = _fetch_final_answer(
-            client,
-            extension_pb2,
-            settings.template_id,
-            session_id,
-            generation_message_id,
-        ) or "".join(streamed_answer_parts)
-        artifact_deadline = min(
-            started_at + settings.timeout_seconds,
-            time.monotonic() + settings.backtest_wait_seconds,
-        )
-        strategy = _wait_for_strategy_backtest(
-            client,
-            extension_pb2,
-            settings.template_id,
-            final_message.template_version_id,
-            artifact_deadline,
-        )
+        answer = (final_message.content or "") or "".join(streamed_answer_parts)
+        artifact_deadline = time.monotonic() + _STRATEGY_ARTIFACT_RETRY_SECONDS
+        strategy: dict[str, Any] | None = None
+        while True:
+            try:
+                strategy = _fetch_strategy(
+                    client,
+                    extension_pb2,
+                    settings.template_id,
+                    final_message.template_version_id,
+                )
+                if strategy and str(strategy.get("code") or "").strip():
+                    break
+            except Exception as exc:
+                logger.warning(
+                    "DreamStrategy reply has no readable strategy artifact: %s", exc
+                )
+            if time.monotonic() >= artifact_deadline:
+                break
+            time.sleep(1)
+        # 保留junlin.li分支：从strategy回填合并backtest_log
         if strategy and strategy.get("backtest_log"):
             backtest_log = _merge_backtest_log(
                 backtest_log, str(strategy["backtest_log"])
             )
+
 
         # Persist an assistant reply even when Dream does not attach code.
         if not str(answer or "").strip():

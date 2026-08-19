@@ -6,11 +6,9 @@
 import logging
 import sys
 from datetime import datetime
-from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import numpy as np
 import pymysql
 
 # 添加项目根目录到路径
@@ -23,26 +21,6 @@ from backend.factor.factor_management import add_new_factor  # noqa: E402
 from backend.factor.factor_similarity import get_similarity_engine  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-
-def _convert_numpy_types(obj):
-    """递归转换numpy类型为Python原生类型"""
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, (np.integer,)):
-        return int(obj)
-    elif isinstance(obj, (np.floating,)):
-        return float(obj)
-    elif isinstance(obj, Integral):
-        return int(obj)
-    elif isinstance(obj, Real):
-        return float(obj)
-    elif isinstance(obj, dict):
-        return {k: _convert_numpy_types(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        return [_convert_numpy_types(item) for item in obj]
-    else:
-        return obj
 
 
 class FactorDiscoveryManager:

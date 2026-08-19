@@ -6,7 +6,6 @@
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Set
 
 import pymysql
 
@@ -74,11 +73,6 @@ def get_factors_paged(page: int = 1, page_size: int = 20) -> dict:
     return {"factors": rows, "total": total, "page": page, "page_size": page_size}
 
 
-def get_factor_codes() -> Set[str]:
-    """获取所有因子代码"""
-    return {f["code"] for f in get_factors_from_db()}
-
-
 def get_factor_prompt_text() -> str:
     """生成AI可读的因子列表"""
     categorized = defaultdict(list)
@@ -98,9 +92,7 @@ def get_factor_prompt_text() -> str:
 
 
 def add_new_factor(category: str, code: str, name: str, factor_type: str) -> bool:
-    """添加新因子（上下文管理器，消除手动close）"""
-    if code in get_factor_codes():
-        return False
+    """添加新因子（依赖 factor.code 唯一索引判重，重复插入返回 False）"""
     try:
         with pymysql.connect(**MYSQL_CONFIG) as conn:
             with conn.cursor() as cursor:

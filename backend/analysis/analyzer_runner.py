@@ -211,9 +211,19 @@ class NewsAnalyzerRunner:
         return self.stats.to_dict()
 
     async def _process_news_with_semaphore(self, news_id: int) -> Dict[str, Any]:
-        """带信号量控制的新闻处理（删除冗余异常捕获）"""
+        """带信号量控制的新闻处理：重试耗尽也收敛为单条失败，避免中断整批"""
         async with self.semaphore:
-            return await self._process_single_news_with_retry(news_id)
+            try:
+                return await self._process_single_news_with_retry(news_id)
+            except Exception as exc:
+                logger.error(f"新闻 {news_id} 重试耗尽仍未成功: {exc}")
+                return {
+                    "news_id": news_id,
+                    "status": "failed",
+                    "reason": f"重试耗尽: {exc}",
+                    "error_type": type(exc).__name__,
+                    "recorded_at": datetime.now().isoformat(),
+                }
 
     @retry(
         stop=stop_after_attempt(3),
@@ -237,23 +247,35 @@ class NewsAnalyzerRunner:
         """处理单条新闻的完整流程"""
         logger.debug(f"开始处理新闻 {news_id}")
 
-        # 1. 检查是否已经分析过（防并发重复入队）
-        if self.db_ops.get_analysis_exists(news_id, self.model_name):
-            logger.info(f"新闻 {news_id} 已存在分析结果，跳过")
-            return {
-                "news_id": news_id,
-                "status": "skipped",
-                "reason": "已存在分析结果",
-                "recorded_at": datetime.now().isoformat(),
-            }
-
+        # 1. 检查是否已经分析过（防并发重复入队）；DB 瞬时故障交给重试器
         try:
-            # 2. 调用分析接口
+            if self.db_ops.get_analysis_exists(news_id, self.model_name):
+                logger.info(f"新闻 {news_id} 已存在分析结果，跳过")
+                return {
+                    "news_id": news_id,
+                    "status": "skipped",
+                    "reason": "已存在分析结果",
+                    "recorded_at": datetime.now().isoformat(),
+                }
+        except (pymysql.OperationalError, pymysql.InterfaceError) as exc:
+            logger.warning(f"新闻 {news_id} 查重查询失败，交由重试器: {exc}")
+            raise
+
+        # 2. 调用分析接口；LLM 网络/限流错误交由重试器处理
+        try:
             analysis_result = await analyze_bond_yield_async(
                 news_id,
                 model_name=self.model_name,
             )
+        except (
+            openai.APIError,
+            openai.APIConnectionError,
+            openai.RateLimitError,
+        ) as exc:
+            logger.warning(f"新闻 {news_id} LLM 调用失败，交由重试器: {exc}")
+            raise
 
+        try:
             # 3. 验证分析结果
             if not self.result_processor.validate_analysis_result(analysis_result):
                 logger.warning(f"新闻 {news_id} 分析结果无效，使用默认结果")

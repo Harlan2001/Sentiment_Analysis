@@ -1,7 +1,7 @@
 """Agent 对话共享服务：统一 LLM 客户端、系统提示词与流式内容产出。
 
-供主 ``/sapi/chat`` 路由与工作台（``/sapi/workbench/conversations``）复用，
-避免两处各自维护一套 LLM 调用与 SSE 解析逻辑。
+供工作台（``/sapi/workbench/conversations``）使用，
+避免多处各自维护一套 LLM 调用与 SSE 解析逻辑。
 """
 
 from __future__ import annotations
@@ -10,11 +10,15 @@ import json
 import os
 from typing import AsyncIterator
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from backend.agent.agent_loop import run_agent_loop
 from backend.common.database import execute_query
-from backend.config.config import create_openai_http_client
+from backend.config.config import (
+    create_openai_async_http_client,
+    get_analysis_model_info,
+    get_chat_model_name,
+)
 
 
 class AgentGenerationError(RuntimeError):
@@ -26,21 +30,23 @@ class AgentGenerationError(RuntimeError):
 
 
 # ── LLM 客户端 ──
-kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-if not kingstar_API_KEY:
+kingstar_api_key = os.getenv("kingstar_API_KEY")
+if not kingstar_api_key:
     raise ValueError(
         "kingstar_API_KEY environment variable is not set. Please set it in your .env file."
     )
-kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
-kingstar_client = OpenAI(
-    api_key=kingstar_API_KEY,
-    base_url=kingstar_BASE_URL,
-    http_client=create_openai_http_client(),
+kingstar_base_url = os.getenv("kingstar_BASE_URL")
+
+# Agent 对话全程流式输出（run_agent_loop 内部 stream=True），需使用异步客户端。
+kingstar_async_client = AsyncOpenAI(
+    api_key=kingstar_api_key,
+    base_url=kingstar_base_url,
+    http_client=create_openai_async_http_client(),
 )
 
-CHAT_MODEL = (
-    os.getenv("CHAT_MODEL_NAME") or "aliyun/glm-5.2"
-)
+# 聊天默认模型：CHAT_MODEL_NAME 填注册表短名（如 glm），与分析模型命名统一；
+# 这里解析成 provider model 供 OpenAI 客户端使用。缺省跟随默认分析模型。
+CHAT_MODEL = get_analysis_model_info(get_chat_model_name())["provider_model"]
 
 
 # ── 系统提示词 ──
@@ -117,9 +123,9 @@ async def agent_chat_stream(
             if project_context
             else CHAT_SYSTEM_PROMPT
         ),
-        client=kingstar_client,
+        client=kingstar_async_client,
         model=CHAT_MODEL,
-        model_name="glm",
+        model_name=get_chat_model_name(),
         user_id=_resolve_user_id(username),
         username=username or "anonymous",
     ):

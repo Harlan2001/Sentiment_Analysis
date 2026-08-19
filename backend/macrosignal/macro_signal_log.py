@@ -57,6 +57,7 @@ INSERT INTO macro_signal_request_log (
 def build_success_log_row(
     request_id: str,
     signal_result: dict,
+    signal_type: str,
     query_start_time: datetime,
     query_end_time: datetime,
     decay_lambda: float,
@@ -67,6 +68,7 @@ def build_success_log_row(
     """
     根据单个因子的信号计算结果组装成功日志行。
     signal_result 可能包含 error 字段（factor_code not found），此时视为失败行。
+    signal_type 为请求方指定的类型；信号结果含 signal_type 时以其为准。
     """
     is_not_found = "error" in signal_result
     hit_news_ids = signal_result.get("hit_news_ids", [])[:MAX_QUERIED_NEWS]
@@ -74,7 +76,7 @@ def build_success_log_row(
     return {
         "request_id": request_id,
         "factor_code": signal_result["factor_code"],
-        "signal_type": signal_result.get("signal_type", "presence"),
+        "signal_type": signal_result.get("signal_type") or signal_type,
         "query_start_time": query_start_time,
         "query_end_time": query_end_time,
         "decay_lambda": decay_lambda,

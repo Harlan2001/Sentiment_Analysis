@@ -7,19 +7,31 @@ import json
 import logging
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.config.config import API_PREFIX, NEWS_SOURCES
+from backend.config.config import API_PREFIX, NEWS_SOURCE_LABELS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["discover"])
 
 # 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
 MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
+
+
+def _map_direction(d, default=None):
+    """把分析侧方向归一化为前端约定的 positive/negative；无方向/未知返回 default。"""
+    if not d:
+        return default
+    dv = str(d).lower()
+    if dv in ("bullish", "positive", "up", "涨", "利多", "利好"):
+        return "positive"
+    if dv in ("bearish", "negative", "down", "跌", "利空"):
+        return "negative"
+    return default
 # 按新闻选最高优先级模型的 analysis 的关联子句（参考 db_operations.get_news_reason_rows）
 _BEST_ANALYSIS_JOIN = (
     "LEFT JOIN analysis a ON n.id = a.news_id"
@@ -41,9 +53,7 @@ def discover_news(
 ):
     offset = (page - 1) * page_size
 
-    src_clause = f"AND n.source = '{source}'" if source else ""
     dir_join = ""
-    dir_clause = ""
     if direction:
         # 按最佳模型（glm 优先，历史 doubao 兜底）取每条新闻的方向做过滤
         dir_join = (
@@ -52,7 +62,15 @@ def discover_news(
             " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
             f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
         )
-        dir_clause = f"AND a.direction = '{direction}'"
+
+    where_clauses = ["1=1"]
+    where_params: List[str] = []
+    if source:
+        where_clauses.append("n.source = %s")
+        where_params.append(source)
+    if direction:
+        where_clauses.append("a.direction = %s")
+        where_params.append(direction)
 
     with get_db_connection() as conn:
         cur = conn.cursor()
@@ -60,21 +78,31 @@ def discover_news(
         cur.execute(f"""
             SELECT n.id, n.title, n.pub_time, n.source
             FROM news n {dir_join}
-            WHERE 1=1 {src_clause} {dir_clause}
+            WHERE {' AND '.join(where_clauses)}
             ORDER BY n.pub_time DESC
-            LIMIT {page_size} OFFSET {offset}
-        """)
+            LIMIT %s OFFSET %s
+        """, where_params + [page_size, offset])
         news_rows = cur.fetchall()
 
         cur.execute(f"""
             SELECT COUNT(*) FROM news n {dir_join}
-            WHERE 1=1 {src_clause} {dir_clause}
-        """)
+            WHERE {' AND '.join(where_clauses)}
+        """, where_params)
         total = (cur.fetchone() or [0])[0]
 
     logger.info("discover/news: page=%d returned %d rows (total=%d)", page, len(news_rows), total)
 
     news_ids = [r[0] for r in news_rows]
+
+    # 空页直接返回，避免 IN () 语法错误
+    if not news_ids:
+        return {
+            "items": [],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_more": offset + page_size < total,
+        }
 
     # 批量取缩略图
     with get_db_connection() as conn:
@@ -133,7 +161,7 @@ def discover_news(
             "summary": "",
             "pub_time": pub_time.strftime("%Y-%m-%d %H:%M:%S") if pub_time else "",
             "source": src or "",
-            "source_name": NEWS_SOURCES.get(src, src or ""),
+            "source_name": NEWS_SOURCE_LABELS.get(src, src or ""),
             "thumbnail": thumbs.get(nid),
             "direction": adir,
             "reason": areason or "",
@@ -423,19 +451,9 @@ def yield_detail(period: str = Query("10Y")):
             )
             news_rows = cur.fetchall()
             # 只保留明确的方向性新闻（过滤掉 neutral / 无方向）并映射为前端约定的 positive/negative
-            def map_dir(d):
-                if not d:
-                    return None
-                dv = str(d).lower()
-                if dv in ('bullish', 'positive', 'up', '涨', '利多', '利好'):
-                    return 'positive'
-                if dv in ('bearish', 'negative', 'down', '跌', '利空'):
-                    return 'negative'
-                return None
-
             filtered = []
             for r in news_rows:
-                md = map_dir(r[2])
+                md = _map_direction(r[2])
                 if not md:
                     continue
                 filtered.append({"id": r[0], "title": r[1] or "", "direction": md})
@@ -528,24 +546,14 @@ def factor_detail(factor_id: int = Query(...)):
                ORDER BY nf.pub_time DESC LIMIT 20""",
             (fid, anchor_date, anchor_date),
         )
-        # 映射方向为 front-end 使用的 positive/negative/None
-        def map_dir_local(d):
-            if not d:
-                return 'neutral'
-            dv = str(d).lower()
-            if dv in ('bullish', 'positive', 'up', '涨', '利多', '利好'):
-                return 'positive'
-            if dv in ('bearish', 'negative', 'down', '跌', '利空'):
-                return 'negative'
-            return 'neutral'
-
+        # 映射方向为 front-end 使用的 positive/negative/neutral
         related_news = []
         for r in cur.fetchall():
             related_news.append({
                 "id": r[0],
                 "title": r[1],
                 "pub_time": r[2].strftime("%Y-%m-%d %H:%M:%S") if r[2] else "",
-                "direction": map_dir_local(r[3]),
+                "direction": _map_direction(r[3], default="neutral"),
                 "reason": r[4] or "",
             })
 

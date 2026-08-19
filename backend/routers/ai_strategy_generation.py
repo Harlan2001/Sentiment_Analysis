@@ -16,7 +16,6 @@ from backend.strategy.ai_strategy_history import (
     AiStrategyHistoryRepository,
     ArchivedConversationError,
     GenerationInProgressError,
-    HistoryStoreConfigurationError,
 )
 from backend.strategy.dream_strategy_prompt import (
     apply_user_edited_requirement,
@@ -64,10 +63,7 @@ def _history_owner(request: Request) -> str:
 
 
 def _history_repository() -> AiStrategyHistoryRepository:
-    try:
-        return AiStrategyHistoryRepository.from_environment()
-    except HistoryStoreConfigurationError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return AiStrategyHistoryRepository.from_environment()
 
 
 def _serialize_news_references(context: dict[str, Any]) -> list[dict[str, Any]]:

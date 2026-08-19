@@ -71,11 +71,11 @@ def _fetch_report_from_db(trade_date: date) -> dict:
             prediction = json.loads(prediction)
 
         return {
-            "trade_date": row[0] if isinstance(row[0], date) else row[0],
+            "trade_date": row[0],
             "model_name": row[1],
             "prompt_version": row[2],
             "prediction": prediction,
-            "created_at": row[4] if isinstance(row[4], datetime) else row[4],
+            "created_at": row[4],
         }
 
 
@@ -207,7 +207,7 @@ def generate_prediction_pdf(
     """
     从数据库读取预测报告数据，生成 PDF 保存到 data/pdf/。
 
-    :param report_date: 报告日期，为 None 则从数据库查询最新报告日期。
+    :param report_date: 报告日期（必填；为 None 时抛出 ValueError，调用方需自行查询最新日期）。
     :param output_path: 可选，指定 PDF 输出路径，默认 data/pdf/{trade_date}.pdf。
     :return: (PDF文件路径, trade_date 字符串) 的元组。
     """

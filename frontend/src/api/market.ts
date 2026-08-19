@@ -59,7 +59,6 @@ export interface FactorDefinition {
 
 export interface AllFactorsResponse {
   factors: FactorDefinition[]
-  structure: Record<string, Record<string, [string, string, string][]>>
 }
 
 export async function fetchAllFactors(): Promise<AllFactorsResponse> {

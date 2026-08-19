@@ -135,6 +135,7 @@ RUN groupadd -r appgroup \
     && mkdir -p \
         /app/data \
         /app/logs \
+        /app/models \
         /opt/playwright \
         /home/appuser/.cache \
     && chown -R appuser:appgroup \
