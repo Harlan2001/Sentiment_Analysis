@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -20,11 +21,95 @@ from backend.config.config import (
 
 router = APIRouter(prefix=API_PREFIX, tags=["news"])
 
+logger = logging.getLogger(__name__)
+
 
 def _priority_cases() -> str:
     return "".join(
         [f"WHEN '{m}' THEN {i} " for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
     )
+
+
+def _keyword_like_filter(keywords: List[str]) -> tuple[str, List[str]]:
+    """构造标题/正文关键词过滤片段（逗号分词，命中任意一个即返回）。
+
+    返回 (SQL片段, 参数)。SQL 片段以 AND 开头，依赖表别名 n。
+    """
+    if not keywords:
+        return "", []
+
+    conds = " OR ".join(
+        "(n.title LIKE %s OR n.content LIKE %s)" for _ in keywords
+    )
+    params = [f"%{kw}%" for kw in keywords for _ in (0, 1)]
+    return f"AND ({conds})", params
+
+
+def _attach_best_analysis(
+    news_rows: List[tuple], model: Optional[str] = None
+) -> Dict[int, Dict[str, Any]]:
+    """为 (id, title, pub_time, source_key) 行附加优先级最高的 analysis。
+
+    返回 {news_id: {id, title, publish_time, source, direction, horizon, reason,
+                    model, selected_model}}，不保证输入顺序。
+    """
+    if not news_rows:
+        return {}
+
+    news_ids = [r[0] for r in news_rows]
+    placeholders = ",".join(["%s"] * len(news_ids))
+    analysis_sql = (
+        "SELECT news_id, direction, horizon, reason, model FROM analysis "
+        f"WHERE news_id IN ({placeholders})"
+    )
+    analysis_params: List[Any] = list(news_ids)
+    if model:
+        analysis_sql += " AND model = %s"
+        analysis_params.append(model)
+
+    analysis_rows = execute_query(
+        analysis_sql, tuple(analysis_params), one=False
+    )
+
+    analyses_by_news: Dict[int, List[Dict[str, Any]]] = {}
+    for news_id, direction, horizon, reason, model_name in analysis_rows:
+        analyses_by_news.setdefault(news_id, []).append(
+            {
+                "direction": direction or "中性",
+                "horizon": horizon or "短期",
+                "reason": reason or "待分析",
+                "model": model_name,
+            }
+        )
+
+    priority_rank = {m: i for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)}
+    out: Dict[int, Dict[str, Any]] = {}
+    for row in news_rows:
+        nid, title, pub_time, source_key = row
+        current_analyses = analyses_by_news.get(nid, [])
+        if current_analyses:
+            selected = sorted(
+                current_analyses, key=lambda x: priority_rank.get(x["model"], 999)
+            )[0]
+        else:
+            selected = {
+                "direction": "中性",
+                "horizon": "短期",
+                "reason": "待分析",
+                "model": model or "default",
+            }
+        out[nid] = {
+            "id": nid,
+            "title": title,
+            "publish_time": pub_time,
+            "source": mask_news_source(source_key),
+            "direction": selected["direction"],
+            "horizon": selected["horizon"],
+            "reason": selected["reason"],
+            "model": selected["model"],
+            "selected_model": selected["model"],
+        }
+    return out
 
 
 @router.get("/yields")
@@ -48,6 +133,9 @@ def get_news(
     ),
     source: Optional[str] = Query(
         None, description="新闻源过滤，多个用逗号分隔，如 cls,wechat"
+    ),
+    keyword: Optional[str] = Query(
+        None, description="关键词检索，多个用逗号分隔，命中标题或正文任意一个即可"
     ),
     model: Optional[str] = Query(
         None, description="模型短名，用于 single/all 视图过滤"
@@ -78,6 +166,13 @@ def get_news(
             source_filter = f"AND n.source IN ({placeholders})"
             params.extend(sources)
 
+    keyword_filter = ""
+    if keyword:
+        kw_list = [k.strip() for k in keyword.split(",") if k.strip()]
+        if kw_list:
+            keyword_filter, kw_params = _keyword_like_filter(kw_list)
+            params.extend(kw_params)
+
     effective_view = view if view in ("best", "single", "all") else "best"
     if effective_view == "single" and not model:
         model = get_default_analysis_model_name()
@@ -95,7 +190,7 @@ def get_news(
                        COALESCE(a.model, %s) as model
                 FROM news n
                 LEFT JOIN analysis a ON a.news_id = n.id AND a.model = %s
-                WHERE {date_filter} {source_filter}
+                WHERE {date_filter} {source_filter} {keyword_filter}
                 ORDER BY n.pub_time DESC
                 """,
                 [model, model] + params,
@@ -136,7 +231,7 @@ def get_news(
                         END
                         LIMIT 1
                     )
-                WHERE {date_filter} {source_filter}
+                WHERE {date_filter} {source_filter} {keyword_filter}
                 ORDER BY n.pub_time DESC
                 """,
                 params,
@@ -162,7 +257,7 @@ def get_news(
             f"""
             SELECT n.id, n.title, n.pub_time, n.source
             FROM news n
-            WHERE {date_filter} {source_filter}
+            WHERE {date_filter} {source_filter} {keyword_filter}
             ORDER BY n.pub_time DESC
             """,
             params,
@@ -288,6 +383,159 @@ def similar_news(news_id: int, top_k: int = 5):
             if len(out) >= top_k:
                 break
     return out
+
+
+@router.get("/news/search")
+def search_news(
+    q: str = Query(..., description="检索关键词，逗号分隔多个（命中任意一个即满足）"),
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    top_k: int = Query(30, ge=1, le=200),
+    model: Optional[str] = Query(None, description="模型短名，用于 best 分析回填"),
+):
+    """新闻检索：先精确关键词匹配（标题/正文 LIKE），再 FAISS 语义联想兜底。
+
+    返回按相关度排序的新闻列表，每条附带命中关键词与语义相似度。
+    """
+    keywords = [k.strip() for k in q.split(",") if k.strip()]
+    if not keywords:
+        return {"query": {"q": q, "keywords": keywords}, "total": 0, "items": []}
+
+    # 日期过滤（可选）
+    date_filter = ""
+    date_params: List[Any] = []
+    if start_date and end_date:
+        date_filter = "AND DATE(n.pub_time) BETWEEN %s AND %s"
+        date_params = [start_date, end_date]
+    elif start_date:
+        date_filter = "AND DATE(n.pub_time) >= %s"
+        date_params = [start_date]
+    elif end_date:
+        date_filter = "AND DATE(n.pub_time) <= %s"
+        date_params = [end_date]
+
+    # 1. 精确关键词匹配（命中关键词数越多越靠前；SELECT 段占位符在 WHERE 段之前）
+    like_conds = " OR ".join(
+        "(n.title LIKE %s OR n.content LIKE %s)" for _ in keywords
+    )
+    match_cases = " + ".join(
+        "(CASE WHEN n.title LIKE %s OR n.content LIKE %s THEN 1 ELSE 0 END)"
+        for _ in keywords
+    )
+    case_params = [f"%{k}%" for k in keywords for _ in (0, 1)]
+    like_params = [f"%{k}%" for k in keywords for _ in (0, 1)]
+    exact_rows: List[tuple] = []
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT n.id, n.title, n.pub_time, n.source, {match_cases} AS matched_count
+            FROM news n
+            WHERE ({like_conds}) {date_filter}
+            ORDER BY matched_count DESC, n.pub_time DESC
+            LIMIT %s
+            """,
+            case_params + like_params + date_params + [top_k],
+        )
+        exact_rows = cur.fetchall()
+
+    # 2. 语义召回（FAISS 向量：无字面命中也能召回相关新闻）
+    semantic_map: Dict[int, float] = {}
+    semantic_rows: List[tuple] = []
+    try:
+        store = get_faiss_store()
+        results = store.search(" ".join(keywords), top_k=max(top_k * 3, 50))
+        semantic_map = {item["news_id"]: item["score"] for item in results}
+        exact_ids = {r[0] for r in exact_rows}
+        sem_ids = [nid for nid in semantic_map if nid not in exact_ids]
+        if sem_ids:
+            placeholders = ",".join(["%s"] * len(sem_ids))
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    f"""
+                    SELECT n.id, n.title, n.pub_time, n.source, 0 AS matched_count
+                    FROM news n
+                    WHERE n.id IN ({placeholders}) {date_filter}
+                    """,
+                    sem_ids + date_params,
+                )
+                semantic_rows = cur.fetchall()
+    except Exception:
+        logger.exception("news/search 语义检索失败，降级为关键词精确匹配")
+
+    all_rows = exact_rows + semantic_rows
+    if not all_rows:
+        return {
+            "query": {"q": q, "keywords": keywords},
+            "total": 0,
+            "items": [],
+        }
+
+    # 3. 读取正文用于计算每个关键词的命中情况（前端可据此高亮）
+    content_map: Dict[int, str] = {}
+    all_ids = list({r[0] for r in all_rows})
+    content_rows = execute_query(
+        f"SELECT id, content FROM news WHERE id IN ({','.join(['%s'] * len(all_ids))})",
+        tuple(all_ids),
+        one=False,
+    )
+    for cid, content in content_rows:
+        content_map[cid] = content or ""
+
+    merged: List[Dict[str, Any]] = []
+    for r in all_rows:
+        nid, title, pub_time, source_key, _sql_count = r
+        text = f"{title or ''} {content_map.get(nid, '')}"
+        matched_keywords = [k for k in keywords if k in text]
+        merged.append(
+            {
+                "id": nid,
+                "title": title,
+                "publish_time": pub_time,
+                "_source_key": source_key,
+                "matched_count": len(matched_keywords),
+                "matched_keywords": matched_keywords,
+                "semantic_score": semantic_map.get(nid),
+            }
+        )
+
+    merged.sort(
+        key=lambda x: (
+            x["matched_count"],
+            x["semantic_score"] if x["semantic_score"] is not None else 0,
+            x["publish_time"].timestamp() if x["publish_time"] else 0,
+        ),
+        reverse=True,
+    )
+    merged = merged[:top_k]
+
+    # 4. 回填 best 分析方向/原因
+    best_map = _attach_best_analysis(
+        [
+            (x["id"], x["title"], x["publish_time"], x["_source_key"])
+            for x in merged
+        ],
+        model=model,
+    )
+    items = []
+    for x in merged:
+        item = best_map.get(x["id"]) or {}
+        item = dict(item)
+        item.update(
+            {
+                "matched_keywords": x["matched_keywords"],
+                "matched_count": x["matched_count"],
+                "semantic_score": x["semantic_score"],
+            }
+        )
+        items.append(item)
+
+    return {
+        "query": {"q": q, "keywords": keywords},
+        "total": len(items),
+        "items": items,
+    }
 
 
 @router.get("/news/{news_id}")

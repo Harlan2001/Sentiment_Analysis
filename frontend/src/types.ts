@@ -61,6 +61,30 @@ export interface NewsItem {
   analyses?: NewsAnalysisItem[] // 多模型结果
 }
 
+export interface NewsSearchItem {
+  id: number
+  title: string
+  publish_time?: string
+  source?: string
+  direction?: string
+  horizon?: string
+  reason?: string
+  model?: string
+  selected_model?: string
+  matched_keywords: string[] // 逐条命中的关键词（前端可高亮）
+  matched_count: number // 命中关键词数量
+  semantic_score: number | null // FAISS 语义相似度（仅语义召回项有值）
+}
+
+export interface NewsSearchResponse {
+  query: {
+    q: string
+    keywords: string[]
+  }
+  total: number
+  items: NewsSearchItem[]
+}
+
 export interface NewsSource {
   key: string
   name: string
