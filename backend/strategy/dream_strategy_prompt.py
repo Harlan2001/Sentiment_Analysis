@@ -25,7 +25,7 @@ EDITABLE_SECTION_END = "[/USER_EDITABLE_REQUIREMENT]"
 TRADING_PARAMETERS_START = "[TRADING_PARAMETERS]"
 TRADING_PARAMETERS_END = "[/TRADING_PARAMETERS]"
 
-# Defaults keep an instrument-specific request runnable on its first attempt.
+# Defaults keep even a broad request runnable on its first attempt.
 # They remain in the user-editable section and are rendered as form fields.
 DEFAULT_TRADING_PARAMETERS = (
     ("开仓规则", "5日均线上穿20日均线，且收盘价站上20日均线"),
@@ -77,19 +77,13 @@ INSTRUMENTS: tuple[InstrumentDefinition, ...] = (
         ),
     ),
 )
-DEFAULT_INSTRUMENT = InstrumentDefinition(
-    name="未从用户需求中识别具体交易品种；请根据用户明确需求确认，不得默认为 10Y 国债期货",
-    request_keywords=(),
-    market_scope=MarketContextScope(
-        label="全市场新闻",
-        directional_trade_guidance=False,
-        include_yield_curve=False,
-    ),
-)
+# A user may intentionally ask for “any strategy”. Use the project's primary
+# supported instrument rather than turning that valid request into a follow-up.
+DEFAULT_INSTRUMENT = INSTRUMENTS[-1]
 
 
 def _resolve_instrument(requirement: str) -> InstrumentDefinition:
-    """Return the instrument definition explicitly named by the user."""
+    """Resolve an explicit instrument, falling back to the primary supported one."""
 
     normalized = "".join(requirement.upper().split())
     for instrument in INSTRUMENTS:
@@ -158,7 +152,8 @@ def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
 [EXECUTION RULES]
 - Continue the existing DreamStrategy session and directly generate a complete strategy response now.
 - The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
-- If the user has named an instrument and objective but omitted ordinary execution parameters, use conservative, explicit defaults (including signal window, position size, stop loss, take profit, and test period) so that a complete, runnable strategy can be generated and backtested now. List those defaults in the strategy summary. Ask a follow-up only when the instrument, market, or core objective is genuinely ambiguous.
+- Broad requests such as “随便生成一个策略” are valid. When no instrument or detailed objective is supplied, use the prompt's default instrument and conservative trading parameters to generate and backtest one complete runnable strategy; do not ask a follow-up merely because the user left the choice to you.
+- If the user has named an instrument and objective but omitted ordinary execution parameters, use conservative, explicit defaults (including signal window, position size, stop loss, take profit, and test period) so that a complete, runnable strategy can be generated and backtested now. List those defaults in the strategy summary.
 - Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
 - If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies.
 - Return the complete strategy code, concise logic summary, and backtest result in the same language as the user request.
