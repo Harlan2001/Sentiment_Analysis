@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
 _STRATEGY_ARTIFACT_RETRY_SECONDS = 10
 
 
+# A chat stream may finish before the asynchronous backtest has written its
+# result to the strategy template.  Keep this separate from the total request
+# timeout so a slow or unavailable backtest cannot hold the worker forever.
+DEFAULT_BACKTEST_WAIT_SECONDS = 180
+
+
 @dataclass(frozen=True)
 class DreamStrategySettings:
     """运行时配置；凭据仍只存在量化门户配置和本机环境中。"""
@@ -43,6 +49,7 @@ class DreamStrategySettings:
     template_id: str
     agent: str
     timeout_seconds: int
+    backtest_wait_seconds: int = DEFAULT_BACKTEST_WAIT_SECONDS
 
     @classmethod
     def from_environment(cls) -> "DreamStrategySettings":
@@ -59,12 +66,24 @@ class DreamStrategySettings:
             raise ValueError("DREAM_TIMEOUT_SECONDS 必须为整数") from exc
         if timeout_seconds < 30:
             raise ValueError("DREAM_TIMEOUT_SECONDS 不能小于 30 秒")
+        try:
+            backtest_wait_seconds = int(
+                os.getenv(
+                    "DREAM_BACKTEST_WAIT_SECONDS",
+                    str(DEFAULT_BACKTEST_WAIT_SECONDS),
+                )
+            )
+        except ValueError as exc:
+            raise ValueError("DREAM_BACKTEST_WAIT_SECONDS 必须为整数") from exc
+        if backtest_wait_seconds < 1:
+            raise ValueError("DREAM_BACKTEST_WAIT_SECONDS 不能小于 1 秒")
 
         return cls(
             portal_config_url=portal_config_url,
             template_id=template_id,
             agent=os.getenv("DREAM_AGENT", "deepseek-chat").strip() or "deepseek-chat",
             timeout_seconds=timeout_seconds,
+            backtest_wait_seconds=backtest_wait_seconds,
         )
 
 
@@ -170,7 +189,7 @@ def _fetch_strategy(
     extension_pb2: Any,
     template_id: str,
     version_id: str,
-) -> dict[str, str] | None:
+) -> dict[str, Any] | None:
     if not version_id:
         return None
     response = client.request(
@@ -190,14 +209,69 @@ def _fetch_strategy(
         "name": template.name,
         "description": template.description,
         "code": template.code,
+        "backtest_log": template.backtest_log,
+        "backtest_passed": template.backtest_passed,
+        "backtest_exit_code": template.backtest_exit_code,
     }
 
 
-def _summarize_backtest_log(backtest_log: str) -> str:
-    """保留用户可读的末尾诊断，避免保存过长原始控制台文本。"""
+def _backtest_is_complete(strategy: dict[str, Any] | None) -> bool:
+    """A non-negative exit code is Dream's terminal-backtest contract.
 
-    lines = [line.strip() for line in backtest_log.splitlines() if line.strip()]
-    return "\n".join(lines[-8:])[:1600]
+    ``bool`` protobuf fields default to ``False`` when omitted, so they cannot
+    distinguish a failed backtest from a backtest that has not started yet.
+    The protocol documents ``-1`` as the non-terminal exit code.
+    """
+
+    if not strategy:
+        return False
+    exit_code = strategy.get("backtest_exit_code")
+    # Incomplete protobuf messages omit all backtest fields, leaving scalar
+    # defaults that look like ``False`` and ``0``. Dream emits the log during
+    # checking/completion, so require it before treating an exit code as final.
+    return (
+        isinstance(exit_code, int)
+        and exit_code >= 0
+        and bool(str(strategy.get("backtest_log") or "").strip())
+    )
+
+
+def _wait_for_strategy_backtest(
+    client: DreamClient,
+    extension_pb2: Any,
+    template_id: str,
+    version_id: str,
+    deadline: float,
+) -> dict[str, Any] | None:
+    """Poll the persisted template until its code and terminal test result exist."""
+
+    latest: dict[str, Any] | None = None
+    while True:
+        try:
+            candidate = _fetch_strategy(
+                client, extension_pb2, template_id, version_id
+            )
+            if candidate:
+                latest = candidate
+                if str(candidate.get("code") or "").strip() and _backtest_is_complete(
+                    candidate
+                ):
+                    return candidate
+        except Exception as exc:
+            logger.warning("DreamStrategy strategy/backtest artifact is not ready: %s", exc)
+        if time.monotonic() >= deadline:
+            return latest
+        time.sleep(min(1, max(0.0, deadline - time.monotonic())))
+
+
+def _summarize_backtest_log(backtest_log: str) -> str:
+    """Persist the complete policy log for the scrollable strategy result UI.
+
+    A hard cap protects the history database from an unexpectedly noisy remote
+    runner, without dropping normal ksquant-piloppolicy output or statistics.
+    """
+
+    return str(backtest_log or "").strip()[:100_000]
 
 
 def _merge_backtest_log(previous: str, incoming: str) -> str:
@@ -252,11 +326,16 @@ _BACKTEST_STATISTIC_NAMES = (
     "Lowest Capacity Asset",
     "Portfolio Turnover",
     "Drawdown Recovery",
+    "OrderListHash",
 )
 
 
 def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
-    """Extract the structured Lean STATISTICS block from a Dream backtest log."""
+    """Extract every structured statistic emitted by ksquant-piloppolicy.
+
+    Known labels preserve their exact multi-word names. Unknown labels are
+    retained as well, rather than silently dropping platform-added metrics.
+    """
 
     metrics: list[dict[str, str]] = []
     for line in backtest_log.splitlines():
@@ -274,6 +353,22 @@ def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
                     }
                 )
                 break
+        else:
+            # Keep fields added by new policy versions without inventing their
+            # values. The usual format is ``label: value`` or ``label  value``.
+            matched = re.match(r"^(.*?)(?:\s*[:=]\s*|\s{2,})(.+)$", statistic)
+            if matched:
+                label, value = (part.strip() for part in matched.groups())
+            else:
+                label, value = statistic, ""
+            if label:
+                metrics.append(
+                    {
+                        "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
+                        "label": label,
+                        "value": value,
+                    }
+                )
     return metrics
 
 
@@ -297,6 +392,7 @@ def generate_strategy(
         template_id=settings.template_id,
         agent=settings.agent,
         timeout_seconds=settings.timeout_seconds,
+        backtest_wait_seconds=settings.backtest_wait_seconds,
     )
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)
@@ -380,7 +476,7 @@ def generate_strategy(
             final_message = hydrated_message
         answer = (final_message.content or "") or "".join(streamed_answer_parts)
         artifact_deadline = time.monotonic() + _STRATEGY_ARTIFACT_RETRY_SECONDS
-        strategy: dict[str, str] | None = None
+        strategy: dict[str, Any] | None = None
         while True:
             try:
                 strategy = _fetch_strategy(
@@ -398,6 +494,12 @@ def generate_strategy(
             if time.monotonic() >= artifact_deadline:
                 break
             time.sleep(1)
+        # 保留junlin.li分支：从strategy回填合并backtest_log
+        if strategy and strategy.get("backtest_log"):
+            backtest_log = _merge_backtest_log(
+                backtest_log, str(strategy["backtest_log"])
+            )
+
 
         # Persist an assistant reply even when Dream does not attach code.
         if not str(answer or "").strip():
@@ -413,8 +515,18 @@ def generate_strategy(
             "template_version_id": final_message.template_version_id,
             "template_version_no": final_message.template_version_no,
             "generation_status": final_message.strategy_generation_status,
-            "backtest_passed": final_message.backtest_passed,
-            "backtest_exit_code": final_message.backtest_exit_code,
+            # Template fields are the durable, per-version backtest result. A
+            # chat message can be emitted before the asynchronous test finishes.
+            "backtest_passed": (
+                strategy.get("backtest_passed")
+                if _backtest_is_complete(strategy)
+                else None
+            ),
+            "backtest_exit_code": (
+                strategy.get("backtest_exit_code")
+                if _backtest_is_complete(strategy)
+                else None
+            ),
             "backtest_summary": _summarize_backtest_log(backtest_log),
             "backtest_metrics": _parse_backtest_metrics(backtest_log),
             "elapsed_seconds": round(time.monotonic() - started_at, 3),

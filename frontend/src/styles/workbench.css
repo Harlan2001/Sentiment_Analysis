@@ -286,7 +286,7 @@ select:focus,
 .strategy-output-panel{display:flex;flex-direction:column;min-width:0;min-height:224px;margin:0!important;overflow:hidden}
 .strategy-output-panel>header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;margin-bottom:11px}
 .strategy-output-panel>header span{color:#858585;font-size:11px;white-space:nowrap}
-.strategy-news-list{display:grid;gap:7px;min-height:0;overflow:auto;padding-right:2px}
+.strategy-news-list{display:grid;gap:7px;min-height:0;overflow:auto;padding-right:2px;border:1px solid transparent}
 .strategy-news-list article{padding:9px 10px;border:1px solid #333;border-radius:8px;background:#151515}
 .strategy-news-list strong{display:block;overflow:hidden;color:#dedede;font-size:12px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
 .strategy-news-list small{display:block;overflow:hidden;margin-top:4px;color:#808080;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
@@ -397,12 +397,16 @@ select:focus,
   padding:6px 4px 8px!important;
   overflow:visible!important;
 }
+.strategy-parameter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border:1px solid #373737;border-radius:9px;background:#151515}.strategy-parameter-grid label{display:grid;gap:4px;min-width:0}.strategy-parameter-grid label:last-child{grid-column:span 2}.strategy-parameter-grid span{color:#a8a8a8;font-size:11px}.strategy-parameter-grid input{width:100%;min-width:0;height:29px;padding:0 8px;border:1px solid #424242;border-radius:6px;outline:0;background:#202020;color:#e5e5e5;font-size:11px}.strategy-parameter-grid input:focus{border-color:#aaa}.strategy-prompt-page--confirmation .strategy-requirements{grid-template-rows:auto auto minmax(0,1fr) auto!important}
 @media(max-width:850px){
   .strategy-prompt-page--confirmation .strategy-prompt-layout{height:540px!important;min-height:540px!important;max-height:540px!important;overflow:hidden!important}
   .strategy-prompt-page--confirmation .strategy-requirements{height:100%!important;max-height:100%!important;overflow:hidden!important}
+  .strategy-parameter-grid{grid-template-columns:1fr}.strategy-parameter-grid label:last-child{grid-column:auto}
 }
 /* Shared Agent composer for the six non-market home sections. */
 .workspace-content:has(.home-chat-workspace){overflow:hidden}
+.strategy-log-panel{min-height:224px}.strategy-backtest-log{max-height:224px}.backtest-result--passed>header span{color:#48c78e}.backtest-result--failed>header span{color:#ee6b6e}.metric-card--positive,.metric-card--negative{border-color:#373737;background:#1e1e1e}.metric-card--positive strong{color:#58d39b}.metric-card--negative strong{color:#ff8487}.metric-card--neutral strong{color:#d9dee5}
+.strategy-prompt-scroll .strategy-output-grid{grid-auto-rows:224px}.strategy-prompt-scroll .strategy-output-panel{height:224px;min-height:0}.strategy-prompt-scroll .strategy-code-panel{padding:15px}.strategy-output-panel h2{margin:0!important}.strategy-prompt-layout>.strategy-requirements>h2,.strategy-prompt-layout>.strategy-editor>h2{margin:0;font-size:13px;font-weight:600;line-height:1.5}.strategy-news-panel,.strategy-code-panel{display:grid;grid-template-rows:20px minmax(0,1fr);row-gap:11px}.strategy-news-panel>header,.strategy-code-panel>header{margin:0}.strategy-news-list,.strategy-code-output{box-sizing:border-box;align-self:stretch;min-height:0!important;height:auto!important;max-height:none!important;margin:0!important;overflow-y:auto!important}.strategy-metrics-panel,.strategy-log-panel{grid-column:1/-1}.strategy-metrics-panel .strategy-metrics-grid{display:grid;flex:1;min-height:0;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:min-content}.strategy-metrics-panel .metric-card{min-width:0;overflow:hidden}.strategy-metrics-panel .metric-card small,.strategy-metrics-panel .metric-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strategy-metrics-panel .metric-card strong{display:block;max-width:100%}
 .home-chat-workspace{position:relative;height:100%;min-height:0}
 .home-chat-scroll{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px 112px 0;scrollbar-width:thin;scrollbar-color:#4e4e4e transparent}
 .home-chat-scroll::-webkit-scrollbar{width:8px}

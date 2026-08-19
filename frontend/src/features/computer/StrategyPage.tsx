@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { StrategyConversation, createStrategyConversation, createStrategyDraft, getStrategyConversations } from '@/api/workbench'
+import { StrategyConversation, createStrategyConversation, getStrategyConversations } from '@/api/workbench'
 
 function timeLabel(value: string | null) {
   if (!value) return ''
@@ -90,7 +90,6 @@ export function StrategyPage() {
     setError('')
     try {
       const created = await createStrategyConversation(req || '新策略对话')
-      await createStrategyDraft(created.id, req)
       navigate(`/computer/strategies/prompt?id=${created.id}`)
     } catch (e) { setError(e instanceof Error ? e.message : '创建策略失败') }
   }
