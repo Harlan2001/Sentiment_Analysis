@@ -20,7 +20,7 @@ export interface RouteMeta {
   navIcon?: string
   redirect?: string
   track?: boolean                                // 是否计入 NEW_PAGE_ROUTES 白名单
-  inShell?: boolean                              // 默认 true；false 表示 /login
+  inShell?: boolean                              // 默认 true；false 表示壳外路由（已无使用）
 }
 
 export const BRAND_TITLE = '债券市场智能分析'
@@ -72,9 +72,6 @@ export const ROUTES: RouteMeta[] = [
 
   // ── 设置 ──
   { path: '/settings', title: '设置', shellTitle: '设置', group: '设置', track: true },
-
-  // ── 登录（壳外） ──
-  { path: '/login', title: '登录', inShell: false },
 ]
 
 // ========== 路径匹配 ==========

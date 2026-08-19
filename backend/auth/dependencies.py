@@ -26,6 +26,9 @@ PUBLIC_PATHS = {
 # 环境变量配置，发起内部 HTTP 调用时携带此 token，中间件识别后以 admin 放行。
 INTERNAL_TOKEN = os.environ.get("SENTIMENT_INTERNAL_API_TOKEN")
 
+# 只读方法：匿名访客仅放行这些方法（数据可浏览），写操作/管理接口仍需登录
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
 
 async def auth_middleware(request: Request, call_next):
     """
@@ -67,7 +70,16 @@ async def auth_middleware(request: Request, call_next):
         request.state.role = "admin"
         return await call_next(request)
 
+    # 匿名只读访客身份（仅放行 GET/HEAD/OPTIONS）
+    def _as_anonymous_reader():
+        request.state.username = "anonymous"
+        request.state.is_admin = False
+        request.state.role = "visitor"
+        return call_next(request)
+
     if not token:
+        if request.method in SAFE_METHODS:
+            return await _as_anonymous_reader()
         return JSONResponse(status_code=401, content={"detail": "未登录，请先登录"})
 
     try:
@@ -76,6 +88,9 @@ async def auth_middleware(request: Request, call_next):
         request.state.is_admin = payload.get("is_admin", False)
         request.state.role = payload.get("role", "user")
     except Exception:
+        # token 无效（过期等）：只读请求按访客放行，写操作仍要求重新登录
+        if request.method in SAFE_METHODS:
+            return await _as_anonymous_reader()
         return JSONResponse(
             status_code=401, content={"detail": "登录已过期，请重新登录"}
         )

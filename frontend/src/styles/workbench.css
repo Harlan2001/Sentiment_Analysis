@@ -500,3 +500,5 @@ select:focus,
 .message-bubble a{color:#8ab4f8;word-break:break-all}
 .message-bubble blockquote{margin:6px 0;padding:2px 10px;border-left:3px solid #4e4e4e;color:#b6b6b6}
 .message-bubble strong{color:#f0f0f0;font-weight:600}
+
+.avatar-ghost{background:transparent;border:1px dashed #4a4a4a;color:#8c8c8c}

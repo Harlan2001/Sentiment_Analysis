@@ -4,6 +4,7 @@ import { Conversation, Project, deleteConversation, deleteProject, getConversati
 import { DeletedItemsPanel } from '@/features/account/DeletedItemsPanel'
 import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
 import { useAuth } from '@/contexts/AuthContext'
+import LoginModal from '@/features/auth/LoginModal'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
 import { HomeChatDock } from '@/features/market/components/HomeChatDock'
 
@@ -40,6 +41,7 @@ export function WorkbenchShell() {
   const [sidebarError, setSidebarError] = useState('')
   const { isAuthenticated, username, displayName, role, authEnabled, logout } = useAuth()
   const [accountOpen, setAccountOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const [accountInfoPanelOpen, setAccountInfoPanelOpen] = useState(false)
   const [deletedPanelOpen, setDeletedPanelOpen] = useState(false)
   const [monitorPanelOpen, setMonitorPanelOpen] = useState(false)
@@ -165,7 +167,7 @@ export function WorkbenchShell() {
               <button className="account-menu-item logout" onClick={handleLogout}><span>↪</span>退出</button>
             </div>}
             <button className={'account-button' + (accountOpen ? ' active' : '')} onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}><span className="avatar">你</span><span className="account-copy"><strong>{displayName || username || 'admin'}</strong><small>账户与设置</small></span><span className="account-arrow" aria-hidden="true" /></button>
-          </> : <button className="login-button" onClick={() => navigate('/login')}><span>◉</span>登录</button>}
+          </> : <button className="login-button" onClick={() => setLoginOpen(true)}><span className="avatar avatar-ghost">未</span><span className="account-copy"><strong>未登录</strong><small>点击登录</small></span></button>}
         </div>
       </aside>
       <main className="workspace-main" style={{ gridTemplateRows: isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
@@ -196,6 +198,7 @@ export function WorkbenchShell() {
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
       <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLoggedIn={loadSidebar} />
       <Suspense fallback={null}>
         <MonitorDashboardPanel open={monitorPanelOpen} onClose={() => setMonitorPanelOpen(false)} />
       </Suspense>
