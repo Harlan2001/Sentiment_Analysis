@@ -201,6 +201,7 @@ export function StrategyPromptPage() {
   const isDraftReady = draftData?.status === 'pending_confirmation'
   const isDone = !!lastVersion
   const hasTextOnlyReply = !isDraftReady && !isRunning && !isDone && Boolean(lastAssistant?.content)
+  const generationFailureMessage = lastAssistant?.public_error_message || lastAssistant?.content || '策略生成失败，请重新生成策略。'
   const isConfirmationView = !isDone && !isRunning && !hasTextOnlyReply
   const hasBacktestResult = lastVersion?.backtest_passed !== null && lastVersion?.backtest_passed !== undefined
   const isBacktestPassed = Boolean(lastVersion?.backtest_passed)
@@ -273,7 +274,7 @@ export function StrategyPromptPage() {
           {isDone && strategySummary ? (
             <div className="strategy-summary-output">{strategySummary}</div>
           ) : hasTextOnlyReply ? (
-            <pre className="strategy-backtest-log">{lastAssistant?.content}</pre>
+            <p className="strategy-empty-state">{generationFailureMessage}</p>
           ) : (
             <p style={{color:'#809188',fontSize:12,margin:'12px 0'}}>
               {isRunning ? '策略生成中…' : '策略概要将在确认后展示'}
@@ -304,7 +305,7 @@ export function StrategyPromptPage() {
           <section className="project-card strategy-output-panel strategy-code-panel">
             <header><h2>回测代码</h2><span>{lastVersion ? `版本 ${lastVersion.local_version_no}` : '生成中'}</span></header>
             {lastVersion?.code ? <textarea className="strategy-code-output" value={lastVersion.code} readOnly /> : hasTextOnlyReply ? (
-              <p className="strategy-empty-state">远端未创建策略代码版本，无法执行回测。请重新生成策略。</p>
+              <p className="strategy-empty-state">{generationFailureMessage}</p>
             ) : (
               <div className="strategy-running-state"><span className="computer-progress"><i /></span><small>正在生成策略代码…</small></div>
             )}
