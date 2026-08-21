@@ -20,6 +20,7 @@ from backend.strategy.ai_strategy_history import (
 from backend.strategy.dream_strategy_prompt import (
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
+    build_dream_strategy_first_prompt,
     build_dream_strategy_prompt,
 )
 
@@ -232,7 +233,7 @@ async def _run_generation(
             "DreamStrategy generation timed out; the remote result was not received.",
             timed_out=True,
         )
-    except Exception:
+    except Exception as exc:
         logger.exception(
             "DreamStrategy generation failed for conversation %s", conversation_id
         )
@@ -241,7 +242,8 @@ async def _run_generation(
             owner_username,
             conversation_id,
             assistant_message_id,
-            "DreamStrategy generation failed; retry with a new prompt draft.",
+            str(exc).strip()
+            or "DreamStrategy generation failed; retry with a new prompt draft.",
         )
 
 
@@ -279,7 +281,7 @@ async def confirm_prompt_draft(
     final_sent_prompt = (
         build_dream_strategy_continuation_prompt(user_edited_prompt)
         if remote_session_id
-        else user_edited_prompt
+        else build_dream_strategy_first_prompt(user_edited_prompt)
     )
     if not repository.confirm_prompt_draft(
         owner_username,

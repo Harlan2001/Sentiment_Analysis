@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -42,56 +41,43 @@ def _default_trading_parameters() -> str:
     return "\n".join(f"- {name}：{value}" for name, value in DEFAULT_TRADING_PARAMETERS)
 
 
-@dataclass(frozen=True)
-class InstrumentDefinition:
-    name: str
-    request_keywords: tuple[str, ...]
-    market_scope: MarketContextScope
-
-
-INSTRUMENTS: tuple[InstrumentDefinition, ...] = (
-    InstrumentDefinition(
-        name="黄金期货 (FCT_AU_MAIN)",
-        request_keywords=("黄金", "FCT_AU_MAIN", "AU_MAIN"),
-        market_scope=MarketContextScope(
-            label="黄金市场",
-            news_keywords=("黄金", "金价", "贵金属", "现货金"),
-            directional_trade_guidance=False,
-            include_yield_curve=False,
-        ),
-    ),
-    InstrumentDefinition(
-        name="2Y 国债期货 (FCT_TS_MAIN)",
-        request_keywords=("2Y", "2年期国债期货", "FCT_TS_MAIN", "TS_MAIN"),
-        market_scope=MarketContextScope(
-            label="2年期国债市场",
-            news_keywords=("2年期国债", "国债", "债券", "收益率", "货币政策"),
-        ),
-    ),
-    InstrumentDefinition(
-        name="10Y 国债期货 (FCT_T_MAIN)",
-        request_keywords=("10Y", "国债期货", "FCT_T_MAIN", "T_MAIN"),
-        market_scope=MarketContextScope(
-            label="10年期国债市场",
-            news_keywords=("10年期国债", "国债", "债券", "收益率", "货币政策"),
-        ),
-    ),
+# News retrieval only needs a market *category* (gold vs bond), never a specific
+# instrument. Hard-coding a three-instrument whitelist here produced prompts whose
+# declared instrument contradicted the user's own words; the actual tradeable
+# instrument is Dream AI's decision, guided by the user's verbatim requirement.
+GOLD_SCOPE = MarketContextScope(
+    label="黄金市场",
+    news_keywords=("黄金", "金价", "贵金属", "现货金"),
+    directional_trade_guidance=False,
+    include_yield_curve=False,
 )
-# A user may intentionally ask for “any strategy”. Use the project's primary
-# supported instrument rather than turning that valid request into a follow-up.
-DEFAULT_INSTRUMENT = INSTRUMENTS[-1]
+BOND_SCOPE = MarketContextScope(
+    label="债券市场",
+    news_keywords=("国债", "债券", "收益率", "货币政策"),
+    directional_trade_guidance=True,
+    include_yield_curve=True,
+)
+DEFAULT_SCOPE = BOND_SCOPE
+
+_GOLD_KEYWORDS = ("黄金", "金价", "贵金属", "现货金")
+# Words that mark a gold mention as excluded ("除...黄金外") rather than requested.
+_NEGATION_MARKERS = ("除", "除了", "除外", "排除", "不要", "剔除")
 
 
-def _resolve_instrument(requirement: str) -> InstrumentDefinition:
-    """Resolve an explicit instrument, falling back to the primary supported one."""
+def _resolve_market_scope(requirement: str) -> MarketContextScope:
+    """Resolve only the news universe (gold vs bond), never a specific instrument.
 
-    normalized = "".join(requirement.upper().split())
-    for instrument in INSTRUMENTS:
-        if any(
-            keyword.upper() in normalized for keyword in instrument.request_keywords
-        ):
-            return instrument
-    return DEFAULT_INSTRUMENT
+    The specific tradeable instrument is Dream AI's decision, guided by the
+    user's own requirement text which is passed through verbatim.
+    """
+
+    text = "".join(requirement.split())
+    if not any(keyword in text for keyword in _GOLD_KEYWORDS):
+        return BOND_SCOPE
+    first_gold = min(text.index(k) for k in _GOLD_KEYWORDS if k in text)
+    if any(marker in text[:first_gold] for marker in _NEGATION_MARKERS):
+        return BOND_SCOPE
+    return GOLD_SCOPE
 
 
 def _format_events(events: list[dict[str, Any]]) -> str:
@@ -142,6 +128,22 @@ def _sentiment_guidance(
     return f"利多与利空{scope.label}信号均衡或不足", "不以新闻形成方向，必要时暂停交易"
 
 
+# Execution rules that apply to every strategy generation, including the first
+# one. The template owns the output contract: the actual strategy version, not
+# chat text, is the source for the four front-end result modules.
+_COMMON_EXECUTION_RULES = """- Execute the formal-result workflow in the template: create or update the actual strategy version, write its code and concise summary, then run its backtest to a terminal result.
+- Do not use ordinary chat text as a result carrier. It must contain no planning, self-talk, deliberation, code draft, code block, strategy summary, backtest metric, or backtest log.
+- The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
+- Broad requests such as "随便生成一个策略" are valid. When no instrument or detailed objective is supplied, use the prompt's default instrument and conservative trading parameters to generate and backtest one complete runnable strategy; do not ask a follow-up merely because the user left the choice to you.
+- If the user has named an instrument and objective but omitted ordinary execution parameters, use conservative, explicit defaults (including signal window, position size, stop loss, take profit, and test period) so that a complete, runnable strategy can be generated and backtested now. List those defaults in the strategy summary.
+- Store the strategy code, concise logic summary, backtest metrics, and backtest log on the formal strategy version for separate front-end display. Do not duplicate them in a chat reply."""
+
+# Rules that only make sense when continuing an already-existing Dream session.
+_CONTINUATION_EXECUTION_RULES = """- Continue the existing DreamStrategy session.
+- Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
+- If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies."""
+
+
 def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
     """Add continuation rules to a freshly-built market-aware strategy prompt."""
 
@@ -150,13 +152,27 @@ def build_dream_strategy_continuation_prompt(market_prompt: str) -> str:
     return f"""{market_prompt}
 
 [EXECUTION RULES]
-- Continue the existing DreamStrategy session and directly generate a complete strategy response now.
-- The current Sentiment news analysis above is a fresh snapshot for this version. Use its representative events as auditable news references for this strategy version.
-- Broad requests such as “随便生成一个策略” are valid. When no instrument or detailed objective is supplied, use the prompt's default instrument and conservative trading parameters to generate and backtest one complete runnable strategy; do not ask a follow-up merely because the user left the choice to you.
-- If the user has named an instrument and objective but omitted ordinary execution parameters, use conservative, explicit defaults (including signal window, position size, stop loss, take profit, and test period) so that a complete, runnable strategy can be generated and backtested now. List those defaults in the strategy summary.
-- Existing strategy versions are already complete. Do not reopen, regenerate, or ask about their parameters unless the latest request explicitly asks to modify them.
-- If the latest request asks for another strategy, generate only that newly requested strategy as the next version in this same session; do not combine it with prior strategies or generate two strategies.
-- Return the complete strategy code, concise logic summary, and backtest result in the same language as the user request.
+{_CONTINUATION_EXECUTION_RULES}
+{_COMMON_EXECUTION_RULES}
+"""
+
+
+def build_dream_strategy_first_prompt(market_prompt: str) -> str:
+    """Add execution rules to the first strategy prompt of a new session.
+
+    The first generation used to send the bare template without these rules,
+    which let Dream return a planning-only or malformed reply (and the summary
+    field then carried the code). The common rules apply to the first turn too;
+    only the continuation-specific rules are omitted because there is no
+    existing session to continue.
+    """
+
+    if not market_prompt.strip():
+        raise ValueError("Market-aware strategy prompt must not be empty")
+    return f"""{market_prompt}
+
+[EXECUTION RULES]
+{_COMMON_EXECUTION_RULES}
 """
 
 
@@ -206,12 +222,12 @@ def build_dream_strategy_prompt(
     normalized_requirement = " ".join(requirement.split())
     if not normalized_requirement:
         raise ValueError("策略需求不能为空")
-    instrument = _resolve_instrument(normalized_requirement)
+    scope = _resolve_market_scope(normalized_requirement)
     context = build_sentiment_strategy_context(
-        lookback_days, model_name, instrument.market_scope
+        lookback_days, model_name, scope
     )
     counts = context["news_sentiment"]["counts"]
-    conclusion, action = _sentiment_guidance(counts, instrument.market_scope)
+    conclusion, action = _sentiment_guidance(counts, scope)
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     values = {
         "USER_REQUIREMENT": (
@@ -221,12 +237,11 @@ def build_dream_strategy_prompt(
             f"[/STRATEGY_REQUIREMENT]\n{EDITABLE_SECTION_END}"
         ),
         "MARKET_AS_OF": context["reference_time"].strftime("%Y-%m-%d %H:%M"),
-        "INSTRUMENT": instrument.name,
         "FREQUENCY": DEFAULT_FREQUENCY,
-        "MARKET_SCOPE": instrument.market_scope.label,
+        "MARKET_SCOPE": scope.label,
         "MARKET_TECHNICAL_STATE": TECHNICAL_STATE,
         "YIELD_CURVE_SUMMARY": _format_yields(
-            context["yield_curve"], instrument.market_scope
+            context["yield_curve"], scope
         ),
         "REPORT_GENERATED_AT": context["generated_at"],
         "WINDOW_START": context["window_start"].strftime("%Y-%m-%d %H:%M"),
@@ -243,7 +258,7 @@ def build_dream_strategy_prompt(
         "POSITIVE_FACTORS": _format_factors(context["factors"]["positive"]),
         "NEGATIVE_FACTORS": _format_factors(context["factors"]["negative"]),
         "YIELD_CURVE_DETAIL": _format_yields(
-            context["yield_curve"], instrument.market_scope
+            context["yield_curve"], scope
         ),
         "SENTIMENT_CONCLUSION": conclusion,
         "SENTIMENT_STRATEGY_ACTION": action,
@@ -257,7 +272,7 @@ def build_dream_strategy_prompt(
             "prompt": prompt,
             "quant_message": {"role": "user", "content": prompt},
             "prompt_version": "sentiment-strategy-chat-v2-instrument-scoped",
-            "instrument": instrument.name,
+            "instrument": scope.label,
             "frequency": DEFAULT_FREQUENCY,
         }
     )

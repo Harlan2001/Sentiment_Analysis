@@ -21,7 +21,6 @@ from backend.integrations.dream.client import (
     CI_PUSH_SESSION_KEY,
     EI_ADD_SESSION,
     EI_GET_TEMPLATE,
-    EI_LIST_MESSAGES,
     EI_PUSH_MESSAGE,
     EI_SEND_PROMPT,
     EI_SUBSCRIBE,
@@ -30,6 +29,10 @@ from backend.integrations.dream.client import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Dream sends normal chat/planning text and real strategy-result messages on the
+# same stream.  Only the latter is a user-facing generation result.
+_STRATEGY_RESULT_CONTENT_TYPE = 4
 
 # A chat stream may finish before the asynchronous backtest has written its
 # result to the strategy template.  Keep this separate from the total request
@@ -73,7 +76,6 @@ class DreamStrategySettings:
             raise ValueError("DREAM_BACKTEST_WAIT_SECONDS 必须为整数") from exc
         if backtest_wait_seconds < 1:
             raise ValueError("DREAM_BACKTEST_WAIT_SECONDS 不能小于 1 秒")
-
         return cls(
             portal_config_url=portal_config_url,
             template_id=template_id,
@@ -151,65 +153,20 @@ def _create_session(client: DreamClient, extension_pb2: Any, template_id: str) -
     return response.session.open_id
 
 
-def _fetch_final_message(
-    client: DreamClient,
-    extension_pb2: Any,
-    template_id: str,
-    session_id: str,
-    generation_message_id: str,
-) -> Any | None:
-    response = client.request(
-        EI_LIST_MESSAGES,
-        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
-            template_id=template_id,
-            session_id=session_id,
-            count=100,
-            start_pos=0,
-            return_total_count=False,
-        ),
-        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
-    )
-    _ensure_success("Read DreamStrategy final message", response)
-    candidates = [
-        message
-        for message in response.messages
-        if message.role == 2
-        and len(str(message.content or "").strip()) > 1
-        and not str(message.content or "").strip().isdigit()
-    ]
-    return candidates[-1] if candidates else None
+def _is_strategy_result_message(message: Any) -> bool:
+    """Return whether a Dream message carries a strategy artifact/result.
 
+    Plain assistant chat often contains the model's planning text and fenced
+    code drafts.  It must not be displayed as a completed strategy result.
+    """
 
-def _fetch_final_answer(
-    client: DreamClient,
-    extension_pb2: Any,
-    template_id: str,
-    session_id: str,
-) -> str:
-    """Read the final human-readable assistant reply from persisted messages."""
-
-    response = client.request(
-        EI_LIST_MESSAGES,
-        extension_pb2.ListAiStrategyV2TemplateChatMessageRequest(
-            template_id=template_id,
-            session_id=session_id,
-            count=100,
-            start_pos=0,
-            return_total_count=False,
-        ),
-        extension_pb2.ListAiStrategyV2TemplateChatMessageResponse,
-    )
-    _ensure_success("读取 DreamStrategy 最终消息", response)
-    return next(
-        (
-            message.content
-            for message in reversed(response.messages)
-            if message.role == 2
-            and len(str(message.content or "").strip()) > 1
-            and not str(message.content or "").strip().isdigit()
-        ),
-        "",
-    )
+    content_type = getattr(message, "content_type", 0)
+    try:
+        if int(content_type) == _STRATEGY_RESULT_CONTENT_TYPE:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return bool(str(getattr(message, "template_version_id", "") or "").strip())
 
 
 def _clean_strategy_description(description: str) -> str:
@@ -466,8 +423,6 @@ def generate_strategy(
         )
         _ensure_success("发送 DreamStrategy 提示词", send_response)
 
-        generation_message_id = ""
-        streamed_answer_parts: list[str] = []
         final_message: Any | None = None
         backtest_log = ""
         while True:
@@ -490,36 +445,21 @@ def generate_strategy(
                 continue
 
             message = push.message
-            # Dream may push a user echo before the assistant result.
-            if message.role != 2:
+            is_strategy_result = _is_strategy_result_message(message)
+            # Ordinary assistant chat can finish long before the strategy job.
+            # It is not the completion signal and must never end this loop.
+            if message.role != 2 and not is_strategy_result:
                 continue
-            if message.content:
-                streamed_answer_parts.append(message.content)
-            if not generation_message_id and message.open_id:
-                generation_message_id = message.open_id
             if message.backtest_log:
                 backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
-            if push.done:
+            if is_strategy_result and str(message.template_version_id or "").strip():
+                # The subscribed session is exclusive to this serialized local
+                # turn, so this version id belongs to this exact user request.
                 final_message = message
                 break
 
         if final_message is None:
             raise RuntimeError("DreamStrategy 未返回完成消息")
-        hydrated_message = _fetch_final_message(
-            client,
-            extension_pb2,
-            settings.template_id,
-            session_id,
-            generation_message_id,
-        )
-        if hydrated_message:
-            final_message = hydrated_message
-        answer = _fetch_final_answer(
-            client,
-            extension_pb2,
-            settings.template_id,
-            session_id,
-        ) or "".join(streamed_answer_parts)
         artifact_deadline = min(
             started_at + settings.timeout_seconds,
             time.monotonic() + settings.backtest_wait_seconds,
@@ -531,20 +471,22 @@ def generate_strategy(
             final_message.template_version_id,
             artifact_deadline,
         )
+        if not strategy or not str(strategy.get("code") or "").strip():
+            raise RuntimeError("DreamStrategy 正式策略结果未包含可执行回测代码。")
+        if not str(strategy.get("description") or "").strip():
+            raise RuntimeError("DreamStrategy 正式策略结果未包含策略概要。")
+        if not _backtest_is_complete(strategy):
+            raise RuntimeError("DreamStrategy 正式策略结果未完成回测，未保存不完整产物。")
         if strategy and strategy.get("backtest_log"):
             backtest_log = _merge_backtest_log(
                 backtest_log, str(strategy["backtest_log"])
             )
-        # Persist an assistant reply even when Dream does not attach code.
-        if not str(answer or "").strip():
-            raise RuntimeError("DreamStrategy completed without a final answer")
-        # Text-only assistant replies may not include persistent strategy identifiers.
         return {
             "template_id": settings.template_id,
             "session_id": session_id,
             "message_id": final_message.open_id,
             "agent": settings.agent,
-            "summary": answer,
+            "summary": "策略版本和回测结果已生成。",
             "strategy": strategy,
             "template_version_id": final_message.template_version_id,
             "template_version_no": final_message.template_version_no,

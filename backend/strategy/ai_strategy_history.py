@@ -316,7 +316,7 @@ class AiStrategyHistoryRepository:
         public_error = (
             None
             if has_strategy_code
-            else "DreamStrategy returned a text reply but did not create strategy code or a backtest artifact. Please retry generation."
+            else "DreamStrategy did not create a complete strategy artifact. Please retry generation."
         )
         with self._connection() as conn:
             with conn.cursor() as cursor:
