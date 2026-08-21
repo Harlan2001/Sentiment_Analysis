@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Conversation, Message, createConversation, getConversation, sendMessage } from '@/api/workbench'
 
@@ -12,6 +12,15 @@ function timeLabel(value: string) {
 
 function refreshSidebar() {
   window.dispatchEvent(new Event('bondsense-sidebar-refresh'))
+}
+
+// 内部路由（/ 开头）走 <Link> 同页跳转；外部链接新标签
+const markdownComponents: Components = {
+  a({ href, children }) {
+    if (href && href.startsWith('/')) return <Link to={href}>{children}</Link>
+    if (href) return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+    return <>{children}</>
+  },
 }
 
 export function ChatPage() {
@@ -112,7 +121,7 @@ export function ChatPage() {
     <div className="chat-messages" aria-live="polite">
       {messages.map((message) => <article className={'chat-message ' + message.role} key={message.id}>
         <span className="message-avatar">{message.role === 'assistant' ? 'B' : '你'}</span>
-        <div className="message-body"><div className="message-meta"><strong>{message.role === 'assistant' ? 'BondSense' : '你'}</strong><time>{timeLabel(message.created_at)}</time></div><div className="message-bubble"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content || (message.status === 'pending' ? '正在整理债券市场信号…' : '')}</ReactMarkdown></div>{message.status === 'failed' && <small>回复未完成：{message.error_code || '服务暂时不可用'}</small>}</div>
+        <div className="message-body"><div className="message-meta"><strong>{message.role === 'assistant' ? 'BondSense' : '你'}</strong><time>{timeLabel(message.created_at)}</time></div><div className="message-bubble"><ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{message.content || (message.status === 'pending' ? '正在整理债券市场信号…' : '')}</ReactMarkdown></div>{message.status === 'failed' && <small>回复未完成：{message.error_code || '服务暂时不可用'}</small>}</div>
       </article>)}
     </div>
     {error && <p className="chat-error">{error}</p>}

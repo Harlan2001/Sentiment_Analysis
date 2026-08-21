@@ -26,6 +26,10 @@ import {
   PortfolioSection,
   WorkflowSection,
 } from '@/features/market'
+import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
+import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
+import FactorDetailPage from '@/features/market/pages/FactorDetailPage'
+import StrategyDetailPage from '@/features/market/pages/StrategyDetailPage'
 
 /**
  * 路由 → 元素映射。
@@ -55,6 +59,10 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/custom/skills': <SkillsPage />,
   '/projects/new': <ProjectCreatePage />,
   '/projects/:projectId': <ProjectManagementPage />,
+  '/news/:newsId': <NewsDetailPage />,
+  '/yield/:period': <YieldDetailPage />,
+  '/factor/:factorId': <FactorDetailPage />,
+  '/strategy': <StrategyDetailPage />,
   '/settings': (
     <PlaceholderPage
       title="设置"
