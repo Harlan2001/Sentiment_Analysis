@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAllFactors, fetchFactorDetail, fetchMacroData, fetchMacroIndicators } from '@/api/market'
@@ -15,7 +16,8 @@ type Factor = { id: number; code: string; name: string; category: string; factor
 const FACTOR_PAGE_SIZE = 20
 
 export default function FactorsSection() {
-  const [view, setView] = useState<'signals' | 'macro'>('signals')
+  const [searchParams] = useSearchParams()
+  const [view, setView] = useState<'signals' | 'macro'>(searchParams.get('view') === 'macro' ? 'macro' : 'signals')
   const [selectedFactor, setSelectedFactor] = useState<Factor | null>(null)
   return <div className="home-section-page factor-section-page">
     <header className="home-section-heading factor-section-heading">
