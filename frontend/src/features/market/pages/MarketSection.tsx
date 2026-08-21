@@ -49,12 +49,6 @@ const MarketSection: React.FC = () => {
     setDetailView(null)
   }, [])
 
-  function submitQuestion(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const draft = question.trim()
-    navigate(draft ? `/chat?draft=${encodeURIComponent(draft)}` : '/chat')
-  }
-
   return (
     <div className="market-workspace">
       <div className="market-workspace-body">

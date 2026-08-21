@@ -251,10 +251,6 @@ export function confirmStrategyDraft(conversationId: number, assistantMessageId:
   })
 }
 
-export function archiveStrategyConversation(conversationId: number) {
-  return request<{ archived: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}/archive`, { method: 'PATCH' })
-}
-
 // ── 每日新闻总结 ──────────────────────────────────────────
 
 export type NewsSourceOption = {

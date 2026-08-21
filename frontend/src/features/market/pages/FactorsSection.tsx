@@ -38,7 +38,7 @@ function FactorSignals({ selectedFactor, onSelect }: { selectedFactor: Factor | 
   const [page, setPage] = useState(1)
   const { data, isLoading, isError } = useQuery({ queryKey: ['factors-all'], queryFn: fetchAllFactors, staleTime: 5 * 60 * 1000 })
   const factors = useMemo(() => ((data?.factors || []) as Factor[]).filter(f => (category === 'ALL' || f.category === category) && (`${f.name}${f.code}`).toLowerCase().includes(query.toLowerCase())).sort((a, b) => (b.recent_news_count || 0) - (a.recent_news_count || 0)), [data, category, query])
-  const categories = useMemo(() => [...new Set((data?.factors || []).map((f: Factor) => f.category))], [data])
+  const categories = useMemo(() => [...new Set(((data?.factors || []) as Factor[]).map((f) => f.category))], [data])
   const totalPages = Math.max(1, Math.ceil(factors.length / FACTOR_PAGE_SIZE))
   const pagedFactors = factors.slice((page - 1) * FACTOR_PAGE_SIZE, page * FACTOR_PAGE_SIZE)
   useEffect(() => setPage(1), [category, query])

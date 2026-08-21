@@ -1,9 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  createDailyNewsSummary, DailyNewsSummaryTask, getDailyNewsSummaries, getDailyNewsSummary,
-  getLatestNewsDate, getNewsSources, NewsSourceOption, retryDailyNewsSummary,
+  createDailyNewsSummary, DailyNewsSummaryTask, getDailyNewsSummaries,
+  getLatestNewsDate, getNewsSources, NewsSourceOption,
 } from '@/api/workbench'
 import { NewsCalendarPicker } from '@/features/computer/components/NewsCalendarPicker'
 
@@ -30,12 +29,10 @@ export function NewsPage() {
   const [filter, setFilter] = useState<'all' | DailyNewsSummaryTask['status']>('all')
   const [historySource, setHistorySource] = useState('all')
   const [historyDate, setHistoryDate] = useState('')
-  const [detail, setDetail] = useState<DailyNewsSummaryTask | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [showAllActive, setShowAllActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [retrying, setRetrying] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [newsStatusOpen, setNewsStatusOpen] = useState(false)
   const [newsSourceOpen, setNewsSourceOpen] = useState(false)
@@ -56,7 +53,6 @@ export function NewsPage() {
     try {
       const data = await getDailyNewsSummaries(50)
       setTasks(data.items)
-      setDetail((current) => current ? data.items.find((item) => item.id === current.id) || current : null)
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : '读取新闻总结历史失败')
@@ -105,22 +101,13 @@ export function NewsPage() {
     setBusy(true)
     try {
       const task = await createDailyNewsSummary({ start_date: startDate, end_date: endDate, sources: selectedSources, focus: focus.trim() })
-      setTasks((current) => [task, ...current]); setDetail(task); setFocus(''); await load()
+      setTasks((current) => [task, ...current]); setFocus(''); await load()
     } catch (e) { setError(e instanceof Error ? e.message : '创建新闻总结失败') }
     finally { setBusy(false) }
   }
 
   async function open(taskId: number) {
     navigate(`/computer/news/${taskId}`)
-  }
-
-  async function retry(taskId: number) {
-    setRetrying(taskId)
-    try {
-      const task = await retryDailyNewsSummary(taskId)
-      setTasks((current) => [task, ...current]); setDetail(task); await load()
-    } catch (e) { setError(e instanceof Error ? e.message : '重试失败') }
-    finally { setRetrying(null) }
   }
 
   return <section className="computer-page daily-news-page">
@@ -182,14 +169,6 @@ export function NewsPage() {
       </tbody></table>
       {history.length > 4 && <div className="daily-news-expand"><button className="expand-toggle" onClick={() => setShowAll((current) => !current)}><i className={'expand-arrow ' + (showAll ? 'up' : 'down')} /></button></div>}
     </div>
-    {false && detail && <aside className="daily-news-detail" aria-live="polite">
-      <div className="daily-news-detail-head"><div><span className="computer-badge">{STATUS[detail.status]}</span><h2>{range(detail)} 新闻总结</h2><p>覆盖 {detail.news_count} 条新闻 · {detail.source_stats_json ? Object.entries(detail.source_stats_json).map(([name, count]) => `${name} ${count} 条`).join(' · ') : '暂无来源统计'}</p></div><button className="computer-button" onClick={() => setDetail(null)}>关闭</button></div>
-      {['pending', 'running'].includes(detail.status) && <div className="daily-news-detail-state"><span className="daily-news-spinner" />AI 正在基于真实新闻生成总结，页面会自动刷新。</div>}
-      {detail.error_message && <div className="daily-news-error">{detail.error_message}<button className="computer-button primary" disabled={retrying === detail.id} onClick={() => void retry(detail.id)}>{retrying === detail.id ? '正在重试…' : '重试'}</button></div>}
-      {detail.status === 'empty' && <div className="daily-news-detail-state">{detail.summary}<button className="computer-button" disabled={retrying === detail.id} onClick={() => void retry(detail.id)}>重新检索</button></div>}
-      {detail.summary && detail.status === 'succeeded' && <div className="daily-news-markdown"><ReactMarkdown>{detail.summary}</ReactMarkdown></div>}
-      {!!detail.references_json?.length && <details className="daily-news-references"><summary>引用新闻（{detail.references_json.length}）</summary><div>{detail.references_json.map((item) => <a key={item.news_id} href={`/news?newsId=${item.news_id}`} target="_blank" rel="noreferrer"><span>{item.source} · {String(item.publish_time).slice(0, 10)}</span><strong>{item.title}</strong></a>)}</div></details>}
-    </aside>}
     <form className="report-composer daily-news-composer" onSubmit={submit}>
       <textarea ref={composerRef} value={focus} maxLength={1000} onChange={(event) => setFocus(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="输入本次新闻总结的关注重点，例如信用风险、资金面或政策影响…" rows={2} />
       <div className="daily-news-composer-controls">

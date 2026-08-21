@@ -41,7 +41,7 @@ export function NewsSummaryDetailPage() {
       {task.error_message && <div className="daily-news-error">{task.error_message}<button className="computer-button primary" disabled={retrying} onClick={() => void retry()}>{retrying ? '正在重试…' : '重试'}</button></div>}
       {task.status === 'empty' && <div className="daily-news-detail-state">{task.summary}<button className="computer-button" disabled={retrying} onClick={() => void retry()}>重新检索</button></div>}
       {task.summary && task.status === 'succeeded' && <div className="daily-news-markdown"><ReactMarkdown>{task.summary}</ReactMarkdown></div>}
-      {!!task.references_json?.length && <details className="daily-news-references"><summary>引用新闻（{task.references_json.length}）</summary><div>{task.references_json.map((item) => <a key={item.news_id} href={`/news?newsId=${item.news_id}`} target="_blank" rel="noreferrer"><span>{item.source} · {String(item.publish_time).slice(0, 10)}</span><strong>{item.title}</strong></a>)}</div></details>}
+      {!!task.references_json?.length && <details className="daily-news-references"><summary>引用新闻（{task.references_json.length}）</summary><div>{task.references_json.map((item) => <a key={item.news_id} href={`/news/${item.news_id}`} target="_blank" rel="noreferrer"><span>{item.source} · {String(item.publish_time).slice(0, 10)}</span><strong>{item.title}</strong></a>)}</div></details>}
     </article>}
   </section>
 }
