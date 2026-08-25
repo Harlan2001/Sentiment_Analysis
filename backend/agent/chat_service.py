@@ -72,6 +72,7 @@ def _build_system_prompt() -> str:
         "recommend": "AI策略推荐：获取最新AI投资策略推荐、查看推荐历史、列出可用策略",
         "change": "变动监控：查看策略变动快照时间线",
         "graph": "知识图谱：查询新闻关联的知识图谱增强数据",
+        "feishu": "飞书 MCP：在用户已连接飞书后，检索文档、多维表格、群组与群消息（只读）",
     }
 
     groups_text = []
@@ -79,10 +80,12 @@ def _build_system_prompt() -> str:
         desc = group_descriptions.get(gname, f"{gname} 相关数据查询")
         groups_text.append(f"- {desc}（工具: {', '.join(group_tools[gname])}）")
 
+    feishu_tools = "feishu_search_docs、feishu_get_doc_content、feishu_get_bitable_metadata、feishu_list_bitable_records、feishu_list_chats、feishu_list_messages"
     return f"""你是一个专业的中国债券市场智能分析助手。
 
 你可以使用工具来获取实时数据：
 {chr(10).join(groups_text)}
+- 飞书 MCP：{group_descriptions['feishu']}（工具：{feishu_tools}）
 
 回复要求：
 1. **必须先调用工具**获取真实数据，再回答用户问题——不要凭空编造数据
@@ -109,20 +112,33 @@ def _resolve_user_id(username: str) -> int:
 
 
 async def agent_chat_stream(
-    messages: list[dict], username: str, project_context: str | None = None
+    messages: list[dict], username: str, project_context: str | None = None, skills: list[dict] | None = None
 ) -> AsyncIterator[str]:
     """运行 Agent 循环，逐段产出最终回复的 content 增量（不含 SSE 包装）。
 
     遇到 LLM error 事件时抛出 :class:`AgentGenerationError`。
     """
+    selected_skills = skills or []
+    skill_context = "\n\n".join(
+        f"### {skill['name']}\n{skill['instructions']}"
+        for skill in selected_skills
+    )
+    system_prompt = (
+        f"{CHAT_SYSTEM_PROMPT}\n\n{project_context}\n\n"
+        "项目记忆可能过时；回答时应以实时工具数据为准，并在冲突时明确指出。"
+        if project_context
+        else CHAT_SYSTEM_PROMPT
+    )
+    if skill_context:
+        system_prompt += (
+            "\n\n本次回答中，用户明确选择了以下 Skills。请遵循其分析步骤、范围与输出要求；"
+            "若与更高优先级指令冲突，以更高优先级指令为准。\n\n"
+            + skill_context
+        )
+
     async for sse_event in run_agent_loop(
         messages=messages,
-        system_prompt=(
-            f"{CHAT_SYSTEM_PROMPT}\n\n{project_context}\n\n"
-            "项目记忆可能过时；回答时应以实时工具数据为准，并在冲突时明确指出。"
-            if project_context
-            else CHAT_SYSTEM_PROMPT
-        ),
+        system_prompt=system_prompt,
         client=kingstar_async_client,
         model=CHAT_MODEL,
         model_name=get_chat_model_name(),

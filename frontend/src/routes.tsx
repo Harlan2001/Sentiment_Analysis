@@ -15,6 +15,7 @@ import { NewsSummaryDetailPage } from '@/features/computer/NewsSummaryDetailPage
 import { StrategyPromptPage } from '@/features/computer/StrategyPromptPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
+import { MemoryPage } from '@/features/custom/MemoryPage'
 import { ProjectManagementPage } from '@/features/project/ProjectManagementPage'
 import { ProjectCreatePage } from '@/features/project/ProjectCreatePage'
 import {
@@ -24,12 +25,12 @@ import {
   ForecastSection,
   WatchlistSection,
   PortfolioSection,
-  WorkflowSection,
 } from '@/features/market'
 import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
 import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
 import FactorDetailPage from '@/features/market/pages/FactorDetailPage'
 import StrategyDetailPage from '@/features/market/pages/StrategyDetailPage'
+import { LoginRequiredPage } from '@/features/auth/LoginRequiredPage'
 
 /**
  * 路由 → 元素映射。
@@ -43,11 +44,10 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/forecast': <ForecastSection />,
   '/watchlist': <WatchlistSection />,
   '/portfolio': <PortfolioSection />,
-  '/workflow': <WorkflowSection />,
+  '/workflow': <ComputerPage />,
   '/home': <HomePage />,
   '/chat': <ChatPage />,
   '/chat/:conversationId': <ChatPage />,
-  '/computer': <ComputerPage />,
   '/computer/reports': <ReportGenerationPage />,
   '/computer/reports/library': <ReportLibraryPage />,
   '/computer/reports/:taskId': <ReportGenerationDetailPage />,
@@ -57,6 +57,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/computer/news/:taskId': <NewsSummaryDetailPage />,
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
+  '/custom/memory': <MemoryPage />,
   '/projects/new': <ProjectCreatePage />,
   '/projects/:projectId': <ProjectManagementPage />,
   '/news/:newsId': <NewsDetailPage />,
@@ -71,6 +72,25 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   ),
 }
 
+const LOGIN_REQUIRED_ROUTES = new Set([
+  '/watchlist',
+  '/portfolio',
+  '/workflow',
+  '/computer/reports',
+  '/computer/reports/library',
+  '/computer/reports/:taskId',
+  '/computer/strategies',
+  '/computer/strategies/prompt',
+  '/computer/news',
+  '/computer/news/:taskId',
+  '/custom/mcp',
+  '/custom/skills',
+  '/custom/memory',
+  '/projects/new',
+  '/projects/:projectId',
+  '/settings',
+])
+
 /** 壳内路由：由 config/routes.ts 驱动（含重定向），未匹配路径兜底到 /market */
 export function AppRoutes() {
   const shellRoutes = ROUTES.filter((r) => r.inShell !== false)
@@ -81,7 +101,11 @@ export function AppRoutes() {
           r.redirect ? (
             <Route key={r.path} path={r.path} element={<Navigate to={r.redirect} replace />} />
           ) : ROUTE_ELEMENTS[r.path] ? (
-            <Route key={r.path} path={r.path} element={ROUTE_ELEMENTS[r.path]} />
+            <Route
+              key={r.path}
+              path={r.path}
+              element={LOGIN_REQUIRED_ROUTES.has(r.path) ? <LoginRequiredPage>{ROUTE_ELEMENTS[r.path]}</LoginRequiredPage> : ROUTE_ELEMENTS[r.path]}
+            />
           ) : null
         )}
       </Route>

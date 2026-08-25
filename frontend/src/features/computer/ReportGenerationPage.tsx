@@ -6,6 +6,7 @@ import {
   ResearchListItem,
   ResearchSummary,
   createReportGenerationTask,
+  deleteReportGenerationTask,
   getReportGenerationTasks,
   getReportSources,
   getResearchList,
@@ -171,6 +172,14 @@ export function ReportGenerationPage() {
     }
   }
 
+  async function deleteTask(task: ReportGenerationTask) {
+    if (!window.confirm(`将研报「${task.title}」移入最近删除？`)) return
+    try {
+      await deleteReportGenerationTask(task.id)
+      setTasks((current) => current.filter((item) => item.id !== task.id))
+    } catch (error) { setTaskError(error instanceof Error ? error.message : '删除研报失败') }
+  }
+
   function handleLibraryFilter(key: string, value: string) {
     setLibraryFilters((prev) => ({ ...prev, [key]: value })); setLibraryPage(1)
   }
@@ -184,17 +193,6 @@ export function ReportGenerationPage() {
 
   return (
     <section className="computer-page report-generation-page">
-      {/* ── Tabs ── */}
-      <div className="computer-tabs">
-        <button onClick={() => navigate('/computer')}>全部</button>
-        <button className="active">研报分析</button>
-        <button onClick={() => navigate('/computer/strategies')}>策略开发</button>
-        <button onClick={() => navigate('/computer/news')}>每日新闻总结</button>
-        <span className="computer-spacer" />
-        <button className="computer-button" onClick={() => { void loadTasks(); void loadLibrary(); void loadSummary() }}>刷新状态</button>
-        <button className="computer-button primary" onClick={() => setComposerOpen(true)}>＋ 新建研报</button>
-      </div>
-
       {/* ── Toolbar ── */}
       <div className="computer-toolbar">
         <div className="computer-dropdown" ref={statusDropdownRef}>
@@ -211,6 +209,8 @@ export function ReportGenerationPage() {
         </div>
         <ComputerDatePicker value={historyDateStart} label="任务日期" onChange={(value) => { setHistoryDateStart(value); setHistoryDateEnd(value) }} />
         <span className="computer-spacer" />
+        <button className="computer-button" onClick={() => { void loadTasks(); void loadLibrary(); void loadSummary() }}>刷新状态</button>
+        <button className="computer-button primary" onClick={() => setComposerOpen(true)}>＋ 新建研报</button>
         <span className="computer-count">{loadingTasks ? '读取中…' : `${tasks.length} 个合成任务`}</span>
       </div>
 
@@ -334,16 +334,17 @@ export function ReportGenerationPage() {
         <div><strong>历史生成</strong><span>· {historyTasks.length} 个任务</span></div>
       </div>
       <div className="computer-table-wrap">
-        <table className="computer-table"><thead><tr><th /><th>报告</th><th>来源范围</th><th>状态</th><th>更新时间</th></tr></thead>
-          <tbody>{loadingTasks ? <tr><td colSpan={5}><div className="report-empty">正在读取历史…</div></td></tr>
-            : taskError ? <tr><td colSpan={5}><div className="report-empty error">{taskError}<button onClick={() => void loadTasks()}>重试</button></div></td></tr>
-            : visibleHistory.length === 0 ? <tr><td colSpan={5}><div className="report-empty">暂无历史生成记录</div></td></tr>
+        <table className="computer-table"><thead><tr><th /><th>报告</th><th>来源范围</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
+          <tbody>{loadingTasks ? <tr><td colSpan={6}><div className="report-empty">正在读取历史…</div></td></tr>
+            : taskError ? <tr><td colSpan={6}><div className="report-empty error">{taskError}<button onClick={() => void loadTasks()}>重试</button></div></td></tr>
+            : visibleHistory.length === 0 ? <tr><td colSpan={6}><div className="report-empty">暂无历史生成记录</div></td></tr>
             : visibleHistory.map((task) => <tr key={task.id} onClick={() => navigate(`/computer/reports/${task.id}`)} className="clickable-row">
                 <td><span className={`computer-status ${task.status === 'completed' ? 'done' : 'failed'}`}>{task.status === 'completed' ? '✓' : '!'}</span></td>
                 <td><strong>{task.title}</strong><small>{task.requirement}</small></td>
                 <td>{task.source_snapshot_json.length} 份研报{task.date_start ? ` · ${task.date_start}${task.date_end ? ` 至 ${task.date_end}` : ''}` : ''}</td>
                 <td><span className={`computer-badge ${task.status === 'completed' ? 'file' : 'failed'}`}>{STATUS_LABEL[task.status]}</span>{task.status === 'failed' && <button className="inline-retry" onClick={(event) => { event.stopPropagation(); void retry(task.id) }}>重试</button>}</td>
                 <td><time>{formatDateTime(task.updated_at)}</time></td>
+                <td><button className="computer-delete-button" onClick={(event) => { event.stopPropagation(); void deleteTask(task) }} aria-label={`删除研报 ${task.title}`}>🗑</button></td>
               </tr>)}</tbody>
         </table>
         {historyTasks.length > 4 && <div className="report-history-toggle"><button className="expand-toggle" onClick={() => setShowAllHistory((value) => !value)}><i className={'expand-arrow ' + (showAllHistory ? 'up' : 'down')} /></button></div>}

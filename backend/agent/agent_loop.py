@@ -21,6 +21,7 @@ from openai import AsyncOpenAI, BadRequestError
 
 from backend.agent.tool_executor import TOOL_EXECUTORS
 from backend.agent.tools import TOOL_DEFINITIONS
+from backend.integrations.feishu.tools import execute_feishu_tool
 from backend.common.llm_logger import log_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -268,18 +269,26 @@ async def run_agent_loop(
                     )
 
                     # 执行工具
-                    executor = TOOL_EXECUTORS.get(tool_name)
                     t_start = time.monotonic()
-                    if executor:
+                    if tool_name.startswith("feishu_"):
                         try:
-                            result = await asyncio.to_thread(executor, **arguments)
+                            result = await asyncio.to_thread(execute_feishu_tool, username, tool_name, arguments)
                         except Exception as exc:
-                            logger.exception("工具 %s 执行异常", tool_name)
-                            result = {"error": f"工具执行失败: {str(exc)}"}
+                            logger.exception("飞书工具 %s 执行异常", tool_name)
+                            result = {"error": f"飞书工具执行失败: {str(exc)}"}
                         duration_ms = round((time.monotonic() - t_start) * 1000)
                     else:
-                        result = {"error": f"未知工具: {tool_name}"}
-                        duration_ms = 0
+                        executor = TOOL_EXECUTORS.get(tool_name)
+                        if executor:
+                            try:
+                                result = await asyncio.to_thread(executor, **arguments)
+                            except Exception as exc:
+                                logger.exception("工具 %s 执行异常", tool_name)
+                                result = {"error": f"工具执行失败: {str(exc)}"}
+                            duration_ms = round((time.monotonic() - t_start) * 1000)
+                        else:
+                            result = {"error": f"未知工具: {tool_name}"}
+                            duration_ms = 0
 
                     # 产出 tool_result 事件
                     result_event: dict = {

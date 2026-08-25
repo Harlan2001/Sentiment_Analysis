@@ -16,6 +16,7 @@ export type Message = {
   content: string
   status: 'pending' | 'streaming' | 'completed' | 'failed' | 'interrupted'
   error_code?: string | null
+  skill_names?: string[]
   created_at: string
   completed_at?: string | null
 }
@@ -31,13 +32,64 @@ export type Project = {
 
 export type DeletedProject = Project & { deleted_at: string }
 export type DeletedConversation = Conversation & { deleted_at: string }
+export type DeletedStrategyConversation = StrategyConversation & { deleted_at: string }
+export type DeletedReportTask = {
+  id: string
+  title: string
+  requirement: string
+  date_start: string | null
+  date_end: string | null
+  status: string
+  created_at: string
+  updated_at: string
+  deleted_at: string
+}
+export type DeletedNewsSummaryTask = Pick<DailyNewsSummaryTask, 'id' | 'start_date' | 'end_date' | 'focus' | 'status' | 'news_count' | 'created_at' | 'updated_at'> & { deleted_at: string }
 
 export type DeletedItemsData = {
   deleted_projects: DeletedProject[]
   deleted_conversations: DeletedConversation[]
+  deleted_strategies: DeletedStrategyConversation[]
+  deleted_reports: DeletedReportTask[]
+  deleted_news_summaries: DeletedNewsSummaryTask[]
 }
 
 type ListData<T> = { items: T[]; next_cursor?: string | null }
+
+export type WatchlistObjectType = 'news' | 'factor' | 'macro_signal'
+
+export type WatchlistItem = {
+  id: string
+  object_type: WatchlistObjectType
+  object_id: string
+  title: string
+  source_url: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export function getWatchlistItems() {
+  return request<{ items: WatchlistItem[] }>('/sapi/watchlist')
+}
+
+export function addWatchlistItem(input: {
+  object_type: WatchlistObjectType
+  object_id: string
+  title: string
+  source_url?: string
+  metadata?: Record<string, unknown>
+}) {
+  return request<WatchlistItem>('/sapi/watchlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export function removeWatchlistItem(itemId: string) {
+  return request<{ deleted: boolean }>(`/sapi/watchlist/${itemId}`, { method: 'DELETE' })
+}
 
 import { storage } from '@/utils/helpers'
 
@@ -108,11 +160,12 @@ export async function sendMessage(
   content: string,
   clientMessageId: string,
   onEvent: (event: StreamEvent) => void,
+  skillIds: string[] = [],
 ) {
   const response = await fetch(apiBaseUrl + `/sapi/workbench/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { ...authorizationHeader(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ content, client_message_id: clientMessageId }),
+    body: JSON.stringify({ content, client_message_id: clientMessageId, skill_ids: skillIds }),
   })
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => null)
@@ -149,6 +202,10 @@ export function restoreProject(projectId: string) {
   return request<Project>(`/sapi/workbench/projects/${projectId}/restore`, { method: 'POST' })
 }
 
+export function permanentlyDeleteProject(projectId: string) {
+  return request<{ deleted: boolean }>(`/sapi/workbench/projects/${projectId}/permanently`, { method: 'DELETE' })
+}
+
 export function deleteConversation(conversationId: string) {
   return request<{ deleted: boolean }>(`/sapi/workbench/conversations/${conversationId}`, { method: 'DELETE' })
 }
@@ -157,8 +214,16 @@ export function restoreConversation(conversationId: string) {
   return request<Conversation>(`/sapi/workbench/conversations/${conversationId}/restore`, { method: 'POST' })
 }
 
+export function permanentlyDeleteConversation(conversationId: string) {
+  return request<{ deleted: boolean }>(`/sapi/workbench/conversations/${conversationId}/permanently`, { method: 'DELETE' })
+}
+
 export function getDeletedItems() {
   return request<DeletedItemsData>('/sapi/workbench/deleted-items')
+}
+
+export function emptyDeletedItems() {
+  return request<Record<string, number>>('/sapi/workbench/deleted-items', { method: 'DELETE' })
 }
 
 // ── 策略会话 ──────────────────────────────────────────────
@@ -255,6 +320,18 @@ export function archiveStrategyConversation(conversationId: number) {
   return request<{ archived: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}/archive`, { method: 'PATCH' })
 }
 
+export function deleteStrategyConversation(conversationId: number) {
+  return request<{ deleted: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}`, { method: 'DELETE' })
+}
+
+export function restoreStrategyConversation(conversationId: number) {
+  return request<StrategyConversation>(`/sapi/ai-strategy-generation/conversations/${conversationId}/restore`, { method: 'POST' })
+}
+
+export function permanentlyDeleteStrategyConversation(conversationId: number) {
+  return request<{ deleted: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}/permanently`, { method: 'DELETE' })
+}
+
 // ── 每日新闻总结 ──────────────────────────────────────────
 
 export type NewsSourceOption = {
@@ -335,6 +412,18 @@ export function retryDailyNewsSummary(taskId: number) {
   return request<DailyNewsSummaryTask>(`/sapi/daily-news-summaries/${taskId}/retry`, {
     method: 'POST',
   })
+}
+
+export function deleteDailyNewsSummary(taskId: number) {
+  return request<{ deleted: boolean }>(`/sapi/daily-news-summaries/${taskId}`, { method: 'DELETE' })
+}
+
+export function restoreDailyNewsSummary(taskId: number) {
+  return request<DailyNewsSummaryTask>(`/sapi/daily-news-summaries/${taskId}/restore`, { method: 'POST' })
+}
+
+export function permanentlyDeleteDailyNewsSummary(taskId: number) {
+  return request<{ deleted: boolean }>(`/sapi/daily-news-summaries/${taskId}/permanently`, { method: 'DELETE' })
 }
 
 // ── Computer 总览聚合 ──────────────────────────────────────
