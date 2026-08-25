@@ -107,6 +107,18 @@ export function retryReportGenerationTask(taskId: string) {
   })
 }
 
+export function deleteReportGenerationTask(taskId: string) {
+  return request<{ deleted: boolean }>(`/sapi/report-generation/tasks/${taskId}`, { method: 'DELETE' })
+}
+
+export function restoreReportGenerationTask(taskId: string) {
+  return request<ReportGenerationTask>(`/sapi/report-generation/tasks/${taskId}/restore`, { method: 'POST' })
+}
+
+export function permanentlyDeleteReportGenerationTask(taskId: string) {
+  return request<{ deleted: boolean }>(`/sapi/report-generation/tasks/${taskId}/permanently`, { method: 'DELETE' })
+}
+
 // ── 研报库 ────────────────────────────────────────────────
 
 export type ResearchSummary = {

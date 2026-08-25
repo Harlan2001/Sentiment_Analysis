@@ -16,6 +16,60 @@ router = APIRouter(
     prefix=f"{API_PREFIX}/daily-news-summaries", tags=["daily-news-summaries"]
 )
 _background_tasks: set[asyncio.Task] = set()
+POLICY_DEMO_SUMMARY_ID = 0
+
+
+def _policy_demo_summary(owner_username: str) -> dict:
+    """返回政策驱动演示对话所指向的固定新闻总结，不写入用户任务数据。"""
+    return {
+        "id": POLICY_DEMO_SUMMARY_ID,
+        "owner_username": owner_username,
+        "start_date": "2026-07-20",
+        "end_date": "2026-07-26",
+        "sources_json": ["财联社", "中国证券报"],
+        "focus": "政策驱动：逆回购投放、LPR持稳与利率债久期判断",
+        "status": "succeeded",
+        "news_count": 2,
+        "source_stats_json": {"财联社": 1, "中国证券报": 1},
+        "summary": """# 政策驱动｜新闻总结
+
+## 核心结论
+
+本轮政策组合呈现“**数量工具发力、价格工具观望**”的特征。2.1万亿元逆回购提前投放，直接缓解跨月资金压力，对短端利率债构成利多；LPR连续14个月持稳，意味着长端暂未获得新的降息驱动。
+
+## 新闻影响链路
+
+- **逆回购投放** → 银行间流动性充裕 → 短端资金成本回落 → 短久期与杠杆套息相对受益。
+- **LPR持稳** → 政策利率预期稳定 → 长端降息预期受限 → 长久期维持观察。
+
+## 关注重点
+
+后续需结合财政支出累计值及同比增速，验证流动性支持是否继续向逆周期调节传导；若资金面收紧或供给放量，应及时收缩久期与杠杆暴露。""",
+        "references_json": [
+            {
+                "news_id": 14483,
+                "title": "2.1万亿隔夜逆回购护航跨月，央行“给量不给价”释放清晰信号",
+                "publish_time": "2026-07-26T00:00:00",
+                "source": "财联社",
+                "direction": "positive",
+                "horizon": "short",
+            },
+            {
+                "news_id": 14395,
+                "title": "LPR连续14个月持稳，下半年逆周期调节如何落地？",
+                "publish_time": "2026-07-20T00:00:00",
+                "source": "中国证券报",
+                "direction": "neutral",
+                "horizon": "medium",
+            },
+        ],
+        "error_message": None,
+        "retry_of_id": None,
+        "started_at": "2026-07-26T09:30:00",
+        "completed_at": "2026-07-26T09:31:00",
+        "created_at": "2026-07-26T09:30:00",
+        "updated_at": "2026-07-26T09:31:00",
+    }
 
 
 class DailyNewsSummaryCreateRequest(BaseModel):
@@ -65,7 +119,10 @@ def list_summaries(request: Request, limit: int = Query(default=50, ge=1, le=100
 
 @router.get("/{task_id}")
 def get_summary(request: Request, task_id: int):
-    task = _repository().get_task(_owner(request), task_id)
+    owner_username = _owner(request)
+    if task_id == POLICY_DEMO_SUMMARY_ID:
+        return {"success": True, "data": _policy_demo_summary(owner_username)}
+    task = _repository().get_task(owner_username, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="新闻总结任务不存在")
     return {"success": True, "data": task}
@@ -106,3 +163,29 @@ async def retry_summary(request: Request, task_id: int):
     )
     _start_generation(owner_username, int(task["id"]))
     return {"success": True, "data": task}
+
+
+@router.delete("/{task_id}")
+def delete_summary(request: Request, task_id: int):
+    try:
+        return {"success": True, "data": _repository().soft_delete_task(_owner(request), task_id)}
+    except DailyNewsSummaryNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{task_id}/restore")
+def restore_summary(request: Request, task_id: int):
+    try:
+        return {"success": True, "data": _repository().restore_task(_owner(request), task_id)}
+    except DailyNewsSummaryNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/{task_id}/permanently")
+def permanently_delete_summary(request: Request, task_id: int):
+    try:
+        return {"success": True, "data": _repository().permanently_delete_task(_owner(request), task_id)}
+    except DailyNewsSummaryNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

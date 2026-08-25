@@ -341,3 +341,32 @@ def archive_conversation(request: Request, conversation_id: int):
     if not archived:
         raise HTTPException(status_code=404, detail="History conversation not found")
     return {"success": True}
+
+
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(request: Request, conversation_id: int):
+    owner_username = _history_owner(request)
+    try:
+        return {"success": True, "data": _history_repository().soft_delete_conversation(owner_username, conversation_id)}
+    except GenerationInProgressError as exc:
+        raise HTTPException(status_code=409, detail="进行中的策略生成任务不能删除") from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+
+
+@router.post("/conversations/{conversation_id}/restore")
+def restore_conversation(request: Request, conversation_id: int):
+    owner_username = _history_owner(request)
+    try:
+        return {"success": True, "data": _history_repository().restore_conversation(owner_username, conversation_id)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+
+
+@router.delete("/conversations/{conversation_id}/permanently")
+def permanently_delete_conversation(request: Request, conversation_id: int):
+    owner_username = _history_owner(request)
+    try:
+        return {"success": True, "data": _history_repository().permanently_delete_conversation(owner_username, conversation_id)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="History conversation not found") from exc

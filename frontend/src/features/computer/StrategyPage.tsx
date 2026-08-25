@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { StrategyConversation, createStrategyConversation, getStrategyConversations } from '@/api/workbench'
+import { StrategyConversation, createStrategyConversation, deleteStrategyConversation, getStrategyConversations } from '@/api/workbench'
 
 function timeLabel(value: string | null) {
   if (!value) return ''
@@ -94,6 +94,14 @@ export function StrategyPage() {
     } catch (e) { setError(e instanceof Error ? e.message : '创建策略失败') }
   }
 
+  async function deleteStrategy(conversation: StrategyConversation) {
+    if (!window.confirm(`将策略「${conversation.title || '新策略对话'}」移入最近删除？`)) return
+    try {
+      await deleteStrategyConversation(conversation.id)
+      setConversations((current) => current.filter((item) => item.id !== conversation.id))
+    } catch (e) { setError(e instanceof Error ? e.message : '删除策略失败') }
+  }
+
   const activeItems = conversations.filter((c) => c.status !== 'archived')
   const archivedItems = conversations.filter((c) => c.status === 'archived')
   const visibleItems = useMemo(() => {
@@ -113,15 +121,6 @@ export function StrategyPage() {
 
   return (
     <section className="computer-page">
-      <div className="computer-tabs">
-        <button onClick={() => navigate('/computer')}>全部</button>
-        <button onClick={() => navigate('/computer/reports')}>研报分析</button>
-        <button className="active">策略开发</button>
-        <button onClick={() => navigate('/computer/news')}>每日新闻总结</button>
-        <span className="computer-spacer" />
-        <button className="computer-button primary" onClick={() => { const ta = document.querySelector<HTMLTextAreaElement>('.report-composer textarea'); ta?.focus() }}>＋ 新建策略</button>
-      </div>
-
       <div className="computer-toolbar">
         <div className="computer-dropdown" ref={statusRef}>
           <button className={'computer-chip dropdown-chip ' + (statusFilter !== '全部' ? 'selected' : '')} onClick={() => { setStatusOpen((v) => !v); setSourceOpen(false) }}>
@@ -173,6 +172,7 @@ export function StrategyPage() {
         </div>
         <button className={'computer-chip ' + (archivedOnly ? 'selected' : '')} onClick={() => setArchivedOnly((v) => !v)}>已归档</button>
         <span className="computer-spacer" />
+        <button className="computer-button primary" onClick={() => { const ta = document.querySelector<HTMLTextAreaElement>('.report-composer textarea'); ta?.focus() }}>＋ 新建策略</button>
         <span className="computer-count">{loading ? '读取中…' : `${totalCount} 段策略会话`}</span>
       </div>
 
@@ -215,10 +215,10 @@ export function StrategyPage() {
 
       <div className="computer-table-wrap">
         <table className="computer-table">
-          <thead><tr><th /><th>任务会话</th><th>来源/类型</th><th>状态或结果</th><th>更新时间</th></tr></thead>
+          <thead><tr><th /><th>任务会话</th><th>来源/类型</th><th>状态或结果</th><th>更新时间</th><th>操作</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={5} style={{textAlign:'center',padding:'24px',color:'#809188'}}>正在读取策略会话…</td></tr>
-            : historyItems.length === 0 ? <tr><td colSpan={5} style={{textAlign:'center',padding:'24px',color:'#809188'}}>暂无策略会话</td></tr>
+            {loading ? <tr><td colSpan={6} style={{textAlign:'center',padding:'24px',color:'#809188'}}>正在读取策略会话…</td></tr>
+            : historyItems.length === 0 ? <tr><td colSpan={6} style={{textAlign:'center',padding:'24px',color:'#809188'}}>暂无策略会话</td></tr>
             : displayHistory.map((conv) => {
                 return (
                   <tr key={conv.id} onClick={() => navigate(`/computer/strategies/prompt?id=${conv.id}`)} style={{cursor:'pointer'}}>
@@ -227,6 +227,7 @@ export function StrategyPage() {
                     <td>用户生成</td>
                     <td><span className={'computer-badge ' + (conv.current_local_version_no > 0 ? 'file' : 'warning')}>{conv.current_local_version_no > 0 ? '已完成' : '待确认'}</span></td>
                     <td><time>{timeLabel(conv.updated_at)}</time></td>
+                    <td><button className="computer-delete-button" onClick={(event) => { event.stopPropagation(); void deleteStrategy(conv) }} aria-label={`删除策略 ${conv.title || ''}`}>🗑</button></td>
                   </tr>
                 )
               })}

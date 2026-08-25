@@ -1,49 +1,50 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ComputerTask, getComputerTasks } from '@/api/workbench'
-import { ComputerDatePicker } from './components/ComputerDatePicker'
 
-type ModuleKey = '全部' | '研报分析' | '策略开发' | '每日新闻总结'
+type WorkflowModule = {
+  id: string
+  title: string
+  description: string
+  category: string
+  icon: string
+  to?: string
+}
 
-/** 业务状态分组：对外展示用中文分类，对内映射到多个原始状态值 */
-const STATUS_GROUPS: { label: string; statuses: string[] }[] = [
-  { label: '状态：全部', statuses: [] },
-  { label: '已完成', statuses: ['completed', 'succeeded'] },
-  { label: '进行中', statuses: ['running', 'pending', 'queued'] },
-  { label: '待确认', statuses: ['pending_confirmation'] },
-  { label: '失败', statuses: ['failed'] },
-  { label: '无新闻', statuses: ['empty'] },
+const WORKFLOW_MODULES: WorkflowModule[] = [
+  { id: 'reports', title: '研报分析', description: '上传、解析并提炼研报核心观点', category: '研究分析', icon: 'PDF', to: '/computer/reports' },
+  { id: 'strategy', title: '策略生成', description: '从投资观点生成策略草案与代码', category: '策略与决策', icon: 'STR', to: '/computer/strategies' },
+  { id: 'news', title: '新闻总结', description: '聚合市场新闻与重要事件', category: '信息处理', icon: 'NEWS', to: '/computer/news' },
+  { id: 'financials', title: '财报解读', description: '提取财务变化、经营指标与风险点', category: '研究分析', icon: 'FIN' },
+  { id: 'macro', title: '宏观数据解读', description: '跟踪宏观数据发布及市场影响', category: '研究分析', icon: 'MAC' },
+  { id: 'valuation', title: '债券估值跟踪', description: '观察收益率、利差与估值变化', category: '研究分析', icon: 'VAL' },
+  { id: 'credit', title: '信用风险扫描', description: '识别发行人和债券的风险信号', category: '风险管理', icon: 'RISK' },
+  { id: 'issuer', title: '发行人画像', description: '汇总主体基本面与信用信息', category: '风险管理', icon: 'ISS' },
+  { id: 'industry', title: '行业比较', description: '横向比较行业景气度与信用表现', category: '研究分析', icon: 'IND' },
+  { id: 'rates', title: '利率情景推演', description: '评估利率路径下的市场情景', category: '策略与决策', icon: 'RATE' },
+  { id: 'portfolio', title: '组合诊断', description: '检查组合风险、久期与暴露', category: '策略与决策', icon: 'PORT' },
+  { id: 'backtest', title: '回测分析', description: '验证策略表现及关键归因', category: '策略与决策', icon: 'BT' },
+  { id: 'announcements', title: '公告解读', description: '自动归纳公告要点与影响', category: '信息处理', icon: 'DOC' },
+  { id: 'sentiment', title: '舆情监控', description: '追踪主体与行业相关的舆情变化', category: '风险管理', icon: 'MON' },
+  { id: 'briefing', title: '每日简报', description: '汇总每日市场变化与待关注事项', category: '信息处理', icon: 'DAY' },
+  { id: 'automation', title: '工作流编排', description: '组合多个能力并按计划自动执行', category: '自动化', icon: 'FLOW' },
 ]
-
-const STATUS_ICON: Record<string, string> = {
-  quued: 'waiting',
-  running: 'running',
-  completed: 'done',
-  failed: 'failed',
-  pending: 'waiting',
-  succeeded: 'done',
-  empty: 'waiting',
-  pending_confirmation: 'waiting',
-}
-
-const tabRoutes: Record<Exclude<ModuleKey, '全部'>, string> = {
-  '研报分析': '/computer/reports',
-  '策略开发': '/computer/strategies',
-  '每日新闻总结': '/computer/news',
-}
 
 function formatTime(value: string | null) {
   if (!value) return '—'
-  const d = new Date(value)
+  const date = new Date(value)
   const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  if (isToday) {
-    return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+  if (date.toDateString() === now.toDateString()) {
+    return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
   }
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return '昨天'
-  return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(d)
+  return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(date)
+}
+
+function taskTone(task: ComputerTask) {
+  if (task.status === 'failed') return 'failed'
+  if (task.status === 'completed' || task.status === 'succeeded') return 'done'
+  if (task.needs_action || task.status === 'pending_confirmation') return 'attention'
+  return 'running'
 }
 
 export function ComputerPage() {
@@ -51,13 +52,6 @@ export function ComputerPage() {
   const [tasks, setTasks] = useState<ComputerTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<ModuleKey>('全部')
-  const [statusGroupIndex, setStatusGroupIndex] = useState(0)
-  const [needsActionOnly, setNeedsActionOnly] = useState(false)
-  const [selectedDate, setSelectedDate] = useState('')
-  const [view, setView] = useState('会话与文档')
-  const [showAllActions, setShowAllActions] = useState(false)
-  const [expandedDateKeys, setExpandedDateKeys] = useState<Set<string>>(() => new Set())
 
   const loadTasks = useCallback(async () => {
     setLoading(true)
@@ -65,8 +59,8 @@ export function ComputerPage() {
       const data = await getComputerTasks()
       setTasks(data.items)
       setError('')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '读取 Computer 任务失败')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '读取工作流任务失败')
     } finally {
       setLoading(false)
     }
@@ -76,316 +70,101 @@ export function ComputerPage() {
     void loadTasks()
   }, [loadTasks])
 
-  const visibleRows = useMemo(() => {
-    let filtered = tasks
-    if (activeTab !== '全部') {
-      const map: Record<Exclude<ModuleKey, '全部'>, string> = {
-        '研报分析': 'report_generation',
-        '策略开发': 'strategy',
-        '每日新闻总结': 'daily_news',
-      }
-      filtered = filtered.filter((t) => t.task_type === map[activeTab])
-    }
-    const activeStatuses = STATUS_GROUPS[statusGroupIndex]?.statuses
-    if (activeStatuses && activeStatuses.length > 0) {
-      filtered = filtered.filter((t) => activeStatuses.includes(t.status))
-    }
-    if (view === '仅会话') {
-      filtered = filtered.filter((t) => t.task_type === 'strategy')
-    } else if (view === '仅文档') {
-      filtered = filtered.filter((t) => t.task_type !== 'strategy')
-    }
-    if (selectedDate) filtered = filtered.filter((t) => t.date === selectedDate)
-    if (needsActionOnly) filtered = filtered.filter((t) => t.needs_action)
-    return filtered
-  }, [activeTab, needsActionOnly, selectedDate, statusGroupIndex, tasks, view])
-
   function openTask(task: ComputerTask) {
     const [, rawId] = task.task_id.split(':', 2)
     if (!rawId) return
-    if (task.task_type === 'report_generation') navigate('/computer/reports/' + rawId)
-    else if (task.task_type === 'strategy') navigate('/computer/strategies/prompt?id=' + rawId)
-    else navigate('/computer/news?task=' + rawId)
+    if (task.task_type === 'report_generation') navigate(`/computer/reports/${rawId}`)
+    else if (task.task_type === 'strategy') navigate(`/computer/strategies/prompt?id=${rawId}`)
+    else navigate(`/computer/news?task=${rawId}`)
   }
 
-  function selectTab(tab: ModuleKey) {
-    setActiveTab(tab)
-    if (tab !== '全部') navigate(tabRoutes[tab])
-  }
-
-  const actionItems = visibleRows.filter((t) => t.needs_action)
-  const dateLabel = selectedDate || '全部日期'
-
-  /* 按 selectedDate 将 visibleRows 分组 */
-  const groupedByDate = useMemo(() => {
-    const map = new Map<string, ComputerTask[]>()
-    for (const task of visibleRows) {
-      const key = task.date || '未知日期'
-      const list = map.get(key) || []
-      list.push(task)
-      map.set(key, list)
-    }
-    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-  }, [visibleRows])
-
-  const displayActions = showAllActions ? actionItems : actionItems.slice(0, 2)
-
-  /* 未筛选时仅展示最近三个自然日；每个日期默认最多四条。 */
-  const displayGroups = useMemo(() => {
-    if (selectedDate) return groupedByDate
-    const today = new Date()
-    const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2)
-    const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
-    return groupedByDate.filter(([dateKey]) => dateKey >= cutoffKey)
-  }, [groupedByDate, selectedDate])
-
-  function toggleDateGroup(dateKey: string) {
-    setExpandedDateKeys((current) => {
-      const next = new Set(current)
-      if (next.has(dateKey)) next.delete(dateKey)
-      else next.add(dateKey)
-      return next
-    })
-  }
-  const totalHistoryCount = groupedByDate.reduce((sum, [, tasks]) => sum + tasks.length, 0)
+  const pendingTasks = tasks.filter((task) =>
+    task.needs_action || ['pending', 'queued', 'running', 'pending_confirmation', 'failed'].includes(task.status),
+  )
+  const historyTasks = tasks.filter((task) => !pendingTasks.some((item) => item.task_id === task.task_id))
 
   return (
-    <section className="computer-page">
-      <div className="computer-tabs">
-        {(['全部', '研报分析', '策略开发', '每日新闻总结'] as ModuleKey[]).map(
-          (tab) => (
-            <button
-              className={activeTab === tab ? 'active' : ''}
-              onClick={() => selectTab(tab)}
-              key={tab}
-            >
-              {tab}
-            </button>
-          ),
-        )}
-        <span className="computer-spacer" />
-        <button className="computer-button" onClick={() => void loadTasks()}>
-          刷新
-        </button>
-      </div>
-
-      <div className="computer-toolbar">
-        <select
-          className="computer-chip computer-select"
-          value={statusGroupIndex}
-          onChange={(e) => setStatusGroupIndex(Number(e.target.value))}
-        >
-          {STATUS_GROUPS.map((group, i) => (
-            <option value={i} key={group.label}>
-              {group.label}
-            </option>
-          ))}
-        </select>
-        <button
-          className={'computer-chip ' + (needsActionOnly ? 'selected' : '')}
-          onClick={() => setNeedsActionOnly((v) => !v)}
-        >
-          仅未读
-        </button>
-        <ComputerDatePicker
-          value={selectedDate}
-          onChange={setSelectedDate}
-          label="任务日期"
-        />
-        <span className="computer-spacer" />
-        {loading ? (
-          <span className="computer-count">读取中…</span>
-        ) : (
-          <span className="computer-count">
-            {visibleRows.length} 段会话
-          </span>
-        )}
-      </div>
-
-      {error && (
-        <div
-          className="chat-error"
-          style={{ margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}
-        >
-          {error}
-          <button onClick={() => void loadTasks()} className="computer-button">
-            重试
-          </button>
-        </div>
-      )}
-
-      {/* 需要处理 */}
-      <section className="computer-attention">
-        <div className="computer-attention-head">
-          <strong>需要处理 · {actionItems.length}</strong>
-          <span>⌃</span>
-        </div>
-        {loading ? (
-          <div className="computer-attention-row">
-            <span className="attention-dot" />
+    <section className="workflow-page">
+      <div className="workflow-layout">
+        <main className="workflow-main">
+          <header className="workflow-head">
             <div>
-              <strong>正在读取任务…</strong>
-              <small>从研报、策略和新闻模块加载最新状态</small>
+              <p className="workflow-eyebrow">智能工作台</p>
+              <h1>选择一个能力开始工作</h1>
+              <p>研报、策略与信息处理能力集中在这里；更多能力将持续开放。</p>
             </div>
-          </div>
-        ) : actionItems.length === 0 ? (
-          <div className="computer-attention-row">
-            <span className="attention-dot" />
-            <div>
-              <strong>当前无待处理的任务</strong>
-              <small>所有任务均已完成或无异常</small>
-            </div>
-          </div>
-        ) : (
-          <>
-            {displayActions.map((task) => (
-              <div className="computer-attention-row computer-task-link" key={task.task_id} role="button" tabIndex={0} onClick={() => openTask(task)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openTask(task) } }}>
-                <span className={'attention-dot ' + (task.status === 'failed' ? 'failed' : 'running')} />
-                <div>
-                  <strong>{task.title}</strong>
-                  <small>{task.description}</small>
+            <span className="workflow-module-count">{WORKFLOW_MODULES.length} 个能力</span>
+          </header>
+
+          <div className="workflow-module-grid" aria-label="工作流能力">
+            {WORKFLOW_MODULES.map((module) => (
+              <article className={`workflow-module-card${module.to ? ' available' : ''}`} key={module.id}>
+                <div className="workflow-module-card-head">
+                  <span className="workflow-module-icon" aria-hidden="true">{module.icon}</span>
+                  <span className={`workflow-module-state${module.to ? ' active' : ''}`}>{module.to ? '可使用' : '即将开放'}</span>
                 </div>
-                <span className={'computer-badge ' + (task.status === 'failed' ? 'failed' : 'warning')}>{task.status_label}</span>
-                <time>{formatTime(task.updated_at)}</time>
-              </div>
+                <div className="workflow-module-card-body">
+                  <small>{module.category}</small>
+                  <h2>{module.title}</h2>
+                  <p>{module.description}</p>
+                </div>
+                {module.to ? (
+                  <button type="button" onClick={() => navigate(module.to!)}>打开 <span aria-hidden="true">→</span></button>
+                ) : (
+                  <span className="workflow-module-placeholder">规划中</span>
+                )}
+              </article>
             ))}
-            {actionItems.length > 2 && (
-              <div style={{textAlign:'center',padding:'6px 0 2px'}}>
-                <button className="expand-toggle" onClick={() => setShowAllActions((v) => !v)} aria-label={showAllActions ? '收起' : '展开'}>
-                  <i className={'expand-arrow ' + (showAllActions ? 'up' : 'down')} />
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* 按日期分组 */}
-      {displayGroups.length === 0 && !loading ? (
-        <div className="computer-list-head">
-          <div>
-            <strong>{dateLabel}</strong>
-            <span>· 0 段会话</span>
           </div>
-        </div>
-      ) : (
-        <>
-          {displayGroups.map(([dateKey, dateTasks]) => {
-          const visibleDateTasks = expandedDateKeys.has(dateKey) ? dateTasks : dateTasks.slice(0, 4)
-          const isExpanded = expandedDateKeys.has(dateKey)
-          return <div key={dateKey}>
-            <div className="computer-list-head">
-              <div>
-                <strong>{dateKey}</strong>
-                <span>· {dateTasks.length} 段会话</span>
-              </div>
-              <div className="computer-view-switch">
-                {['会话与文档', '仅会话', '仅文档'].map((item) => (
-                  <button
-                    className={view === item ? 'active' : ''}
-                    onClick={() => setView(item)}
-                    key={item}
-                  >
-                    {item}
+        </main>
+
+        <aside className="workflow-task-rail" aria-label="任务中心">
+          <header className="workflow-task-head">
+            <div>
+              <h2>任务中心</h2>
+              <p>工作流内的全部任务</p>
+            </div>
+            <button type="button" onClick={() => void loadTasks()} disabled={loading} aria-label="刷新任务中心">↻</button>
+          </header>
+
+          <div className="workflow-task-summary">
+            <span>待处理</span>
+            <strong>{pendingTasks.length}</strong>
+            <small>共 {tasks.length} 个任务</small>
+          </div>
+
+          {error && <div className="workflow-task-error">{error}<button type="button" onClick={() => void loadTasks()}>重试</button></div>}
+
+          {loading ? <p className="workflow-task-empty">正在读取任务…</p> : tasks.length === 0 ? (
+            <p className="workflow-task-empty">暂无任务。创建研报、策略或新闻总结任务后，会统一显示在这里。</p>
+          ) : <div className="workflow-task-groups">
+            <section className="workflow-task-group" aria-labelledby="pending-tasks-title">
+              <div className="workflow-task-group-head"><h3 id="pending-tasks-title">需要处理</h3><span>{pendingTasks.length}</span></div>
+              <div className="workflow-task-list">
+                {pendingTasks.length === 0 ? <p className="workflow-task-empty compact">当前没有需要处理的任务</p> : pendingTasks.map((task) => (
+                  <button className="workflow-task-row" type="button" key={task.task_id} onClick={() => openTask(task)}>
+                    <span className={`workflow-task-dot ${taskTone(task)}`} aria-hidden="true" />
+                    <span className="workflow-task-copy"><strong>{task.title}</strong><small>{task.module}</small></span>
+                    <span className="workflow-task-meta"><em className={taskTone(task)}>{task.status_label}</em><time>{formatTime(task.updated_at)}</time></span>
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="computer-table-wrap">
-              <table className="computer-table">
-                <thead>
-                  <tr>
-                    <th />
-                    <th>任务会话</th>
-                    <th>来源/类型</th>
-                    <th>状态或结果</th>
-                    <th>更新时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleDateTasks.map((task) => (
-                    <tr key={task.task_id} className="clickable-row" onClick={() => openTask(task)}>
-                      <td>
-                        <span
-                          className={
-                            'computer-status ' +
-                            (STATUS_ICON[task.status] || 'waiting')
-                          }
-                        >
-                          {task.status === 'completed' || task.status === 'succeeded'
-                            ? '✓'
-                            : task.status === 'running' || task.status === 'pending'
-                              ? '◐'
-                              : task.status === 'failed'
-                                ? '!'
-                                : '●'}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{task.title}</strong>
-                        <small>{task.description}</small>
-                        {task.task_type === 'strategy' && task.status === 'completed' && (
-                          <span className="computer-progress">
-                            <i style={{ width: '100%' }} />
-                          </span>
-                        )}
-                      </td>
-                      <td>{task.source}</td>
-                      <td>
-                        <span
-                          className={
-                            'computer-badge ' +
-                            (task.status === 'completed' ||
-                            task.status === 'succeeded'
-                              ? 'file'
-                              : task.status === 'failed'
-                                ? 'failed'
-                                : task.status === 'running'
-                                  ? 'running'
-                                  : 'warning')
-                          }
-                        >
-                          {task.result}
-                        </span>
-                      </td>
-                      <td>
-                        <time>{formatTime(task.updated_at)}</time>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {dateTasks.length > 4 && (
-                <div className="computer-date-group-expand">
-                  <button className="expand-toggle" onClick={() => toggleDateGroup(dateKey)} aria-label={isExpanded ? '收起该日期任务' : '展开该日期任务'}>
-                    <i className={'expand-arrow ' + (isExpanded ? 'up' : 'down')} />
+            </section>
+            <section className="workflow-task-group" aria-labelledby="history-tasks-title">
+              <div className="workflow-task-group-head"><h3 id="history-tasks-title">历史记录</h3><span>{historyTasks.length}</span></div>
+              <div className="workflow-task-list">
+                {historyTasks.length === 0 ? <p className="workflow-task-empty compact">暂无历史记录</p> : historyTasks.map((task) => (
+                  <button className="workflow-task-row" type="button" key={task.task_id} onClick={() => openTask(task)}>
+                    <span className={`workflow-task-dot ${taskTone(task)}`} aria-hidden="true" />
+                    <span className="workflow-task-copy"><strong>{task.title}</strong><small>{task.module}</small></span>
+                    <span className="workflow-task-meta"><em className={taskTone(task)}>{task.status_label}</em><time>{formatTime(task.updated_at)}</time></span>
                   </button>
-                </div>
-              )}
-            </div>
-          </div>
-        })}
-        {!selectedDate && totalHistoryCount > displayGroups.reduce((sum, [, dateTasks]) => sum + dateTasks.length, 0) && (
-          <p className="computer-history-hint">仅显示最近 3 天的任务。查看更早记录，请使用上方“任务日期”筛选。</p>
-        )}        </>
-      )}
-
-      {!loading && tasks.length === 0 && !error && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '48px 24px',
-            color: '#809188',
-            fontSize: 13,
-          }}
-        >
-          <strong style={{ display: 'block', marginBottom: 6 }}>
-            暂无 Computer 任务
-          </strong>
-          在研报分析、策略开发或每日新闻总结中创建第一个任务后，它将会出现在这里。
-        </div>
-      )}
+                ))}
+              </div>
+            </section>
+          </div>}
+        </aside>
+      </div>
     </section>
   )
 }

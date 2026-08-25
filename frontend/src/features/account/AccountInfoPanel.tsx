@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 export function AccountInfoPanel({
   open,
   onClose,
@@ -7,24 +9,31 @@ export function AccountInfoPanel({
   onClose: () => void
   onLogout: () => void
 }) {
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
   if (!open) return null
 
   return (
-    <>
-      <div className="deleted-overlay" onClick={onClose} aria-hidden="true" />
-      <aside className="deleted-drawer" role="dialog" aria-label="账户信息">
-        <div className="deleted-drawer-head">
-          <h2>账户信息</h2>
+    <div className="modal-layer" role="presentation">
+      <button className="modal-backdrop" onClick={onClose} aria-label="关闭账户信息" />
+      <section className="account-modal" role="dialog" aria-modal="true" aria-label="账户信息">
+        <header className="modal-head">
+          <div><h2>账户信息</h2><p>管理当前工作台账户与登录状态。</p></div>
           <button
-            className="deleted-drawer-close"
+            className="modal-close"
             onClick={onClose}
             aria-label="关闭"
           >
             ✕
           </button>
-        </div>
+        </header>
 
-        <div className="deleted-group" style={{ paddingTop: 16 }}>
+        <div className="account-modal-profile">
           <div className="account-info-panel-avatar">
             <span>你</span>
           </div>
@@ -32,8 +41,8 @@ export function AccountInfoPanel({
           <div className="account-info-panel-role">BondSense 工作台</div>
         </div>
 
-        <div className="deleted-group">
-          <div className="deleted-group-title">方案与状态</div>
+        <div className="account-modal-section">
+          <div className="account-modal-section-title">方案与状态</div>
           <div className="account-info-panel-row">
             <span>当前方案</span>
             <span className="account-info-panel-value">基础版</span>
@@ -44,7 +53,7 @@ export function AccountInfoPanel({
           </div>
         </div>
 
-        <div className="deleted-group">
+        <div className="account-modal-footer">
           <button
             className="account-info-panel-logout"
             onClick={() => {
@@ -55,7 +64,7 @@ export function AccountInfoPanel({
             <span>↪</span>退出登录
           </button>
         </div>
-      </aside>
-    </>
+      </section>
+    </div>
   )
 }

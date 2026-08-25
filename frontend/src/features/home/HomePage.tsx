@@ -59,7 +59,7 @@ export function HomePage() {
 
           <form className="home-composer" onSubmit={submitQuestion} ref={formRef}>
             <textarea value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); formRef.current?.requestSubmit() } }} placeholder="询问关于今日债券市场的任何问题…" rows={2} />
-            <div className="composer-actions"><span className="composer-chip">＋ 附加</span><span className="composer-chip">⌕ 搜索</span><span className="composer-chip">▣ Computer</span><button type="submit" aria-label="进入新会话">↑</button></div>
+            <div className="composer-actions"><span className="composer-chip">＋ 附加</span><span className="composer-chip">⌕ 搜索</span><span className="composer-chip">▣ 工作流</span><button type="submit" aria-label="进入新会话">↑</button></div>
           </form>
       </div>
 

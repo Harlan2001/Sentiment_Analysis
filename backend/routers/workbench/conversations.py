@@ -8,9 +8,15 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.agent.chat_service import AgentGenerationError, agent_chat_stream
-from backend.agent.demo_reply import DEMO_REPLY_TRIGGER, DEMO_REPLY
+from backend.agent.demo_reply import (
+    AI_EXPANSION_DEMO_REPLY,
+    AI_EXPANSION_DEMO_TRIGGER,
+    DEMO_REPLY,
+    DEMO_REPLY_TRIGGER,
+)
 from backend.config.config import API_PREFIX, CONVERSATION_HISTORY_LIMIT
 from backend.repositories.message_repository import MessageRepository
+from backend.repositories.skill_repository import SkillRepository
 from backend.routers.workbench.helpers import raise_repository_error
 
 
@@ -63,6 +69,7 @@ class ConversationUpdateRequest(BaseModel):
 class MessageCreateRequest(BaseModel):
     content: str = Field(min_length=1)
     client_message_id: str = Field(min_length=1, max_length=191)
+    skill_ids: list[str] = Field(default_factory=list, max_length=5)
 
     @field_validator("content")
     @classmethod
@@ -76,6 +83,14 @@ class MessageCreateRequest(BaseModel):
     @classmethod
     def validate_client_message_id(cls, value: str) -> str:
         return _clean_required(value)
+
+    @field_validator("skill_ids")
+    @classmethod
+    def validate_skill_ids(cls, value: list[str]) -> list[str]:
+        cleaned = [_clean_required(skill_id) for skill_id in value]
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("Skill 不能重复选择")
+        return cleaned
 
 
 def _sse(event: str, data: dict) -> str:
@@ -122,7 +137,8 @@ def update_conversation(request: Request, conversation_id: str, body: Conversati
 async def create_message(request: Request, conversation_id: str, body: MessageCreateRequest):
     repository: MessageRepository = request.app.state.repository
     try:
-        prepared = repository.prepare_message(request.state.username, conversation_id, body.content, body.client_message_id)
+        selected_skills = SkillRepository.from_environment().list_chat_skills(request.state.username, body.skill_ids)
+        prepared = repository.prepare_message(request.state.username, conversation_id, body.content, body.client_message_id, selected_skills)
     except Exception as exc:
         raise_repository_error(exc)
 
@@ -143,7 +159,15 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
         yield _sse("assistant.started", {"message_id": assistant_message["id"]})
         parts: list[str] = []
         try:
-            if DEMO_REPLY_TRIGGER in body.content:
+            if AI_EXPANSION_DEMO_TRIGGER in body.content:
+                demo_reply = AI_EXPANSION_DEMO_REPLY
+                await asyncio.sleep(1.0)
+                for i in range(0, len(demo_reply), 4):
+                    chunk = demo_reply[i : i + 4]
+                    parts.append(chunk)
+                    yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": chunk})
+                    await asyncio.sleep(0.022)
+            elif DEMO_REPLY_TRIGGER in body.content:
                 # 演示：流式输出写死回复，不调用模型，仍正常持久化进历史
                 demo_reply = DEMO_REPLY
                 await asyncio.sleep(1.0)  # 先弹 1 秒省略号（前端 pending 态），更像在思考
@@ -161,7 +185,7 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
                         request.state.username,
                         conversation["project_id"],
                     )
-                async for delta in agent_chat_stream(history, request.state.username, project_context):
+                async for delta in agent_chat_stream(history, request.state.username, project_context, selected_skills):
                     parts.append(delta)
                     yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
             completed = repository.finish_assistant_message(assistant_message["id"], "".join(parts), "completed")
@@ -196,5 +220,14 @@ def restore_conversation(request: Request, conversation_id: str):
     repository: MessageRepository = request.app.state.repository
     try:
         return {"data": repository.restore_conversation(request.state.username, conversation_id)}
+    except Exception as exc:
+        raise_repository_error(exc)
+
+
+@router.delete("/{conversation_id}/permanently")
+def permanently_delete_conversation(request: Request, conversation_id: str):
+    repository: MessageRepository = request.app.state.repository
+    try:
+        return {"data": repository.permanently_delete_conversation(request.state.username, conversation_id)}
     except Exception as exc:
         raise_repository_error(exc)

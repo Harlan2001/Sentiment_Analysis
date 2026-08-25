@@ -32,6 +32,19 @@ class ConversationRepository(WorkbenchRepository):
                     (conversation_id, message_limit),
                 )
                 messages = cursor.fetchall()
+                message_ids = [message["id"] for message in messages]
+                skill_names_by_message: dict[str, list[str]] = {}
+                if message_ids:
+                    placeholders = ", ".join(["%s"] * len(message_ids))
+                    cursor.execute(
+                        f"""SELECT message_id, skill_name FROM workbench_message_skills
+                            WHERE message_id IN ({placeholders}) ORDER BY created_at ASC""",
+                        tuple(message_ids),
+                    )
+                    for usage in cursor.fetchall():
+                        skill_names_by_message.setdefault(usage["message_id"], []).append(usage["skill_name"])
+                for message in messages:
+                    message["skill_names"] = skill_names_by_message.get(message["id"], [])
         return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages]}
 
     def list_conversations(self, username: str, project_id: Optional[str], limit: int, cursor: Optional[str] = None, archived: bool = False) -> dict[str, Any]:
@@ -131,13 +144,59 @@ class ConversationRepository(WorkbenchRepository):
             conn.commit()
         return self.get_conversation(username, conversation_id)
 
+    def permanently_delete_conversation(self, username: str, conversation_id: str) -> dict[str, bool]:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT c.*, pm.role AS project_role
+                       FROM workbench_conversations c
+                       LEFT JOIN workbench_project_members pm
+                         ON pm.project_id = c.project_id AND pm.username = %s
+                       WHERE c.id = %s AND c.deleted_at IS NOT NULL
+                         AND ((c.project_id IS NULL AND c.owner_username = %s)
+                              OR (c.project_id IS NOT NULL AND pm.username IS NOT NULL))""",
+                    (username, conversation_id, username),
+                )
+                conversation = cursor.fetchone()
+                if not conversation:
+                    raise WorkbenchNotFoundError("会话不存在或不在最近删除中")
+                self._require_conversation_write(conversation, username)
+                cursor.execute("DELETE FROM workbench_conversations WHERE id = %s", (conversation_id,))
+            conn.commit()
+        return {"deleted": True}
+
+    def permanently_delete_all_deleted_items(self, username: str) -> dict[str, int]:
+        """Empty the user's project and conversation recycle-bin entries."""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT p.id FROM workbench_projects p
+                       INNER JOIN workbench_project_members pm ON pm.project_id = p.id
+                       WHERE pm.username = %s AND pm.role = 'owner' AND p.deleted_at IS NOT NULL""",
+                    (username,),
+                )
+                project_ids = [row["id"] for row in cursor.fetchall()]
+                project_count = len(project_ids)
+                for project_id in project_ids:
+                    cursor.execute("DELETE FROM workbench_conversations WHERE project_id = %s", (project_id,))
+                    cursor.execute("DELETE FROM workbench_project_memories WHERE project_id = %s", (project_id,))
+                    cursor.execute("DELETE FROM workbench_projects WHERE id = %s", (project_id,))
+                cursor.execute(
+                    """DELETE FROM workbench_conversations
+                       WHERE owner_username = %s AND project_id IS NULL AND deleted_at IS NOT NULL""",
+                    (username,),
+                )
+                conversation_count = cursor.rowcount
+            conn.commit()
+        return {"projects": project_count, "conversations": conversation_count}
+
     def list_deleted_items(self, username: str) -> dict[str, Any]:
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """SELECT p.* FROM workbench_projects p
                        INNER JOIN workbench_project_members pm ON pm.project_id = p.id
-                       WHERE pm.username = %s AND p.deleted_at IS NOT NULL
+                       WHERE pm.username = %s AND pm.role = 'owner' AND p.deleted_at IS NOT NULL
                        ORDER BY p.deleted_at DESC LIMIT 50""",
                     (username,),
                 )
@@ -167,7 +226,7 @@ class ConversationRepository(WorkbenchRepository):
             "limits": {"project_conversations": conversation_limit, "recent_conversations": conversation_limit},
         }
 
-    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str) -> dict[str, Any]:
+    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
         """原子保存用户消息和占位助手消息，防止重试重复调用 Agent。
         并发重试撞唯一索引时回查已存消息做幂等返回（对齐 create_project 的兜底）。"""
         try:
@@ -203,6 +262,13 @@ class ConversationRepository(WorkbenchRepository):
                            VALUES (%s, %s, %s, 'assistant', '', 'streaming')""",
                         (assistant_message_id, conversation_id, user_message_id),
                     )
+                    for skill in selected_skills or []:
+                        cursor.execute(
+                            """INSERT INTO workbench_message_skills
+                                 (id, message_id, skill_id, skill_name)
+                               VALUES (%s, %s, %s, %s)""",
+                            (str(uuid.uuid4()), assistant_message_id, skill["id"], skill["name"]),
+                        )
                     default_title = " ".join(content.split())[:120]
                     cursor.execute(
                         """UPDATE workbench_conversations

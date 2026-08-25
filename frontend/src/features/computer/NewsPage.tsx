@@ -1,8 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  createDailyNewsSummary, DailyNewsSummaryTask, getDailyNewsSummaries,
-  getLatestNewsDate, getNewsSources, NewsSourceOption,
+  createDailyNewsSummary, DailyNewsSummaryTask, deleteDailyNewsSummary, getDailyNewsSummaries, getDailyNewsSummary,
+  getLatestNewsDate, getNewsSources, NewsSourceOption, retryDailyNewsSummary,
 } from '@/api/workbench'
 import { NewsCalendarPicker } from '@/features/computer/components/NewsCalendarPicker'
 
@@ -110,11 +110,25 @@ export function NewsPage() {
     navigate(`/computer/news/${taskId}`)
   }
 
+  async function retry(taskId: number) {
+    setRetrying(taskId)
+    try {
+      const task = await retryDailyNewsSummary(taskId)
+      setTasks((current) => [task, ...current]); setDetail(task); await load()
+    } catch (e) { setError(e instanceof Error ? e.message : '重试失败') }
+    finally { setRetrying(null) }
+  }
+
+  async function deleteTask(task: DailyNewsSummaryTask) {
+    if (!window.confirm(`将「${range(task)} 新闻总结」移入最近删除？`)) return
+    try {
+      await deleteDailyNewsSummary(task.id)
+      setTasks((current) => current.filter((item) => item.id !== task.id))
+      setDetail((current) => current?.id === task.id ? null : current)
+    } catch (e) { setError(e instanceof Error ? e.message : '删除新闻总结失败') }
+  }
+
   return <section className="computer-page daily-news-page">
-    <div className="computer-tabs">
-      <button onClick={() => navigate('/computer')}>全部</button><button onClick={() => navigate('/computer/reports')}>研报分析</button><button onClick={() => navigate('/computer/strategies')}>策略开发</button><button className="active">每日新闻总结</button>
-      <span className="computer-spacer" /><button className="computer-button" onClick={() => void load(true)}>刷新</button><button className="computer-button primary" onClick={() => composerRef.current?.focus()}>＋ 立即生成</button>
-    </div>
     <div className="computer-toolbar daily-news-history-toolbar">
       <div className="computer-dropdown" ref={newsStatusRef}>
         <button className={'computer-chip dropdown-chip ' + (filter !== 'all' ? 'selected' : '')} onClick={() => { setNewsStatusOpen((v) => !v); setNewsSourceOpen(false) }}>
@@ -142,7 +156,7 @@ export function NewsPage() {
       </div>
       <NewsCalendarPicker label="日期" value={historyDate} onChange={setHistoryDate} emptyLabel="全部日期" />
       {historyDate && <button type="button" className="computer-chip" onClick={() => setHistoryDate('')}>清除日期</button>}
-      <span className="computer-spacer" /><span className="computer-count">{loading ? '读取中…' : `${history.length} 段新闻总结`}</span>
+      <span className="computer-spacer" /><button className="computer-button" onClick={() => void load(true)}>刷新</button><button className="computer-button primary" onClick={() => composerRef.current?.focus()}>＋ 立即生成</button><span className="computer-count">{loading ? '读取中…' : `${history.length} 段新闻总结`}</span>
     </div>
     {error && <div className="daily-news-error" role="alert">{error}</div>}
     <section className="computer-attention">
@@ -164,8 +178,8 @@ export function NewsPage() {
       <div className="computer-view-switch"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>全部</button><button className={filter === 'succeeded' ? 'active' : ''} onClick={() => setFilter('succeeded')}>仅成功</button><button className={filter === 'failed' ? 'active' : ''} onClick={() => setFilter('failed')}>仅失败</button></div>
     </div>
     <div className="computer-table-wrap">
-      <table className="computer-table"><thead><tr><th /><th>总结任务</th><th>新闻来源</th><th>状态或结果</th><th>更新时间</th></tr></thead><tbody>
-        {loading ? <tr><td colSpan={5} className="daily-news-table-state">正在读取持久化历史…</td></tr> : !visible.length ? <tr><td colSpan={5} className="daily-news-table-state">暂无历史生成记录</td></tr> : visible.map((task) => <tr key={task.id} onClick={() => void open(task.id)} className="daily-news-history-row"><td><span className={'computer-status ' + (task.status === 'succeeded' ? 'done' : task.status === 'failed' ? 'failed' : 'waiting')}>{task.status === 'succeeded' ? '✓' : task.status === 'failed' ? '!' : '○'}</span></td><td><strong>{range(task)} 新闻总结</strong><small>{task.news_count} 条新闻 · {task.focus || '全部主题'}</small></td><td>{task.sources_json.length ? `${task.sources_json.length} 个指定来源` : '全部来源'}</td><td><span className={'computer-badge ' + (task.status === 'failed' ? 'failure' : 'file')}>{STATUS[task.status]}</span></td><td><time>{time(task.updated_at)}</time></td></tr>)}
+      <table className="computer-table"><thead><tr><th /><th>总结任务</th><th>新闻来源</th><th>状态或结果</th><th>更新时间</th><th>操作</th></tr></thead><tbody>
+        {loading ? <tr><td colSpan={6} className="daily-news-table-state">正在读取持久化历史…</td></tr> : !visible.length ? <tr><td colSpan={6} className="daily-news-table-state">暂无历史生成记录</td></tr> : visible.map((task) => <tr key={task.id} onClick={() => void open(task.id)} className="daily-news-history-row"><td><span className={'computer-status ' + (task.status === 'succeeded' ? 'done' : task.status === 'failed' ? 'failed' : 'waiting')}>{task.status === 'succeeded' ? '✓' : task.status === 'failed' ? '!' : '○'}</span></td><td><strong>{range(task)} 新闻总结</strong><small>{task.news_count} 条新闻 · {task.focus || '全部主题'}</small></td><td>{task.sources_json.length ? `${task.sources_json.length} 个指定来源` : '全部来源'}</td><td><span className={'computer-badge ' + (task.status === 'failed' ? 'failure' : 'file')}>{STATUS[task.status]}</span></td><td><time>{time(task.updated_at)}</time></td><td><button className="computer-delete-button" onClick={(event) => { event.stopPropagation(); void deleteTask(task) }} aria-label={`删除新闻总结 ${range(task)}`}>🗑</button></td></tr>)}
       </tbody></table>
       {history.length > 4 && <div className="daily-news-expand"><button className="expand-toggle" onClick={() => setShowAll((current) => !current)}><i className={'expand-arrow ' + (showAll ? 'up' : 'down')} /></button></div>}
     </div>
