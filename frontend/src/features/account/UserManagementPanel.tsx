@@ -13,7 +13,7 @@ export function UserManagementPanel({ open, onClose }: { open: boolean; onClose:
   const load = async () => {
     try {
       const result = await getWorkspaceUsers()
-      setUsers(result.data.items)
+      setUsers(result.items)
       setError('')
     } catch {
       setError('无法读取用户列表')
@@ -39,7 +39,7 @@ export function UserManagementPanel({ open, onClose }: { open: boolean; onClose:
   async function changeUser(user: WorkspaceUser, changes: Partial<Pick<WorkspaceUser, 'role' | 'is_active'>>) {
     try {
       const result = await updateWorkspaceUser(user.id, changes)
-      setUsers((items) => items.map((item) => item.id === user.id ? result.data : item))
+      setUsers((items) => items.map((item) => item.id === user.id ? result : item))
     } catch { setError('保存用户设置失败') }
   }
 

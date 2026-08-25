@@ -1,4 +1,4 @@
-import { request } from '@/api/client'
+import { request } from '@/api/workbench'
 
 export type WorkspaceUser = {
   id: string
@@ -8,10 +8,18 @@ export type WorkspaceUser = {
   is_active: boolean
 }
 
-export const getWorkspaceUsers = () => request<{ data: { items: WorkspaceUser[] } }>('/sapi/workbench/users')
+export const getWorkspaceUsers = () => request<{ items: WorkspaceUser[] }>('/sapi/workbench/users')
 
 export const createWorkspaceUser = (input: { username: string; display_name: string; password: string; role: 'admin' | 'member' }) =>
-  request<{ data: WorkspaceUser }>('/sapi/workbench/users', { method: 'POST', body: JSON.stringify(input) })
+  request<WorkspaceUser>('/sapi/workbench/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
 
 export const updateWorkspaceUser = (id: string, input: Partial<Pick<WorkspaceUser, 'display_name' | 'role' | 'is_active'>>) =>
-  request<{ data: WorkspaceUser }>(`/sapi/workbench/users/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+  request<WorkspaceUser>(`/sapi/workbench/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
