@@ -164,3 +164,12 @@ def restore_project(request: Request, project_id: str):
         return {"data": repository.restore_project(request.state.username, project_id)}
     except Exception as exc:
         raise_repository_error(exc)
+
+
+@router.delete("/{project_id}/permanently")
+def permanently_delete_project(request: Request, project_id: str):
+    repository: ConversationRepository = request.app.state.repository
+    try:
+        return {"data": repository.permanently_delete_project(request.state.username, project_id)}
+    except Exception as exc:
+        raise_repository_error(exc)

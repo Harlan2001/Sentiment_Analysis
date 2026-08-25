@@ -20,6 +20,7 @@ PUBLIC_PATHS = {
     "/openapi.json",
     "/redoc",
     f"{API_PREFIX}/internal/pipeline/trigger",
+    f"{API_PREFIX}/mcp/feishu/callback",
 }
 
 # 内部服务调用 token — agent tool executor 通过 SENTIMENT_INTERNAL_API_TOKEN

@@ -38,11 +38,17 @@ from backend.routers.strategy import router as strategy_router
 from backend.routers.strategy import start_strategy_services, stop_strategy_services
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.repositories.project_management_repository import ProjectManagementRepository
+from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
 from backend.routers.workbench.sidebar import router as workbench_sidebar_router
 from backend.routers.workbench.projects import router as workbench_projects_router
 from backend.routers.workbench.conversations import router as workbench_conversations_router
 from backend.routers.workbench.project_management import router as workbench_project_management_router
 from backend.routers.workbench.computer import router as workbench_computer_router
+from backend.routers.watchlist import router as watchlist_router
+from backend.routers.feishu_mcp import router as feishu_mcp_router
+from backend.routers.skills import router as skills_router
+from backend.routers.workbench_users import router as workbench_users_router
+from backend.integrations.feishu.repository import FeishuConnectionRepository
 from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 
 app = FastAPI(title="Bond Yield Backend")
@@ -98,6 +104,10 @@ app.include_router(workbench_projects_router)
 app.include_router(workbench_conversations_router)
 app.include_router(workbench_project_management_router)
 app.include_router(workbench_computer_router)
+app.include_router(watchlist_router)
+app.include_router(feishu_mcp_router)
+app.include_router(skills_router)
+app.include_router(workbench_users_router)
 
 
 @app.get("/health")
@@ -121,6 +131,8 @@ def startup_workbench():
     """工作台仓储映射迁移：启动时确保 workbench_* 表存在并清理遗留 streaming 状态。"""
     app.state.repository = ProjectManagementRepository.from_environment()
     app.state.repository.ensure_tables()
+    AiStrategyHistoryRepository.from_environment().ensure_recycle_bin_schema()
+    app.state.feishu_mcp_repository = FeishuConnectionRepository()
     interrupted_reports = ReportGenerationRepository.from_environment().mark_incomplete_failed()
     if interrupted_reports:
         logger.warning("Marked %d interrupted report generation tasks as failed", interrupted_reports)

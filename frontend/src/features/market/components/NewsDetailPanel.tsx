@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchNewsById, fetchNewsYieldData, fetchSimilarNews } from '@/api/market'
 import NewsContentBlocks from '@/components/news/NewsContentBlocks'
 import { Loading } from '@/components/UI'
+import { WatchlistAction } from './WatchlistAction'
 
 interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void }
 
@@ -63,7 +64,7 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick }) => {
               <span>{detail.source}</span>
               <span>·</span>
               <span>{detail.publish_time}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ml-auto ${dirColor} ${dirColor === 'text-[#ef4444]' ? 'bg-[#ef4444]/15' : dirColor === 'text-[#22c55e]' ? 'bg-[#22c55e]/15' : 'bg-[#6b7280]/15'}`}>AI：{dirLabel}</span>
+              <div className="ml-auto flex items-center gap-2"><WatchlistAction objectType="news" objectId={String(detail.id)} title={detail.title} sourceUrl={`/news/${detail.id}`} /><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${dirColor} ${dirColor === 'text-[#ef4444]' ? 'bg-[#ef4444]/15' : dirColor === 'text-[#22c55e]' ? 'bg-[#22c55e]/15' : 'bg-[#6b7280]/15'}`}>AI：{dirLabel}</span></div>
             </div>
 
             {/* AI 分析 */}

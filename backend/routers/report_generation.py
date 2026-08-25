@@ -143,3 +143,27 @@ def retry_report_generation_task(request: Request, task_id: str):
         _raise_repository_error(exc)
     start_report_generation(task_id)
     return {"data": task}
+
+
+@router.delete("/tasks/{task_id}")
+def delete_report_generation_task(request: Request, task_id: str):
+    try:
+        return {"data": _repository().soft_delete_task(request.state.username, task_id)}
+    except Exception as exc:
+        _raise_repository_error(exc)
+
+
+@router.post("/tasks/{task_id}/restore")
+def restore_report_generation_task(request: Request, task_id: str):
+    try:
+        return {"data": _repository().restore_task(request.state.username, task_id)}
+    except Exception as exc:
+        _raise_repository_error(exc)
+
+
+@router.delete("/tasks/{task_id}/permanently")
+def permanently_delete_report_generation_task(request: Request, task_id: str):
+    try:
+        return {"data": _repository().permanently_delete_task(request.state.username, task_id)}
+    except Exception as exc:
+        _raise_repository_error(exc)

@@ -6,6 +6,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   username: string | null
+  userId: string | null
   displayName: string | null
   token: string | null
   authEnabled: boolean
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     isLoading: true,
     username: null,
+    userId: null,
     displayName: null,
     token: null,
     authEnabled: false,
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: true,
           isLoading: false,
           username: null,
+          userId: data.user_id || null,
           displayName: null,
           token: null,
           authEnabled: false,
@@ -67,13 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
       } else if (data.authenticated && savedToken) {
         // 已认证
-        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(
+        const savedUser = storage.get<{ username: string; userId?: string; displayName: string; isAdmin: boolean; role: string }>(
           USER_KEY
         )
         setState({
           isAuthenticated: true,
           isLoading: false,
           username: data.username || savedUser?.username || null,
+          userId: data.user_id || savedUser?.userId || null,
           displayName: savedUser?.displayName || data.username || null,
           token: savedToken,
           authEnabled: true,
@@ -88,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: false,
           isLoading: false,
           username: null,
+          userId: null,
           displayName: null,
           token: null,
           authEnabled: true,
@@ -99,13 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // API 不可用时的降级处理
       const savedToken = storage.get<string>(TOKEN_KEY)
       if (savedToken) {
-        const savedUser = storage.get<{ username: string; displayName: string; isAdmin: boolean; role: string }>(
+        const savedUser = storage.get<{ username: string; userId?: string; displayName: string; isAdmin: boolean; role: string }>(
           USER_KEY
         )
         setState({
           isAuthenticated: true,
           isLoading: false,
           username: savedUser?.username || null,
+          userId: savedUser?.userId || null,
           displayName: savedUser?.displayName || null,
           token: savedToken,
           authEnabled: true,
@@ -117,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: false,
           isLoading: false,
           username: null,
+          userId: null,
           displayName: null,
           token: null,
           authEnabled: false,
@@ -146,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         storage.set(TOKEN_KEY, data.token)
         storage.set(USER_KEY, {
           username: data.username,
+          userId: data.user_id || null,
           displayName: data.display_name,
           isAdmin: data.is_admin || false,
           role: data.role || 'user',
@@ -154,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: true,
           isLoading: false,
           username: data.username,
+          userId: data.user_id || null,
           displayName: data.display_name,
           token: data.token,
           authEnabled: true,
@@ -188,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         storage.set(TOKEN_KEY, data.token)
         storage.set(USER_KEY, {
           username: data.username,
+          userId: data.user_id || null,
           displayName: data.display_name,
           isAdmin: data.is_admin || false,
           role: data.role || 'user',
@@ -196,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: true,
           isLoading: false,
           username: data.username,
+          userId: data.user_id || null,
           displayName: data.display_name,
           token: data.token,
           authEnabled: true,
@@ -218,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       isAuthenticated: false,
       username: null,
+      userId: null,
       displayName: null,
       token: null,
       isAdmin: false,

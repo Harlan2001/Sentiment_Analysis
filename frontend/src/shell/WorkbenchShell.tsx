@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '@/api/workbench'
 import { DeletedItemsPanel } from '@/features/account/DeletedItemsPanel'
 import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
+import { UserManagementPanel } from '@/features/account/UserManagementPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/features/auth/LoginModal'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
@@ -15,6 +16,7 @@ type SidebarProject = Project & { recent_conversations: Conversation[] }
 
 const ROLE_LABELS: Record<string, string> = {
   admin: '管理员',
+  member: '成员',
   manager: '经理',
   user: '普通用户',
 }
@@ -25,7 +27,6 @@ const HOME_CHAT_PLACEHOLDERS: Record<string, string> = {
   '/forecast': '\u8be2\u95ee\u9884\u6d4b\u7ed3\u8bba\u3001\u60c5\u666f\u5047\u8bbe\u6216\u98ce\u9669\u63d0\u793a\u2026',
   '/watchlist': '\u8be2\u95ee\u5173\u6ce8\u6807\u7684\u3001\u5f02\u52a8\u63d0\u9192\u6216\u8ddf\u8e2a\u5efa\u8bae\u2026',
   '/portfolio': '\u8be2\u95ee\u8d44\u4ea7\u914d\u7f6e\u3001\u7ec4\u5408\u98ce\u9669\u6216\u8c03\u4ed3\u601d\u8def\u2026',
-  '/workflow': '\u8be2\u95ee\u5de5\u4f5c\u6d41\u3001\u4efb\u52a1\u72b6\u6001\u6216\u6570\u636e\u5904\u7406\u8fdb\u5ea6\u2026',
 }
 export function WorkbenchShell() {
   const location = useLocation()
@@ -39,14 +40,16 @@ export function WorkbenchShell() {
   const [conversationsOpen, setConversationsOpen] = useState(true)
   const [conversationTopic, setConversationTopic] = useState('新建对话')
   const [sidebarError, setSidebarError] = useState('')
-  const { isAuthenticated, username, displayName, role, authEnabled, logout } = useAuth()
+  const { isAuthenticated, username, displayName, role, isAdmin, authEnabled, logout } = useAuth()
   const [accountOpen, setAccountOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [accountInfoPanelOpen, setAccountInfoPanelOpen] = useState(false)
   const [deletedPanelOpen, setDeletedPanelOpen] = useState(false)
   const [monitorPanelOpen, setMonitorPanelOpen] = useState(false)
+  const [userManagementOpen, setUserManagementOpen] = useState(false)
   const isHome = HOME_PATHS.has(location.pathname)
-  const homeChatPlaceholder = HOME_CHAT_PLACEHOLDERS[location.pathname]
+  const visitorBlockedHomePage = authEnabled && !isAuthenticated && (location.pathname === '/watchlist' || location.pathname === '/portfolio')
+  const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
 
   const loadSidebar = useCallback(() => {
@@ -62,6 +65,12 @@ export function WorkbenchShell() {
     window.addEventListener('bondsense-sidebar-refresh', loadSidebar)
     return () => window.removeEventListener('bondsense-sidebar-refresh', loadSidebar)
   }, [loadSidebar])
+
+  useEffect(() => {
+    const showLogin = () => setLoginOpen(true)
+    window.addEventListener('bondsense-open-login', showLogin)
+    return () => window.removeEventListener('bondsense-open-login', showLogin)
+  }, [])
 
   useEffect(() => {
     function updateTopic(event: Event) {
@@ -163,7 +172,8 @@ export function WorkbenchShell() {
               <div className="account-menu-profile"><span className="avatar">你</span><div><strong>{displayName || username || 'admin'}</strong><small>{ROLE_LABELS[role] || role} · BondSense 工作台</small></div></div>
               <button className="account-menu-item" onClick={() => { setAccountInfoPanelOpen(true); setAccountOpen(false) }}><span>◉</span>账户信息<i className="account-menu-caret-right" /></button>
               <button className="account-menu-item" onClick={() => { setDeletedPanelOpen(true); setAccountOpen(false) }}><span>🗑</span>最近删除<i className="account-menu-caret-right" /></button>
-              <button className="account-menu-item" onClick={() => { setMonitorPanelOpen(true); setAccountOpen(false) }}><span>▦</span>监控看板<i className="account-menu-caret-right" /></button>
+              <button className="account-menu-item" onClick={() => { setMonitorPanelOpen(true); setAccountOpen(false) }}><span>▦</span>{isAdmin ? '监控看板' : '我的使用'}<i className="account-menu-caret-right" /></button>
+              {isAdmin && <button className="account-menu-item" onClick={() => { setUserManagementOpen(true); setAccountOpen(false) }}>用户管理</button>}
               <button className="account-menu-item logout" onClick={handleLogout}><span>↪</span>退出</button>
             </div>}
             <button className={'account-button' + (accountOpen ? ' active' : '')} onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}><span className="avatar">你</span><span className="account-copy"><strong>{displayName || username || 'admin'}</strong><small>账户与设置</small></span><span className="account-arrow" aria-hidden="true" /></button>
@@ -198,6 +208,7 @@ export function WorkbenchShell() {
       </main>
       <DeletedItemsPanel open={deletedPanelOpen} onClose={() => setDeletedPanelOpen(false)} />
       <AccountInfoPanel open={accountInfoPanelOpen} onClose={() => setAccountInfoPanelOpen(false)} onLogout={handleLogout} />
+      <UserManagementPanel open={userManagementOpen} onClose={() => setUserManagementOpen(false)} />
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLoggedIn={loadSidebar} />
       <Suspense fallback={null}>
         <MonitorDashboardPanel open={monitorPanelOpen} onClose={() => setMonitorPanelOpen(false)} />

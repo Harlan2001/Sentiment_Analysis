@@ -70,6 +70,22 @@ class AiStrategyHistoryRepository:
         finally:
             connection.close()
 
+    def ensure_recycle_bin_schema(self) -> None:
+        """Apply the small additive migration in the configured history database."""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+                       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_strategy_conversations'
+                         AND COLUMN_NAME = 'deleted_at'"""
+                )
+                if int(cursor.fetchone()["count"]) == 0:
+                    cursor.execute("ALTER TABLE ai_strategy_conversations ADD COLUMN deleted_at DATETIME NULL")
+                    cursor.execute(
+                        "CREATE INDEX idx_ai_strategy_conversations_owner_deleted_updated ON ai_strategy_conversations (owner_username, deleted_at, updated_at)"
+                    )
+            conn.commit()
+
     def create_conversation(self, owner_username: str, title: str) -> dict[str, Any]:
         title = " ".join(title.split())[:255] or "新策略对话"
         with self._connection() as conn:
@@ -94,7 +110,7 @@ class AiStrategyHistoryRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """SELECT id, title, instrument, status, current_local_version_no, last_message_at, created_at, updated_at
-                       FROM ai_strategy_conversations WHERE owner_username = %s AND status <> 'archived'
+                       FROM ai_strategy_conversations WHERE owner_username = %s AND status <> 'archived' AND deleted_at IS NULL
                        ORDER BY updated_at DESC, id DESC LIMIT %s""",
                     (owner_username, limit),
                 )
@@ -114,7 +130,7 @@ class AiStrategyHistoryRepository:
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    f"SELECT {columns} FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s",
+                    f"SELECT {columns} FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s AND deleted_at IS NULL",
                     (conversation_id, owner_username),
                 )
                 row = cursor.fetchone()
@@ -477,3 +493,79 @@ class AiStrategyHistoryRepository:
                 archived = cursor.rowcount == 1
             conn.commit()
         return archived
+
+    def list_deleted_conversations(self, owner_username: str, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, title, instrument, status, current_local_version_no, last_message_at, created_at, updated_at, deleted_at
+                       FROM ai_strategy_conversations
+                       WHERE owner_username = %s AND deleted_at IS NOT NULL
+                       ORDER BY deleted_at DESC, id DESC LIMIT %s""",
+                    (owner_username, limit),
+                )
+                rows = cursor.fetchall()
+        return [_serialize_row(row) for row in rows]
+
+    def soft_delete_conversation(self, owner_username: str, conversation_id: int) -> dict[str, bool]:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s AND deleted_at IS NULL FOR UPDATE",
+                    (conversation_id, owner_username),
+                )
+                if not cursor.fetchone():
+                    raise KeyError("conversation_not_found")
+                cursor.execute(
+                    """SELECT id FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s
+                       AND status IN ('running', 'pending_confirmation') LIMIT 1""",
+                    (conversation_id, owner_username),
+                )
+                if cursor.fetchone():
+                    raise GenerationInProgressError("generation_in_progress")
+                cursor.execute(
+                    "UPDATE ai_strategy_conversations SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
+                    (conversation_id, owner_username),
+                )
+            conn.commit()
+        return {"deleted": True}
+
+    def restore_conversation(self, owner_username: str, conversation_id: int) -> dict[str, Any]:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE ai_strategy_conversations SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
+                    (conversation_id, owner_username),
+                )
+                restored = cursor.rowcount == 1
+            conn.commit()
+        if not restored:
+            raise KeyError("conversation_not_found")
+        conversation = self.get_conversation(owner_username, conversation_id)
+        if not conversation:
+            raise RuntimeError("恢复策略会话后未找到记录")
+        return conversation
+
+    def permanently_delete_conversation(self, owner_username: str, conversation_id: int) -> dict[str, bool]:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
+                    (conversation_id, owner_username),
+                )
+                deleted = cursor.rowcount == 1
+            conn.commit()
+        if not deleted:
+            raise KeyError("conversation_not_found")
+        return {"deleted": True}
+
+    def permanently_delete_all_deleted_conversations(self, owner_username: str) -> int:
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM ai_strategy_conversations WHERE owner_username = %s AND deleted_at IS NOT NULL",
+                    (owner_username,),
+                )
+                deleted = cursor.rowcount
+            conn.commit()
+        return int(deleted)

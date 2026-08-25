@@ -12,34 +12,30 @@ import { useAuth } from '@/contexts/AuthContext'
 import { SystemMonitorTab } from './tabs/SystemMonitorTab'
 import { UserManagementTab } from './tabs/UserManagementTab'
 import { TrafficStatsTab } from './tabs/TrafficStatsTab'
-import DeptOverviewPanel from '@/features/monitor/panels/DeptOverviewPanel'
 import './monitor-dashboard.css'
 
-type TopTab = 'system' | 'user' | 'dept' | 'traffic'
+type TopTab = 'system' | 'user' | 'traffic'
 
 export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { isAdmin, role } = useAuth()
-  const isManager = role === 'manager'
-  const canViewMonitor = isAdmin || isManager
+  const { isAdmin } = useAuth()
 
   const tabs = useMemo(() => {
     return (
       [
-        { key: 'system' as TopTab, label: '系统监控', visible: canViewMonitor },
-        { key: 'user' as TopTab, label: '用户管理', visible: isAdmin },
-        { key: 'dept' as TopTab, label: '部门概览', visible: isManager },
-        { key: 'traffic' as TopTab, label: '流量统计', visible: true },
+        { key: 'system' as TopTab, label: '系统概览', visible: isAdmin },
+        { key: 'user' as TopTab, label: '用户与使用', visible: isAdmin },
+        { key: 'traffic' as TopTab, label: '我的使用', visible: true },
       ]
     ).filter((t) => t.visible)
-  }, [canViewMonitor, isAdmin, isManager])
+  }, [isAdmin])
 
-  const defaultTab = (): TopTab => (isAdmin ? 'system' : isManager ? 'dept' : 'traffic')
+  const defaultTab = (): TopTab => (isAdmin ? 'system' : 'traffic')
   const [tab, setTab] = useState<TopTab>(defaultTab())
 
   useEffect(() => {
     if (open) setTab(defaultTab())
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isAdmin, isManager])
+  }, [open, isAdmin])
 
   useEffect(() => {
     if (!open) return
@@ -78,7 +74,6 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
         <div className="monitor-drawer-body">
           {tab === 'system' && <SystemMonitorTab />}
           {tab === 'user' && <UserManagementTab />}
-          {tab === 'dept' && <DeptOverviewPanel />}
           {tab === 'traffic' && <TrafficStatsTab />}
         </div>
       </section>

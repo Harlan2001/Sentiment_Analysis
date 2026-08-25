@@ -1,0 +1,81 @@
+.mcp-page .mcp-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mcp-page .mcp-mock-card {
+  box-sizing: border-box;
+  min-height: 0 !important;
+  height: 166px;
+  padding: 13px !important;
+  border: 1px solid #3a3a3a;
+  border-radius: 12px;
+  background: #181818;
+}
+
+.mcp-page .mcp-mock-card:hover { border-color: #5e5e5e; }
+.mcp-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mcp-card-top > button {
+  position: static !important;
+  padding: 4px 9px !important;
+  border: 1px solid #484848 !important;
+  border-radius: 7px !important;
+  background: #222 !important;
+  color: #c8c8c8 !important;
+  font-size: 10px !important;
+  cursor: pointer;
+}
+.mcp-card-top > button.primary { border-color: #747474 !important; background: #303030 !important; color: #f1f1f1 !important; }
+.mcp-page .mcp-card-body { margin-top: 8px; }
+.mcp-page .mcp-card-body h2 { margin: 0; font-size: 15px; line-height: 1.25; }
+.mcp-page .mcp-card-body h2 small { padding: 2px 5px; border-color: #393939; background: #1e1e1e; }
+.mcp-page .mcp-card-body p { margin-top: 5px; color: #969696; -webkit-line-clamp: 1; }
+.mcp-page .mcp-capability-list { margin-top: 9px; flex-wrap: nowrap; overflow: hidden; }
+.mcp-page .mcp-capability-list em { padding: 3px 6px; border-radius: 5px; background: #202020; color: #aaa; }
+.mcp-connection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #2f2f2f;
+  color: #aaa;
+  font-size: 10px;
+}
+.mcp-connection-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcp-connection-row > small { color: #777; font-size: 9px; }
+.mcp-connection-row > button { padding: 0; border: 0; background: none; color: #b98b8b; font-size: 10px; cursor: pointer; }
+
+.mcp-auth-modal { border: 1px solid #414141 !important; background: #141414 !important; box-shadow: 0 24px 80px rgb(0 0 0 / 55%) !important; }
+.mcp-auth-modal > div:first-child { padding: 17px 20px !important; border-color: #313131 !important; background: #161616 !important; }
+.mcp-auth-content { padding: 18px 20px 20px !important; background: #141414 !important; }
+.mcp-auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 13px; padding: 11px; border: 1px solid #333; border-radius: 10px; background: #1b1b1b; }
+.mcp-auth-brand > b { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #303030; color: #f0f0f0; font-size: 15px; }
+.mcp-auth-brand > span { display: grid; gap: 3px; }
+.mcp-auth-brand strong { color: #eee; font-size: 13px; }
+.mcp-auth-brand small { color: #818181; font-size: 10px; }
+.mcp-auth-form > p { margin-bottom: 13px; font-size: 11px; line-height: 1.55; }
+.mcp-auth-form > label, .mcp-auth-form fieldset { margin-bottom: 12px; }
+.mcp-auth-form select { height: 36px; background: #1c1c1c; }
+.mcp-auth-form legend { display: flex; width: 100%; align-items: center; justify-content: space-between; }
+.mcp-auth-form legend small { color: #747474; font-size: 10px; }
+.mcp-auth-form { text-align: left; }
+.mcp-scope { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border-radius: 7px; background: #191919; text-align: left; }
+.mcp-scope:has(input:checked) { border-color: #595959; background: #222; }
+.mcp-scope input { width: 14px; height: 14px; margin: 0; justify-self: center; }
+.mcp-scope span { display: grid; min-width: 0; gap: 2px; text-align: left; }
+.mcp-scope strong { font-size: 11px; }
+.mcp-scope small { font-size: 10px; }
+.mcp-auth-capabilities { padding: 9px 10px; background: #191919; }
+.mcp-auth-capabilities p { font-size: 11px; }
+.mcp-auth-actions { margin-top: 15px; padding-top: 13px; border-top: 1px solid #2e2e2e; }
+.mcp-auth-actions button { height: 33px; border-radius: 7px; }
+
+@media (max-width: 1000px) {
+  .mcp-page .mcp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .mcp-page .mcp-grid { grid-template-columns: 1fr; }
+}

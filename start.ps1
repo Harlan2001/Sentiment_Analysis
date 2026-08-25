@@ -8,7 +8,7 @@ Write-Host "Starting backend (FastAPI)..." -ForegroundColor Green
 Start-Process powershell -ArgumentList `
     "-NoExit", `
     "-Command", `
-    "`$env:VIRTUAL_ENV = '$venvPath'; `$env:PATH = '$venvPath\Scripts;' + `$env:PATH; cd '$projectRoot'; python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    "`$env:VIRTUAL_ENV = '$venvPath'; `$env:PATH = '$venvPath\Scripts;' + `$env:PATH; cd '$projectRoot'; python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload"
 
 # ---------- 启动前端 ----------
 Write-Host "Starting frontend (Vite)..." -ForegroundColor Green

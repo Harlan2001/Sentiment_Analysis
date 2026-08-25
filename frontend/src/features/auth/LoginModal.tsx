@@ -97,25 +97,34 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="登录" size="sm">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="登录"
+      size="sm"
+      panelClassName="max-w-[430px] !bg-[#181818] !border-[#414141] shadow-black/60 text-left"
+      contentClassName="px-6 pb-6 pt-5 sm:px-7 sm:pb-7"
+    >
       {/* 品牌行 */}
-      <div className="flex items-center gap-2.5 mb-5">
-        <span className="inline-flex items-center justify-center w-10 h-10 bg-white rounded-xl shadow-lg shadow-white/30">
-          <span className="text-xl">📊</span>
+      <div className="flex items-center gap-3 mb-5">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#4a90d9] via-[#5b6cf0] to-[#7c4dff] text-[15px] font-extrabold text-[#f0f4ff] shadow-[0_0_0_1px_rgba(90,130,240,.35),0_5px_20px_rgba(90,110,235,.3)]">
+          B
         </span>
         <div>
-          <div className="text-base font-semibold text-white">债券市场智能分析</div>
-          <div className="text-xs text-gray-500">登录以解锁完整功能</div>
+          <div className="text-[15px] font-semibold tracking-tight text-[#ededed]">债券市场智能分析</div>
+          <div className="mt-0.5 text-xs text-[#8e8e8e]">登录后即可使用个人工作台</div>
         </div>
       </div>
 
       {/* 模式切换 Tab */}
-      <div className="flex mb-5 bg-gray-800 rounded-lg p-1">
+      <div className="grid grid-cols-2 mb-5 rounded-lg bg-[#202020] border border-[#373737] p-1">
         <button
           type="button"
           onClick={() => handleSwitchMode('phone')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-            mode === 'phone' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-gray-300'
+          className={`min-h-9 px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            mode === 'phone'
+              ? 'bg-[#303030] text-white shadow-sm shadow-black/30'
+              : 'text-[#929292] hover:bg-[#292929] hover:text-[#e5e5e5]'
           }`}
         >
           手机号登录
@@ -123,15 +132,17 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
         <button
           type="button"
           onClick={() => handleSwitchMode('password')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-            mode === 'password' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-gray-300'
+          className={`min-h-9 px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            mode === 'password'
+              ? 'bg-[#303030] text-white shadow-sm shadow-black/30'
+              : 'text-[#929292] hover:bg-[#292929] hover:text-[#e5e5e5]'
           }`}
         >
           账号密码登录
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {mode === 'phone' ? (
           <Input
             label="手机号"
@@ -142,6 +153,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
             autoComplete="tel"
             autoFocus
             maxLength={11}
+            className="!border-[#424242] !bg-[#191919] py-2.5 placeholder:text-[#717171] focus:!border-[#686868]"
             icon={
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -163,6 +175,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               autoFocus
+              className="!border-[#424242] !bg-[#191919] py-2.5 placeholder:text-[#717171] focus:!border-[#686868]"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -182,6 +195,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              className="!border-[#424242] !bg-[#191919] py-2.5 placeholder:text-[#717171] focus:!border-[#686868]"
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -210,11 +224,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoggedIn }) 
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full" size="md">
+        <Button type="submit" loading={loading} className="w-full min-h-10 mt-1 rounded-lg shadow-none" size="md">
           登 录
         </Button>
 
-        <p className="text-center text-gray-600 text-xs">仅供授权用户使用 · 如有问题请联系管理员</p>
+        <p className="pt-0.5 text-center text-[#777] text-xs leading-5">仅供授权用户使用 · 如有问题请联系管理员</p>
       </form>
     </Modal>
   )

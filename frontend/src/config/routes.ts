@@ -36,7 +36,6 @@ export const ROUTES: RouteMeta[] = [
   { path: '/forecast', title: '预测', tabLabel: '预测', brandTitle: true, group: '市场板块', track: true },
   { path: '/watchlist', title: '关注列表', tabLabel: '关注列表', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio', title: '投资组合', tabLabel: '投资组合', brandTitle: true, group: '市场板块', track: true },
-  { path: '/workflow', title: '工作流', tabLabel: '工作流', brandTitle: true, group: '市场板块', track: true },
 
   // ── 首页 ──
   { path: '/home', title: '首页', brandTitle: true, group: '首页', track: true },
@@ -50,20 +49,22 @@ export const ROUTES: RouteMeta[] = [
   },
   { path: '/chat/new', title: '对话', redirect: '/chat' },
 
-  // ── Computer ——
-  { path: '/computer', title: 'Computer', shellTitle: 'Computer', navLabel: 'Computer', navIcon: '◉', group: '工作台', track: true },
-  { path: '/computer/reports', title: '研报分析', shellTitle: 'Computer · 研报分析', group: '工作台', track: true },
-  { path: '/computer/reports/library', title: '研报库', shellTitle: 'Computer · 研报库' },
-  { path: '/computer/reports/:taskId', title: '研报分析', shellTitle: 'Computer · 研报分析' },
-  { path: '/computer/strategies', title: '策略开发', shellTitle: 'Computer · 策略开发', group: '工作台', track: true },
-  { path: '/computer/strategies/prompt', title: '策略开发', shellTitle: 'Computer · 策略开发' },
-  { path: '/computer/news', title: '每日新闻总结', shellTitle: 'Computer · 每日新闻总结', group: '工作台', track: true },
-  { path: '/computer/news/:taskId', title: '新闻总结详情', shellTitle: 'Computer · 新闻总结详情' },
+  // ── 工作流（原 Computer） ──
+  { path: '/workflow', title: '工作流', shellTitle: '工作流', navLabel: '工作流', navIcon: '◉', group: '工作台', track: true },
+  { path: '/computer', title: '工作流', redirect: '/workflow' },
+  { path: '/computer/reports', title: '研报分析', shellTitle: '工作流 · 研报分析', group: '工作台', track: true },
+  { path: '/computer/reports/library', title: '研报库', shellTitle: '工作流 · 研报库' },
+  { path: '/computer/reports/:taskId', title: '研报分析', shellTitle: '工作流 · 研报分析' },
+  { path: '/computer/strategies', title: '策略开发', shellTitle: '工作流 · 策略开发', group: '工作台', track: true },
+  { path: '/computer/strategies/prompt', title: '策略开发', shellTitle: '工作流 · 策略开发' },
+  { path: '/computer/news', title: '每日新闻总结', shellTitle: '工作流 · 每日新闻总结', group: '工作台', track: true },
+  { path: '/computer/news/:taskId', title: '新闻总结详情', shellTitle: '工作流 · 新闻总结详情' },
 
   // ── 自定义 ──
   { path: '/custom', title: '自定义', shellTitle: '自定义', navLabel: '自定义', navIcon: '◌', group: '自定义', redirect: '/custom/mcp' },
   { path: '/custom/mcp', title: 'MCP连接', shellTitle: '自定义 · MCP 连接', group: '自定义', track: true },
   { path: '/custom/skills', title: 'Skills', shellTitle: '自定义 · Skills', group: '自定义', track: true },
+  { path: '/custom/memory', title: '记忆', shellTitle: '自定义 · 记忆', group: '自定义', track: true },
 
   // ── 项目 ──
   { path: '/projects', title: '项目', shellTitle: '项目空间', group: '项目与对话', track: true },

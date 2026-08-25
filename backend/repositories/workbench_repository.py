@@ -83,8 +83,13 @@ class WorkbenchRepository:
 
     def ensure_tables(self) -> None:
         """启动时应用工作台自己的迁移，不影响旧表。按文件顺序执行所有迁移。"""
-        migration_dir = Path(__file__).resolve().parent.parent / "migrations"
-        script_paths = sorted(migration_dir.glob("*.sql"))
+        migration_dir = Path(__file__).resolve().parents[2] / "sql"
+        # 飞书 OAuth 仍保留为未来真实接入的代码雏形，但当前 MCP 页面不使用它；
+        # 因此不应在切换生产库时自动创建 OAuth 状态、令牌或审计表。
+        script_paths = [
+            path for path in sorted(migration_dir.glob("*_workbench_*.sql"))
+            if path.name != "005_workbench_feishu_mcp.sql"
+        ]
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 for script_path in script_paths:
@@ -271,6 +276,28 @@ class WorkbenchRepository:
                 )
             conn.commit()
         return self.get_project(username, project_id)
+
+    def permanently_delete_project(self, username: str, project_id: str) -> dict[str, bool]:
+        """Permanently remove a project already placed in the recycle bin."""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT p.id, pm.role FROM workbench_projects p
+                       INNER JOIN workbench_project_members pm ON pm.project_id = p.id
+                       WHERE p.id = %s AND pm.username = %s AND p.deleted_at IS NOT NULL""",
+                    (project_id, username),
+                )
+                project = cursor.fetchone()
+                if not project:
+                    raise WorkbenchNotFoundError("项目不存在或不在最近删除中")
+                if project.get("role") != "owner":
+                    raise WorkbenchPermissionError("只有项目所有者才能永久删除项目")
+                # The conversation FK is RESTRICT, while messages cascade from conversations.
+                cursor.execute("DELETE FROM workbench_conversations WHERE project_id = %s", (project_id,))
+                cursor.execute("DELETE FROM workbench_project_memories WHERE project_id = %s", (project_id,))
+                cursor.execute("DELETE FROM workbench_projects WHERE id = %s", (project_id,))
+            conn.commit()
+        return {"deleted": True}
 
     def create_conversation(self, username: str, project_id: Optional[str], title: Optional[str], source: str) -> dict[str, Any]:
         conversation_id = str(uuid.uuid4())

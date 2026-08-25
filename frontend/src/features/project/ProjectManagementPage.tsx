@@ -36,6 +36,11 @@ const CATEGORY_LABELS: Record<MemoryCategory, string> = {
 }
 
 const ROLE_LABELS = { owner: '所有者', editor: '编辑者', viewer: '查看者' } as const
+const ROLE_SCOPES = {
+  owner: '可管理成员、设置和项目内容',
+  editor: '可编辑项目内容',
+  viewer: '仅查看项目内容',
+} as const
 
 function formatTime(value: string | null) {
   if (!value) return '尚未发送消息'
@@ -374,6 +379,7 @@ export function ProjectManagementPage() {
           <h1>{project.name}</h1>
           <p>{project.description || '围绕项目研究目标持续开展工作。'}</p>
           <div className="pm-title-meta">
+            <span>{ROLE_SCOPES[project.role]}</span>
             <span>{project.visibility === 'shared' ? '共享项目' : '私有项目'}</span>
             <span>更新于 {formatTime(project.updated_at)}</span>
           </div>
@@ -698,6 +704,7 @@ export function ProjectManagementPage() {
           </div>
         </section>
       )}
+
     </section>
   )
 }

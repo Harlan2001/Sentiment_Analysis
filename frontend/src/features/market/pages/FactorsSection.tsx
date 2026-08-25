@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchAllFactors, fetchFactorDetail, fetchMacroData, fetchMacroIndicators } from '@/api/market'
 import { Skeleton } from '@/components/UI'
 import type { FactorDetailData } from '@/types'
+import { WatchlistAction } from '../components/WatchlistAction'
 
 const CATEGORIES: Record<string, string> = { LIQUIDITY: '货币流动性', POLICY: '政策监管', MACRO: '经济增长', RISK: '债券供需', SENTIMENT: '情绪风险', INDUSTRY: '债券供需' }
 const DOMAINS = [
@@ -28,7 +29,7 @@ export default function FactorsSection() {
       </div>
       {view === 'signals' && selectedFactor && <h2 className="factor-activity-label">7日活跃度走势</h2>}
     </header>
-    {view === 'signals' ? <FactorSignals selectedFactor={selectedFactor} onSelect={setSelectedFactor} /> : <MacroWorkspace />}
+    {view === 'signals' ? <FactorSignals selectedFactor={selectedFactor} onSelect={setSelectedFactor} /> : <MacroWorkspace presetCodes={searchParams.get('codes')?.split(',').filter(Boolean) || []} />}
   </div>
 }
 
@@ -80,15 +81,42 @@ function FactorSidebar({ factor }: { factor: Factor | null }) {
   </div>
 }
 
-function MacroWorkspace() {
+function MacroWorkspace({ presetCodes }: { presetCodes: string[] }) {
   const [domain, setDomain] = useState('price'); const [mode, setMode] = useState<'single' | 'compare'>('compare'); const [selected, setSelected] = useState<string[]>([])
   const { data: indicators, isLoading } = useQuery({ queryKey: ['macro-indicators'], queryFn: fetchMacroIndicators, staleTime: 10 * 60 * 1000 })
   const list = useMemo(() => (indicators?.indicators || []).filter((i: any) => i.domain === domain), [indicators, domain])
-  useEffect(() => { if (list.length) setSelected(mode === 'single' ? [list[0].code] : list.slice(0, 3).map((i: any) => i.code)) }, [domain, mode, list])
+  const presetSignature = presetCodes.join(',')
+  useEffect(() => {
+    if (!presetCodes.length || !indicators?.indicators?.length) return
+    const available = presetCodes.filter((code) => indicators.indicators.some((item: any) => item.code === code)).slice(0, 4)
+    if (!available.length) return
+    const first = indicators.indicators.find((item: any) => item.code === available[0])
+    if (first) setDomain(first.domain)
+    setMode(available.length === 1 ? 'single' : 'compare')
+    setSelected(available)
+  }, [indicators, presetSignature])
+  useEffect(() => { if (!presetCodes.length && list.length) setSelected(mode === 'single' ? [list[0].code] : list.slice(0, 3).map((i: any) => i.code)) }, [domain, mode, list, presetSignature])
   const { data: chartData, isLoading: chartLoading } = useQuery({ queryKey: ['macro-data', selected], queryFn: () => fetchMacroData(selected, '202101', '202612'), enabled: selected.length > 0, staleTime: 10 * 60 * 1000 })
-  const option = useMemo(() => ({ tooltip: { trigger: 'axis' }, legend: { textStyle: { color: '#aaa' } }, grid: { left: 48, right: 20, top: 36, bottom: 34 }, xAxis: { type: 'category', data: chartData?.indicators?.[0]?.data?.map((d: any) => d.datestr) || [], axisLabel: { color: '#777' }, axisLine: { lineStyle: { color: '#333' } } }, yAxis: { type: 'value', splitLine: { lineStyle: { color: '#262626' } }, axisLabel: { color: '#777' } }, series: (chartData?.indicators || []).map((i: any) => ({ name: i.name, type: 'line', smooth: true, showSymbol: false, data: i.data.map((d: any) => d.value) })) }), [chartData])
+  const option = useMemo(() => {
+    const series = (chartData?.indicators || []).map((item: any) => {
+      const isPercent = item.name.includes('增速') || item.name.includes('(%)')
+      return { name: item.name, type: 'line', smooth: true, showSymbol: false, yAxisIndex: isPercent ? 1 : 0, data: item.data.map((point: any) => point.value) }
+    })
+    const hasPercentSeries = series.some((item: any) => item.yAxisIndex === 1)
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { top: 10, left: 48, right: 64, type: 'scroll', textStyle: { color: '#aaa' } },
+      grid: { left: 48, right: hasPercentSeries ? 64 : 20, top: 72, bottom: 42 },
+      xAxis: { type: 'category', data: chartData?.indicators?.[0]?.data?.map((point: any) => point.datestr) || [], axisLabel: { color: '#777' }, axisLine: { lineStyle: { color: '#333' } } },
+      yAxis: [
+        { type: 'value', splitLine: { lineStyle: { color: '#262626' } }, axisLabel: { color: '#777' } },
+        { type: 'value', show: hasPercentSeries, position: 'right', name: '%', nameTextStyle: { color: '#777' }, splitLine: { show: false }, axisLabel: { color: '#777', formatter: '{value}%' } },
+      ],
+      series,
+    }
+  }, [chartData])
   const toggle = (code: string) => setSelected(prev => mode === 'single' ? [code] : prev.includes(code) ? prev.filter(x => x !== code) : prev.length < 4 ? [...prev, code] : prev)
-  return <div className="home-section-grid"><main className="home-section-main rounded-xl border border-[#2a2a2e] bg-[#111111] p-5 overflow-hidden"><div className="flex justify-between gap-3 mb-4"><div><h2 className="text-base font-semibold text-white">{mode === 'single' ? '单指标走势' : '多指标对比'}</h2><p className="text-xs text-gray-500 mt-1">{selected.length} 项已选择</p></div><div className="factor-mode-tabs">{(['compare', 'single'] as const).map(k => <button key={k} onClick={() => setMode(k)} className={`factor-mode-tab${mode === k ? ' active' : ''}`}>{k === 'compare' ? '多指标对比' : '单指标'}</button>)}</div></div>{chartLoading ? <Skeleton height="340px" variant="rectangular" /> : <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height: 360 }} />}</main><aside className="home-section-sidebar factor-macro-sidebar rounded-xl border border-[#2a2a2e] bg-[#111111]"><div className="p-4 border-b border-[#2a2a2e]"><h2 className="text-sm font-semibold text-white">指标筛选</h2><div className="flex flex-wrap gap-2 mt-3">{DOMAINS.map(([key, label]) => <FilterButton key={key} active={domain === key} onClick={() => setDomain(key)}>{label}</FilterButton>)}</div></div><div className="p-2">{isLoading ? <Skeleton height="200px" variant="rectangular" /> : list.map((i: any) => <label key={i.code} className="flex gap-3 px-2 py-2.5 rounded-lg hover:bg-[#181818] cursor-pointer"><input type={mode === 'single' ? 'radio' : 'checkbox'} name="macro-indicator" checked={selected.includes(i.code)} onChange={() => toggle(i.code)} className="accent-amber-500 mt-0.5" /><span className="min-w-0"><span className="block text-sm text-gray-200 truncate">{i.name}</span><span className="block text-xs text-gray-600 truncate">{i.code}</span></span></label>)}</div></aside></div>
+  return <div className="home-section-grid"><main className="home-section-main rounded-xl border border-[#2a2a2e] bg-[#111111] p-5 overflow-hidden"><div className="flex justify-between gap-3 mb-4"><div><h2 className="text-base font-semibold text-white">{mode === 'single' ? '单指标走势' : '多指标对比'}</h2><p className="text-xs text-gray-500 mt-1">{selected.length} 项已选择</p></div><div className="factor-mode-tabs">{(['compare', 'single'] as const).map(k => <button key={k} onClick={() => setMode(k)} className={`factor-mode-tab${mode === k ? ' active' : ''}`}>{k === 'compare' ? '多指标对比' : '单指标'}</button>)}</div></div>{chartLoading ? <Skeleton height="340px" variant="rectangular" /> : <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height: 360 }} />}</main><aside className="home-section-sidebar factor-macro-sidebar rounded-xl border border-[#2a2a2e] bg-[#111111]"><div className="p-4 border-b border-[#2a2a2e]"><h2 className="text-sm font-semibold text-white">指标筛选</h2><div className="flex flex-wrap gap-2 mt-3">{DOMAINS.map(([key, label]) => <FilterButton key={key} active={domain === key} onClick={() => setDomain(key)}>{label}</FilterButton>)}</div></div><div className="p-2">{isLoading ? <Skeleton height="200px" variant="rectangular" /> : list.map((i: any) => <div key={i.code} className="flex items-center gap-2 rounded-lg px-2 py-2.5 hover:bg-[#181818]"><label className="flex min-w-0 flex-1 cursor-pointer gap-3"><input type={mode === 'single' ? 'radio' : 'checkbox'} name="macro-indicator" checked={selected.includes(i.code)} onChange={() => toggle(i.code)} className="mt-0.5 accent-amber-500" /><span className="min-w-0"><span className="block truncate text-sm text-gray-200">{i.name}</span><span className="block truncate text-xs text-gray-600">{i.code}</span></span></label><WatchlistAction objectType="macro_signal" objectId={i.code} title={i.name} sourceUrl="/factors?view=macro" className="shrink-0" /></div>)}</div></aside></div>
 }
 function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return <button onClick={onClick} className={`factor-filter-tab${active ? ' active' : ''}`}>{children}</button> }
 function Empty({ text }: { text: string }) { return <div className="h-full min-h-[240px] rounded-xl border border-[#2a2a2e] bg-[#111111] flex items-center justify-center text-sm text-gray-600 text-center p-6">{text}</div> }
