@@ -121,11 +121,6 @@ export function getActionLabel(type: string): string {
   return ACTION_LABEL_MAP[type] || type
 }
 
-/** 调用来源 → 中文标签 */
-export function getCallSourceLabel(source: string): string {
-  return CALL_SOURCE_MAP[source] || source
-}
-
 /** 退出类型 → 中文标签 */
 export function getExitTypeLabel(type: string): string {
   return EXIT_TYPE_MAP[type] || type

@@ -9,8 +9,7 @@ export default defineConfig({
         manualChunks: {
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-echarts": ["echarts", "echarts-for-react"],
-          "vendor-ui": ["@headlessui/react", "framer-motion", "reactflow"],
-          "vendor-utils": ["date-fns", "clsx", "zustand", "react-hook-form"],
+          "vendor-ui": ["@headlessui/react", "framer-motion"],
         },
       },
     },

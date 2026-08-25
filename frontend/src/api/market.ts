@@ -3,7 +3,6 @@
  */
 import type {
   NewsItem,
-  NewsSearchResponse,
   SimilarNews,
   NewsYieldData,
   ForecastResponse,
@@ -39,44 +38,6 @@ export async function fetchSimilarNews(newsId: number): Promise<SimilarNews[]> {
   return r.json()
 }
 
-// 新闻列表（支持关键词检索，命中标题或正文任意关键词；多关键词逗号分隔）
-export async function fetchNewsList(params: {
-  date?: string
-  startDate?: string
-  endDate?: string
-  source?: string
-  keyword?: string
-  model?: string
-  view?: 'best' | 'single' | 'all'
-}): Promise<NewsItem[]> {
-  const sp = new URLSearchParams()
-  if (params.date) sp.set('date', params.date)
-  if (params.startDate) sp.set('start_date', params.startDate)
-  if (params.endDate) sp.set('end_date', params.endDate)
-  if (params.source) sp.set('source', params.source)
-  if (params.keyword) sp.set('keyword', params.keyword)
-  if (params.model) sp.set('model', params.model)
-  if (params.view) sp.set('view', params.view)
-  const r = await fetch(`${BASE}/news?${sp.toString()}`, { headers: authHeaders() })
-  return r.json()
-}
-
-// 新闻语义检索：精确关键词 + FAISS 语义联想，按相关度排序
-export async function searchNews(params: {
-  q: string
-  startDate?: string
-  endDate?: string
-  topK?: number
-}): Promise<NewsSearchResponse> {
-  const sp = new URLSearchParams()
-  sp.set('q', params.q)
-  if (params.startDate) sp.set('start_date', params.startDate)
-  if (params.endDate) sp.set('end_date', params.endDate)
-  if (params.topK) sp.set('top_k', String(params.topK))
-  const r = await fetch(`${BASE}/news/search?${sp.toString()}`, { headers: authHeaders() })
-  return r.json()
-}
-
 export async function fetchNewsYieldData(
   newsId: number,
   period: string = '10年',
@@ -102,19 +63,6 @@ export interface AllFactorsResponse {
 
 export async function fetchAllFactors(): Promise<AllFactorsResponse> {
   const r = await fetch(`${BASE}/factors`, { headers: authHeaders() })
-  return r.json()
-}
-
-export interface FactorsPagedResponse {
-  factors: { code: string; name: string; category: string; factor_type: string }[]
-  total: number
-  page: number
-  page_size: number
-}
-
-export async function fetchFactorsPage(page: number = 1, pageSize: number = 20): Promise<FactorsPagedResponse> {
-  const r = await fetch(`${BASE}/factors/paged?page=${page}&page_size=${pageSize}`, { headers: authHeaders() })
-  if (!r.ok) throw new Error('因子列表加载失败')
   return r.json()
 }
 
