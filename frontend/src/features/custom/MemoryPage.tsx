@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/UI/Modal'
+import { uuid } from '@/utils/helpers'
 import './memory.css'
 
 type MemoryScope = '偏好' | '项目' | '研究'
@@ -76,7 +77,7 @@ export function MemoryPage() {
     if (editing) {
       setMemories((current) => current.map((memory) => memory.id === editing.id ? { ...memory, ...draft, title: draft.title.trim(), content: draft.content.trim(), updatedAt } : memory))
     } else {
-      setMemories((current) => [{ id: crypto.randomUUID(), ...draft, title: draft.title.trim(), content: draft.content.trim(), source: '手动添加', updatedAt, pinned: false }, ...current])
+      setMemories((current) => [{ id: uuid(), ...draft, title: draft.title.trim(), content: draft.content.trim(), source: '手动添加', updatedAt, pinned: false }, ...current])
     }
     setModalOpen(false)
   }

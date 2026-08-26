@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Conversation, Message, createConversation, getConversation, sendMessage } from '@/api/workbench'
 import { getSkills, Skill } from '@/api/skills'
+import { uuid } from '@/utils/helpers'
 import { WatchlistAction } from '@/features/market/components/WatchlistAction'
 import { useAuth } from '@/contexts/AuthContext'
 import './chat-skills.css'
@@ -104,7 +105,7 @@ function AuthenticatedChatPage() {
     if (!conversation || isReplying) return
     setError('')
     setIsReplying(true)
-    const clientMessageId = crypto.randomUUID()
+    const clientMessageId = uuid()
     const selectedNames = availableSkills.filter(skill => skillIds.includes(skill.id)).map(skill => skill.name)
     try {
       await sendMessage(conversation.id, content, clientMessageId, (streamEvent) => {
@@ -174,7 +175,7 @@ function VisitorChatPage() {
     const initialQuestion = searchParams.get('draft')?.trim()
     if (!initialQuestion) return []
     const now = new Date().toISOString()
-    return [{ id: crypto.randomUUID(), role: 'user', content: initialQuestion, created_at: now }, { id: crypto.randomUUID(), role: 'assistant', content: '这是访客临时会话，用于体验基础问答。登录后可保存会话、使用个人上下文，并在项目中继续讨论。', created_at: now }]
+    return [{ id: uuid(), role: 'user', content: initialQuestion, created_at: now }, { id: uuid(), role: 'assistant', content: '这是访客临时会话，用于体验基础问答。登录后可保存会话、使用个人上下文，并在项目中继续讨论。', created_at: now }]
   })
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -182,7 +183,7 @@ function VisitorChatPage() {
     const content = draft.trim()
     if (!content) return
     const now = new Date().toISOString()
-    setMessages(current => [...current, { id: crypto.randomUUID(), role: 'user', content, created_at: now }, { id: crypto.randomUUID(), role: 'assistant', content: '已收到你的问题。当前为访客临时会话，不会保存到历史记录；登录后可获得完整的会话与个人数据能力。', created_at: now }])
+    setMessages(current => [...current, { id: uuid(), role: 'user', content, created_at: now }, { id: uuid(), role: 'assistant', content: '已收到你的问题。当前为访客临时会话，不会保存到历史记录；登录后可获得完整的会话与个人数据能力。', created_at: now }])
     setDraft('')
   }
 

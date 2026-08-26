@@ -1,6 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { InitialProjectMember, InitialProjectMemory, MemoryCategory, createProject } from '@/api/projectManagement'
+import { uuid } from '@/utils/helpers'
 import './project-create.css'
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = {
@@ -21,7 +22,7 @@ function errorMessage(error: unknown) {
 
 export function ProjectCreatePage() {
   const navigate = useNavigate()
-  const [requestId] = useState(() => crypto.randomUUID())
+  const [requestId] = useState(() => uuid())
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [memories, setMemories] = useState<MemoryDraft[]>([])
@@ -46,7 +47,7 @@ export function ProjectCreatePage() {
     setMemories((items) => [
       ...items,
       {
-        localId: crypto.randomUUID(),
+        localId: uuid(),
         category: memoryCategory,
         title: memoryTitle.trim(),
         content: memoryContent.trim(),
@@ -70,7 +71,7 @@ export function ProjectCreatePage() {
     setMembers((items) => [
       ...items,
       {
-        localId: crypto.randomUUID(),
+        localId: uuid(),
         username,
         role: memberRole,
       },

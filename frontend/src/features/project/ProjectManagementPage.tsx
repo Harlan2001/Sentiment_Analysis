@@ -21,6 +21,7 @@ import {
   updateProjectMemory,
   upsertProjectMember,
 } from '@/api/projectManagement'
+import { uuid } from '@/utils/helpers'
 import './project-management.css'
 import './project-detail-refine.css'
 
@@ -61,7 +62,7 @@ export function ProjectManagementPage() {
   const navigate = useNavigate()
   const { projectId } = useParams()
   const isCreating = !projectId || projectId === 'new'
-  const [createRequestId] = useState(() => crypto.randomUUID())
+  const [createRequestId] = useState(() => uuid())
   const [project, setProject] = useState<Project | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [archivedConversations, setArchivedConversations] = useState<Conversation[]>([])
