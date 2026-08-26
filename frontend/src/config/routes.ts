@@ -57,8 +57,9 @@ export const ROUTES: RouteMeta[] = [
   { path: '/computer/reports/:taskId', title: '研报分析', shellTitle: '工作流 · 研报分析' },
   { path: '/computer/strategies', title: '策略开发', shellTitle: '工作流 · 策略开发', group: '工作台', track: true },
   { path: '/computer/strategies/prompt', title: '策略开发', shellTitle: '工作流 · 策略开发' },
-  { path: '/computer/news', title: '每日新闻总结', shellTitle: '工作流 · 每日新闻总结', group: '工作台', track: true },
+  { path: '/computer/news', title: '新闻总结', shellTitle: '工作流 · 新闻总结', group: '工作台', track: true },
   { path: '/computer/news/:taskId', title: '新闻总结详情', shellTitle: '工作流 · 新闻总结详情' },
+  { path: '/computer/demo/:workflowId', title: '工作流演示', shellTitle: '工作流 · 工作流演示', group: '工作台', track: true },
 
   // ── 自定义 ──
   { path: '/custom', title: '自定义', shellTitle: '自定义', navLabel: '自定义', navIcon: '◌', group: '自定义', redirect: '/custom/mcp' },

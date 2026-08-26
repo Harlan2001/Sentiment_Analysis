@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchForecastReport, fetchForecastHistory } from '@/api/market'
-import type { ForecastResponse, ForecastHistoryResponse } from '@/types'
+import type { ForecastResponse } from '@/types'
 
 // 导出API函数供外部使用
 export { fetchForecastReport, fetchForecastHistory }
@@ -24,11 +24,12 @@ export const useForecastReport = (date?: string) => {
       sortedReports: [...data.reports].sort(
         (a, b) => new Date(b.trade_date).getTime() - new Date(a.trade_date).getTime()
       ),
-      // 最新报告
-      latestReport: data.reports.reduce(
-        (latest, current) => (new Date(current.created_at) > new Date(latest.created_at) ? current : latest),
-        data.reports[0]
-      ),
+      // 最新报告（空数组时返回 undefined，避免取 reports[0] 越界）
+      latestReport: data.reports.length
+        ? data.reports.reduce((latest, current) =>
+            new Date(current.created_at) > new Date(latest.created_at) ? current : latest
+          )
+        : undefined,
     }),
   })
 }
@@ -39,20 +40,5 @@ export const useForecastHistory = (limit: number = 30) => {
     queryKey: ['forecast', 'history', limit],
     queryFn: () => fetchForecastHistory(limit),
     staleTime: 10 * 60 * 1000, // 10分钟
-    select: (data: ForecastHistoryResponse) => ({
-      ...data,
-      // 按日期排序
-      sortedHistory: [...data.history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-      // 统计信息
-      stats: {
-        totalDays: data.history.length,
-        averageDayProb:
-          data.history.reduce((sum, day) => sum + (day.reports.day?.上涨概率 || 0), 0) / data.history.length,
-        averageWeekProb:
-          data.history.reduce((sum, day) => sum + (day.reports.week?.上涨概率 || 0), 0) / data.history.length,
-        averageMonthProb:
-          data.history.reduce((sum, day) => sum + (day.reports.month?.上涨概率 || 0), 0) / data.history.length,
-      },
-    }),
   })
 }

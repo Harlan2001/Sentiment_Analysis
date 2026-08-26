@@ -13,6 +13,7 @@ import { StrategyPage } from '@/features/computer/StrategyPage'
 import { NewsPage as ComputerNewsPage } from '@/features/computer/NewsPage'
 import { NewsSummaryDetailPage } from '@/features/computer/NewsSummaryDetailPage'
 import { StrategyPromptPage } from '@/features/computer/StrategyPromptPage'
+import { WorkflowDemoPage } from '@/features/computer/WorkflowDemoPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
 import { MemoryPage } from '@/features/custom/MemoryPage'
@@ -55,6 +56,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/computer/strategies/prompt': <StrategyPromptPage />,
   '/computer/news': <ComputerNewsPage />,
   '/computer/news/:taskId': <NewsSummaryDetailPage />,
+  '/computer/demo/:workflowId': <WorkflowDemoPage />,
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
   '/custom/memory': <MemoryPage />,
@@ -83,6 +85,7 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/computer/strategies/prompt',
   '/computer/news',
   '/computer/news/:taskId',
+  '/computer/demo/:workflowId',
   '/custom/mcp',
   '/custom/skills',
   '/custom/memory',

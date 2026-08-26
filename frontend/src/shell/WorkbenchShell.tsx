@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/features/auth/LoginModal'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
 import { HomeChatDock } from '@/features/market/components/HomeChatDock'
+import { DEMO_WORKFLOWS } from '@/features/computer/WorkflowDemoPage'
 
 // 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
 const MonitorDashboardPanel = lazy(() => import('@/features/monitor/MonitorDashboardPanel'))
@@ -51,6 +52,9 @@ export function WorkbenchShell() {
   const visitorBlockedHomePage = authEnabled && !isAuthenticated && (location.pathname === '/watchlist' || location.pathname === '/portfolio')
   const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
+  const isWorkflowChild = location.pathname.startsWith('/computer/')
+  const demoWorkflowId = location.pathname.match(/^\/computer\/demo\/([^/]+)$/)?.[1]
+  const workflowChildTitle = (demoWorkflowId && DEMO_WORKFLOWS[demoWorkflowId]?.title) || topbarTitle.replace(/^工作流 · /, '')
 
   const loadSidebar = useCallback(() => {
     getSidebar().then((data) => {
@@ -182,7 +186,10 @@ export function WorkbenchShell() {
       </aside>
       <main className="workspace-main" style={{ gridTemplateRows: isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
         <header className="topbar">
-          <div className="topbar-title">{topbarTitle}</div>
+          <div className="topbar-title">
+            {isWorkflowChild && <button className="topbar-back-button" onClick={() => navigate('/workflow')} aria-label="返回工作流">←</button>}
+            <span>{isWorkflowChild ? workflowChildTitle : topbarTitle}</span>
+          </div>
           {isHome ? (
             <label className="global-search"><span>⌕</span><input placeholder="搜索债券、新闻、因子或策略…" /></label>
           ) : (

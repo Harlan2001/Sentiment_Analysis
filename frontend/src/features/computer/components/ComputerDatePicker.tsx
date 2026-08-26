@@ -4,6 +4,8 @@ type Props = {
   value: string
   onChange: (value: string) => void
   label?: string
+  popupAlign?: 'left' | 'right'
+  inlinePopup?: boolean
 }
 
 const DAY_HEADERS = ['一', '二', '三', '四', '五', '六', '日']
@@ -18,7 +20,7 @@ function getMonthDays(year: number, month: number): (number | null)[] {
   ]
 }
 
-export function ComputerDatePicker({ value, onChange, label = '日期' }: Props) {
+export function ComputerDatePicker({ value, onChange, label = '日期', popupAlign = 'right', inlinePopup = false }: Props) {
   const selectedDate = useMemo(() => value ? new Date(`${value}T00:00:00`) : new Date(), [value])
   const [open, setOpen] = useState(false)
   const [year, setYear] = useState(selectedDate.getFullYear())
@@ -46,7 +48,7 @@ export function ComputerDatePicker({ value, onChange, label = '日期' }: Props)
   }
 
   return (
-    <div className="computer-date-range" ref={ref}>
+    <div className={`computer-date-range${popupAlign === 'left' ? ' calendar-align-left' : ''}${inlinePopup ? ' calendar-inline-popup' : ''}`} ref={ref}>
       <button type="button" className={`computer-chip ${value ? 'selected' : ''}`} onClick={toggleCalendar}>
         <span>▣</span>{value || label}
       </button>

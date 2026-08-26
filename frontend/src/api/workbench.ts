@@ -92,6 +92,7 @@ export function removeWatchlistItem(itemId: string) {
 }
 
 import { storage } from '@/utils/helpers'
+import { buildDemoConversation, buildDemoDetail, buildDemoDraft, clearDemo, DEMO_CONVERSATION_ID, getDemoConversation, isDemoInstrument, markRunning, resetDemo } from '@/features/computer/strategyDemo'
 
 // 与主前端同域：开发环境经 Vite 代理转发，部署时可由同域反向代理提供此路径。
 const apiBaseUrl = ''
@@ -284,15 +285,27 @@ export type StrategyDraft = {
   context: Record<string, unknown>
 }
 
-export function getStrategyConversations(limit = 50) {
-  return request<{ items: StrategyConversation[] }>(`/sapi/ai-strategy-generation/conversations?limit=${limit}`)
+export async function getStrategyConversations(limit = 50) {
+  const demo = getDemoConversation()
+  try {
+    const data = await request<{ items: StrategyConversation[] }>(`/sapi/ai-strategy-generation/conversations?limit=${limit}`)
+    if (!demo) return data
+    return { items: [demo, ...data.items.filter((item) => item.id !== DEMO_CONVERSATION_ID)] }
+  } catch {
+    return { items: demo ? [demo] : [] }
+  }
 }
 
 export function getStrategyConversation(id: number) {
+  if (id === DEMO_CONVERSATION_ID) return Promise.resolve(buildDemoDetail())
   return request<StrategyConversationDetail>(`/sapi/ai-strategy-generation/conversations/${id}`)
 }
 
 export function createStrategyConversation(title: string) {
+  if (isDemoInstrument(title)) {
+    resetDemo()
+    return Promise.resolve(buildDemoConversation(title))
+  }
   return request<StrategyConversation>('/sapi/ai-strategy-generation/conversations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -301,6 +314,7 @@ export function createStrategyConversation(title: string) {
 }
 
 export function createStrategyDraft(conversationId: number, requirement: string, lookbackDays = 7) {
+  if (conversationId === DEMO_CONVERSATION_ID) return Promise.resolve(buildDemoDraft())
   return request<StrategyDraft>(`/sapi/ai-strategy-generation/conversations/${conversationId}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -309,6 +323,10 @@ export function createStrategyDraft(conversationId: number, requirement: string,
 }
 
 export function confirmStrategyDraft(conversationId: number, assistantMessageId: number, editedPrompt: string) {
+  if (conversationId === DEMO_CONVERSATION_ID) {
+    markRunning()
+    return Promise.resolve({} as Record<string, unknown>)
+  }
   return request<Record<string, unknown>>(`/sapi/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -321,6 +339,10 @@ export function archiveStrategyConversation(conversationId: number) {
 }
 
 export function deleteStrategyConversation(conversationId: number) {
+  if (conversationId === DEMO_CONVERSATION_ID) {
+    clearDemo()
+    return Promise.resolve({ deleted: true })
+  }
   return request<{ deleted: boolean }>(`/sapi/ai-strategy-generation/conversations/${conversationId}`, { method: 'DELETE' })
 }
 
