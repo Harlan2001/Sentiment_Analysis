@@ -7,61 +7,15 @@ services:
     container_name: sentiment-backend
     ports:
       - "8000:8000"
+    env_file:
+      # 全量注入宿主机 .env（已被 gitignore，是唯一配置源）。
+      # 缺省值由 backend/config/config.py 兜底（MYSQL_PORT / API_PREFIX / LOG_LEVEL / AUTH_ENABLED 等）。
+      - .env
     environment:
-      # ===== Python 运行时 =====
-      - PYTHONDONTWRITEBYTECODE=1
-      - PYTHONUNBUFFERED=1
-      # ===== API前缀 =====
-      - API_PREFIX=${API_PREFIX:-/sapi}
-      # ===== Kingstar LLM API =====
-      - kingstar_API_KEY=${kingstar_API_KEY}
-      - kingstar_BASE_URL=${kingstar_BASE_URL}
-      # ===== MySQL 数据库 =====
-      - MYSQL_HOST=${MYSQL_HOST}
-      - MYSQL_PORT=${MYSQL_PORT:-3306}
-      - MYSQL_USER=${MYSQL_USER:-root}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-Sentiment_analysis}
-      - MYSQL_CHARSET=${MYSQL_CHARSET:-utf8mb4}
-      - MYSQL_AUTOCOMMIT=${MYSQL_AUTOCOMMIT:-true}
-      # ===== 分析模型 =====
-      - ANALYSIS_MODEL_NAME=${ANALYSIS_MODEL_NAME:-glm}
-      - CHAT_MODEL_NAME=${CHAT_MODEL_NAME:-glm}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # ===== 策略 & 标的推荐（必填，代码启动时校验） =====
-      - QUANT_STRATEGY_BASE_URL=${QUANT_STRATEGY_BASE_URL}
-      - QUANT_STRATEGY_TOKEN=${QUANT_STRATEGY_TOKEN}
-      - STRATEGY_API_BASE_URL=${STRATEGY_API_BASE_URL}
-      - BOND_API_BASE_URL=${BOND_API_BASE_URL}
-      - KINGSTAR_EMPLOYEE_NO=${KINGSTAR_EMPLOYEE_NO}
-      # ===== AI 策略生成 =====
-      - DREAM_PORTAL_CONFIG_URL=${DREAM_PORTAL_CONFIG_URL}
-      - DREAM_TEMPLATE_ID=${DREAM_TEMPLATE_ID}
-      - DREAM_AGENT=${DREAM_AGENT}
-      - DREAM_TIMEOUT_SECONDS=${DREAM_TIMEOUT_SECONDS}
-      # ===== SaaS 本地快照模式 =====
-      - USE_LOCAL_SNAPSHOT=${USE_LOCAL_SNAPSHOT:-false}
-      - SNAPSHOT_DIR=${SNAPSHOT_DIR:-data/snapshots}
-      # ===== 登录认证 =====
-      - AUTH_ENABLED=${AUTH_ENABLED:-false}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - JWT_EXPIRY_HOURS=${JWT_EXPIRY_HOURS:-24}
-      # ===== 飞书自建应用推送 =====
-      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
-      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
-      - FEISHU_GROUP_ID=${FEISHU_GROUP_ID:-}
-      # ===== 微信公众号推送 =====
-      - WECHAT_APPID=${WECHAT_APPID:-}
-      - WECHAT_USERNAME=${WECHAT_USERNAME:-}
-      - WECHAT_PASSWORD=${WECHAT_PASSWORD:-}
-      - ARTICLE_AUTHOR=${ARTICLE_AUTHOR:-AI量化系统}
-      # ===== 网络代理 =====
-      - HTTP_PROXY=${HTTP_PROXY:-}
-      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      # 容器内固定配置：保持固定值，且优先级高于 env_file（不会被 .env 覆盖）
       - NO_PROXY=frontend,backend,localhost,127.0.0.1,.local
       - no_proxy=frontend,backend,localhost,127.0.0.1,.local
-      - OUTBOUND_PROXY_ENABLED=${OUTBOUND_PROXY_ENABLED:-true}
-      # ===== uv 禁止缓存（runtime 不需要） =====
+      # runtime 用不到 uv，禁止其缓存线程
       - UV_NO_CACHE=1
     volumes:
       # 数据持久化：宿主机目录映射到容器
