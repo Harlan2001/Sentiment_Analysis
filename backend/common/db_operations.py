@@ -61,11 +61,11 @@ class DBOperations:
                 params: List[Any] = []
 
                 if mode == "model_missing":
-                    # 只挑"当前模型还没分析过"的新闻，支持多模型各自补跑
+                    # 只挑完全没有分析记录的新闻（任何模型都没有），
+                    # 避免历史旧新闻被反复 re-analysis
                     conditions.append(
-                        "NOT EXISTS (SELECT 1 FROM analysis a WHERE a.news_id = n.id AND a.model = %s)"
+                        "NOT EXISTS (SELECT 1 FROM analysis a WHERE a.news_id = n.id)"
                     )
-                    params.append(model)
                 elif mode != "force_rerun":
                     raise ValueError(f"不支持的 mode: {mode}")
 
