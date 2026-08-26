@@ -33,6 +33,9 @@ const markdownComponents: Components = {
     if (href) return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
     return <>{children}</>
   },
+  table({ children, ...props }) {
+    return <div className="message-table-scroll"><table {...props}>{children}</table></div>
+  },
 }
 
 function AuthenticatedChatPage() {
@@ -51,6 +54,7 @@ function AuthenticatedChatPage() {
   const creationStarted = useRef(false)
   const submittedDraft = useRef('')
   const formRef = useRef<HTMLFormElement>(null)
+  const activeConversationId = useRef<string | null>(null)
 
   useEffect(() => {
     getSkills('', 'mine')
@@ -59,7 +63,11 @@ function AuthenticatedChatPage() {
   }, [])
 
   useEffect(() => {
-    if (conversationId !== 'new' || creationStarted.current) return
+    if (conversationId !== 'new') {
+      creationStarted.current = false
+      return
+    }
+    if (creationStarted.current) return
     creationStarted.current = true
     const projectId = searchParams.get('project') || undefined
     createConversation({ project_id: projectId, source: projectId ? 'project' : 'home' })
@@ -73,17 +81,34 @@ function AuthenticatedChatPage() {
   }, [conversationId, navigate, searchParams])
 
   useEffect(() => {
-    if (conversationId === 'new') return
     setError('')
     setConversation(null)
+    setMessages([])
+    setDraft('')
     setUsedSkillNames({})
+    setSkillPickerOpen(false)
+    setIsReplying(false)
+    activeConversationId.current = conversationId === 'new' ? null : conversationId
+
+    if (conversationId === 'new') {
+      window.dispatchEvent(new CustomEvent('bondsense-conversation-topic-change', { detail: { title: '新建对话' } }))
+      return
+    }
+
+    let cancelled = false
     getConversation(conversationId)
       .then((data) => {
+        if (cancelled) return
         setConversation(data.conversation)
         setMessages(data.messages)
         window.dispatchEvent(new CustomEvent('bondsense-conversation-topic-change', { detail: data.conversation }))
       })
-      .catch((requestError: Error) => setError(requestError.message))
+      .catch((requestError: Error) => {
+        if (!cancelled) setError(requestError.message)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [conversationId])
 
   useEffect(() => {
@@ -103,12 +128,15 @@ function AuthenticatedChatPage() {
 
   async function submitMessage(content: string, skillIds = selectedSkillIds) {
     if (!conversation || isReplying) return
+    const targetConversationId = conversation.id
+    const isCurrentConversation = () => activeConversationId.current === targetConversationId
     setError('')
     setIsReplying(true)
     const clientMessageId = uuid()
     const selectedNames = availableSkills.filter(skill => skillIds.includes(skill.id)).map(skill => skill.name)
     try {
       await sendMessage(conversation.id, content, clientMessageId, (streamEvent) => {
+        if (!isCurrentConversation()) return
         if (streamEvent.event === 'message.accepted') {
           setMessages((current) => current.some((message) => message.id === streamEvent.data.message.id) ? current : [...current, streamEvent.data.message])
         }
@@ -124,14 +152,16 @@ function AuthenticatedChatPage() {
         }
       }, skillIds)
       const refreshed = await getConversation(conversation.id)
+      if (!isCurrentConversation()) return
       setConversation(refreshed.conversation)
       setMessages(refreshed.messages)
       window.dispatchEvent(new CustomEvent('bondsense-conversation-topic-change', { detail: refreshed.conversation }))
       refreshSidebar()
     } catch (requestError) {
+      if (!isCurrentConversation()) return
       setError(requestError instanceof Error ? requestError.message : '发送消息失败')
     } finally {
-      setIsReplying(false)
+      if (isCurrentConversation()) setIsReplying(false)
     }
   }
 

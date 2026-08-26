@@ -227,3 +227,6 @@ Xiang
 
 量化相关文档汇总
 .workbuddy
+
+# 本地临时备份目录，不纳入版本控制
+.tmp_untracked_backup/

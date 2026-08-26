@@ -8,6 +8,20 @@
   box-shadow: none;
   padding: 28px 4px 22px;
 }
+.pm-detail-hero .pm-actions {
+  display: grid;
+  flex: 0 0 432px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.pm-detail-hero .pm-actions .pm-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  white-space: nowrap;
+}
 .pm-title-block {
   min-width: 0;
   max-width: 720px;
@@ -101,6 +115,11 @@
 @media (max-width: 850px) {
   .pm-detail-hero {
     align-items: flex-start;
+    flex-direction: column;
+  }
+  .pm-detail-hero .pm-actions {
+    flex-basis: auto;
+    width: min(100%, 432px);
   }
   .pm-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
