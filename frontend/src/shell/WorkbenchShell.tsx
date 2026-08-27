@@ -56,6 +56,10 @@ export function WorkbenchShell() {
   const demoWorkflowId = location.pathname.match(/^\/computer\/demo\/([^/]+)$/)?.[1]
   const workflowChildTitle = (demoWorkflowId && DEMO_WORKFLOWS[demoWorkflowId]?.title) || topbarTitle.replace(/^工作流 · /, '')
 
+  useEffect(() => {
+    setMonitorPanelOpen(false)
+  }, [location.pathname, location.search])
+
   const loadSidebar = useCallback(() => {
     getSidebar().then((data) => {
       setProjects(data.projects)

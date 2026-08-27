@@ -1337,10 +1337,28 @@ export interface YieldDetailData {
 
 export interface FactorDetailData {
   id: number;
+  code: string;
   name: string;
   category: string;
+  factor_type: string;
   news_count: number;
   activity_score: number;
+  activity_7d: number;
+  activity_30d: number;
+  activity_365d: number;
+  activity_change_7d: number | null;
+  current_direction: '利多' | '利空' | '中性';
+  heat_level: '高' | '中' | '低';
+  latest_event_at: string | null;
+  direction_counts: { positive: number; negative: number; neutral: number };
+  trend_series: Record<'7d' | '30d' | '365d', {
+    date: string;
+    positive: number;
+    negative: number;
+    neutral: number;
+    total: number;
+  }[]>;
+  insight: string;
   daily_counts: { date: string; count: number }[];
   related_news: {
     id: number;
@@ -1349,7 +1367,7 @@ export interface FactorDetailData {
     direction: string | null;
     reason: string;
   }[];
-  related_factors: { id: number; name: string; category: string }[];
+  related_factors: { id: number; name: string; category: string; shared_count: number }[];
 }
 
 export interface StrategyLatestData {

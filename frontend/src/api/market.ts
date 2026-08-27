@@ -52,9 +52,23 @@ export async function fetchNewsYieldData(
 }
 
 export interface FactorDefinition {
+  id: number
   code: string
   name: string
   category: string
+  factor_type?: string
+  news_count: number
+  recent_news_count: number
+  activity_7d: number
+  activity_30d: number
+  activity_365d: number
+  positive_count: number
+  negative_count: number
+  neutral_count: number
+  current_direction: '利多' | '利空' | '中性'
+  heat_level: '高' | '中' | '低'
+  trend_7d: number[]
+  latest_event_at: string | null
 }
 
 export interface AllFactorsResponse {
@@ -63,6 +77,12 @@ export interface AllFactorsResponse {
 
 export async function fetchAllFactors(): Promise<AllFactorsResponse> {
   const r = await fetch(`${BASE}/factors`, { headers: authHeaders() })
+  return r.json()
+}
+
+export async function fetchFactorActivityOverview(): Promise<AllFactorsResponse> {
+  const r = await fetch(`${BASE}/factors/activity-overview`, { headers: authHeaders() })
+  if (!r.ok) throw new Error('获取因子活跃度数据失败')
   return r.json()
 }
 

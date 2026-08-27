@@ -1,10 +1,10 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchAllFactors, fetchFactorDetail, fetchMacroData, fetchMacroIndicators } from '@/api/market'
+import { fetchFactorActivityOverview, fetchMacroData, fetchMacroIndicators } from '@/api/market'
+import type { FactorDefinition } from '@/api/market'
 import { Skeleton } from '@/components/UI'
-import type { FactorDetailData } from '@/types'
 import { WatchlistAction } from '../components/WatchlistAction'
 
 const CATEGORIES: Record<string, string> = { LIQUIDITY: '货币流动性', POLICY: '政策监管', MACRO: '经济增长', RISK: '债券供需', SENTIMENT: '情绪风险', INDUSTRY: '债券供需' }
@@ -13,13 +13,31 @@ const DOMAINS = [
   ['trade', '进出口'], ['fiscal', '财政'], ['industry', '产业'],
 ]
 
-type Factor = { id: number; code: string; name: string; category: string; factor_type?: string; news_count?: number; recent_news_count?: number }
+type Factor = FactorDefinition
+type DirectionFilter = 'ALL' | Factor['current_direction']
+type ActivityPeriod = '7d' | '30d' | '365d'
 const FACTOR_PAGE_SIZE = 20
+
+function normalizeFactor(raw: Factor): Factor {
+  const activity30d = Number(raw.activity_30d ?? raw.recent_news_count ?? 0)
+  return {
+    ...raw,
+    activity_7d: Number(raw.activity_7d ?? 0),
+    activity_30d: activity30d,
+    activity_365d: Number(raw.activity_365d ?? raw.news_count ?? 0),
+    positive_count: Number(raw.positive_count ?? 0),
+    negative_count: Number(raw.negative_count ?? 0),
+    neutral_count: Number(raw.neutral_count ?? 0),
+    current_direction: raw.current_direction || '中性',
+    heat_level: raw.heat_level || (activity30d >= 20 ? '高' : activity30d >= 5 ? '中' : '低'),
+    trend_7d: raw.trend_7d || [],
+    latest_event_at: raw.latest_event_at || null,
+  }
+}
 
 export default function FactorsSection() {
   const [searchParams] = useSearchParams()
   const [view, setView] = useState<'signals' | 'macro'>(searchParams.get('view') === 'macro' ? 'macro' : 'signals')
-  const [selectedFactor, setSelectedFactor] = useState<Factor | null>(null)
   return <div className="home-section-page factor-section-page">
     <header className="home-section-heading factor-section-heading">
       <div className="factor-view-tabs">
@@ -27,59 +45,57 @@ export default function FactorsSection() {
         {key === 'signals' ? '因子信号' : '宏观数据'}
       </button>)}
       </div>
-      {view === 'signals' && selectedFactor && <h2 className="factor-activity-label">7日活跃度走势</h2>}
     </header>
-    {view === 'signals' ? <FactorSignals selectedFactor={selectedFactor} onSelect={setSelectedFactor} /> : <MacroWorkspace presetCodes={searchParams.get('codes')?.split(',').filter(Boolean) || []} />}
+    {view === 'signals' ? <FactorSignals /> : <MacroWorkspace presetCodes={searchParams.get('codes')?.split(',').filter(Boolean) || []} />}
   </div>
 }
 
-function FactorSignals({ selectedFactor, onSelect }: { selectedFactor: Factor | null; onSelect: (factor: Factor) => void }) {
+function FactorSignals() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [category, setCategory] = useState('ALL')
+  const [direction, setDirection] = useState<DirectionFilter>('ALL')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const { data, isLoading, isError } = useQuery({ queryKey: ['factors-all'], queryFn: fetchAllFactors, staleTime: 5 * 60 * 1000 })
-  const factors = useMemo(() => ((data?.factors || []) as Factor[]).filter(f => (category === 'ALL' || f.category === category) && (`${f.name}${f.code}`).toLowerCase().includes(query.toLowerCase())).sort((a, b) => (b.recent_news_count || 0) - (a.recent_news_count || 0)), [data, category, query])
-  const categories = useMemo(() => [...new Set(((data?.factors || []) as Factor[]).map((f) => f.category))], [data])
+  const [activityPeriod, setActivityPeriod] = useState<ActivityPeriod>('7d')
+  const { data, isLoading, isError } = useQuery({ queryKey: ['factors-activity-overview'], queryFn: fetchFactorActivityOverview, staleTime: 5 * 60 * 1000 })
+  const allFactors = useMemo(() => ((data?.factors || []) as Factor[]).map(normalizeFactor), [data])
+  const factors = useMemo(() => allFactors.filter(f =>
+    (category === 'ALL' || f.category === category)
+    && (direction === 'ALL' || f.current_direction === direction)
+    && (`${f.name}${f.code}`).toLowerCase().includes(query.toLowerCase())
+  ).sort((a, b) => b.activity_30d - a.activity_30d), [allFactors, category, direction, query])
+  const categories = useMemo(() => [...new Set(allFactors.map(f => f.category))], [allFactors])
   const totalPages = Math.max(1, Math.ceil(factors.length / FACTOR_PAGE_SIZE))
   const pagedFactors = factors.slice((page - 1) * FACTOR_PAGE_SIZE, page * FACTOR_PAGE_SIZE)
-  useEffect(() => setPage(1), [category, query])
+  useEffect(() => setPage(1), [category, direction, query])
+  const openFactor = (factor: Factor) => navigate(`/factor/${factor.id}`, { state: { from: `${location.pathname}${location.search}` } })
   return <div className="home-section-grid">
     <main className="home-section-main">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <label className="flex items-center gap-2 h-9 px-3 rounded-lg border border-[#2a2a2e] bg-[#0d0d0d] text-gray-500 w-64"><span>⌕</span><input className="w-full bg-transparent border-0 outline-0 text-sm text-gray-200 placeholder-gray-600" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索因子名称或代码" /></label>
-        <span className="text-xs text-gray-600">{factors.length} 个因子</span>
-      </div>
-      <div className="flex gap-2 flex-wrap mb-4">
-        <FilterButton active={category === 'ALL'} onClick={() => setCategory('ALL')}>全部</FilterButton>
-        {categories.map(key => <FilterButton key={key} active={category === key} onClick={() => setCategory(key)}>{CATEGORIES[key] || key}</FilterButton>)}
+      <div className="factor-library-toolbar">
+        <label className="factor-library-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索因子名称或代码" /></label>
+        <span className="factor-library-count">{factors.length} 个因子</span>
+        <FilterDropdown label="类别" value={category} options={[['ALL', '全部类别'], ...categories.map(key => [key, CATEGORIES[key] || key])]} onChange={setCategory} />
+        <FilterDropdown label="当前方向" value={direction} options={[['ALL', '全部方向'], ['利多', '利多'], ['利空', '利空'], ['中性', '中性']]} onChange={(value) => setDirection(value as DirectionFilter)} />
       </div>
       {isLoading ? <Skeleton height="360px" variant="rectangular" /> : isError ? <Empty text="因子数据加载失败" /> : <><div className="factor-signal-table rounded-xl border border-[#2a2a2e] bg-[#111111] overflow-x-auto">
-        <table className="w-full min-w-[820px] table-fixed text-left"><colgroup><col className="w-[34%]" /><col className="w-[16%]" /><col className="w-[12%]" /><col className="w-[12%]" /><col className="w-[11%]" /><col className="w-[15%]" /></colgroup><thead><tr className="border-b border-[#2a2a2e] text-xs text-gray-500"><th className="px-4 py-3">因子</th><th className="px-4 py-3">分类</th><th className="px-4 py-3">方向</th><th className="px-4 py-3">热度</th><th className="px-4 py-3 text-center">事件</th><th className="px-4 py-3">更新</th></tr></thead>
-          <tbody>{pagedFactors.map(f => { const direction = factorDirection(f.code); const heat = factorHeat(f.code); return <tr key={f.code} onClick={() => onSelect(f)} className={`cursor-pointer border-b border-[#1e1e1e] hover:bg-[#181818] ${selectedFactor?.code === f.code ? 'bg-[#1a1a1a]' : ''}`}><td className="px-4 py-3"><div className="truncate text-sm text-gray-200 font-medium">{f.name}</div><div className="truncate text-xs text-gray-600 mt-0.5">{f.code}</div></td><td className="px-4 py-3 text-sm text-gray-400"><span className="block truncate">{CATEGORIES[f.category] || f.category}</span></td><td className="px-4 py-3"><span className={direction === '利多' ? 'factor-direction up' : direction === '利空' ? 'factor-direction down' : 'factor-direction neutral'}>{direction}</span></td><td className="px-4 py-3"><span className={`factor-heat ${heat}`}>{heat}</span></td><td className="px-4 py-3 text-center text-sm text-gray-300">{f.recent_news_count || f.news_count || 0}</td><td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{factorUpdated(f.code)}</td></tr> })}</tbody>
+        <table className="w-full min-w-[900px] table-fixed text-left"><colgroup><col className="w-[25%]" /><col className="w-[15%]" /><col className="w-[10%]" /><col className="w-[14%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[16%]" /></colgroup><thead><tr className="border-b border-[#2a2a2e] text-xs text-gray-500"><th className="px-4 py-3">因子</th><th className="px-4 py-3">类别</th><th className="px-4 py-3">当前方向</th><th className="px-4 py-3 text-center">七日走势</th><th className="px-4 py-3">热度</th><th className="px-4 py-3 text-center">事件</th><th className="px-4 py-3">更新</th></tr></thead>
+          <tbody>{pagedFactors.map(f => <tr key={f.code} role="link" tabIndex={0} onClick={() => openFactor(f)} onKeyDown={(event) => { if (event.key === 'Enter') openFactor(f) }} className="cursor-pointer border-b border-[#1e1e1e] hover:bg-[#181818]"><td className="px-4 py-3"><div className="truncate text-sm text-gray-200 font-medium">{f.name}</div><div className="truncate text-xs text-gray-600 mt-0.5">{f.code}</div></td><td className="px-4 py-3 text-sm text-gray-400"><span className="block truncate">{CATEGORIES[f.category] || f.category}</span></td><td className="px-4 py-3"><span className={f.current_direction === '利多' ? 'factor-direction up' : f.current_direction === '利空' ? 'factor-direction down' : 'factor-direction neutral'}>{f.current_direction}</span></td><td className="px-4 py-3 text-center"><FactorMiniTrend values={f.trend_7d || []} /></td><td className="px-4 py-3"><span className={`factor-heat ${f.heat_level}`}>{f.heat_level}</span></td><td className="px-4 py-3 text-center text-sm text-gray-300">{f.activity_30d}</td><td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{factorUpdated(f.latest_event_at)}</td></tr>)}</tbody>
         </table>
       </div><div className="factor-table-pagination"><span>第 {page} / {totalPages} 页 · 共 {factors.length} 个因子</span><div><button disabled={page === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button><button disabled={page === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button></div></div></>}
     </main>
-    <aside className="home-section-sidebar factor-signal-sidebar"><FactorSidebar factor={selectedFactor} /></aside>
+    <aside className="home-section-sidebar factor-signal-sidebar"><FactorActivityRanking factors={allFactors} period={activityPeriod} onPeriodChange={setActivityPeriod} onOpen={openFactor} loading={isLoading} /></aside>
   </div>
 }
 
-function factorSeed(code: string) { return [...code].reduce((sum, char) => sum + char.charCodeAt(0), 0) }
-function factorDirection(code: string) { return ['利多', '利空', '中性'][factorSeed(code) % 3] }
-function factorHeat(code: string) { return ['高', '中', '低'][factorSeed(code) % 3] }
-function factorUpdated(code: string) { return ['今天 10:20', '今天 09:40', '昨天', '昨天 16:20', '2 天前'][factorSeed(code) % 5] }
-function FactorSevenDayTrend({ values }: { values: number[] }) { if (!values.length) return <div className="factor-seven-day-empty">近 7 日暂无活跃数据</div>; const max = Math.max(...values, 1); const min = Math.min(...values, 0); const range = max - min || 1; const points = values.map((value, index) => ({ x: values.length === 1 ? 50 : index * (100 / (values.length - 1)), y: 30 - ((value - min) / range) * 26 })); const path = points.length === 1 ? `M 34 ${points[0].y} L 66 ${points[0].y}` : points.reduce((result, point, index) => { if (index === 0) return `M ${point.x} ${point.y}`; if (index === points.length - 1) return `${result} L ${point.x} ${point.y}`; const previous = points[index - 1]; return `${result} Q ${previous.x} ${previous.y} ${(previous.x + point.x) / 2} ${(previous.y + point.y) / 2}` }, ''); return <svg className="factor-seven-day-chart" viewBox="0 0 100 32" preserveAspectRatio="none" aria-label="近7日活跃度趋势"><path d={path} /></svg> }
+function factorUpdated(value: string | null) { if (!value) return '暂无事件'; const date = new Date(value.replace(' ', 'T')); if (Number.isNaN(date.getTime())) return value.slice(0, 10); return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date) }
+function FactorMiniTrend({ values }: { values: number[] }) { if (!values.length) return <span className="factor-mini-trend-empty">暂无趋势</span>; const max = Math.max(...values, 1); const min = Math.min(...values, 0); const range = max - min || 1; const coords = values.map((value, index) => ({ x: index * (100 / Math.max(values.length - 1, 1)), y: 26 - ((value - min) / range) * 20 })); const clampY = (value: number) => Math.max(3, Math.min(27, value)); let path = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`; for (let index = 0; index < coords.length - 1; index++) { const previous = coords[index - 1] || coords[index]; const current = coords[index]; const next = coords[index + 1]; const afterNext = coords[index + 2] || next; const control1 = { x: current.x + (next.x - previous.x) / 6, y: clampY(current.y + (next.y - previous.y) / 6) }; const control2 = { x: next.x - (afterNext.x - current.x) / 6, y: clampY(next.y - (afterNext.y - current.y) / 6) }; path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}` } return <svg className="factor-mini-trend mx-auto" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label={`最近七日活跃度：${values.join('、')}`}><path d={path} /></svg> }
 
-function FactorSidebar({ factor }: { factor: Factor | null }) {
-  const { data, isLoading } = useQuery<FactorDetailData>({ queryKey: ['factor-detail', factor?.id], queryFn: () => fetchFactorDetail(factor!.id), enabled: !!factor, staleTime: 60 * 1000 })
-  if (!factor) return <Empty text="选择一个因子，查看走势与相关新闻" />
-  if (isLoading) return <Skeleton height="360px" variant="rectangular" />
-  if (!data || 'error' in data) return <Empty text="未能加载因子详情" />
-  const values = data.daily_counts.map(d => d.count)
-  return <div className="factor-detail-sidebar">
-    <section className="factor-detail-activity rounded-xl border border-[#2a2a2e] bg-[#111111] p-4"><p className="text-xs text-gray-500">{data.name} · 近 7 天 {data.news_count} 条关联新闻</p><FactorSevenDayTrend values={values} /></section>
-    <section className="factor-detail-news rounded-xl border border-[#2a2a2e] bg-[#111111] p-4"><h2 className="text-sm font-semibold text-white mb-3">相关新闻</h2><div className="space-y-2">{data.related_news.length ? data.related_news.map(n => <div key={n.id} className="rounded-lg border border-[#1e1e1e] bg-[#0d0d0d] p-3"><div className="flex gap-2 text-xs text-gray-500 mb-1"><span>{n.pub_time.slice(5, 16)}</span><span className={n.direction === 'positive' ? 'text-red-400' : n.direction === 'negative' ? 'text-green-400' : 'text-gray-400'}>{n.direction === 'positive' ? '利多' : n.direction === 'negative' ? '利空' : '中性'}</span></div><p className="text-sm leading-snug text-gray-200 line-clamp-2">{n.title}</p></div>) : <p className="text-sm text-gray-600 py-4 text-center">暂无相关新闻</p>}</div></section>
-  </div>
-}
+function FilterDropdown({ label, value, options, onChange }: { label: string; value: string; options: string[][]; onChange: (value: string) => void }) { const [open, setOpen] = useState(false); const selected = options.find(option => option[0] === value)?.[1] || value; return <div className="factor-filter-dropdown"><button type="button" onClick={() => setOpen(current => !current)} aria-expanded={open}><span>{label}</span><b>{selected}</b><i /></button>{open && <div className="factor-filter-menu">{options.map(([key, text]) => <button type="button" key={key} className={key === value ? 'active' : ''} onClick={() => { onChange(key); setOpen(false) }}>{text}</button>)}</div>}</div> }
+
+const RANKING_COLOR = '#f97316'
+const RANKING_GRADIENT = 'linear-gradient(90deg, #f59e0b 0%, #f97316 48%, #ef4444 100%)'
+function FactorActivityRanking({ factors, period, onPeriodChange, onOpen, loading }: { factors: Factor[]; period: ActivityPeriod; onPeriodChange: (period: ActivityPeriod) => void; onOpen: (factor: Factor) => void; loading: boolean }) { const field: Record<ActivityPeriod, keyof Factor> = { '7d': 'activity_7d', '30d': 'activity_30d', '365d': 'activity_365d' }; const ranking = [...factors].sort((a, b) => Number(b[field[period]]) - Number(a[field[period]])).slice(0, 10); const max = Math.max(...ranking.map(item => Number(item[field[period]])), 1); return <section className="factor-activity-ranking-panel"><header><div><h2>活跃因子 Top 10</h2><p>按关联事件数量排名</p></div></header><div className="factor-ranking-periods">{([['7d', '近7日'], ['30d', '近30日'], ['365d', '近1年']] as [ActivityPeriod, string][]).map(([key, text]) => <button type="button" key={key} className={period === key ? 'active' : ''} onClick={() => onPeriodChange(key)}>{text}</button>)}</div>{loading ? <Skeleton height="360px" variant="rectangular" /> : <ol className="factor-activity-ranking">{ranking.map((factor, index) => { const count = Number(factor[field[period]]); return <li key={factor.id}><button type="button" onClick={() => onOpen(factor)}><span className="factor-ranking-copy"><em style={{ color: RANKING_COLOR }}>{index + 1}</em><b title={factor.name}>{factor.name}</b><strong>{count}</strong></span><span className="factor-ranking-track"><i style={{ width: `${count ? Math.max(4, (count / max) * 100) : 0}%`, backgroundImage: RANKING_GRADIENT }} /></span></button></li> })}</ol>}</section> }
 
 function MacroWorkspace({ presetCodes }: { presetCodes: string[] }) {
   const [domain, setDomain] = useState('price'); const [mode, setMode] = useState<'single' | 'compare'>('compare'); const [selected, setSelected] = useState<string[]>([])
@@ -91,7 +107,7 @@ function MacroWorkspace({ presetCodes }: { presetCodes: string[] }) {
     const available = presetCodes.filter((code) => indicators.indicators.some((item: any) => item.code === code)).slice(0, 4)
     if (!available.length) return
     const first = indicators.indicators.find((item: any) => item.code === available[0])
-    if (first) setDomain(first.domain)
+    if (first?.domain) setDomain(first.domain)
     setMode(available.length === 1 ? 'single' : 'compare')
     setSelected(available)
   }, [indicators, presetSignature])

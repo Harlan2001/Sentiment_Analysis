@@ -13,6 +13,12 @@ def get_all_factors_api():
     return {"factors": get_factors_from_db()}
 
 
+@router.get("/factors/activity-overview")
+def get_factor_activity_overview_api():
+    """返回因子首页所需的方向、热度和多周期活跃度数据。"""
+    return {"factors": get_factors_from_db()}
+
+
 @router.get("/factors/paged")
 def get_factors_paged_api(
     page: int = Query(1, ge=1),
