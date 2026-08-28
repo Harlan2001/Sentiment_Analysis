@@ -7,7 +7,6 @@ from backend.auth.auth import check_password, create_jwt_token, verify_jwt_token
 from backend.common.database import get_connection
 from backend.config.config import API_PREFIX, AUTH_ENABLED
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/auth", tags=["auth"])
 
 

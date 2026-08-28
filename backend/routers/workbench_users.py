@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 from backend.common.database import get_connection
 from backend.config.config import API_PREFIX
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/users", tags=["workspace-users"])
 
 

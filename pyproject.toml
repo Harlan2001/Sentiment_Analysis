@@ -68,3 +68,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]       # 错误/未定义/未使用导入
+ignore = [
+    "E501",                    # 存量行太长(全库数百处)——分期收敛,暂不拦(新代码仍靠格式化/pyright)
+    "E402",                    # config 类文件需先 setenv 再 import,属项目正常模式
+]

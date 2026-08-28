@@ -6,8 +6,11 @@ import json
 import uuid
 from typing import Any, Literal
 
-from backend.repositories.workbench_repository import WorkbenchNotFoundError, WorkbenchRepository, _serialize_row
-
+from backend.repositories.workbench_repository import (
+    WorkbenchNotFoundError,
+    WorkbenchRepository,
+    _serialize_row,
+)
 
 WatchlistObjectType = Literal["news", "factor", "macro_signal"]
 

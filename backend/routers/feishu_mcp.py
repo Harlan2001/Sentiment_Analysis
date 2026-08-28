@@ -11,7 +11,6 @@ from backend.config.config import API_PREFIX
 from backend.integrations.feishu.client import FeishuApiError, FeishuClient
 from backend.integrations.feishu.repository import FeishuConnectionError, FeishuConnectionRepository
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/mcp/feishu", tags=["feishu-mcp"])
 
 TOOLS = [

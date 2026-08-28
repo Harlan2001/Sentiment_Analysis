@@ -163,7 +163,7 @@ def main():
         logger.info("转换成功: %d 张图片 → %s", len(image_paths), args.output_dir)
         for p in image_paths:
             logger.debug("  %s", p)
-    except Exception as e:
+    except Exception:
         logger.exception("PDF 转图片失败")
         sys.exit(1)
 

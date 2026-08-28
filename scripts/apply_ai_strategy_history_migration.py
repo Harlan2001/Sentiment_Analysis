@@ -13,7 +13,6 @@ from pathlib import Path
 import pymysql
 from dotenv import load_dotenv
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = {
     "up": PROJECT_ROOT / "migrations" / "20260728_ai_strategy_history_up.sql",

@@ -10,7 +10,6 @@ import json
 import logging
 import os
 import re
-import time
 from pathlib import Path
 
 from openai import OpenAI
@@ -116,15 +115,12 @@ def analyze_report(
             except Exception:
                 logger.warning("图片编码失败: %s", fp)
 
-    t0 = time.time()
     resp = _client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": content}],
         temperature=0.2,
         max_tokens=3000,
     )
-    latency_ms = int((time.time() - t0) * 1000)
-
     usage = {
         "prompt_tokens": resp.usage.prompt_tokens if resp.usage else 0,
         "completion_tokens": resp.usage.completion_tokens if resp.usage else 0,

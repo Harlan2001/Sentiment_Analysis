@@ -1,14 +1,13 @@
 """Download endpoints for completed report generations."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
 from urllib.parse import quote
 
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from backend.config.config import API_PREFIX
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.services.report_export_service import export_filename, generate_docx, generate_pdf
-
 
 router = APIRouter(prefix=f"{API_PREFIX}/report-generation", tags=["report-generation"])
 

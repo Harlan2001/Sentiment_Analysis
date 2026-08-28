@@ -469,14 +469,12 @@ def get_all_strategies() -> Dict[str, Any]:
     try:
         quant_strategies = get_available_quant_strategies(page_size=100, page_num=1)
     except Exception as exc:
-        err_msg = f"量化策略获取失败: {exc}"
         errors.append({"source": "quant_strategy", "error": str(exc)})
 
     # 获取原有交易策略
     try:
         trading_strategies = get_available_strategies()
     except Exception as exc:
-        err_msg = f"原有策略获取失败: {exc}"
         errors.append({"source": "trading_strategy", "error": str(exc)})
 
     return {

@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from openai import OpenAI
 
@@ -35,7 +36,7 @@ class PortfolioRuntimeConfig:
     """组合策略运行时配置，默认值来自全局常量。"""
 
     model: str = PORTFOLIO_MODEL
-    tz: "ZoneInfo" = PORTFOLIO_TZ  # type: ignore[name-defined]
+    tz: ZoneInfo = PORTFOLIO_TZ
 
 
 class PortfolioStrategyService:

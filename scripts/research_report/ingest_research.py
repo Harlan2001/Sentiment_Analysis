@@ -18,7 +18,7 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.config.config import BASE_DIR
-from backend.research_report.parser import parse_pdf, compute_file_hash, ParseResult
+from backend.research_report.parser import ParseResult, compute_file_hash, parse_pdf
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,8 +85,8 @@ def _write_figures(figures: list[dict], file_hash: str) -> list[dict]:
     result = []
     for fig in figures:
         img_bytes = fig.pop("bytes")
-        w = fig.pop("width")
-        h = fig.pop("height")
+        fig.pop("width")
+        fig.pop("height")
         fig_path = hash_dir / f'p{fig["page_number"]}_f{fig["figure_order"]}.png'
         fig_path.write_bytes(img_bytes)
         fig["image_path"] = str(fig_path.relative_to(FIGURE_ROOT))
