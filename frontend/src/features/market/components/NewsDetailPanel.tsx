@@ -8,9 +8,9 @@ import NewsContentBlocks from '@/components/news/NewsContentBlocks'
 import { Loading } from '@/components/UI'
 import { WatchlistAction } from './WatchlistAction'
 
-interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void }
+interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void; closeLabel?: string }
 
-const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick }) => {
+const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeLabel = '返回发现页' }) => {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', h)
@@ -47,7 +47,7 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick }) => {
         <button onClick={onClose}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[13px] text-[#8b949e] hover:text-white hover:border-[#3a3a3a] hover:bg-[#1a1a1a] transition-colors">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l7 7m-7-7l7-7"/></svg>
-          返回发现页
+          {closeLabel}
         </button>
       </div>
 

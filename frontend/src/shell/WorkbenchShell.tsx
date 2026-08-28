@@ -53,6 +53,10 @@ export function WorkbenchShell() {
   const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
   const isWorkflowChild = location.pathname.startsWith('/computer/')
+  const showWorkflowBack = new Set(['/computer/reports', '/computer/strategies', '/computer/news']).has(location.pathname)
+  const hideWorkflowDetailTopbar = location.pathname === '/computer/strategies/prompt'
+    || location.pathname.startsWith('/computer/reports/')
+    || /^\/computer\/news\/[^/]+$/.test(location.pathname)
   const demoWorkflowId = location.pathname.match(/^\/computer\/demo\/([^/]+)$/)?.[1]
   const workflowChildTitle = (demoWorkflowId && DEMO_WORKFLOWS[demoWorkflowId]?.title) || topbarTitle.replace(/^工作流 · /, '')
 
@@ -188,10 +192,10 @@ export function WorkbenchShell() {
           </> : <button className="login-button" onClick={() => setLoginOpen(true)}><span className="avatar avatar-ghost">未</span><span className="account-copy"><strong>未登录</strong><small>点击登录</small></span></button>}
         </div>
       </aside>
-      <main className="workspace-main" style={{ gridTemplateRows: isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
-        <header className="topbar">
+      <main className="workspace-main" style={{ gridTemplateRows: hideWorkflowDetailTopbar ? 'minmax(0,1fr)' : isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
+        {!hideWorkflowDetailTopbar && <header className="topbar">
           <div className="topbar-title">
-            {isWorkflowChild && <button className="topbar-back-button" onClick={() => navigate('/workflow')} aria-label="返回工作流">←</button>}
+            {showWorkflowBack && <button className="topbar-back-button" onClick={() => navigate('/workflow')} aria-label="返回工作流">←</button>}
             <span>{isWorkflowChild ? workflowChildTitle : topbarTitle}</span>
           </div>
           {isHome ? (
@@ -200,7 +204,7 @@ export function WorkbenchShell() {
             <span style={{ flex: 1 }} />
           )}
           <button className="topbar-action">通知</button>
-        </header>
+        </header>}
         {isHome && (
           <nav className="workspace-tabs" aria-label="市场板块">
             {SECTION_TABS.map((s) => (
