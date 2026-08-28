@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.common.database import DatabaseConfig, init_database, execute_update
+from backend.common.database import DatabaseConfig, execute_update, init_database
 from backend.config.config import MYSQL_CONFIG
 
 TIME_WINDOW_START = "202407"
@@ -504,7 +504,7 @@ if __name__ == "__main__":
         else:
             print("\n[OK] 所有代码唯一")
 
-        print(f"\n--- 代码映射预览（前30条）---")
+        print("\n--- 代码映射预览（前30条）---")
         for name in sorted(all_names)[:30]:
             print(f"  {generate_code(name):<40} | {name}")
         sys.exit(0)

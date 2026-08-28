@@ -7,7 +7,6 @@ from backend.config.config import API_PREFIX
 from backend.repositories.conversation_repository import ConversationRepository
 from backend.routers.workbench.helpers import raise_repository_error
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-projects"])
 
 

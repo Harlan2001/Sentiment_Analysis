@@ -7,7 +7,6 @@ from backend.config.config import API_PREFIX
 from backend.repositories.project_management_repository import ProjectManagementRepository
 from backend.routers.workbench.helpers import raise_repository_error
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-project-management"])
 
 MemoryCategory = Literal["background", "goal", "constraint", "preference", "conclusion", "other"]

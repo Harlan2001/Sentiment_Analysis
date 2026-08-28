@@ -16,7 +16,6 @@ from backend.repositories.report_generation_repository import (
 )
 from backend.services.report_generation_service import start_report_generation
 
-
 router = APIRouter(prefix=f"{API_PREFIX}/report-generation", tags=["report-generation"])
 ALLOWED_STATUSES = {"queued", "running", "completed", "failed"}
 

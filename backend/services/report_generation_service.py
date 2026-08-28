@@ -9,7 +9,6 @@ from backend.common.llm_logger import log_llm_usage
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.research_report.synthesis import generate_research_synthesis
 
-
 logger = logging.getLogger(__name__)
 
 

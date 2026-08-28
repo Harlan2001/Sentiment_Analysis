@@ -1,0 +1,74 @@
+# CI:PR 合并前的 4 道关卡(代码质量 → 单测 → 覆盖率 → 前端全链路)
+#
+# 后端:ruff + pytest(fast 档)+ 覆盖率(全局报告 + PR 增量 diff 覆盖率)
+# 前端:typecheck + vitest + 生产构建
+name: CI
+
+on:
+  pull_request:
+    branches: [main, stable]
+  push:
+    branches: [main, stable]
+  workflow_dispatch: # 手动触发,便于诊断与按需回归
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要完整历史,供 git diff 计算增量覆盖率
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: 安装依赖(uv sync 含 dev 组;CI 是开发环境,dev 就该在)
+        run: uv sync --locked
+      - name: Lint(ruff 全库)
+        run: uv run ruff check backend tests
+
+      - name: 单元测试 + 覆盖率(只跑 fast 档,不碰 DB/外部模型)
+        run: uv run pytest -m "not slow" --cov=backend --cov-report=term-missing:skip-covered --cov-report=xml
+
+      - name: PR 增量覆盖率(gate 默认关闭,改为报告)
+        run: uv run python scripts/check_diff_coverage.py
+        env:
+          # PR 用 base 提交;push 到 main 用上一次提交。打开 gate:DIFF_COVERAGE_MIN=80
+          DIFF_COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # vite 7 要求 >=20.19
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: 安装依赖
+        run: npm ci
+      - name: 类型检查
+        run: npm run typecheck
+      - name: 单元测试
+        run: npm run test
+      - name: 生产构建
+        run: npm run build

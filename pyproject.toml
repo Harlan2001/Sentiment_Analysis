@@ -45,3 +45,30 @@ explicit = true
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
+
+[dependency-groups]
+dev = [
+    "freezegun>=1.5.5",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]             # 让测试能 import backend
+asyncio_mode = "auto"          # async 测试免装饰器
+markers = ["fast", "slow"]     # 本周先定义,分档下周再用
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]       # 错误/未定义/未使用导入
+ignore = [
+    "E501",                    # 存量行太长(全库数百处)——分期收敛,暂不拦(新代码仍靠格式化/pyright)
+    "E402",                    # config 类文件需先 setenv 再 import,属项目正常模式
+]

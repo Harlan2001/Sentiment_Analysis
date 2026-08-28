@@ -36,7 +36,7 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
+    uv sync --locked --no-install-project --no-dev
 
 
 # ------------------------------------------------------------
@@ -48,14 +48,14 @@ COPY pyproject.toml uv.lock ./
 
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+    uv sync --locked --no-dev
 
 
 # ------------------------------------------------------------
 # 安装 Playwright Chromium
 # ------------------------------------------------------------
 RUN mkdir -p /opt/playwright \
-    && uv run playwright install chromium
+    && uv run --no-sync playwright install chromium
 
 
 # ------------------------------------------------------------
