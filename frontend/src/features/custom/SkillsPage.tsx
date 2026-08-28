@@ -71,7 +71,9 @@ export function SkillsPage() {
   const currentItems = tab === 'system' ? systemVisible : mineVisible
   const pageCount = Math.max(1, Math.ceil(currentItems.length / pageSize))
   const safePage = Math.min(page, pageCount)
-  const pageItems = currentItems.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const pageStart = (safePage - 1) * pageSize
+  const systemPageItems = systemVisible.slice(pageStart, pageStart + PAGE_SIZE)
+  const minePageItems = mineVisible.slice(pageStart, pageStart + MINE_PAGE_SIZE)
   const addedSystemSkills = useMemo(() => new Map(skills.filter(skill => skill.status !== 'archived').map(skill => [skill.name, skill])), [skills])
 
   async function addSystemSkill(item: typeof SYSTEM[number]) {
@@ -170,13 +172,13 @@ export function SkillsPage() {
     <div className="skills-filter-tabs">{([['system', '系统'], ['mine', '我的']] as const).map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>
     {error && <p className="mcp-error">{error}</p>}
     {tab === 'system' ? <div className="skills-grid compact-grid">
-      {pageItems.map(item => {
+      {systemPageItems.map(item => {
         const added = addedSystemSkills.get(item.name)
         return card(item.name, item.description, item.tag, added ? '● 已添加' : '○ 未添加', Boolean(added), <><span>系统 Skill</span><button disabled={busy} onClick={() => void (added ? removeSystemSkill(added) : addSystemSkill(item))}>{added ? '移除' : '添加'}</button></>)
       })}
     </div> : <div className="skills-grid compact-grid">
       <button className="skill-create-card" onClick={() => openEditor()}><span>＋</span><strong>新建我的 Skill</strong><small>添加指令、附件与示例文件</small></button>
-      {pageItems.map(item => card(item.name, item.description, `${item.status === 'published' ? '已发布' : item.status === 'archived' ? '已停用' : '草稿'} · v${item.version_no}`, item.status === 'published' ? '● 已发布' : item.status === 'archived' ? '○ 已停用' : '○ 草稿', item.status === 'published', <><span>我的 Skill</span><span><button onClick={() => openEditor(item)}>编辑</button>{item.status === 'archived' ? <><button onClick={() => void action(item, 'activate')}>启用</button><button className="danger" onClick={() => void action(item, 'delete')}>删除</button></> : <button onClick={() => void action(item, 'archive')}>停用</button>}</span></>))}
+      {minePageItems.map(item => card(item.name, item.description, `${item.status === 'published' ? '已发布' : item.status === 'archived' ? '已停用' : '草稿'} · v${item.version_no}`, item.status === 'published' ? '● 已发布' : item.status === 'archived' ? '○ 已停用' : '○ 草稿', item.status === 'published', <><span>我的 Skill</span><span><button onClick={() => openEditor(item)}>编辑</button>{item.status === 'archived' ? <><button onClick={() => void action(item, 'activate')}>启用</button><button className="danger" onClick={() => void action(item, 'delete')}>删除</button></> : <button onClick={() => void action(item, 'archive')}>停用</button>}</span></>))}
     </div>}
     {pageCount > 1 && <nav className="skills-pagination" aria-label="Skills 分页"><button disabled={safePage === 1} onClick={() => setPage(safePage - 1)}>上一页</button>{Array.from({ length: pageCount }, (_, index) => <button key={index + 1} className={safePage === index + 1 ? 'active' : ''} onClick={() => setPage(index + 1)}>{index + 1}</button>)}<button disabled={safePage === pageCount} onClick={() => setPage(safePage + 1)}>下一页</button></nav>}
     <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? '编辑我的 Skill' : '新建我的 Skill'} size="lg" panelClassName="skill-editor-modal" contentClassName="skill-editor-content">

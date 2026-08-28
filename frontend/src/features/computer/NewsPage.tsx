@@ -28,6 +28,8 @@ export function NewsPage() {
   const [focus, setFocus] = useState('')
   const [filter, setFilter] = useState<'all' | DailyNewsSummaryTask['status']>('all')
   const [historySource, setHistorySource] = useState('all')
+  const [retrying, setRetrying] = useState<number | null>(null)
+  const [detail, setDetail] = useState<DailyNewsSummaryTask | null>(null)
   const [historyDate, setHistoryDate] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [showAllActive, setShowAllActive] = useState(false)
