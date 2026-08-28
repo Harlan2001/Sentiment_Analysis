@@ -20,7 +20,10 @@ def get_factors_from_db() -> list:
     附带每个因子的新闻活跃度：news_count（总新闻数）与 recent_news_count（近30天新闻数），
     供前端按活跃度排序、分类聚合。
     """
-    recent_cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now()
+    cutoff_7d = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff_30d = (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff_365d = (now - timedelta(days=365)).strftime("%Y-%m-%d %H:%M:%S")
     try:
         with pymysql.connect(**MYSQL_CONFIG) as conn:
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
@@ -28,18 +31,68 @@ def get_factors_from_db() -> list:
                     """
                     SELECT f.id, f.code, f.name, f.category, f.factor_type,
                            COUNT(nf.factor_id) AS news_count,
-                           SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS recent_news_count
+                           SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS activity_7d,
+                           SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS activity_30d,
+                           SUM(CASE WHEN nf.pub_time >= %s THEN 1 ELSE 0 END) AS activity_365d,
+                           SUM(CASE WHEN nf.pub_time >= %s AND LOWER(COALESCE(nf.direction, ''))
+                               IN ('positive', 'bullish', '利多', '利好', '涨') THEN 1 ELSE 0 END) AS positive_count,
+                           SUM(CASE WHEN nf.pub_time >= %s AND LOWER(COALESCE(nf.direction, ''))
+                               IN ('negative', 'bearish', '利空', '跌') THEN 1 ELSE 0 END) AS negative_count,
+                           SUM(CASE WHEN nf.pub_time >= %s AND LOWER(COALESCE(nf.direction, ''))
+                               NOT IN ('positive', 'bullish', '利多', '利好', '涨', 'negative', 'bearish', '利空', '跌')
+                               THEN 1 ELSE 0 END) AS neutral_count,
+                           MAX(nf.pub_time) AS latest_event_at
                     FROM factor f
                     LEFT JOIN news_factor nf ON nf.factor_id = f.id
                     GROUP BY f.id, f.code, f.name, f.category, f.factor_type
                     ORDER BY f.category, f.code
                     """,
-                    (recent_cutoff,),
+                    (cutoff_7d, cutoff_30d, cutoff_365d, cutoff_30d, cutoff_30d, cutoff_30d),
                 )
                 rows = list(cursor.fetchall())
+
+                cursor.execute(
+                    """SELECT factor_id, DATE(pub_time) AS event_date, COUNT(*) AS event_count
+                       FROM news_factor
+                       WHERE pub_time >= %s
+                       GROUP BY factor_id, DATE(pub_time)""",
+                    ((now - timedelta(days=6)).strftime("%Y-%m-%d 00:00:00"),),
+                )
+                daily_by_factor: dict[int, dict[str, int]] = defaultdict(dict)
+                for daily_row in cursor.fetchall():
+                    daily_by_factor[daily_row["factor_id"]][str(daily_row["event_date"])] = daily_row["event_count"]
+
+                activity_values = sorted(int(row.get("activity_30d") or 0) for row in rows)
+                medium_index = max(0, len(activity_values) // 3)
+                high_index = max(0, (len(activity_values) * 2) // 3)
+                medium_cutoff = activity_values[medium_index] if activity_values else 0
+                high_cutoff = activity_values[high_index] if activity_values else 0
+                trend_dates = [(now.date() - timedelta(days=offset)).isoformat() for offset in range(6, -1, -1)]
                 for row in rows:
                     row["news_count"] = row.get("news_count") or 0
-                    row["recent_news_count"] = row.get("recent_news_count") or 0
+                    row["activity_7d"] = int(row.get("activity_7d") or 0)
+                    row["activity_30d"] = int(row.get("activity_30d") or 0)
+                    row["activity_365d"] = int(row.get("activity_365d") or 0)
+                    row["recent_news_count"] = row["activity_30d"]
+                    row["positive_count"] = int(row.get("positive_count") or 0)
+                    row["negative_count"] = int(row.get("negative_count") or 0)
+                    row["neutral_count"] = int(row.get("neutral_count") or 0)
+                    if row["positive_count"] > row["negative_count"]:
+                        row["current_direction"] = "利多"
+                    elif row["negative_count"] > row["positive_count"]:
+                        row["current_direction"] = "利空"
+                    else:
+                        row["current_direction"] = "中性"
+                    activity = row["activity_30d"]
+                    row["heat_level"] = (
+                        "低" if activity == 0
+                        else "高" if activity >= high_cutoff
+                        else "中" if activity >= medium_cutoff
+                        else "低"
+                    )
+                    row["trend_7d"] = [daily_by_factor[row["id"]].get(day, 0) for day in trend_dates]
+                    latest = row.get("latest_event_at")
+                    row["latest_event_at"] = latest.strftime("%Y-%m-%d %H:%M:%S") if latest else None
                 return rows
     except Exception as e:
         logger.error("加载因子失败: %s", e, exc_info=True)

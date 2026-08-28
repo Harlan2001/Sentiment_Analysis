@@ -478,12 +478,15 @@ def yield_detail(period: str = Query("10Y")):
 def factor_detail(factor_id: int = Query(...)):
     with get_db_connection() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id, name, category FROM factor WHERE id=%s", (factor_id,))
+        cur.execute(
+            "SELECT id, code, name, category, factor_type FROM factor WHERE id=%s",
+            (factor_id,),
+        )
         fr = cur.fetchone()
         if not fr:
             return {"error": "Factor not found"}
 
-        fid, fname, fcat = fr
+        fid, fcode, fname, fcat, factor_type = fr
 
         # Use the factor's latest available news as the detail-window anchor.
         # This keeps historical datasets from rendering an empty detail panel.
@@ -497,10 +500,22 @@ def factor_detail(factor_id: int = Query(...)):
         if latest_news_date is None:
             return {
                 "id": fid,
+                "code": fcode or "",
                 "name": fname or "",
                 "category": fcat or "",
+                "factor_type": factor_type or "",
                 "news_count": 0,
                 "activity_score": 0,
+                "activity_7d": 0,
+                "activity_30d": 0,
+                "activity_365d": 0,
+                "activity_change_7d": 0,
+                "current_direction": "中性",
+                "heat_level": "低",
+                "latest_event_at": None,
+                "direction_counts": {"positive": 0, "negative": 0, "neutral": 0},
+                "trend_series": {"7d": [], "30d": [], "365d": []},
+                "insight": "暂无关联事件，暂时无法判断该因子的市场方向。",
                 "daily_counts": [],
                 "related_news": [],
                 "related_factors": [],
@@ -512,24 +527,88 @@ def factor_detail(factor_id: int = Query(...)):
             anchor_date = date.fromisoformat(anchor_date[:10])
 
         cur.execute(
-            """SELECT DATE(nf.pub_time) as d, COUNT(*) as c
-               FROM news_factor nf
-               WHERE nf.factor_id=%s
-                 AND DATE(nf.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 6 DAY) AND %s
-               GROUP BY DATE(nf.pub_time) ORDER BY d""",
+            f"""SELECT COALESCE(n.pub_time, nf.pub_time),
+                       COALESCE(a.direction, nf.direction)
+                FROM news_factor nf
+                LEFT JOIN news n ON nf.news_id = n.id
+                {_BEST_ANALYSIS_JOIN}
+                WHERE nf.factor_id=%s
+                  AND DATE(COALESCE(n.pub_time, nf.pub_time))
+                      BETWEEN DATE_SUB(%s, INTERVAL 364 DAY) AND %s
+                ORDER BY COALESCE(n.pub_time, nf.pub_time)""",
             (fid, anchor_date, anchor_date),
         )
-        daily_counts = {str(row[0]): row[1] for row in cur.fetchall()}
-        daily = [
-            {
-                "date": str(anchor_date - timedelta(days=offset)),
-                "count": daily_counts.get(str(anchor_date - timedelta(days=offset)), 0),
+        events = []
+        for event_time, direction in cur.fetchall():
+            event_date = event_time.date() if isinstance(event_time, datetime) else event_time
+            if isinstance(event_date, str):
+                event_date = date.fromisoformat(event_date[:10])
+            events.append((event_date, _map_direction(direction, default="neutral")))
+
+        def make_daily_series(days: int):
+            start_date = anchor_date - timedelta(days=days - 1)
+            buckets = {
+                start_date + timedelta(days=offset): {"positive": 0, "negative": 0, "neutral": 0}
+                for offset in range(days)
             }
-            for offset in range(6, -1, -1)
+            for event_date, direction in events:
+                if event_date in buckets:
+                    buckets[event_date][direction] += 1
+            return [
+                {"date": str(bucket_date), **counts, "total": sum(counts.values())}
+                for bucket_date, counts in buckets.items()
+            ]
+
+        month_keys = []
+        month_year, month_value = anchor_date.year, anchor_date.month
+        for _ in range(12):
+            month_keys.append(f"{month_year:04d}-{month_value:02d}")
+            month_value -= 1
+            if month_value == 0:
+                month_value = 12
+                month_year -= 1
+        month_keys.reverse()
+        monthly_buckets = {
+            key: {"positive": 0, "negative": 0, "neutral": 0} for key in month_keys
+        }
+        for event_date, direction in events:
+            month_key = event_date.strftime("%Y-%m")
+            if month_key in monthly_buckets:
+                monthly_buckets[month_key][direction] += 1
+        yearly_series = [
+            {"date": key, **counts, "total": sum(counts.values())}
+            for key, counts in monthly_buckets.items()
         ]
-        total_count = sum(d["count"] for d in daily)
-        max_daily = max((d["count"] for d in daily), default=1)
-        activity_score = round(total_count / max(max_daily * 7, 1), 2)
+
+        seven_day_series = make_daily_series(7)
+        thirty_day_series = make_daily_series(30)
+        activity_7d = sum(point["total"] for point in seven_day_series)
+        activity_30d = sum(point["total"] for point in thirty_day_series)
+        activity_365d = len(events)
+        previous_7d_start = anchor_date - timedelta(days=13)
+        previous_7d_end = anchor_date - timedelta(days=7)
+        previous_7d = sum(
+            1 for event_date, _ in events if previous_7d_start <= event_date <= previous_7d_end
+        )
+        activity_change_7d = (
+            round((activity_7d - previous_7d) / previous_7d * 100)
+            if previous_7d
+            else (None if activity_7d else 0)
+        )
+        direction_counts = {
+            key: sum(point[key] for point in thirty_day_series)
+            for key in ("positive", "negative", "neutral")
+        }
+        if direction_counts["positive"] > direction_counts["negative"]:
+            current_direction = "利多"
+        elif direction_counts["negative"] > direction_counts["positive"]:
+            current_direction = "利空"
+        else:
+            current_direction = "中性"
+        heat_level = "低" if activity_30d == 0 else ("高" if activity_30d >= 5 else "中")
+        max_daily = max((point["total"] for point in seven_day_series), default=1)
+        activity_score = round(activity_7d / max(max_daily * 7, 1), 2)
+        daily = [{"date": point["date"], "count": point["total"]} for point in seven_day_series]
 
         # 关联新闻（带方向 + 摘要）
         cur.execute(
@@ -542,13 +621,16 @@ def factor_detail(factor_id: int = Query(...)):
                LEFT JOIN news n ON nf.news_id = n.id
                {_BEST_ANALYSIS_JOIN}
                WHERE nf.factor_id=%s
-                 AND DATE(nf.pub_time) BETWEEN DATE_SUB(%s, INTERVAL 6 DAY) AND %s
-               ORDER BY nf.pub_time DESC LIMIT 20""",
-            (fid, anchor_date, anchor_date),
+               ORDER BY nf.pub_time DESC LIMIT 40""",
+            (fid,),
         )
         # 映射方向为 front-end 使用的 positive/negative/neutral
         related_news = []
+        seen_news_ids = set()
         for r in cur.fetchall():
+            if r[0] in seen_news_ids:
+                continue
+            seen_news_ids.add(r[0])
             related_news.append({
                 "id": r[0],
                 "title": r[1],
@@ -556,20 +638,81 @@ def factor_detail(factor_id: int = Query(...)):
                 "direction": _map_direction(r[3], default="neutral"),
                 "reason": r[4] or "",
             })
+            if len(related_news) == 20:
+                break
 
         # 同类别相关因子
         cur.execute(
-            "SELECT id, name, category FROM factor WHERE category=%s AND id!=%s LIMIT 6",
-            (fcat, fid),
+            """SELECT f2.id, f2.name, f2.category,
+                      COUNT(DISTINCT nf2.news_id) AS shared_count
+               FROM news_factor nf1
+               JOIN news_factor nf2
+                 ON nf1.news_id = nf2.news_id AND nf2.factor_id != nf1.factor_id
+               JOIN factor f2 ON f2.id = nf2.factor_id
+               WHERE nf1.factor_id=%s
+               GROUP BY f2.id, f2.name, f2.category
+               ORDER BY shared_count DESC, f2.name
+               LIMIT 5""",
+            (fid,),
         )
-        related_factors = [{"id": r[0], "name": r[1], "category": r[2]} for r in cur.fetchall()]
+        related_factors = [
+            {"id": r[0], "name": r[1], "category": r[2], "shared_count": int(r[3] or 0)}
+            for r in cur.fetchall()
+        ]
+
+        direction_label = {"利多": "偏利多", "利空": "偏利空", "中性": "以中性影响为主"}[
+            current_direction
+        ]
+        category_label = {
+            "MACRO": "宏观经济",
+            "POLICY": "政策与监管",
+            "MARKET": "市场交易",
+            "INDUSTRY": "行业产业",
+            "SENTIMENT": "市场情绪",
+            "CREDIT": "信用风险",
+            "LIQUIDITY": "资金流动性",
+            "GLOBAL": "海外市场",
+        }.get(fcat, fcat or "综合")
+        factor_type_label = "量化" if factor_type == "quantitative" else "概念"
+        if activity_change_7d is None:
+            change_summary = "近7日开始出现新的活跃事件"
+        elif activity_change_7d > 0:
+            change_summary = f"近7日事件数较前7日上升 {activity_change_7d}%"
+        elif activity_change_7d < 0:
+            change_summary = f"近7日事件数较前7日下降 {abs(activity_change_7d)}%"
+        else:
+            change_summary = "近7日事件数与前7日持平"
+        insight = (
+            f"{fname}属于{category_label}类{factor_type_label}因子，主要用于跟踪相关政策、"
+            f"产业及市场事件，并观察其对债券市场定价的潜在影响。"
+            f"近30日共关联 {activity_30d} 条事件，其中利多 {direction_counts['positive']} 条、"
+            f"利空 {direction_counts['negative']} 条、中性 {direction_counts['neutral']} 条，"
+            f"整体{direction_label}。{change_summary}，最近一次事件更新于"
+            f" {anchor_date.strftime('%m月%d日')}。"
+        )
 
     return {
         "id": fid,
+        "code": fcode or "",
         "name": fname or "",
         "category": fcat or "",
-        "news_count": total_count,
+        "factor_type": factor_type or "",
+        "news_count": activity_7d,
         "activity_score": activity_score,
+        "activity_7d": activity_7d,
+        "activity_30d": activity_30d,
+        "activity_365d": activity_365d,
+        "activity_change_7d": activity_change_7d,
+        "current_direction": current_direction,
+        "heat_level": heat_level,
+        "latest_event_at": str(anchor_date),
+        "direction_counts": direction_counts,
+        "trend_series": {
+            "7d": seven_day_series,
+            "30d": thirty_day_series,
+            "365d": yearly_series,
+        },
+        "insight": insight,
         "daily_counts": daily,
         "related_news": related_news,
         "related_factors": related_factors,

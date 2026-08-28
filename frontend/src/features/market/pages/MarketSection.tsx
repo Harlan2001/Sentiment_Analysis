@@ -69,7 +69,7 @@ const MarketSection: React.FC = () => {
 
       {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'yield' && <YieldDetailPanel period={detailView.period} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
-      {detailView?.type === 'factor' && <FactorDetailPanel factorId={detailView.factorId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
+      {detailView?.type === 'factor' && <FactorDetailPanel factorId={detailView.factorId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })} />}
       {detailView?.type === 'strategy' && <StrategyDetailPanel onClose={handleCloseDetail} />}
     </div>
   )
