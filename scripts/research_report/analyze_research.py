@@ -19,12 +19,12 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import pymysql
-from backend.config.config import BASE_DIR
-from backend.research_report.llm import analyze_report, MODEL_OPTIONS
-from backend.research_report.constants import FIGURE_MAX_PER_REPORT
-from backend.common.llm_logger import log_llm_usage
+
 from backend.common.database import DatabaseConfig, init_database
-from backend.config.config import MYSQL_CONFIG
+from backend.common.llm_logger import log_llm_usage
+from backend.config.config import BASE_DIR, MYSQL_CONFIG
+from backend.research_report.constants import FIGURE_MAX_PER_REPORT
+from backend.research_report.llm import MODEL_OPTIONS, analyze_report
 
 # 初始化连接池（供 llm_logger 使用）
 init_database(DatabaseConfig(**MYSQL_CONFIG))

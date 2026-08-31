@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Query, Request
 
 from backend.config.config import API_PREFIX
+from backend.news_summary.repository import DailyNewsSummaryRepository
 from backend.repositories.conversation_repository import ConversationRepository
 from backend.repositories.report_generation_repository import ReportGenerationRepository
-from backend.news_summary.repository import DailyNewsSummaryRepository
-from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
 from backend.routers.workbench.helpers import raise_repository_error
-
+from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench", tags=["workbench-sidebar"])
 

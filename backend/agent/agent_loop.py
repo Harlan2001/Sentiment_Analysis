@@ -21,8 +21,8 @@ from openai import AsyncOpenAI, BadRequestError
 
 from backend.agent.tool_executor import TOOL_EXECUTORS
 from backend.agent.tools import TOOL_DEFINITIONS
-from backend.integrations.feishu.tools import execute_feishu_tool
 from backend.common.llm_logger import log_llm_usage
+from backend.integrations.feishu.tools import execute_feishu_tool
 
 logger = logging.getLogger(__name__)
 

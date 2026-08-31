@@ -13,14 +13,20 @@ from backend.auth.dependencies import auth_middleware
 from backend.common.database import DatabaseConfig, init_database
 from backend.common.vector_store import get_faiss_store
 from backend.config.config import MYSQL_CONFIG
+from backend.integrations.feishu.repository import FeishuConnectionRepository
+from backend.repositories.project_management_repository import ProjectManagementRepository
+from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.routers.ai_strategy import router as ai_strategy_router
 from backend.routers.ai_strategy_generation import (
     router as ai_strategy_generation_router,
 )
 from backend.routers.auth import router as auth_router
 from backend.routers.change import router as change_router
+from backend.routers.daily_news_summary import router as daily_news_summary_router
 from backend.routers.dashboard import router as dashboard_router
+from backend.routers.discover import router as discover_router
 from backend.routers.factors import router as factors_router
+from backend.routers.feishu_mcp import router as feishu_mcp_router
 from backend.routers.forecast import router as forecast_router
 from backend.routers.graph_augment import router as graph_augment_router
 from backend.routers.macro import router as macro_router
@@ -31,24 +37,20 @@ from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
 from backend.routers.report_generation_export import router as report_generation_export_router
 from backend.routers.research import router as research_router
-from backend.routers.discover import router as discover_router
 from backend.routers.returns import router as returns_router
-from backend.routers.daily_news_summary import router as daily_news_summary_router
+from backend.routers.skills import router as skills_router
 from backend.routers.strategy import router as strategy_router
 from backend.routers.strategy import start_strategy_services, stop_strategy_services
-from backend.repositories.report_generation_repository import ReportGenerationRepository
-from backend.repositories.project_management_repository import ProjectManagementRepository
-from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
-from backend.routers.workbench.sidebar import router as workbench_sidebar_router
-from backend.routers.workbench.projects import router as workbench_projects_router
-from backend.routers.workbench.conversations import router as workbench_conversations_router
-from backend.routers.workbench.project_management import router as workbench_project_management_router
-from backend.routers.workbench.computer import router as workbench_computer_router
 from backend.routers.watchlist import router as watchlist_router
-from backend.routers.feishu_mcp import router as feishu_mcp_router
-from backend.routers.skills import router as skills_router
+from backend.routers.workbench.computer import router as workbench_computer_router
+from backend.routers.workbench.conversations import router as workbench_conversations_router
+from backend.routers.workbench.project_management import (
+    router as workbench_project_management_router,
+)
+from backend.routers.workbench.projects import router as workbench_projects_router
+from backend.routers.workbench.sidebar import router as workbench_sidebar_router
 from backend.routers.workbench_users import router as workbench_users_router
-from backend.integrations.feishu.repository import FeishuConnectionRepository
+from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
 from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 
 app = FastAPI(title="Bond Yield Backend")

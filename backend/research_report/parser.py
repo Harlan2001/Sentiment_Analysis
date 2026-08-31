@@ -665,7 +665,7 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
             symbols=symbols,
             figures=figures,
         )
-    except Exception as e:
+    except Exception:
         logger.exception("PDF解析异常: %s", pdf_path)
         raise
     finally:

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 
 from backend.config.config import API_PREFIX
 from backend.news_summary.repository import DailyNewsSummaryRepository
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
-
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/computer", tags=["workbench-computer"])
 
