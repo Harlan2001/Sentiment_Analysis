@@ -70,62 +70,38 @@ class ReportGenerationRepository:
         date_end: Optional[date],
         limit: int,
     ) -> dict[str, Any]:
-        conditions = ["status = 'analyzed'"]
-        params: list[Any] = []
-        if keyword:
-            conditions.append("(title LIKE %s OR ai_summary LIKE %s)")
-            pattern = f"%{keyword}%"
-            params.extend([pattern, pattern])
-        if institution:
-            conditions.append("institution = %s")
-            params.append(institution)
-        if industry:
-            conditions.append("industry LIKE %s")
-            params.append(f"%{industry}%")
-        if date_start:
-            conditions.append("publish_date >= %s")
-            params.append(date_start)
-        if date_end:
-            conditions.append("publish_date <= %s")
-            params.append(date_end)
+        # 研报来源筛选复用 ResearchReportRepository（与 /research/list 共用一套查询/筛选面）
+        from backend.repositories.research_report_repository import (
+            ResearchReportRepository,
+        )
 
-        where = " AND ".join(conditions)
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"""SELECT id, title, institution, publish_date, industry, report_type,
-                               ai_summary, ai_market_view, ai_key_points, status
-                          FROM research_report
-                         WHERE {where}
-                         ORDER BY publish_date DESC, id DESC
-                         LIMIT %s""",
-                    tuple(params + [limit]),
-                )
-                items = cursor.fetchall()
-                cursor.execute(
-                    """SELECT DISTINCT institution FROM research_report
-                         WHERE status = 'analyzed' AND institution IS NOT NULL AND institution <> ''
-                         ORDER BY institution"""
-                )
-                institutions = [row["institution"] for row in cursor.fetchall()]
-                cursor.execute(
-                    """SELECT DISTINCT industry FROM research_report
-                         WHERE status = 'analyzed' AND industry IS NOT NULL AND industry <> ''"""
-                )
-                industries: set[str] = set()
-                for row in cursor.fetchall():
-                    industries.update(
-                        item.strip()
-                        for item in row["industry"].split(",")
-                        if item.strip()
-                    )
-
+        repository = ResearchReportRepository.from_environment()
+        columns = (
+            "id",
+            "title",
+            "institution",
+            "publish_date",
+            "industry",
+            "report_type",
+            "ai_summary",
+            "ai_market_view",
+            "ai_key_points",
+            "status",
+        )
+        rows = repository.query_reports(
+            columns=columns,
+            keyword=keyword,
+            keyword_columns=("title", "ai_summary"),
+            institution=institution,
+            industry=industry,
+            status="analyzed",
+            date_start=date_start,
+            date_end=date_end,
+            limit=limit,
+        )
         return {
-            "items": [_serialize_row(row) for row in items],
-            "filters": {
-                "institutions": institutions,
-                "industries": sorted(industries),
-            },
+            "items": [_serialize_row(row) for row in rows],
+            "filters": repository.get_filter_facets(status="analyzed"),
         }
 
     def load_sources(self, report_ids: list[int]) -> list[dict[str, Any]]:

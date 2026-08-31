@@ -32,7 +32,7 @@ def _map_direction(d, default=None):
     if dv in ("bearish", "negative", "down", "跌", "利空"):
         return "negative"
     return default
-# 按新闻选最高优先级模型的 analysis 的关联子句（参考 db_operations.get_news_reason_rows）
+# 按新闻选最高优先级模型的 analysis 的关联子句
 _BEST_ANALYSIS_JOIN = (
     "LEFT JOIN analysis a ON n.id = a.news_id"
     " AND a.model = (SELECT a2.model FROM analysis a2"

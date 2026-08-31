@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from openai import OpenAI
 
 from backend.common.database import get_db_connection
-from backend.config.config import ANALYSIS_MODEL_PRIORITY
+from backend.common.db_operations import DBOperations
 
 STRATEGY_TZ = ZoneInfo("Asia/Shanghai")
 STRATEGY_MODEL = os.getenv(
@@ -176,9 +176,7 @@ class StrategyPushService:
     def _query_news_with_reason(
         self, window_start: datetime, window_end: datetime
     ) -> List[Dict[str, Any]]:
-        priority_cases = " ".join(
-            [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
-        )
+        priority_cases = DBOperations.priority_case_sql()
         sql = f"""
             SELECT n.id, n.title, n.pub_time,
                    COALESCE(a.direction, '') AS direction,

@@ -19,7 +19,7 @@ router = APIRouter(prefix=API_PREFIX, tags=["returns"])
 
 # 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
 MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
-# 按新闻选最高优先级模型的 analysis 的关联子句（参考 db_operations.get_news_reason_rows）
+# 按新闻选最高优先级模型的 analysis 的关联子句
 _BEST_ANALYSIS_JOIN = (
     "JOIN analysis a ON n.id = a.news_id"
     " AND a.model = (SELECT a2.model FROM analysis a2"
