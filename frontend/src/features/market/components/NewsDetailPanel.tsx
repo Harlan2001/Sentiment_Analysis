@@ -10,6 +10,24 @@ import { WatchlistAction } from './WatchlistAction'
 
 interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void; closeLabel?: string }
 
+const POLICY_DEMO_NEWS_IDS = new Set([18157, 18174, 18176, 18197, 18224, 18225, 18313, 18340, 18349])
+const POLICY_DEMO_START = '2026-09-03'
+const POLICY_DEMO_END = '2026-09-09'
+
+function formatDateTime(value?: string) {
+  if (!value) return '时间未知'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(parsed)
+}
+
 const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeLabel = '返回发现页' }) => {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -39,6 +57,9 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
     detail?.direction === 'negative' ? '利空债市' : '中性'
   const dirColor = detail?.direction === 'positive' ? 'text-[#ef4444]' :
     detail?.direction === 'negative' ? 'text-[#22c55e]' : 'text-[#6b7280]'
+  const visibleYieldData = (yieldData?.data ?? [])
+    .filter((point: any) => !POLICY_DEMO_NEWS_IDS.has(newsId) || (point.date >= POLICY_DEMO_START && point.date <= POLICY_DEMO_END))
+    .slice(0, 10)
 
   return (
     <div className="absolute inset-0 z-30 bg-[#0d0d0d] overflow-y-auto">
@@ -63,27 +84,47 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
             <div className="flex items-center gap-3 text-[13px] text-[#8b949e]">
               <span>{detail.source}</span>
               <span>·</span>
-              <span>{detail.publish_time}</span>
+              <span>{formatDateTime(detail.publish_time)}</span>
               <div className="ml-auto flex items-center gap-2"><WatchlistAction objectType="news" objectId={String(detail.id)} title={detail.title} sourceUrl={`/news/${detail.id}`} /><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${dirColor} ${dirColor === 'text-[#ef4444]' ? 'bg-[#ef4444]/15' : dirColor === 'text-[#22c55e]' ? 'bg-[#22c55e]/15' : 'bg-[#6b7280]/15'}`}>AI：{dirLabel}</span></div>
             </div>
 
-            {/* AI 分析 */}
+            {/* 新闻总结与债市影响 */}
             {detail.reason && (
               <div className="rounded-xl bg-[#111111] border border-[#2a2a2a] p-5">
-                <div className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wide mb-3">AI 分析</div>
+                <div className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wide mb-3">新闻总结与债市影响</div>
                 <div className="border-l-2 border-[#f59e0b] pl-4">
                   <p className={`text-[14px] font-semibold mb-2 ${dirColor}`}>{dirLabel} · {detail.horizon || '短期'}</p>
                   <p className="text-[13px] text-[#8b949e] leading-relaxed">{detail.reason}</p>
                 </div>
+                <div className="mt-4 grid grid-cols-1 gap-2 border-t border-[#252525] pt-4 text-[12px] md:grid-cols-3">
+                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">判断对象</span><strong className="mt-1 block font-medium text-[#c9c9c9]">中国国债价格与收益率</strong></div>
+                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">影响方向</span><strong className={`mt-1 block font-medium ${dirColor}`}>{dirLabel}</strong></div>
+                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">主要期限</span><strong className="mt-1 block font-medium text-[#c9c9c9]">{detail.horizon || '短期'}</strong></div>
+                </div>
               </div>
             )}
 
-            {/* 关联因子 */}
+            {/* 关联因子与传导明细 */}
             {detail.factors && detail.factors.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
-                {detail.factors.map((f: any) => (
-                  <span key={f.code} className="px-3 py-1.5 rounded-lg text-[12px] bg-[#1a1a1a] text-[#8b949e] border border-[#2a2a2a]">{f.name || f.code}</span>
-                ))}
+              <div className="rounded-xl border border-[#2a2a2a] bg-[#111111] p-5">
+                <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">因子传导明细</div>
+                <p className="mb-4 text-[12px] leading-relaxed text-[#777]">以下因子展示这条新闻从政策或事件触发，经由经济变量变化，最终影响国债收益率的具体路径。</p>
+                <div className="grid gap-2">
+                  {detail.factors.map((f: any) => {
+                    const factorDirection = f.direction === 'positive' ? '利多' : f.direction === 'negative' ? '利空' : '中性'
+                    const factorColor = f.direction === 'positive' ? 'text-[#ef4444]' : f.direction === 'negative' ? 'text-[#22c55e]' : 'text-[#8b949e]'
+                    return (
+                      <div key={f.code} className="rounded-lg border border-[#252525] bg-[#161616] px-3.5 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <strong className="text-[12px] font-medium text-[#d6d6d6]">{f.name || f.code}</strong>
+                          <span className="rounded border border-[#333] px-1.5 py-0.5 text-[9px] text-[#777]">{f.category || 'OTHER'}</span>
+                          <span className={`ml-auto text-[10px] ${factorColor}`}>{factorDirection}</span>
+                        </div>
+                        {f.driver && <p className="mt-2 text-[11px] leading-relaxed text-[#858585]">{f.driver}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
@@ -95,11 +136,11 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
             )}
 
             {/* 收益率 */}
-            {yieldData?.data && yieldData.data.length > 0 && (
+            {visibleYieldData.length > 0 && (
               <div className="rounded-xl bg-[#111111] border border-[#2a2a2a] p-5">
                 <div className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wide mb-3">近期收益率</div>
                 <div className="flex flex-wrap gap-2">
-                  {(yieldData.data ?? []).slice(0, 10).map((pt: any) => (
+                  {visibleYieldData.map((pt: any) => (
                     <div key={pt.date} className="px-3 py-1.5 rounded-lg bg-[#1a1a1a] text-[12px] border border-[#1f1f1f]">
                       <span className="text-[#6b7280]">{pt.date}</span>
                       <span className="font-mono text-white ml-2">{pt.value}%</span>

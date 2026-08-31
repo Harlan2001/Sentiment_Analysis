@@ -531,18 +531,23 @@ select:focus,
 /* 聊天消息 Markdown 内容样式（模型按系统提示以 Markdown 回复：标题/列表/表格/加粗） */
 .message-bubble> :first-child{margin-top:0}
 .message-bubble> :last-child{margin-bottom:0}
-.message-bubble p{margin:0 0 8px}
-.message-bubble h1,.message-bubble h2,.message-bubble h3,.message-bubble h4{margin:12px 0 6px;color:#f0f0f0;font-size:1rem;line-height:1.4}
-.message-bubble ul,.message-bubble ol{margin:6px 0;padding-left:22px}
-.message-bubble li{margin:3px 0}
-.message-bubble table{width:100%;margin:8px 0;border-collapse:collapse;font-size:12px}
-.message-bubble th,.message-bubble td{padding:6px 8px;border:1px solid #373737;text-align:left}
-.message-bubble th{background:#262626;color:#f0f0f0;font-weight:600}
+.message-bubble p{margin:0 0 10px;line-height:1.72}
+.message-bubble h1,.message-bubble h2,.message-bubble h3,.message-bubble h4{color:#f0f0f0;line-height:1.4}
+.message-bubble h2{margin:2px 0 16px;font-size:18px;letter-spacing:-.01em}
+.message-bubble h3{margin:24px 0 10px;padding-bottom:7px;border-bottom:1px solid #343434;font-size:14px}
+.message-bubble h4{margin:16px 0 7px;font-size:13px}
+.message-bubble ul,.message-bubble ol{margin:8px 0 12px;padding-left:22px}
+.message-bubble li{margin:5px 0;line-height:1.65}
+.message-bubble table{width:100%;margin:0;border-collapse:collapse;font-size:12px}
+.message-bubble th,.message-bubble td{padding:8px 10px;border:0;border-bottom:1px solid #343434;text-align:left;vertical-align:top}
+.message-bubble tr:last-child td{border-bottom:0}
+.message-bubble th{background:#242424;color:#f0f0f0;font-weight:600}
 .message-bubble code{background:#2a2a2a;border-radius:4px;padding:1px 5px;font-size:12px}
 .message-bubble pre{background:#161616;padding:10px;border-radius:8px;overflow:auto}
 .message-bubble pre code{background:none;padding:0}
 .message-bubble a{color:#8ab4f8;word-break:break-all}
-.message-bubble blockquote{margin:6px 0;padding:2px 10px;border-left:3px solid #4e4e4e;color:#b6b6b6}
+.message-bubble blockquote{margin:10px 0 18px;padding:12px 14px;border:1px solid #3b3b3b;border-left:3px solid #8a8a8a;border-radius:0 9px 9px 0;background:#1b1b1b;color:#c7c7c7}
+.message-bubble blockquote p:last-child{margin-bottom:0}
 .message-bubble strong{color:#f0f0f0;font-weight:600}
 
 .avatar-ghost{background:transparent;border:1px dashed #4a4a4a;color:#8c8c8c}
@@ -618,8 +623,8 @@ select:focus,
 .message-bubble{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 .message-bubble pre{max-width:100%;overflow-x:auto}
 .message-bubble img,.message-bubble svg{max-width:100%;height:auto}
-.message-table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
-.message-table-scroll table{min-width:100%;margin:8px 0;table-layout:fixed}
+.message-table-scroll{width:100%;max-width:100%;margin:10px 0 14px;overflow-x:auto;overscroll-behavior-x:contain;border:1px solid #343434;border-radius:9px;background:#1b1b1b}
+.message-table-scroll table{min-width:100%;margin:0;table-layout:fixed}
 .message-bubble th,.message-bubble td{min-width:0;overflow-wrap:anywhere;word-break:break-word}
 @media(max-width:720px){.workspace-content:has(.chat-page){padding:0}.chat-page.has-messages .chat-messages{padding:16px}.chat-page.has-messages .chat-composer{width:calc(100% - 32px);margin:0 auto 10px}}
 
@@ -678,3 +683,19 @@ select:focus,
 .strategy-metrics-logs-layout .strategy-backtest-log{flex:1;min-height:0;overflow:auto}
 .strategy-module-error{margin:8px 0 0}
 @media(max-width:850px){.strategy-module-content{height:auto;min-height:0}.strategy-module-panel{height:auto;min-height:540px}.strategy-prompt-confirm-layout{grid-template-columns:1fr;grid-template-rows:minmax(320px,1fr) auto}.strategy-news-layout{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) minmax(220px,auto)}.strategy-news-link{display:none}.strategy-metrics-logs-layout .strategy-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.daily-news-direction-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.daily-news-direction-stat{border:1px solid #343434;border-radius:10px;padding:12px 14px;background:#1e1e1e}
+.daily-news-direction-stat-label{display:flex;align-items:center;gap:6px;color:#a7a7a7;font-size:12px}
+.daily-news-direction-stat-label i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.daily-news-direction-stat strong{display:block;margin-top:7px;font-size:20px;color:#e6e6e6}
+.daily-news-direction-stat strong small{font-size:11px;color:#777;font-weight:400;margin-left:3px}
+.daily-news-direction-bar{display:block;height:5px;border-radius:3px;background:#2a2a2a;margin-top:9px;overflow:hidden}
+.daily-news-direction-bar i{display:block;height:100%;border-radius:3px}
+.daily-news-ref-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.daily-news-dir-tag{font-style:normal;font-size:10px;line-height:1;padding:2px 6px;border:1px solid;border-radius:4px}
+.daily-news-horizon-tag{font-style:normal;font-size:10px;line-height:1;padding:2px 6px;border:1px solid #343434;border-radius:4px;color:#8b8b8b}
+.daily-news-markdown table{width:100%;margin:10px 0 16px;border:1px solid #343434;border-radius:8px;border-collapse:separate;border-spacing:0;overflow:hidden}
+.daily-news-markdown th,.daily-news-markdown td{padding:8px 10px;border-bottom:1px solid #343434;text-align:left}
+.daily-news-markdown th{background:#242424;color:#f0f0f0;font-size:11px;font-weight:600}
+.daily-news-markdown tr:last-child td{border-bottom:0}
+@media(max-width:640px){.daily-news-direction-stats{grid-template-columns:1fr}}
