@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter
 from openai import OpenAI
 
-from backend.config.config import API_PREFIX, create_openai_http_client
+from backend.config.config import (
+    API_PREFIX,
+    create_openai_http_client,
+    get_llm_api_key,
+    get_llm_base_url,
+)
 from backend.strategy.strategy_push import get_strategy_push_service
 
-kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
-kingstar_client = OpenAI(
-    api_key=kingstar_API_KEY,
-    base_url=kingstar_BASE_URL,
+llm_client = OpenAI(
+    api_key=get_llm_api_key(),
+    base_url=get_llm_base_url(),
     http_client=create_openai_http_client(),
 )
 
-strategy_push_service = get_strategy_push_service(kingstar_client)
+strategy_push_service = get_strategy_push_service(llm_client)
 
 router = APIRouter(prefix=f"{API_PREFIX}/strategy", tags=["strategy"])
 

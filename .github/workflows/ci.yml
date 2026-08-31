@@ -35,8 +35,8 @@ jobs:
       - name: Lint(ruff 全库)
         run: uv run ruff check backend tests
 
-      - name: 单元测试 + 覆盖率(只跑 fast 档,不碰 DB/外部模型)
-        run: uv run pytest -m "not slow" --cov=backend --cov-report=term-missing:skip-covered --cov-report=xml
+      - name: 单元测试 + 覆盖率(只跑 fast,排除集成;不碰真实 DB/外部模型)
+        run: uv run pytest -m "not slow and not integration" --cov=backend --cov-report=term-missing:skip-covered --cov-report=xml
 
       - name: PR 增量覆盖率(gate 默认关闭,改为报告)
         run: uv run python scripts/check_diff_coverage.py
@@ -72,3 +72,36 @@ jobs:
         run: npm run test
       - name: 生产构建
         run: npm run build
+
+  backend-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: sentiment_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: test
+      MYSQL_DATABASE: sentiment_test
+      MYSQL_TEST_DATABASE: sentiment_test
+      LLM_API_KEY: ci-dummy-key
+      LLM_BASE_URL: https://ci-dummy.example.com/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked
+      - name: 集成测试(真实 MySQL,LLM 用 respx mock)
+        run: uv run pytest tests/integration -m integration -q --cov=backend --cov-report=term-missing:skip-covered

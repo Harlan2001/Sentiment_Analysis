@@ -5,7 +5,6 @@
 
 import json
 import logging
-import os
 import re
 import time
 from typing import Any, Dict, Optional
@@ -27,6 +26,8 @@ from backend.config.config import (
     create_openai_async_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
+    get_llm_api_key,
+    get_llm_base_url,
 )
 from backend.factor.factor_management import get_factor_prompt_text
 
@@ -36,18 +37,18 @@ logger = logging.getLogger(__name__)
 # 定义此分析器使用的模型短名
 MODEL_NAME = get_default_analysis_model_name()
 
-# kingstar API配置
-kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-if not kingstar_API_KEY:
+# LLM API 配置（LLM_API_KEY / LLM_BASE_URL）
+llm_api_key = get_llm_api_key()
+if not llm_api_key:
     raise ValueError(
-        "kingstar_API_KEY environment variable is not set. Please set it in your .env file."
+        "LLM_API_KEY environment variable is not set. Please set it in your .env file."
     )
-kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
+llm_base_url = get_llm_base_url()
 
 # 创建异步客户端
 async_client = AsyncOpenAI(
-    api_key=kingstar_API_KEY,
-    base_url=kingstar_BASE_URL,
+    api_key=llm_api_key,
+    base_url=llm_base_url,
     http_client=create_openai_async_http_client(),
 )
 

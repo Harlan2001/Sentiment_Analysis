@@ -5,12 +5,11 @@
 依赖：
 - analysis.reason（新闻摘要）作为 LLM 输入
 - 快照写入 strategy_change_snapshot 表
-- LLM 调用复用 kingstar API（与 ai_strategy_recommendation 一致）
+- LLM 调用复用 config.get_llm_api_key() / get_llm_base_url()
 """
 
 import json
 import logging
-import os
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,6 +21,8 @@ from backend.config.config import (
     create_openai_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
+    get_llm_api_key,
+    get_llm_base_url,
 )
 
 logger = logging.getLogger("change_router")
@@ -29,17 +30,17 @@ logger = logging.getLogger("change_router")
 CHANGE_TZ = ZoneInfo("Asia/Shanghai")
 DEFAULT_MODEL = get_default_analysis_model_name()
 
-# LLM client（复用 kingstar 环境变量）
-_kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-_kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
+# LLM client（LLM_API_KEY / LLM_BASE_URL）
+_llm_api_key = get_llm_api_key()
+_llm_base_url = get_llm_base_url()
 
 
 def _get_llm_client():
     from openai import OpenAI
 
     return OpenAI(
-        api_key=_kingstar_API_KEY,
-        base_url=_kingstar_BASE_URL,
+        api_key=_llm_api_key,
+        base_url=_llm_base_url,
         http_client=create_openai_http_client(),
     )
 

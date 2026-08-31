@@ -54,8 +54,8 @@
 
 ```env
 # ===== Kingstar LLM API =====
-kingstar_API_KEY=sk-xxx
-kingstar_BASE_URL=http://api-inner.kingstarinfotech.cn/dmx/openai/v1
+LLM_API_KEY=sk-xxx
+LLM_BASE_URL=http://api-inner.kingstarinfotech.cn/dmx/openai/v1
 
 # ===== MySQL 数据库 =====
 MYSQL_HOST=10.253.50.134
@@ -68,7 +68,7 @@ MYSQL_AUTOCOMMIT=true
 
 # ===== 分析模型 =====
 ANALYSIS_MODEL_NAME=glm
-CHAT_MODEL_NAME=aliyun/glm-5.2
+CHAT_MODEL_NAME=glm
 
 # ===== 网络代理 =====
 OUTBOUND_PROXY_ENABLED=true

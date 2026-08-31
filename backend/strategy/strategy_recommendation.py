@@ -43,19 +43,19 @@ from backend.config.config import (
 
 MODEL_NAME = get_default_analysis_model_name()
 
-# 【临时兼容】离线模式下不需要 kingstar API key（不走 LLM 调用）
-kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-if not _config.USE_LOCAL_SNAPSHOT and not kingstar_API_KEY:
-    raise ValueError("kingstar_API_KEY environment variable is not set.")
-kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
+# 【临时兼容】离线模式下不需要 LLM API key（不走 LLM 调用）
+llm_api_key = _config.get_llm_api_key()
+if not _config.USE_LOCAL_SNAPSHOT and not llm_api_key:
+    raise ValueError("LLM_API_KEY environment variable is not set.")
+llm_base_url = _config.get_llm_base_url()
 
 async_client = (
     AsyncOpenAI(
-        api_key=kingstar_API_KEY,
-        base_url=kingstar_BASE_URL,
+        api_key=llm_api_key,
+        base_url=llm_base_url,
         http_client=create_openai_async_http_client(),
     )
-    if kingstar_API_KEY and kingstar_BASE_URL
+    if llm_api_key and llm_base_url
     else None
 )
 
@@ -97,11 +97,11 @@ def _get_required_base_url(primary_env: str) -> str:
     base_url = (
         os.getenv(primary_env)
         or os.getenv("EXTERNAL_API_BASE_URL")
-        or os.getenv("kingstar_BASE_URL")
+        or _config.get_llm_base_url()
     )
     if not base_url:
         raise RuntimeError(
-            f"{primary_env}, EXTERNAL_API_BASE_URL, or kingstar_BASE_URL is required for AI strategy recommendation."
+            f"{primary_env}, EXTERNAL_API_BASE_URL, or LLM_BASE_URL is required for AI strategy recommendation."
         )
     return base_url
 

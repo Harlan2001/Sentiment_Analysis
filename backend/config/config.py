@@ -112,6 +112,17 @@ def create_openai_async_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(trust_env=False, timeout=120.0)
 
 
+# ====================== LLM 服务配置 ======================
+def get_llm_api_key() -> Optional[str]:
+    """LLM API Key 环境变量值（LLM_API_KEY）。"""
+    return _get_env_str("LLM_API_KEY")
+
+
+def get_llm_base_url() -> Optional[str]:
+    """LLM Base URL 环境变量值（LLM_BASE_URL）。"""
+    return _get_env_str("LLM_BASE_URL")
+
+
 # ====================== 数据库配置 ======================
 # 复用工具函数读取环境变量，消除重复逻辑
 MYSQL_CONFIG = {
@@ -154,18 +165,23 @@ ANALYSIS_MODEL_PRIORITY = ["glm", "deepseek", "qwen", "default"]
 # 简化注册表
 ANALYSIS_MODEL_REGISTRY = {
     "deepseek": {
-        "provider_model": "deepseek/deepseek-v4-pro",
+        "provider_model": "deepseek-v4-pro",
         "description": "DeepSeek 模型",
         "enabled": True,
     },
     "qwen": {
-        "provider_model": "aliyun/qwen3.6-flash",
+        "provider_model": "qwen3.7-flash",
         "description": "Qwen 模型",
         "enabled": True,
     },
     "glm": {
-        "provider_model": "aliyun/glm-5.2",
+        "provider_model": "glm-5.2",
         "description": "智谱 模型",
+        "enabled": True,
+    },
+    "kimi": {
+        "provider_model": "kimi-k3",
+        "description": "KIMI 模型",
         "enabled": True,
     },
 }
@@ -214,9 +230,7 @@ STRATEGY_AUTO_ENABLED = _is_truthy(_get_env_str("STRATEGY_AUTO_ENABLED") or "tru
 STRATEGY_AUTO_CRON = _get_env_str("STRATEGY_AUTO_CRON") or "0 9 * * *"
 
 # 组合策略默认模型：可通过环境变量 PORTFOLIO_STRATEGY_MODEL 覆盖
-PORTFOLIO_MODEL = os.getenv(
-    "PORTFOLIO_STRATEGY_MODEL", "aliyun/glm-5.2"
-)
+PORTFOLIO_MODEL = os.getenv("PORTFOLIO_STRATEGY_MODEL", "glm-5.2")
 
 # 债券评级枚举：AI 输出中允许的最低评级取值集合
 RATING_ENUM = {"不限", "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+"}

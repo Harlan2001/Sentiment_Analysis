@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI
@@ -18,6 +17,8 @@ from backend.config.config import (
     create_openai_async_http_client,
     get_analysis_model_info,
     get_chat_model_name,
+    get_llm_api_key,
+    get_llm_base_url,
 )
 
 
@@ -30,17 +31,17 @@ class AgentGenerationError(RuntimeError):
 
 
 # ── LLM 客户端 ──
-kingstar_api_key = os.getenv("kingstar_API_KEY")
-if not kingstar_api_key:
+llm_api_key = get_llm_api_key()
+if not llm_api_key:
     raise ValueError(
-        "kingstar_API_KEY environment variable is not set. Please set it in your .env file."
+        "LLM_API_KEY environment variable is not set. Please set it in your .env file."
     )
-kingstar_base_url = os.getenv("kingstar_BASE_URL")
+llm_base_url = get_llm_base_url()
 
 # Agent 对话全程流式输出（run_agent_loop 内部 stream=True），需使用异步客户端。
-kingstar_async_client = AsyncOpenAI(
-    api_key=kingstar_api_key,
-    base_url=kingstar_base_url,
+llm_async_client = AsyncOpenAI(
+    api_key=llm_api_key,
+    base_url=llm_base_url,
     http_client=create_openai_async_http_client(),
 )
 
@@ -139,7 +140,7 @@ async def agent_chat_stream(
     async for sse_event in run_agent_loop(
         messages=messages,
         system_prompt=system_prompt,
-        client=kingstar_async_client,
+        client=llm_async_client,
         model=CHAT_MODEL,
         model_name=get_chat_model_name(),
         user_id=_resolve_user_id(username),

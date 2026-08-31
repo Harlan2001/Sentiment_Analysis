@@ -60,7 +60,7 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["."]             # 让测试能 import backend
 asyncio_mode = "auto"          # async 测试免装饰器
-markers = ["fast", "slow"]     # 本周先定义,分档下周再用
+markers = ["fast", "slow", "integration"]  # fast=纯逻辑必跑;slow=重依赖晚跑;integration=真实测试库
 
 [tool.ruff]
 line-length = 100

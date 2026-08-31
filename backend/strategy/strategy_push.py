@@ -16,7 +16,7 @@ from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
 STRATEGY_TZ = ZoneInfo("Asia/Shanghai")
 STRATEGY_MODEL = os.getenv(
-    "STRATEGY_MODEL", "aliyun/glm-5.2"
+    "STRATEGY_MODEL", "glm-5.2"
 )
 
 

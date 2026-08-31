@@ -163,7 +163,7 @@ async def run_agent_loop(
     client : AsyncOpenAI
         Kingstar (OpenAI 兼容) 异步客户端
     model : str
-        模型标识符，如 aliyun/glm-5.2
+        模型标识符，如 glm-5.2
     max_tool_rounds : int
         最大工具调用轮数，防止死循环
     model_name : str

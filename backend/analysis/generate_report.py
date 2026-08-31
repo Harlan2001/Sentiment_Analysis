@@ -5,7 +5,6 @@
 import argparse
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime
@@ -25,6 +24,8 @@ from backend.config.config import (
     create_openai_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
+    get_llm_api_key,
+    get_llm_base_url,
 )
 
 # 日志配置
@@ -39,8 +40,8 @@ MODEL_PROVIDER_MODEL = (
     else str(MODEL_INFO)
 )
 PROMPT_VERSION = "v2.3"  # v2.3: 修复模型过度拒绝问题，优化分析指令适配实际可用数据
-KINGSTAR_API_KEY = os.getenv("kingstar_API_KEY")
-KINGSTAR_BASE_URL = os.getenv("kingstar_BASE_URL")
+LLM_API_KEY = get_llm_api_key()
+LLM_BASE_URL = get_llm_base_url()
 
 # 报告生成时向前回溯的新闻天数（含 report_date 当天）
 NEWS_LOOKBACK_DAYS = 3
@@ -274,8 +275,8 @@ def call_llm(prompt: str) -> str:
     t0 = time.time()
     try:
         client = OpenAI(
-            api_key=KINGSTAR_API_KEY,
-            base_url=KINGSTAR_BASE_URL,
+            api_key=LLM_API_KEY,
+            base_url=LLM_BASE_URL,
             http_client=create_openai_http_client(),
         )
 

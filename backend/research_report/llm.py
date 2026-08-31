@@ -14,17 +14,21 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from backend.config.config import create_openai_http_client
+from backend.config.config import (
+    create_openai_http_client,
+    get_llm_api_key,
+    get_llm_base_url,
+)
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT, LLM_MAX_TEXT_CHARS
 
 logger = logging.getLogger(__name__)
 
-kingstar_API_KEY = os.getenv("kingstar_API_KEY")
-kingstar_BASE_URL = os.getenv("kingstar_BASE_URL")
+llm_api_key = get_llm_api_key()
+llm_base_url = get_llm_base_url()
 
 _client = OpenAI(
-    api_key=kingstar_API_KEY,
-    base_url=kingstar_BASE_URL,
+    api_key=llm_api_key,
+    base_url=llm_base_url,
     http_client=create_openai_http_client(),
 )
 
@@ -55,9 +59,9 @@ PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报�
 
 # 模型短名 → provider/model
 MODEL_OPTIONS = {
-    "glm": "aliyun/glm-5.2",
-    "deepseek": "deepseek/deepseek-v4-pro",
-    "qwen": "aliyun/qwen3.6-flash",
+    "glm": "glm-5.2",
+    "deepseek": "deepseek-v4-pro",
+    "qwen": "qwen3.6-flash",
 }
 
 DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
