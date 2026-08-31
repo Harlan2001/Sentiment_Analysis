@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.config.config import API_PREFIX, AUTH_ENABLED
 from backend.integrations.dream.service import generate_strategy
-from backend.strategy.ai_strategy_history import (
+from backend.repositories.ai_strategy_history_repository import (
     AiStrategyHistoryRepository,
     ArchivedConversationError,
     GenerationInProgressError,

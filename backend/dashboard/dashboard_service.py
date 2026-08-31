@@ -20,7 +20,7 @@ from backend.config.config import (
     PERIOD_LIST,
     PERIOD_REVERSE_MAP,
 )
-from backend.tools.dashboard import fmt_dt, fmt_dt2, pad_page_routes, pct, safe_one
+from backend.dashboard.helpers import fmt_dt, fmt_dt2, pad_page_routes, pct, safe_one
 
 cache_lock = threading.Lock()
 
@@ -130,7 +130,7 @@ def build_news_module(total: int, _b: Dict[str, int]) -> Dict[str, Any]:
             {"source": source, "name": name, "latest_time": fmt_dt2(v), "status": st}
         )
 
-    from backend.tools.dashboard import assemble_trend
+    from backend.dashboard.helpers import assemble_trend
 
     return {
         "total": total,
@@ -180,7 +180,7 @@ def build_analysis_module(
     else:
         coverage_pct = 0
 
-    from backend.tools.dashboard import assemble_trend
+    from backend.dashboard.helpers import assemble_trend
 
     return {
         "analyzed": analyzed,

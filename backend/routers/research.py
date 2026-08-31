@@ -13,8 +13,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
-from backend.research_report import pipeline
 from backend.research_report.parser import clean_display_text
+from backend.research_report.service import ingest_uploaded_pdf, run_analysis_async
 
 router = APIRouter(prefix=f"{API_PREFIX}/research", tags=["research"])
 
@@ -279,7 +279,7 @@ async def upload_research_pdf(
 
     # 入库
     try:
-        result = pipeline.ingest_uploaded_pdf(
+        result = ingest_uploaded_pdf(
             pdf_bytes=pdf_bytes,
             original_filename=file.filename or "unknown.pdf",
             uploaded_by=uploaded_by,
@@ -347,7 +347,7 @@ def trigger_analysis(
         )
 
     # 启动后台分析
-    pipeline.run_analysis_async(report_id, MODEL_OPTIONS[model])
+    run_analysis_async(report_id, MODEL_OPTIONS[model])
 
     return {
         "report_id": report_id,

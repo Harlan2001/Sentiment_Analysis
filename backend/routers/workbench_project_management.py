@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.project_management_repository import ProjectManagementRepository
-from backend.routers.workbench.helpers import raise_repository_error
+from backend.routers.workbench_helpers import raise_repository_error
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-project-management"])
 

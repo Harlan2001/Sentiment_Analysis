@@ -10,7 +10,7 @@ from typing import Any
 from backend.analysis.analyzer import MODEL_NAME, async_chat_completion
 from backend.common.llm_logger import log_llm_usage
 from backend.config.config import get_analysis_model_info
-from backend.news_summary.repository import DailyNewsSummaryRepository
+from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 from backend.routers.news import get_news
 
 logger = logging.getLogger(__name__)

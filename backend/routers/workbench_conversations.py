@@ -17,7 +17,7 @@ from backend.agent.demo_reply import (
 from backend.config.config import API_PREFIX, CONVERSATION_HISTORY_LIMIT
 from backend.repositories.message_repository import MessageRepository
 from backend.repositories.skill_repository import SkillRepository
-from backend.routers.workbench.helpers import raise_repository_error
+from backend.routers.workbench_helpers import raise_repository_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/conversations", tags=["workbench-conversations"])

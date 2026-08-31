@@ -14,6 +14,7 @@ from backend.common.database import DatabaseConfig, init_database
 from backend.common.vector_store import get_faiss_store
 from backend.config.config import MYSQL_CONFIG
 from backend.integrations.feishu.repository import FeishuConnectionRepository
+from backend.repositories.ai_strategy_history_repository import AiStrategyHistoryRepository
 from backend.repositories.project_management_repository import ProjectManagementRepository
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.routers.ai_strategy import router as ai_strategy_router
@@ -35,22 +36,20 @@ from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
-from backend.routers.report_generation_export import router as report_generation_export_router
 from backend.routers.research import router as research_router
 from backend.routers.returns import router as returns_router
 from backend.routers.skills import router as skills_router
 from backend.routers.strategy import router as strategy_router
 from backend.routers.strategy import start_strategy_services, stop_strategy_services
 from backend.routers.watchlist import router as watchlist_router
-from backend.routers.workbench.computer import router as workbench_computer_router
-from backend.routers.workbench.conversations import router as workbench_conversations_router
-from backend.routers.workbench.project_management import (
+from backend.routers.workbench_computer import router as workbench_computer_router
+from backend.routers.workbench_conversations import router as workbench_conversations_router
+from backend.routers.workbench_project_management import (
     router as workbench_project_management_router,
 )
-from backend.routers.workbench.projects import router as workbench_projects_router
-from backend.routers.workbench.sidebar import router as workbench_sidebar_router
+from backend.routers.workbench_projects import router as workbench_projects_router
+from backend.routers.workbench_sidebar import router as workbench_sidebar_router
 from backend.routers.workbench_users import router as workbench_users_router
-from backend.strategy.ai_strategy_history import AiStrategyHistoryRepository
 from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 
 app = FastAPI(title="Bond Yield Backend")
@@ -93,7 +92,6 @@ app.include_router(forecast_router)
 app.include_router(graph_augment_router)
 app.include_router(report_router)
 app.include_router(report_generation_router)
-app.include_router(report_generation_export_router)
 app.include_router(research_router)
 app.include_router(change_router)
 app.include_router(dashboard_router)
@@ -141,7 +139,7 @@ def startup_workbench():
     interrupted = app.state.repository.mark_streaming_messages_interrupted()
     if interrupted:
         logger.warning("已将 %d 条未完成工作台助手消息标记为 interrupted", interrupted)
-    from backend.news_summary.repository import DailyNewsSummaryRepository
+    from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 
     interrupted_summaries = (
         DailyNewsSummaryRepository.from_environment().mark_interrupted_tasks_failed()

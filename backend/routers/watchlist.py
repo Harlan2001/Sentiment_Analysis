@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.watchlist_repository import WatchlistRepository
-from backend.routers.workbench.helpers import raise_repository_error
+from backend.routers.workbench_helpers import raise_repository_error
 
 router = APIRouter(prefix=f"{API_PREFIX}/watchlist", tags=["watchlist"])
 

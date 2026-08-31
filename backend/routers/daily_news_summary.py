@@ -9,11 +9,11 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 
 from backend.config.config import API_PREFIX, NEWS_SOURCES
-from backend.news_summary.repository import (
+from backend.news_summary.service import generate_daily_news_summary
+from backend.repositories.news_summary_repository import (
     DailyNewsSummaryNotFoundError,
     DailyNewsSummaryRepository,
 )
-from backend.news_summary.service import generate_daily_news_summary
 
 router = APIRouter(
     prefix=f"{API_PREFIX}/daily-news-summaries", tags=["daily-news-summaries"]

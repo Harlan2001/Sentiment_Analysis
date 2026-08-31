@@ -4,17 +4,20 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.config.config import API_PREFIX
+from backend.report.export_service import export_filename, generate_docx, generate_pdf
+from backend.report.generation_service import start_report_generation
 from backend.repositories.report_generation_repository import (
     ReportGenerationConflictError,
     ReportGenerationNotFoundError,
     ReportGenerationRepository,
 )
-from backend.services.report_generation_service import start_report_generation
 
 router = APIRouter(prefix=f"{API_PREFIX}/report-generation", tags=["report-generation"])
 ALLOWED_STATUSES = {"queued", "running", "completed", "failed"}
@@ -166,3 +169,31 @@ def permanently_delete_report_generation_task(request: Request, task_id: str):
         return {"data": _repository().permanently_delete_task(request.state.username, task_id)}
     except Exception as exc:
         _raise_repository_error(exc)
+
+
+@router.get("/tasks/{task_id}/export")
+def export_report_generation_task(
+    request: Request,
+    task_id: str,
+    format: str = Query(..., pattern="^(pdf|docx)$"),
+):
+    task = _repository().get_task(request.state.username, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Report generation task not found")
+    if task["status"] != "completed" or not task.get("result_markdown"):
+        raise HTTPException(status_code=409, detail="Only completed reports can be exported")
+    try:
+        content = (
+            generate_pdf(task["title"], task["result_markdown"], task["source_snapshot_json"])
+            if format == "pdf"
+            else generate_docx(task["title"], task["result_markdown"], task["source_snapshot_json"])
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    media_type = "application/pdf" if format == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    filename = export_filename(task["title"], format)
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
