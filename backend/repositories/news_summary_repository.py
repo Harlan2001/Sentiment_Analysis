@@ -3,51 +3,17 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
-from datetime import date, datetime
-from typing import Any, Iterator
+from datetime import date
+from typing import Any
 
-from backend.common.database import get_repo_connection
+from backend.repositories.base import BaseRepository, json_default, serialize_row
 
 
 class DailyNewsSummaryNotFoundError(RuntimeError):
     """任务不存在或不属于当前用户。"""
 
 
-def _json_default(value: Any) -> str:
-    return value.isoformat() if isinstance(value, (date, datetime)) else str(value)
-
-
-def _serialize_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
-    if row is None:
-        return None
-    result: dict[str, Any] = {}
-    for key, value in row.items():
-        if isinstance(value, (date, datetime)):
-            result[key] = value.isoformat()
-        elif key.endswith("_json") and isinstance(value, str):
-            try:
-                result[key] = json.loads(value)
-            except json.JSONDecodeError:
-                result[key] = value
-        else:
-            result[key] = value
-    return result
-
-
-class DailyNewsSummaryRepository:
-    @classmethod
-    def from_environment(cls) -> "DailyNewsSummaryRepository":
-        return cls()
-
-    @contextmanager
-    def _connection(self) -> Iterator[Any]:
-        with get_repo_connection() as connection:
-            try:
-                yield connection
-            except BaseException:
-                connection.rollback()
-                raise
+class DailyNewsSummaryRepository(BaseRepository):
 
     def create_task(
         self,
@@ -90,7 +56,7 @@ class DailyNewsSummaryRepository:
                     (owner_username, limit),
                 )
                 rows = cursor.fetchall()
-        return [_serialize_row(row) or {} for row in rows]
+        return [serialize_row(row) or {} for row in rows]
 
     def get_task(self, owner_username: str, task_id: int) -> dict[str, Any] | None:
         with self._connection() as conn:
@@ -100,7 +66,7 @@ class DailyNewsSummaryRepository:
                     (task_id, owner_username),
                 )
                 row = cursor.fetchone()
-        return _serialize_row(row)
+        return serialize_row(row)
 
     def mark_running(self, owner_username: str, task_id: int) -> bool:
         with self._connection() as conn:
@@ -138,7 +104,7 @@ class DailyNewsSummaryRepository:
                         news_count,
                         json.dumps(source_stats, ensure_ascii=False),
                         summary,
-                        json.dumps(references, ensure_ascii=False, default=_json_default),
+                        json.dumps(references, ensure_ascii=False, default=json_default),
                         task_id,
                         owner_username,
                     ),
@@ -181,7 +147,7 @@ class DailyNewsSummaryRepository:
                     (owner_username, limit),
                 )
                 rows = cursor.fetchall()
-        return [_serialize_row(row) or {} for row in rows]
+        return [serialize_row(row) or {} for row in rows]
 
     def soft_delete_task(self, owner_username: str, task_id: int) -> dict[str, bool]:
         with self._connection() as conn:

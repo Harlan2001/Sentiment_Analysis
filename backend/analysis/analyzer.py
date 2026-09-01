@@ -8,15 +8,10 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-import json
-import logging
-import time
-from typing import Any, Dict, Optional
-
 from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.common.llm_call import get_async_llm_client, llm_completion_with_retry
+from backend.common.llm_call import async_chat_completion
 from backend.common.llm_json import extract_json_string
 from backend.common.llm_logger import log_llm_usage
 from backend.config.config import (
@@ -48,19 +43,6 @@ if not llm_api_key:
     raise ValueError(
         "LLM_API_KEY environment variable is not set. Please set it in your .env file."
     )
-
-# 创建异步客户端（复用 common.llm_call 缓存，上面已确认 key 存在）
-async_client = get_async_llm_client()
-if async_client is None:
-    raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
-
-
-# 带重试的异步 API 调用（最多重试 3 次，指数退避 1s→10s）；
-# 重试逻辑收敛到 common.llm_call.llm_completion_with_retry，此封装保留
-# async_chat_completion 导出名（backend.news_summary.service 依赖该导入）。
-async def async_chat_completion(**kwargs):
-    """带重试的异步 API 调用"""
-    return await llm_completion_with_retry(async_client, **kwargs)
 
 
 async def analyze_bond_yield_async(

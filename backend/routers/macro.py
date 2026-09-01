@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -7,9 +8,16 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
-from backend.macrosignal.macro_signal import get_macro_signal
+from backend.macrosignal.macro_signal import (
+    DEFAULT_DECAY_LAMBDA,
+    SIGNAL_DIRECTIONAL,
+    SIGNAL_PRESENCE,
+    get_macro_signal,
+)
 from backend.macrosignal.macro_signal_log import (
+    SignalRequestContext,
     build_failure_log_rows,
     build_success_log_row,
     insert_signal_logs,
@@ -19,6 +27,13 @@ router = APIRouter(prefix=f"{API_PREFIX}/macro", tags=["macro"])
 
 shanghai_tz = ZoneInfo("Asia/Shanghai")
 
+VALID_SIGNAL_TYPES = (SIGNAL_PRESENCE, SIGNAL_DIRECTIONAL)
+
+
+def _now_utc_naive() -> datetime:
+    """当前 UTC 时间的 naive 表示（存储约定：naive UTC，替代已弃用的 utcnow()）。"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 def _normalize_shanghai_naive(value: str) -> datetime:
     """把 ISO 时间归一化为上海墙钟的 naive datetime（存储约定：naive 上海墙钟）。"""
@@ -26,6 +41,27 @@ def _normalize_shanghai_naive(value: str) -> datetime:
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(shanghai_tz).replace(tzinfo=None)
     return parsed
+
+
+def _signal_log_context(
+    request_id: str,
+    start_dt: Optional[datetime],
+    end_dt: Optional[datetime],
+    decay_lambda: float,
+    started_at: datetime,
+) -> SignalRequestContext:
+    """组装信号请求日志上下文，finished_at 取当前时刻（即调用结束时），并计算耗时。"""
+    finished_at = _now_utc_naive()
+    latency_ms = int((finished_at - started_at).total_seconds() * 1000)
+    return SignalRequestContext(
+        request_id=request_id,
+        query_start_time=start_dt,
+        query_end_time=end_dt,
+        decay_lambda=decay_lambda,
+        started_at=started_at,
+        finished_at=finished_at,
+        latency_ms=latency_ms,
+    )
 
 
 @router.get("/signal")
@@ -38,17 +74,21 @@ def get_macro_signal_api(
         ..., description="结束时间，ISO 格式，如 2025-01-01T23:59:59"
     ),
     signal_type: str = Query(..., description="信号类型：presence | directional"),
-    decay_lambda: float = Query(0.1, description="时间衰减系数，仅 directional 生效"),
+    decay_lambda: float = Query(
+        DEFAULT_DECAY_LAMBDA, description="时间衰减系数，仅 directional 生效"
+    ),
 ):
     request_id = str(uuid.uuid4())
-    started_at = datetime.utcnow()
-    start_dt = None
-    end_dt = None
+    started_at = _now_utc_naive()
+    start_dt = end_dt = None
     codes = []
     log_rows = []
+    normalized_signal_type = (
+        signal_type if signal_type in VALID_SIGNAL_TYPES else None
+    )
 
     try:
-        if signal_type not in ("presence", "directional"):
+        if normalized_signal_type is None:
             raise HTTPException(
                 status_code=400, detail="signal_type 必须为 presence 或 directional"
             )
@@ -75,26 +115,15 @@ def get_macro_signal_api(
             factor_codes=codes,
             start_time=start_dt,
             end_time=end_dt,
-            signal_type=signal_type,
+            signal_type=normalized_signal_type,
             decay_lambda=decay_lambda,
         )
 
-        finished_at = datetime.utcnow()
-        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
+        success_ctx = _signal_log_context(
+            request_id, start_dt, end_dt, decay_lambda, started_at
+        )
         for result in results:
-            log_rows.append(
-                build_success_log_row(
-                    request_id=request_id,
-                    signal_result=result,
-                    signal_type=signal_type,
-                    query_start_time=start_dt,
-                    query_end_time=end_dt,
-                    decay_lambda=decay_lambda,
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    latency_ms=latency_ms,
-                )
-            )
+            log_rows.append(build_success_log_row(success_ctx, result, signal_type))
 
         for item in results:
             item.pop("hit_news_ids", None)
@@ -104,40 +133,20 @@ def get_macro_signal_api(
         return results
 
     except HTTPException as he:
-        finished_at = datetime.utcnow()
-        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
         log_rows = build_failure_log_rows(
-            request_id=request_id,
+            _signal_log_context(request_id, start_dt, end_dt, decay_lambda, started_at),
             factor_codes=codes,
-            signal_type=(
-                signal_type if signal_type in ("presence", "directional") else None
-            ),
-            query_start_time=start_dt,
-            query_end_time=end_dt,
-            decay_lambda=decay_lambda,
+            signal_type=normalized_signal_type,
             error_message=he.detail,
-            started_at=started_at,
-            finished_at=finished_at,
-            latency_ms=latency_ms,
         )
         raise
 
     except Exception as exc:
-        finished_at = datetime.utcnow()
-        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
         log_rows = build_failure_log_rows(
-            request_id=request_id,
+            _signal_log_context(request_id, start_dt, end_dt, decay_lambda, started_at),
             factor_codes=codes,
-            signal_type=(
-                signal_type if signal_type in ("presence", "directional") else None
-            ),
-            query_start_time=start_dt,
-            query_end_time=end_dt,
-            decay_lambda=decay_lambda,
+            signal_type=normalized_signal_type,
             error_message=str(exc),
-            started_at=started_at,
-            finished_at=finished_at,
-            latency_ms=latency_ms,
         )
         raise HTTPException(status_code=500, detail="服务内部错误")
 
@@ -206,10 +215,6 @@ def get_macro_signal_logs(
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     offset = (page - 1) * page_size
-
-    import json
-
-    from backend.common.database import get_db_connection
 
     with get_db_connection() as conn:
         cur = conn.cursor()

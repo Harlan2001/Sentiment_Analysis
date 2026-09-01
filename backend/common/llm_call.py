@@ -150,21 +150,30 @@ async def llm_chat_async(
     call_source: str,
     temperature: float = 0.7,
     timeout: float = 600.0,
+    max_tokens: Optional[int] = None,
+    retry: bool = False,
     client: Optional[AsyncOpenAI] = None,
 ) -> str:
-    """异步版 llm_chat。"""
+    """异步版 llm_chat；``retry=True`` 时走 ``llm_completion_with_retry``（指数退避重试）。"""
     llm_client = client if client is not None else get_async_llm_client()
     if llm_client is None:
         raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
 
+    call_params: Dict[str, Any] = {
+        "model": provider_model,
+        "messages": messages,
+        "temperature": temperature,
+        "timeout": timeout,
+    }
+    if max_tokens is not None:
+        call_params["max_tokens"] = max_tokens
+
     t0 = time.time()
     try:
-        response = await llm_client.chat.completions.create(
-            model=provider_model,
-            messages=messages,
-            temperature=temperature,
-            timeout=timeout,
-        )
+        if retry:
+            response = await llm_completion_with_retry(llm_client, **call_params)
+        else:
+            response = await llm_client.chat.completions.create(**call_params)
     except Exception as exc:
         _log_failure(
             call_source, model, provider_model, int((time.time() - t0) * 1000), str(exc)
@@ -193,3 +202,12 @@ async def llm_completion_with_retry(client, **kwargs):
     if client is None:
         raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
     return await client.chat.completions.create(**kwargs)
+
+
+async def async_chat_completion(client: Optional[AsyncOpenAI] = None, **kwargs):
+    """带指数退避重试的异步 chat.completions 调用（不写 usage 日志，由调用方记录）。
+
+    收敛 analyzer / strategy_recommendation 中各自的同名薄包装；
+    client 缺省时取缓存的异步客户端，供各调用方统一使用。
+    """
+    return await llm_completion_with_retry(client or get_async_llm_client(), **kwargs)

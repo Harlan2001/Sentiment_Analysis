@@ -335,20 +335,21 @@ def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
     """
 
     metrics: list[dict[str, str]] = []
+
+    def _metric(label: str, value: str) -> dict[str, str]:
+        return {
+            "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
+            "label": label,
+            "value": value,
+        }
+
     for line in backtest_log.splitlines():
         if "STATISTICS::" not in line:
             continue
         statistic = line.split("STATISTICS::", 1)[1].strip()
         for label in _BACKTEST_STATISTIC_NAMES:
             if statistic == label or statistic.startswith(f"{label} "):
-                value = statistic[len(label) :].strip()
-                metrics.append(
-                    {
-                        "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
-                        "label": label,
-                        "value": value,
-                    }
-                )
+                metrics.append(_metric(label, statistic[len(label):].strip()))
                 break
         else:
             # Keep fields added by new policy versions without inventing their
@@ -359,13 +360,7 @@ def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
             else:
                 label, value = statistic, ""
             if label:
-                metrics.append(
-                    {
-                        "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
-                        "label": label,
-                        "value": value,
-                    }
-                )
+                metrics.append(_metric(label, value))
     return metrics
 
 
@@ -384,13 +379,6 @@ def generate_strategy(
     if not prompt.strip():
         raise ValueError("策略提示词不能为空")
     settings = settings or DreamStrategySettings.from_environment()
-    settings = DreamStrategySettings(
-        portal_config_url=settings.portal_config_url,
-        template_id=settings.template_id,
-        agent=settings.agent,
-        timeout_seconds=settings.timeout_seconds,
-        backtest_wait_seconds=settings.backtest_wait_seconds,
-    )
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)
     client = _connect_and_login(ws_url, token, settings.timeout_seconds, common_pb2)
@@ -430,7 +418,7 @@ def generate_strategy(
                 raise TimeoutError(
                     f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒"
                 )
-            client.ws.settimeout(
+            client.set_receive_timeout(
                 max(0.1, settings.timeout_seconds - (time.monotonic() - started_at))
             )
             _, command, payload = client.receive()
@@ -477,7 +465,7 @@ def generate_strategy(
             raise RuntimeError("DreamStrategy 正式策略结果未包含策略概要。")
         if not _backtest_is_complete(strategy):
             raise RuntimeError("DreamStrategy 正式策略结果未完成回测，未保存不完整产物。")
-        if strategy and strategy.get("backtest_log"):
+        if strategy.get("backtest_log"):
             backtest_log = _merge_backtest_log(
                 backtest_log, str(strategy["backtest_log"])
             )
@@ -493,16 +481,8 @@ def generate_strategy(
             "generation_status": final_message.strategy_generation_status,
             # Template fields are the durable, per-version backtest result. A
             # chat message can be emitted before the asynchronous test finishes.
-            "backtest_passed": (
-                strategy.get("backtest_passed")
-                if _backtest_is_complete(strategy)
-                else None
-            ),
-            "backtest_exit_code": (
-                strategy.get("backtest_exit_code")
-                if _backtest_is_complete(strategy)
-                else None
-            ),
+            "backtest_passed": strategy.get("backtest_passed"),
+            "backtest_exit_code": strategy.get("backtest_exit_code"),
             "backtest_summary": _summarize_backtest_log(backtest_log),
             "backtest_metrics": _parse_backtest_metrics(backtest_log),
             "elapsed_seconds": round(time.monotonic() - started_at, 3),

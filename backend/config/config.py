@@ -53,7 +53,7 @@ def _is_truthy(value: str) -> bool:
 # ====================== 日志配置 ======================
 LOG_LEVEL = _get_env_str("LOG_LEVEL") or "INFO"
 LOG_DIR = _get_env_str("LOG_DIR") or str(BASE_DIR / "logs")
-LOG_MAX_DAYS = int(_get_env_str("LOG_MAX_DAYS") or "30")
+LOG_MAX_DAYS = _get_env_int("LOG_MAX_DAYS", 30)
 
 # ====================== 本地快照配置 ======================
 # 【临时兼容】SaaS 无法访问内网 API 时，使用本地快照文件替代实时 API 调用
@@ -86,7 +86,7 @@ def get_outbound_proxy_url() -> Optional[str]:
     )
 
 
-def get_requests_proxies() -> Optional[Dict[str, Optional[str]]]:
+def get_requests_proxies() -> Dict[str, Optional[str]]:
     proxy = get_outbound_proxy_url()
     if not proxy:
         # 必须显式设为 None，不能返回 None — requests 库在 proxies=None 时会
@@ -98,28 +98,33 @@ def get_requests_proxies() -> Optional[Dict[str, Optional[str]]]:
 # OpenAI 客户端
 # 始终返回 Client 实例：代理启用时走代理，禁用时用 trust_env=False 防止
 # httpx 回退读取环境变量 HTTP_PROXY / HTTPS_PROXY
-def create_openai_http_client() -> httpx.Client:
+_HTTP_TIMEOUT_SECONDS = 120.0
+
+
+def _http_client_options() -> dict:
+    """httpx 客户端共用选项：代理 URL（启用时）或禁用环境代理回退。"""
     proxy_url = get_outbound_proxy_url()
     if proxy_url:
-        return httpx.Client(proxy=proxy_url, timeout=120.0)
-    return httpx.Client(trust_env=False, timeout=120.0)
+        return {"proxy": proxy_url}
+    return {"trust_env": False}
+
+
+def create_openai_http_client() -> httpx.Client:
+    return httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS, **_http_client_options())
 
 
 def create_openai_async_http_client() -> httpx.AsyncClient:
-    proxy_url = get_outbound_proxy_url()
-    if proxy_url:
-        return httpx.AsyncClient(proxy=proxy_url, timeout=120.0)
-    return httpx.AsyncClient(trust_env=False, timeout=120.0)
+    return httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS, **_http_client_options())
 
 
 # ====================== LLM 服务配置 ======================
-def get_llm_api_key() -> Optional[str]:
-    """LLM API Key 环境变量值（LLM_API_KEY）。"""
+def get_llm_api_key() -> str:
+    """LLM API Key 环境变量值（LLM_API_KEY，可能为空字符串）。"""
     return _get_env_str("LLM_API_KEY")
 
 
-def get_llm_base_url() -> Optional[str]:
-    """LLM Base URL 环境变量值（LLM_BASE_URL）。"""
+def get_llm_base_url() -> str:
+    """LLM Base URL 环境变量值（LLM_BASE_URL，可能为空字符串）。"""
     return _get_env_str("LLM_BASE_URL")
 
 
@@ -130,7 +135,8 @@ MYSQL_CONFIG = {
     "port": _get_env_int("MYSQL_PORT", 3306),
     "user": _require_env_str("MYSQL_USER"),
     "password": _require_env_str("MYSQL_PASSWORD"),
-    "database": os.getenv("MYSQL_TEST_DATABASE") or _require_env_str("MYSQL_DATABASE"),
+    # 生产/主库。集成测试通过独立连接参数连测试库，不在生产配置里做库切换
+    "database": _require_env_str("MYSQL_DATABASE"),
     "charset": _get_env_str("MYSQL_CHARSET") or "utf8mb4",
     "autocommit": _is_truthy(_get_env_str("MYSQL_AUTOCOMMIT") or "true"),
 }
@@ -230,28 +236,6 @@ STRATEGY_AUTO_ENABLED = _is_truthy(_get_env_str("STRATEGY_AUTO_ENABLED") or "tru
 # 触发时间（cron 格式，仅取小时字段，如 "0 9 * * *" = 每天 9:00）
 STRATEGY_AUTO_CRON = _get_env_str("STRATEGY_AUTO_CRON") or "0 9 * * *"
 
-# 组合策略默认模型：可通过环境变量 PORTFOLIO_STRATEGY_MODEL 覆盖
-PORTFOLIO_MODEL = os.getenv("PORTFOLIO_STRATEGY_MODEL", "glm-5.2")
-
-# 债券评级枚举：AI 输出中允许的最低评级取值集合
-RATING_ENUM = {"不限", "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+"}
-
-# 按债券种类分布键：AI 输出 distribution_by_category 必须包含的 9 个种类键
-CATEGORY_KEYS = [
-    "gov_bond",  # 国债
-    "local_gov_bond",  # 地方政府债
-    "corp_credit_bond",  # 企业信用债
-    "financial_bond_non_policy",  # 非政策性金融债
-    "other_bond",  # 其他债券
-    "policy_financial_bond",  # 政策性金融债
-    "gov_supported_institution_bond",  # 政府支持机构债
-    "cd",  # 同业存单
-    "abs",  # 资产支持证券
-]
-
-# 按债券类型分布键：AI 输出 distribution_by_type 必须包含的 2 个类型键
-TYPE_KEYS = ["interest_rate_bond", "credit_bond"]
-
 # ====================== API 路由前缀 ======================
 # 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
 API_PREFIX = _get_env_str("API_PREFIX") or "/sapi"
@@ -344,7 +328,7 @@ if AUTH_ENABLED and not JWT_SECRET_KEY:
     )
 
 # JWT 过期时间（小时），默认 24 小时
-JWT_EXPIRY_HOURS = int(_get_env_str("JWT_EXPIRY_HOURS") or "24")
+JWT_EXPIRY_HOURS = _get_env_int("JWT_EXPIRY_HOURS", 24)
 
 # 是否启用手机号登录（true=启用，false=关闭，仅账号密码登录；默认 true）
 AUTH_PHONE_LOGIN = _is_truthy(_get_env_str("AUTH_PHONE_LOGIN") or "true")

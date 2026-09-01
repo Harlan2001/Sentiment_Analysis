@@ -6,28 +6,14 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import date
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from backend.common.database import get_repo_connection
+from backend.repositories.base import BaseRepository
 
 
-class ResearchReportRepository:
+class ResearchReportRepository(BaseRepository):
     """研报列表 / 筛选面查询。"""
-
-    @classmethod
-    def from_environment(cls) -> "ResearchReportRepository":
-        return cls()
-
-    @contextmanager
-    def _connection(self) -> Iterator[Any]:
-        with get_repo_connection() as connection:
-            try:
-                yield connection
-            except BaseException:
-                connection.rollback()
-                raise
 
     def _build_where(
         self,

@@ -208,6 +208,15 @@ def _repository() -> DailyNewsSummaryRepository:
     return DailyNewsSummaryRepository.from_environment()
 
 
+def _route_error(exc: Exception) -> HTTPException:
+    """将仓储层约定异常映射为对应的 HTTP 响应，未识别异常原样抛出。"""
+    if isinstance(exc, DailyNewsSummaryNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, RuntimeError):
+        return HTTPException(status_code=409, detail=str(exc))
+    raise exc
+
+
 def _start_generation(owner_username: str, task_id: int) -> None:
     task = asyncio.create_task(
         generate_daily_news_summary(_repository(), owner_username, task_id)
@@ -273,24 +282,25 @@ async def retry_summary(request: Request, task_id: int):
 @router.delete("/{task_id}")
 def delete_summary(request: Request, task_id: int):
     try:
-        return {"success": True, "data": _repository().soft_delete_task(_owner(request), task_id)}
-    except DailyNewsSummaryNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        data = _repository().soft_delete_task(_owner(request), task_id)
+    except (DailyNewsSummaryNotFoundError, RuntimeError) as exc:
+        raise _route_error(exc) from exc
+    return {"success": True, "data": data}
 
 
 @router.post("/{task_id}/restore")
 def restore_summary(request: Request, task_id: int):
     try:
-        return {"success": True, "data": _repository().restore_task(_owner(request), task_id)}
+        data = _repository().restore_task(_owner(request), task_id)
     except DailyNewsSummaryNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _route_error(exc) from exc
+    return {"success": True, "data": data}
 
 
 @router.delete("/{task_id}/permanently")
 def permanently_delete_summary(request: Request, task_id: int):
     try:
-        return {"success": True, "data": _repository().permanently_delete_task(_owner(request), task_id)}
+        data = _repository().permanently_delete_task(_owner(request), task_id)
     except DailyNewsSummaryNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _route_error(exc) from exc
+    return {"success": True, "data": data}

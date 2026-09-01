@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import uuid
-from contextlib import contextmanager
-from datetime import date, datetime
-from typing import Any, Iterator, Optional
+from datetime import date
+from typing import Any, Optional
 
-from backend.common.database import get_repo_connection
+from backend.repositories.base import BaseRepository, serialize_row
 
 
 class ReportGenerationNotFoundError(RuntimeError):
@@ -19,36 +18,8 @@ class ReportGenerationConflictError(RuntimeError):
     """当前任务状态不允许执行请求的操作。"""
 
 
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in row.items():
-        if isinstance(value, (datetime, date)):
-            result[key] = value.isoformat()
-        elif key.endswith("_json") and isinstance(value, str):
-            try:
-                result[key] = json.loads(value)
-            except json.JSONDecodeError:
-                result[key] = value
-        else:
-            result[key] = value
-    return result
-
-
-class ReportGenerationRepository:
+class ReportGenerationRepository(BaseRepository):
     """仅负责任务持久化和读取既有研报数据。"""
-
-    @classmethod
-    def from_environment(cls) -> "ReportGenerationRepository":
-        return cls()
-
-    @contextmanager
-    def _connection(self) -> Iterator[Any]:
-        with get_repo_connection() as connection:
-            try:
-                yield connection
-            except BaseException:
-                connection.rollback()
-                raise
 
     def list_sources(
         self,
@@ -90,7 +61,7 @@ class ReportGenerationRepository:
             limit=limit,
         )
         return {
-            "items": [_serialize_row(row) for row in rows],
+            "items": [serialize_row(row) for row in rows],
             "filters": repository.get_filter_facets(status="analyzed"),
         }
 
@@ -122,7 +93,7 @@ class ReportGenerationRepository:
             raise ReportGenerationConflictError(
                 f"以下研报尚未完成 AI 分析：{', '.join(str(item) for item in unavailable)}"
             )
-        return [_serialize_row(by_id[report_id]) for report_id in report_ids]
+        return [serialize_row(by_id[report_id]) for report_id in report_ids]
 
     def create_task(
         self,
@@ -207,7 +178,7 @@ class ReportGenerationRepository:
                     tuple(params),
                 )
                 rows = cursor.fetchall()
-        return [_serialize_row(row) for row in rows]
+        return [serialize_row(row) for row in rows]
 
     def get_task(
         self, owner_username: str, task_id: str, *, include_result: bool = True
@@ -225,7 +196,7 @@ class ReportGenerationRepository:
                     (task_id, owner_username),
                 )
                 row = cursor.fetchone()
-        return _serialize_row(row) if row else None
+        return serialize_row(row) if row else None
 
     def claim_task(self, task_id: str) -> Optional[dict[str, Any]]:
         with self._connection() as conn:
@@ -312,7 +283,7 @@ class ReportGenerationRepository:
                     (owner_username, limit),
                 )
                 rows = cursor.fetchall()
-        return [_serialize_row(row) for row in rows]
+        return [serialize_row(row) for row in rows]
 
     def soft_delete_task(self, owner_username: str, task_id: str) -> dict[str, bool]:
         with self._connection() as conn:

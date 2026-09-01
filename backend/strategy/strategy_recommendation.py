@@ -20,7 +20,7 @@ import requests
 from requests import HTTPError
 
 from backend.common.database import get_db_connection
-from backend.common.llm_call import get_async_llm_client, llm_completion_with_retry
+from backend.common.llm_call import async_chat_completion
 from backend.common.llm_json import extract_json
 from backend.common.llm_logger import log_llm_usage
 
@@ -41,9 +41,6 @@ llm_api_key = _config.get_llm_api_key()
 if not _config.USE_LOCAL_SNAPSHOT and not llm_api_key:
     raise ValueError("LLM_API_KEY environment variable is not set.")
 
-# 复用 common.llm_call 的缓存异步客户端；离线模式无密钥时返回 None
-async_client = get_async_llm_client()
-
 STRATEGY_LIST_PATH = "/v1/strategy/follow_price_point_strategy/list"
 BOND_LIST_PATH = "/v1/bondBasisInfo/query"
 QUANT_STRATEGY_LIST_PATH = "/qt-research/core/factor/factorBulletinBoard/list/page"
@@ -57,13 +54,6 @@ if not _config.USE_LOCAL_SNAPSHOT and not QUANT_STRATEGY_BASE_URL:
 QUANT_STRATEGY_TOKEN = os.getenv("QUANT_STRATEGY_TOKEN")
 if not _config.USE_LOCAL_SNAPSHOT and not QUANT_STRATEGY_TOKEN:
     raise ValueError("QUANT_STRATEGY_TOKEN environment variable is not set.")
-
-
-# 带重试的异步 API 调用（最多重试 3 次，指数退避 1s→10s）；
-# 重试逻辑收敛到 common.llm_call.llm_completion_with_retry。
-async def async_chat_completion(**kwargs):
-    """带重试的异步 API 调用"""
-    return await llm_completion_with_retry(async_client, **kwargs)
 
 
 def _join_url(base_url: str, path: str) -> str:

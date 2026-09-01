@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -8,8 +8,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from backend.config.config import API_PREFIX
-from backend.integrations.feishu.client import FeishuApiError, FeishuClient
-from backend.integrations.feishu.repository import FeishuConnectionError, FeishuConnectionRepository
+from backend.integrations.feishu.client import FeishuClient, active_access_token
+from backend.integrations.feishu.repository import (
+    FeishuConnectionError,
+    FeishuConnectionRepository,
+    FeishuRefreshFailure,
+)
 
 router = APIRouter(prefix=f"{API_PREFIX}/mcp/feishu", tags=["feishu-mcp"])
 
@@ -94,19 +98,12 @@ def call_tool(request: Request, tool_name: Literal[
     "list_bitable_records", "list_feishu_chats", "list_feishu_messages",
 ], body: ToolRequest, page_size: int = Query(default=50, ge=1, le=100)):
     repository = _repository(request)
+    username = request.state.username
+    client = FeishuClient()
     try:
-        connection = repository.get_connection(request.state.username, include_tokens=True)
-        if not connection:
+        token = active_access_token(repository, client, username)
+        if token is None:
             raise HTTPException(status_code=409, detail="请先连接飞书。")
-        client = FeishuClient()
-        expires_at = connection.get("expires_at")
-        if isinstance(expires_at, datetime) and expires_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc) + timedelta(minutes=2):
-            refreshed = client.refresh_token(connection["refresh_token"])
-            repository.upsert_connection(request.state.username, {**connection, **refreshed})
-            connection = repository.get_connection(request.state.username, include_tokens=True)
-            if not connection:
-                raise HTTPException(status_code=409, detail="飞书连接已失效，请重新连接。")
-        token = connection["access_token"]
         args = body.arguments
         if tool_name == "search_feishu_docs":
             result = client.search_docs(token, _required(args, "query"), page_size)
@@ -120,13 +117,16 @@ def call_tool(request: Request, tool_name: Literal[
             result = client.list_chats(token, page_size)
         else:
             result = client.list_messages(token, _required(args, "chat_id"), page_size)
-        repository.touch_connection(request.state.username)
-        repository.audit(request.state.username, tool_name, True)
+        repository.touch_connection(username)
+        repository.audit(username, tool_name, True)
         return {"data": result.get("data", result)}
     except HTTPException:
         raise
-    except (FeishuConnectionError, FeishuApiError) as exc:
-        repository.audit(request.state.username, tool_name, False, str(exc))
+    except FeishuRefreshFailure as exc:
+        repository.audit(username, tool_name, False, str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FeishuConnectionError as exc:
+        repository.audit(username, tool_name, False, str(exc))
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 

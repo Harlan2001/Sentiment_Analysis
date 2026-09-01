@@ -140,6 +140,10 @@ class DreamClient:
             return self._pending_frames.popleft()
         return self._receive_socket()
 
+    def set_receive_timeout(self, timeout: float) -> None:
+        """Bound how long a single blocked :meth:`receive` waits on the socket."""
+        self.ws.settimeout(timeout)
+
     def request(self, command_no: int, message, response_type):
         self.flow_no += 1
         flow_no = self.flow_no

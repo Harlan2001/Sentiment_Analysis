@@ -8,16 +8,17 @@
 
 import math
 from datetime import datetime
-from typing import List
+from typing import NamedTuple
 
-from backend.common.database import get_db_connection
+from backend.common.database import build_in_placeholders, get_db_connection
 
 # 常量定义
 DIRECTIONAL_THRESHOLD = 0.3
+DEFAULT_DECAY_LAMBDA = 0.1
 SIGNAL_PRESENCE = "presence"
 SIGNAL_DIRECTIONAL = "directional"
 
-# 方向映射字典
+# 方向标签 → 分数映射
 DIRECTION_SCORE_MAP = {
     "positive": 1.0,
     "neutral": 0.0,
@@ -25,30 +26,48 @@ DIRECTION_SCORE_MAP = {
 }
 
 
-def _format_time_range(start: datetime, end: datetime) -> dict:
-    """公共时间格式化（消除冗余）"""
-    return {"start": start.isoformat(), "end": end.isoformat()}
+class NewsFactorRow(NamedTuple):
+    """news_factor 关联查询结果的一行。"""
 
-
-def _get_hit_news_ids(matched_rows: list) -> list:
-    """公共获取新闻ID列表（消除冗余）"""
-    return [row[1] for row in matched_rows]
+    factor_code: str
+    news_id: int
+    direction: str
+    pub_time: datetime
 
 
 def _direction_to_score(direction: str) -> float:
+    """方向标签转分数：positive=1 / neutral=0 / negative=-1，未知或空按 0。"""
     return DIRECTION_SCORE_MAP.get((direction or "").lower(), 0.0)
 
 
 def _score_to_signal(score: float) -> int:
+    """按阈值把连续分数映射为 -1/0/1 信号。"""
     if score >= DIRECTIONAL_THRESHOLD:
         return 1
-    return -1 if score <= -DIRECTIONAL_THRESHOLD else 0
+    if score <= -DIRECTIONAL_THRESHOLD:
+        return -1
+    return 0
+
+
+def _check_factor_codes_exist(cur, factor_codes: list[str]) -> set[str]:
+    """返回 factor 表中真实存在的因子代码集合。"""
+    if not factor_codes:
+        return set()
+    placeholders = build_in_placeholders(factor_codes)
+    cur.execute(
+        f"SELECT code FROM factor WHERE code IN ({placeholders})",
+        tuple(factor_codes),
+    )
+    return {row[0] for row in cur.fetchall()}
 
 
 def _query_news_factor_rows(
-    cur, factor_codes: List[str], start_time: datetime, end_time: datetime
-):
-    placeholders = ",".join(["%s"] * len(factor_codes))
+    cur, factor_codes: list[str], start_time: datetime, end_time: datetime
+) -> list[NewsFactorRow]:
+    """查询因子在时间范围内的新闻关联记录；factor_codes 为空时返回空列表。"""
+    if not factor_codes:
+        return []
+    placeholders = build_in_placeholders(factor_codes)
     cur.execute(
         f"""
         SELECT f.code, nf.news_id, nf.direction, nf.pub_time
@@ -60,107 +79,114 @@ def _query_news_factor_rows(
         """,
         (*factor_codes, start_time, end_time),
     )
-    return cur.fetchall()
+    return [NewsFactorRow(*row) for row in cur.fetchall()]
 
 
-def _check_factor_codes_exist(cur, factor_codes: List[str]) -> set:
-    placeholders = ",".join(["%s"] * len(factor_codes))
-    cur.execute(
-        f"SELECT code FROM factor WHERE code IN ({placeholders})",
-        tuple(factor_codes),
-    )
-    return {row[0] for row in cur.fetchall()}
-
-
-def _compute_presence(
-    rows, factor_code: str, start_time: datetime, end_time: datetime
+def _build_signal_result(
+    factor_code: str,
+    signal_type: str,
+    signal_value: int,
+    confidence,
+    news_rows: list[NewsFactorRow],
+    start_time: datetime,
+    end_time: datetime,
 ) -> dict:
-    """计算单个因子的 presence 信号"""
-    matched = [r for r in rows if r[0] == factor_code]
-    news_count = len(matched)
-
+    """组装单个因子的信号结果字典（presence 与 directional 共用结构）。"""
     return {
         "factor_code": factor_code,
-        "signal_type": SIGNAL_PRESENCE,
-        "signal_value": 1 if news_count > 0 else 0,
-        "confidence": None,
-        "news_count": news_count,
-        "hit_news_ids": _get_hit_news_ids(matched),
-        "time_range": _format_time_range(start_time, end_time),
+        "signal_type": signal_type,
+        "signal_value": signal_value,
+        "confidence": confidence,
+        "news_count": len(news_rows),
+        "hit_news_ids": [row.news_id for row in news_rows],
+        "time_range": {"start": start_time.isoformat(), "end": end_time.isoformat()},
     }
 
 
+def _compute_presence(
+    news_rows: list[NewsFactorRow],
+    factor_code: str,
+    start_time: datetime,
+    end_time: datetime,
+) -> dict:
+    """计算单个因子的 presence 信号（0/1）。"""
+    return _build_signal_result(
+        factor_code,
+        SIGNAL_PRESENCE,
+        1 if news_rows else 0,
+        None,
+        news_rows,
+        start_time,
+        end_time,
+    )
+
+
 def _compute_directional(
-    rows,
+    news_rows: list[NewsFactorRow],
     factor_code: str,
     start_time: datetime,
     end_time: datetime,
     decay_lambda: float,
 ) -> dict:
-    """计算单个因子的 directional 信号（时间衰减加权）"""
-    matched = [r for r in rows if r[0] == factor_code]
-    news_count = len(matched)
-
-    if news_count == 0:
-        return {
-            "factor_code": factor_code,
-            "signal_type": SIGNAL_DIRECTIONAL,
-            "signal_value": 0,
-            "confidence": 0.0,
-            "news_count": 0,
-            "hit_news_ids": [],
-            "time_range": _format_time_range(start_time, end_time),
-        }
+    """计算单个因子的 directional 信号（时间衰减加权，-1/0/1）。"""
+    if not news_rows:
+        return _build_signal_result(
+            factor_code, SIGNAL_DIRECTIONAL, 0, 0.0, [], start_time, end_time
+        )
 
     weighted_sum = weight_total = 0.0
-    end_dt = end_time
+    for row in news_rows:
+        delta_days = max((end_time - row.pub_time).total_seconds() / 86400.0, 0.0)
+        weight = math.exp(-decay_lambda * delta_days)
+        weighted_sum += _direction_to_score(row.direction) * weight
+        weight_total += weight
 
-    for _, _, direction, pub_time in matched:
-        delta_days = max((end_dt - pub_time).total_seconds() / 86400.0, 0.0)
-        w = math.exp(-decay_lambda * delta_days)
-        weighted_sum += _direction_to_score(direction) * w
-        weight_total += w
+    # weight_total 恒 > 0（每条新闻的权重 exp() 均为正），无需判 0
+    raw_score = weighted_sum / weight_total
+    confidence = min(weight_total / len(news_rows), 1.0)
 
-    raw_score = weighted_sum / weight_total if weight_total > 0 else 0.0
-    confidence = min(weight_total / news_count, 1.0)
-
-    return {
-        "factor_code": factor_code,
-        "signal_type": SIGNAL_DIRECTIONAL,
-        "signal_value": _score_to_signal(raw_score),
-        "confidence": round(confidence, 4),
-        "news_count": news_count,
-        "hit_news_ids": _get_hit_news_ids(matched),
-        "time_range": _format_time_range(start_time, end_time),
-    }
+    return _build_signal_result(
+        factor_code,
+        SIGNAL_DIRECTIONAL,
+        _score_to_signal(raw_score),
+        round(confidence, 4),
+        news_rows,
+        start_time,
+        end_time,
+    )
 
 
 def get_macro_signal(
-    factor_codes: List[str],
+    factor_codes: list[str],
     start_time: datetime,
     end_time: datetime,
     signal_type: str,
-    decay_lambda: float = 0.1,
-) -> List[dict]:
+    decay_lambda: float = DEFAULT_DECAY_LAMBDA,
+) -> list[dict]:
     """
     查询宏观信号，返回每个 factor_code 的信号结果列表。
 
     :param factor_codes: 因子代码列表
     :param start_time: 时间范围起点
     :param end_time: 时间范围终点
-    :param signal_type: "presence" 或 "directional"
+    :param signal_type: "presence" 或 "directional"，其他值抛 ValueError
     :param decay_lambda: 时间衰减系数（仅 directional 生效）
-    :return: List[dict]，顺序与 factor_codes 一致
+    :return: List[dict]，顺序与 factor_codes 一致；不存在的因子返回
+             {"factor_code": ..., "error": "not found"}
     """
+    if signal_type not in (SIGNAL_PRESENCE, SIGNAL_DIRECTIONAL):
+        raise ValueError(f"未知 signal_type: {signal_type!r}")
+    if not factor_codes:
+        return []
+
     with get_db_connection() as conn:
         cur = conn.cursor()
         existing_codes = _check_factor_codes_exist(cur, factor_codes)
         valid_codes = [c for c in factor_codes if c in existing_codes]
-        rows = (
-            _query_news_factor_rows(cur, valid_codes, start_time, end_time)
-            if valid_codes
-            else []
-        )
+        # rows 按 pub_time 排序，需按 code 归组一次，避免每个因子重复全表扫描
+        rows_by_code: dict[str, list[NewsFactorRow]] = {}
+        for row in _query_news_factor_rows(cur, valid_codes, start_time, end_time):
+            rows_by_code.setdefault(row.factor_code, []).append(row)
 
     results = []
     for code in factor_codes:
@@ -168,11 +194,12 @@ def get_macro_signal(
             results.append({"factor_code": code, "error": "not found"})
             continue
 
+        news_rows = rows_by_code.get(code, [])
         if signal_type == SIGNAL_PRESENCE:
-            results.append(_compute_presence(rows, code, start_time, end_time))
+            results.append(_compute_presence(news_rows, code, start_time, end_time))
         else:
             results.append(
-                _compute_directional(rows, code, start_time, end_time, decay_lambda)
+                _compute_directional(news_rows, code, start_time, end_time, decay_lambda)
             )
 
     return results
