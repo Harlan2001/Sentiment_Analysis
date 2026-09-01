@@ -8,10 +8,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Iterator, Optional
 
-import pymysql
-from pymysql.cursors import DictCursor
-
-from backend.config.config import MYSQL_CONFIG
+from backend.common.database import get_repo_connection
 
 
 class ReportGenerationNotFoundError(RuntimeError):
@@ -40,25 +37,18 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
 class ReportGenerationRepository:
     """仅负责任务持久化和读取既有研报数据。"""
 
-    def __init__(self, settings: dict[str, Any]):
-        self._settings = settings
-
     @classmethod
     def from_environment(cls) -> "ReportGenerationRepository":
-        return cls(dict(MYSQL_CONFIG))
+        return cls()
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(
-            **{**self._settings, "autocommit": False}, cursorclass=DictCursor
-        )
-        try:
-            yield connection
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        with get_repo_connection() as connection:
+            try:
+                yield connection
+            except BaseException:
+                connection.rollback()
+                raise
 
     def list_sources(
         self,

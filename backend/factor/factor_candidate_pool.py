@@ -16,7 +16,7 @@ project_root = Path(__file__).resolve().parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from backend.config.config import MYSQL_CONFIG  # noqa: E402
+from backend.common.database import get_repo_connection  # noqa: E402
 from backend.factor.factor_management import add_new_factor  # noqa: E402
 from backend.factor.factor_similarity import get_similarity_engine  # noqa: E402
 
@@ -31,8 +31,7 @@ class FactorDiscoveryManager:
 
     SIMILARITY_THRESHOLD = 0.7  # 相似度阈值，低于此值判定为新因子
 
-    def __init__(self, mysql_config: dict = MYSQL_CONFIG):
-        self.mysql_config = mysql_config
+    def __init__(self):
         self.similarity_engine = get_similarity_engine()
 
     def process_new_factor(
@@ -144,46 +143,70 @@ class FactorDiscoveryManager:
         best_match_code: Optional[str],
         conn: Optional[pymysql.connections.Connection] = None,
     ):
-        """记录因子发现历史"""
-        external_conn = conn is not None
-        if conn is None:
-            conn = pymysql.connect(**self.mysql_config)
-        try:
-            cur = conn.cursor()
-
-            cur.execute(
-                """
-                INSERT INTO factor_discovery_history
-                (code, name, category, factor_type, description,
-                 source_news_id, extracted_text, created_by_model,
-                 max_similarity_score, most_similar_factor_code,
-                 created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-                (
-                    factor_data.get("code", ""),
-                    factor_data.get("name", ""),
-                    factor_data.get("category", ""),
-                    factor_data.get("type", ""),
-                    factor_data.get("logic_impact", ""),
+        """记录因子发现历史：外部事务连接直接用，否则走共享仓储池"""
+        if conn is not None:
+            with conn.cursor() as cur:
+                _insert_discovery_history_row(
+                    cur,
+                    factor_data,
                     source_news_id,
                     extracted_text,
                     model_name,
                     max_similarity,
                     best_match_code,
-                    datetime.now().isoformat(),
-                ),
-            )
+                )
+            return
 
-            if not external_conn:
-                conn.commit()
-        finally:
-            if not external_conn:
-                conn.close()
+        with get_repo_connection() as conn:
+            with conn.cursor() as cur:
+                _insert_discovery_history_row(
+                    cur,
+                    factor_data,
+                    source_news_id,
+                    extracted_text,
+                    model_name,
+                    max_similarity,
+                    best_match_code,
+                )
+            conn.commit()
 
 
 # 全局单例实例
 _discovery_manager = None
+
+
+def _insert_discovery_history_row(
+    cur: Any,
+    factor_data: Dict[str, Any],
+    source_news_id: int,
+    extracted_text: str,
+    model_name: str,
+    max_similarity: float,
+    best_match_code: Optional[str],
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO factor_discovery_history
+        (code, name, category, factor_type, description,
+         source_news_id, extracted_text, created_by_model,
+         max_similarity_score, most_similar_factor_code,
+         created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """,
+        (
+            factor_data.get("code", ""),
+            factor_data.get("name", ""),
+            factor_data.get("category", ""),
+            factor_data.get("type", ""),
+            factor_data.get("logic_impact", ""),
+            source_news_id,
+            extracted_text,
+            model_name,
+            max_similarity,
+            best_match_code,
+            datetime.now().isoformat(),
+        ),
+    )
 
 
 def get_factor_discovery_manager() -> FactorDiscoveryManager:

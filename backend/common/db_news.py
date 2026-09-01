@@ -2,43 +2,15 @@
 
 from typing import Any, Dict, List, Optional
 
-from backend.common.database import get_db_connection
+from backend.common.database import build_in_placeholders, get_db_connection
 
 
 class NewsQueries:
     """新闻表查询。"""
 
     @staticmethod
-    def get_pending_news(limit: int = 100) -> List[int]:
-        """
-        获取待分析的新闻ID列表（analysis表中不存在对应news_id）
-
-        Args:
-            limit: 最多返回的数量
-
-        Returns:
-            新闻ID列表
-        """
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT n.id
-                    FROM news n
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM analysis a WHERE a.news_id = n.id
-                    )
-                    ORDER BY n.pub_time ASC, n.id ASC
-                    LIMIT %s
-                """,
-                    (limit,),
-                )
-                results = cur.fetchall()
-                return [row[0] for row in results]
-    @staticmethod
     def get_pending_news_by_mode(
         mode: str,
-        model: str,
         limit: Optional[int] = 100,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
@@ -67,8 +39,7 @@ class NewsQueries:
                     params.append(end_time)
 
                 if news_ids:
-                    placeholders = ",".join(["%s"] * len(news_ids))
-                    conditions.append(f"n.id IN ({placeholders})")
+                    conditions.append(f"n.id IN ({build_in_placeholders(news_ids)})")
                     params.extend(news_ids)
 
                 where_clause = " AND ".join(conditions) if conditions else "1=1"
@@ -90,12 +61,12 @@ class NewsQueries:
     def get_news_by_id(news_id: int) -> Optional[Dict]:
         """从数据库获取新闻信息"""
         with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT id, title, content, DATE(pub_time) as publish_date FROM news WHERE id = %s",
-                (news_id,),
-            )
-            row = cur.fetchone()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, title, content, DATE(pub_time) as publish_date FROM news WHERE id = %s",
+                    (news_id,),
+                )
+                row = cur.fetchone()
 
         if not row:
             return None
@@ -106,24 +77,6 @@ class NewsQueries:
             "content": row[2],
             "publish_date": row[3],
         }
-    @staticmethod
-    def get_news_pub_dates() -> List[str]:
-        """获取新闻发布日期去重列表（升序）。"""
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT DISTINCT DATE(pub_time) AS news_date
-                    FROM news
-                    WHERE pub_time IS NOT NULL
-                    ORDER BY news_date ASC
-                    """)
-                rows = cur.fetchall()
-
-        results: List[str] = []
-        for row in rows:
-            news_date = row[0]
-            results.append(news_date.strftime("%Y-%m-%d"))
-        return results
     @staticmethod
     def get_news_pub_dates_in_range(
         start_date: Optional[str] = None,

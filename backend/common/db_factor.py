@@ -47,39 +47,36 @@ class FactorQueries:
         Returns:
             是否保存成功
         """
-        try:
-            with conn.cursor() as cur:
-                direction = factor_data.get("direction", "neutral")
-                logic_impact = factor_data.get("logic_impact", "")
+        with conn.cursor() as cur:
+            direction = factor_data.get("direction", "neutral")
+            logic_impact = factor_data.get("logic_impact", "")
 
-                # 查询新闻发布时间用于冗余存储
-                cur.execute("SELECT pub_time FROM news WHERE id = %s", (news_id,))
-                row = cur.fetchone()
-                pub_time = row[0] if row else None
+            # 查询新闻发布时间用于冗余存储
+            cur.execute("SELECT pub_time FROM news WHERE id = %s", (news_id,))
+            row = cur.fetchone()
+            pub_time = row[0] if row else None
 
-                cur.execute(
-                    """
-                    INSERT INTO news_factor
-                    (news_id, factor_id, direction, driver, model, created_at, pub_time)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        direction = VALUES(direction),
-                        driver = VALUES(driver),
-                        model = VALUES(model),
-                        created_at = VALUES(created_at),
-                        pub_time = VALUES(pub_time)
-                """,
-                    (
-                        news_id,
-                        factor_id,
-                        direction,
-                        logic_impact,
-                        model,
-                        datetime.now(),
-                        pub_time,
-                    ),
-                )
+            cur.execute(
+                """
+                INSERT INTO news_factor
+                (news_id, factor_id, direction, driver, model, created_at, pub_time)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    direction = VALUES(direction),
+                    driver = VALUES(driver),
+                    model = VALUES(model),
+                    created_at = VALUES(created_at),
+                    pub_time = VALUES(pub_time)
+            """,
+                (
+                    news_id,
+                    factor_id,
+                    direction,
+                    logic_impact,
+                    model,
+                    datetime.now(),
+                    pub_time,
+                ),
+            )
 
-            return True
-        except Exception as e:
-            raise e
+        return True

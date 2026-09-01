@@ -4,13 +4,15 @@ FastAPI 认证依赖 + HTTP 中间件
 
 import os
 
+import jwt
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from backend.auth.auth import verify_jwt_token
+from backend.auth.auth import normalize_role, verify_jwt_token
 from backend.config.config import API_PREFIX, AUTH_ENABLED
 
-# 不需要认证的路径
+# 公开路径：仅放行登录/健康检查/文档。写操作一律不在此放行；
+# 内部流水线触发端接口改走 INTERNAL_TOKEN 鉴权（见下方中间件逻辑），勿放回此集合。
 PUBLIC_PATHS = {
     f"{API_PREFIX}/auth/login",
     f"{API_PREFIX}/auth/login/phone",
@@ -19,7 +21,6 @@ PUBLIC_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
-    f"{API_PREFIX}/internal/pipeline/trigger",
     f"{API_PREFIX}/mcp/feishu/callback",
 }
 
@@ -29,6 +30,17 @@ INTERNAL_TOKEN = os.environ.get("SENTIMENT_INTERNAL_API_TOKEN")
 
 # 只读方法：匿名访客仅放行这些方法（数据可浏览），写操作/管理接口仍需登录
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def extract_bearer_token(request: Request) -> str | None:
+    """从 Authorization header 提取 Bearer token；
+    SSE/EventSource 不支持自定义 header，兜底从 query param ?token= 获取。"""
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        parts = auth_header.split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
+            return parts[1].strip()
+    return request.query_params.get("token")
 
 
 async def auth_middleware(request: Request, call_next):
@@ -56,13 +68,7 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     # 验证 Authorization header 或 query param token（SSE 连接用）
-    auth_header = request.headers.get("Authorization")
-    token = None
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1]
-    else:
-        # SSE / EventSource 不支持自定义 header，从 query param 获取
-        token = request.query_params.get("token")
+    token = extract_bearer_token(request)
 
     # 内部服务 token — agent 内部 HTTP 调用免认证
     if INTERNAL_TOKEN and token == INTERNAL_TOKEN:
@@ -85,10 +91,7 @@ async def auth_middleware(request: Request, call_next):
 
     try:
         payload = verify_jwt_token(token)
-        request.state.username = payload["sub"]
-        request.state.is_admin = payload.get("is_admin", False)
-        request.state.role = payload.get("role", "user")
-    except Exception:
+    except jwt.InvalidTokenError:
         # token 无效（过期等）：只读请求按访客放行，写操作仍要求重新登录
         if request.method in SAFE_METHODS:
             return await _as_anonymous_reader()
@@ -96,4 +99,16 @@ async def auth_middleware(request: Request, call_next):
             status_code=401, content={"detail": "登录已过期，请重新登录"}
         )
 
+    username = payload.get("sub")
+    if not username:
+        # 缺少 sub 声明的 token 视为无效
+        if request.method in SAFE_METHODS:
+            return await _as_anonymous_reader()
+        return JSONResponse(
+            status_code=401, content={"detail": "登录已过期，请重新登录"}
+        )
+
+    request.state.username = username
+    request.state.is_admin = bool(payload.get("is_admin", False))
+    request.state.role = normalize_role(payload.get("role"))
     return await call_next(request)

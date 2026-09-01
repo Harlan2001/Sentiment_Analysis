@@ -7,9 +7,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-import pymysql
-
-from backend.config.config import MYSQL_CONFIG
+from backend.common.database import get_repo_connection
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +23,8 @@ def get_factors_from_db() -> list:
     cutoff_30d = (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
     cutoff_365d = (now - timedelta(days=365)).strftime("%Y-%m-%d %H:%M:%S")
     try:
-        with pymysql.connect(**MYSQL_CONFIG) as conn:
-            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+        with get_repo_connection() as conn:
+            with conn.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT f.id, f.code, f.name, f.category, f.factor_type,
@@ -108,8 +106,8 @@ def get_factors_paged(page: int = 1, page_size: int = 20) -> dict:
     page_size = max(1, min(page_size, 100))
     offset = (page - 1) * page_size
     try:
-        with pymysql.connect(**MYSQL_CONFIG) as conn:
-            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+        with get_repo_connection() as conn:
+            with conn.cursor() as cursor:
                 cursor.execute("SELECT COUNT(*) AS total FROM factor")
                 total = cursor.fetchone()["total"] or 0
                 cursor.execute(
@@ -147,7 +145,7 @@ def get_factor_prompt_text() -> str:
 def add_new_factor(category: str, code: str, name: str, factor_type: str) -> bool:
     """添加新因子（依赖 factor.code 唯一索引判重，重复插入返回 False）"""
     try:
-        with pymysql.connect(**MYSQL_CONFIG) as conn:
+        with get_repo_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO factor (code, name, category, factor_type) VALUES (%s,%s,%s,%s)",

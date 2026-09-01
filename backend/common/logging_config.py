@@ -191,8 +191,8 @@ def add_logger_daily_file(
     复用统一的日志格式，确保风格一致。
 
     参数：
-        logger_name:  logger 名称，如 "weixin_push"
-        log_path:     完整日志文件路径，如 "logs/weixin_push_20260710.log"
+        logger_name:  logger 名称，如 "report_push"
+        log_path:     完整日志文件路径，如 "logs/report_push_20260710.log"
         log_level:    日志级别，默认使用环境变量 LOG_LEVEL
     """
     from logging.handlers import TimedRotatingFileHandler

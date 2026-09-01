@@ -9,16 +9,13 @@ from __future__ import annotations
 import json
 from typing import AsyncIterator
 
-from openai import AsyncOpenAI
-
 from backend.agent.agent_loop import run_agent_loop
 from backend.common.database import execute_query
+from backend.common.llm_call import get_async_llm_client
 from backend.config.config import (
-    create_openai_async_http_client,
     get_analysis_model_info,
     get_chat_model_name,
     get_llm_api_key,
-    get_llm_base_url,
 )
 
 
@@ -36,14 +33,10 @@ if not llm_api_key:
     raise ValueError(
         "LLM_API_KEY environment variable is not set. Please set it in your .env file."
     )
-llm_base_url = get_llm_base_url()
 
-# Agent 对话全程流式输出（run_agent_loop 内部 stream=True），需使用异步客户端。
-llm_async_client = AsyncOpenAI(
-    api_key=llm_api_key,
-    base_url=llm_base_url,
-    http_client=create_openai_async_http_client(),
-)
+# 复用 common.llm_call 的缓存异步客户端（上面已确认 key 存在）
+llm_async_client = get_async_llm_client()
+assert llm_async_client is not None
 
 # 聊天默认模型：CHAT_MODEL_NAME 填注册表短名（如 glm），与分析模型命名统一；
 # 这里解析成 provider model 供 OpenAI 客户端使用。缺省跟随默认分析模型。

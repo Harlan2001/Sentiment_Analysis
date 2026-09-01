@@ -11,9 +11,8 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 import pymysql
-from pymysql.cursors import DictCursor
 
-from backend.config.config import MYSQL_CONFIG
+from backend.common.database import get_repo_connection
 
 
 class WorkbenchNotFoundError(RuntimeError):
@@ -65,21 +64,16 @@ class WorkbenchRepository:
 
     @classmethod
     def from_environment(cls) -> "WorkbenchRepository":
-        return cls(dict(MYSQL_CONFIG))
-
-    def __init__(self, settings: dict[str, Any]):
-        self._settings = settings
+        return cls()
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(**{**self._settings, "autocommit": False}, cursorclass=DictCursor)
-        try:
-            yield connection
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        with get_repo_connection() as connection:
+            try:
+                yield connection
+            except BaseException:
+                connection.rollback()
+                raise
 
     def ensure_tables(self) -> None:
         """启动时应用工作台自己的迁移，不影响旧表。按文件顺序执行所有迁移。"""

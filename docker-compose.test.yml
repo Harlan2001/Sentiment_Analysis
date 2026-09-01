@@ -1,0 +1,33 @@
+# 测试专用 MySQL（本地开发/CI 均可用）。与生产 docker-compose.yml 完全隔离。
+# 用法:
+#   docker compose -f docker-compose.test.yml --profile test up -d
+#   MYSQL_HOST=127.0.0.1 MYSQL_PORT=33306 MYSQL_USER=root MYSQL_PASSWORD=test \
+#       MYSQL_TEST_DATABASE=Sentiment_analysis_test \
+#       uv run python scripts/migrate_test_db.py
+#   (无 --if-needed 时每次重建测试库; 仅操作 Sentiment_analysis_test, 绝不触碰生产库)
+
+services:
+  mysql-test:
+    image: mysql:8.0
+    container_name: sentiment-mysql-test
+    profiles: ["test"]
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+      # 只创建测试库; 生产库 Sentiment_analysis 不在这里建
+      MYSQL_DATABASE: Sentiment_analysis_test
+    ports:
+      # 33306 映射到 3306, 避免与本机/生产 MySQL 的 3306 冲突
+      - "33306:3306"
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_0900_ai_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ptest"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  mysql_test_data:

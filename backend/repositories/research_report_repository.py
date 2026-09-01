@@ -10,34 +10,24 @@ from contextlib import contextmanager
 from datetime import date
 from typing import Any, Iterator, Optional
 
-import pymysql
-from pymysql.cursors import DictCursor
-
-from backend.config.config import MYSQL_CONFIG
+from backend.common.database import get_repo_connection
 
 
 class ResearchReportRepository:
     """研报列表 / 筛选面查询。"""
 
-    def __init__(self, settings: dict[str, Any]):
-        self._settings = settings
-
     @classmethod
     def from_environment(cls) -> "ResearchReportRepository":
-        return cls(dict(MYSQL_CONFIG))
+        return cls()
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(
-            **{**self._settings, "autocommit": False}, cursorclass=DictCursor
-        )
-        try:
-            yield connection
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        with get_repo_connection() as connection:
+            try:
+                yield connection
+            except BaseException:
+                connection.rollback()
+                raise
 
     def _build_where(
         self,

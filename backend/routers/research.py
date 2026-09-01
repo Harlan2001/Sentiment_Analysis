@@ -281,7 +281,7 @@ async def upload_research_pdf(
 def trigger_analysis(
     report_id: int,
     model: str = Query(
-        "glm", description="模型短名: glm / deepseek / qwen"
+        "glm", description="模型短名: glm / deepseek / qwen / kimi"
     ),
 ):
     """触发单份研报的 AI 分析（后台异步执行）。"""

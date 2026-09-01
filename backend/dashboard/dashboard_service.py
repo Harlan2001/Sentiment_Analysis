@@ -746,7 +746,7 @@ def get_token_trend(
         GROUP BY d, l.model_name ORDER BY d""",
         tuple(cond_params),
     )
-    # 组装为 [{date, glm: N, deepseek: N, qwen: N, total: N}, ...]
+    # 组装为 [{date, 各 model: tokens, total: N}, ...]（模型名动态取自数据）
     bucket: Dict[str, Dict[str, int]] = {}
     for d, model, t in rows:
         ds = fmt_dt(d)

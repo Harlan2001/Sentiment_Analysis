@@ -48,7 +48,7 @@
 uv sync
 ```
 
-### 2. 安装 Playwright 浏览器（PDF 生成 / 微信推送所需）
+### 2. 安装 Playwright 浏览器（PDF 生成所需）
 
 ```powershell
 uv run playwright install chromium

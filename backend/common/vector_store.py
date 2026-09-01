@@ -6,10 +6,22 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from backend.common.database import execute_batch, execute_query, execute_update
+from backend.common.database import (
+    build_in_placeholders,
+    execute_batch,
+    execute_query,
+    execute_update,
+)
 from backend.config.config import ID_MAP_PATH, INDEX_PATH, MODEL_DIR
 
 logger = logging.getLogger(__name__)
+
+# news_vectors 表 upsert 语句（add / batch_add 共用）
+_UPSERT_NEWS_VECTOR_SQL = """
+    INSERT INTO news_vectors (news_id, vector, vector_version)
+    VALUES (%s, %s, %s)
+    ON DUPLICATE KEY UPDATE vector = VALUES(vector)
+"""
 
 # 全局单例实例
 _faiss_store_instance = None
@@ -76,11 +88,7 @@ class FaissStore:
         # 2. 持久化到 MySQL
         vector_blob = emb[0].tobytes()
         execute_update(
-            """
-            INSERT INTO news_vectors (news_id, vector, vector_version)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE vector = VALUES(vector)
-        """,
+            _UPSERT_NEWS_VECTOR_SQL,
             (news_id, vector_blob, VECTOR_VERSION),
         )
 
@@ -119,14 +127,7 @@ class FaissStore:
             (news_id, emb.tobytes(), VECTOR_VERSION)
             for (news_id, _), emb in zip(new_items, embs)
         ]
-        execute_batch(
-            """
-            INSERT INTO news_vectors (news_id, vector, vector_version)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE vector = VALUES(vector)
-        """,
-            params,
-        )
+        execute_batch(_UPSERT_NEWS_VECTOR_SQL, params)
 
         return len(new_items)
 
@@ -216,10 +217,9 @@ class FaissStore:
         if not news_ids:
             return
 
-        placeholders = ",".join(["%s"] * len(news_ids))
         execute_update(
             f"""
-            UPDATE news SET indexed = 1 WHERE id IN ({placeholders})
+            UPDATE news SET indexed = 1 WHERE id IN ({build_in_placeholders(news_ids)})
         """,
             tuple(news_ids),
         )

@@ -11,23 +11,17 @@ AI目标与策略推荐服务。
 
 import json
 import os
-import re
 import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import openai
 import requests
-from openai import AsyncOpenAI
 from requests import HTTPError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from backend.common.database import get_db_connection
+from backend.common.llm_call import get_async_llm_client, llm_completion_with_retry
+from backend.common.llm_json import extract_json
 from backend.common.llm_logger import log_llm_usage
 
 # 【临时兼容】SaaS 本地快照模式配置
@@ -35,7 +29,6 @@ from backend.common.llm_logger import log_llm_usage
 from backend.config import config as _config
 from backend.config.config import (
     PORTFOLIO_TZ,
-    create_openai_async_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
     get_requests_proxies,
@@ -47,17 +40,9 @@ MODEL_NAME = get_default_analysis_model_name()
 llm_api_key = _config.get_llm_api_key()
 if not _config.USE_LOCAL_SNAPSHOT and not llm_api_key:
     raise ValueError("LLM_API_KEY environment variable is not set.")
-llm_base_url = _config.get_llm_base_url()
 
-async_client = (
-    AsyncOpenAI(
-        api_key=llm_api_key,
-        base_url=llm_base_url,
-        http_client=create_openai_async_http_client(),
-    )
-    if llm_api_key and llm_base_url
-    else None
-)
+# 复用 common.llm_call 的缓存异步客户端；离线模式无密钥时返回 None
+async_client = get_async_llm_client()
 
 STRATEGY_LIST_PATH = "/v1/strategy/follow_price_point_strategy/list"
 BOND_LIST_PATH = "/v1/bondBasisInfo/query"
@@ -74,19 +59,11 @@ if not _config.USE_LOCAL_SNAPSHOT and not QUANT_STRATEGY_TOKEN:
     raise ValueError("QUANT_STRATEGY_TOKEN environment variable is not set.")
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type(
-        (openai.APIError, openai.APIConnectionError, openai.RateLimitError)
-    ),
-    reraise=True,
-)
+# 带重试的异步 API 调用（最多重试 3 次，指数退避 1s→10s）；
+# 重试逻辑收敛到 common.llm_call.llm_completion_with_retry。
 async def async_chat_completion(**kwargs):
-    # 【临时兼容】离线模式下不使用 LLM，此函数不应被调用
-    if async_client is None:
-        raise RuntimeError("async_client 未初始化（离线模式下不支持 LLM 调用）")
-    return await async_client.chat.completions.create(**kwargs)
+    """带重试的异步 API 调用"""
+    return await llm_completion_with_retry(async_client, **kwargs)
 
 
 def _join_url(base_url: str, path: str) -> str:
@@ -558,24 +535,6 @@ def get_available_targets() -> List[Dict[str, Any]]:
     return targets[:max_targets]
 
 
-def _extract_json(response_text: str) -> Dict[str, Any]:
-    text = str(response_text or "").strip()
-    if "```json" in text:
-        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-    elif "```" in text:
-        text = text.split("```", 1)[1].split("```", 1)[0].strip()
-    # 清理尾随逗号等常见 JSON 不合规问题
-    text = re.sub(r",\s*([}\]])", r"\1", text)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise json.JSONDecodeError(
-            f"AI 返回内容解析 JSON 失败，提取后文本前200字符: {text[:200]}",
-            exc.doc,
-            exc.pos,
-        ) from exc
-
-
 def _format_list(items: List[Dict[str, Any]], fields: List[str]) -> str:
     lines = []
     for item in items:
@@ -696,7 +655,7 @@ JSON格式要求：
         )
 
     try:
-        return _extract_json(raw_content)
+        return extract_json(raw_content)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"AI 返回内容 JSON 解析失败 (model={selected_model_name}, provider_model={provider_model}): {exc}"

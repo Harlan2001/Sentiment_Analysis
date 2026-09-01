@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import openai
 import pymysql
 
 # 添加在文件最开头，所有导入之前
@@ -29,7 +28,12 @@ from tenacity import (
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
-from backend.analysis.analyzer import MODEL_NAME, analyze_bond_yield_async
+from backend.analysis.analyzer import (
+    AnalysisError,
+    MODEL_NAME,
+    analyze_bond_yield_async,
+    fallback_analysis_result,
+)
 from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.db_operations import DBOperations
@@ -139,7 +143,6 @@ class NewsAnalyzerRunner:
                 # 获取一批待分析新闻
                 pending_rows = self.db_ops.get_pending_news_by_mode(
                     mode=mode,
-                    model=self.model_name,
                     limit=batch_size,
                     start_time=start_time,
                     end_time=end_time,
@@ -229,18 +232,16 @@ class NewsAnalyzerRunner:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type(
-            (
-                openai.APIError,
-                openai.APIConnectionError,
-                openai.RateLimitError,
-                pymysql.OperationalError,
-                pymysql.InterfaceError,
-            )
+            (pymysql.OperationalError, pymysql.InterfaceError)
         ),
         reraise=False,
     )
     async def _process_single_news_with_retry(self, news_id: int) -> Dict[str, Any]:
-        """带重试机制的单条新闻处理"""
+        """带重试机制的单条新闻处理。
+
+        LLM 网络/限流的重试已在 analyzer.async_chat_completion 内部完成，
+        此处仅对 DB 瞬时故障做重试，避免同一请求被套两层重试。
+        """
         return await self._process_single_news(news_id)
 
     async def _process_single_news(self, news_id: int) -> Dict[str, Any]:
@@ -261,19 +262,23 @@ class NewsAnalyzerRunner:
             logger.warning(f"新闻 {news_id} 查重查询失败，交由重试器: {exc}")
             raise
 
-        # 2. 调用分析接口；LLM 网络/限流错误交由重试器处理
+        # 2. 调用分析接口；LLM 网络/限流已由 async_chat_completion 内层重试完成，
+        #    最终失败时 analyze 抛出 AnalysisError（此刻若让其继续向外抛会被外层
+        #    当成“DB 瞬时故障”再重试 3 次），这里直接记为失败。
         try:
             analysis_result = await analyze_bond_yield_async(
                 news_id,
                 model_name=self.model_name,
             )
-        except (
-            openai.APIError,
-            openai.APIConnectionError,
-            openai.RateLimitError,
-        ) as exc:
-            logger.warning(f"新闻 {news_id} LLM 调用失败，交由重试器: {exc}")
-            raise
+        except AnalysisError as exc:
+            logger.error(f"新闻 {news_id} 分析失败: {exc}")
+            return {
+                "news_id": news_id,
+                "status": "failed",
+                "reason": str(exc),
+                "error_type": "AnalysisError",
+                "recorded_at": datetime.now().isoformat(),
+            }
 
         try:
             # 3. 验证分析结果
@@ -347,13 +352,8 @@ class NewsAnalyzerRunner:
         return str(report_file)
 
     def _get_default_analysis_result(self) -> Dict[str, Any]:
-        """获取默认的分析结果（当分析失败时使用）"""
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": "分析失败，使用默认结果",
-            "factors": [],
-        }
+        """获取默认的分析结果（当分析结果结构无效时使用）"""
+        return fallback_analysis_result("分析失败，使用默认结果")
 
 
 async def main():

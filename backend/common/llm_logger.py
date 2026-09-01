@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 from typing import Optional
 
 from backend.common.database import execute_update
@@ -99,62 +98,3 @@ def log_llm_usage(
         )
     except Exception as e:
         logger.warning("LLM usage log 写入失败: %s", str(e)[:200])
-
-
-class TokenLogger:
-    """带计时器的 Token 日志上下文，便于在 LLM 调用点使用"""
-
-    def __init__(
-        self,
-        call_source: str,
-        model_name: str,
-        provider_model: Optional[str] = None,
-        user_id: int = SYSTEM_USER_ID,
-        username: str = SYSTEM_USERNAME,
-    ):
-        self.call_source = call_source
-        self.model_name = model_name
-        self.provider_model = provider_model
-        self.user_id = user_id
-        self.username = username
-        self._start: Optional[float] = None
-
-    def start(self) -> None:
-        self._start = time.time()
-
-    @property
-    def latency_ms(self) -> Optional[int]:
-        if self._start is None:
-            return None
-        return int((time.time() - self._start) * 1000)
-
-    def log_success(
-        self,
-        prompt_tokens: int = 0,
-        completion_tokens: int = 0,
-        total_tokens: int = 0,
-    ) -> None:
-        log_llm_usage(
-            user_id=self.user_id,
-            username=self.username,
-            call_source=self.call_source,
-            model_name=self.model_name,
-            provider_model=self.provider_model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-            success=True,
-            latency_ms=self.latency_ms,
-        )
-
-    def log_failure(self, error_message: str = "") -> None:
-        log_llm_usage(
-            user_id=self.user_id,
-            username=self.username,
-            call_source=self.call_source,
-            model_name=self.model_name,
-            provider_model=self.provider_model,
-            success=False,
-            error_message=error_message,
-            latency_ms=self.latency_ms,
-        )

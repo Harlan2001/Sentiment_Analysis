@@ -7,11 +7,9 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
-import pymysql
 from cryptography.fernet import Fernet, InvalidToken
-from pymysql.cursors import DictCursor
 
-from backend.config.config import MYSQL_CONFIG
+from backend.common.database import get_repo_connection
 
 
 class FeishuConnectionError(RuntimeError):
@@ -35,21 +33,14 @@ def _token_cipher() -> Fernet:
 class FeishuConnectionRepository:
     """Persistence for per-user Feishu OAuth connections."""
 
-    def __init__(self, settings: dict[str, Any] | None = None):
-        self._settings = settings or dict(MYSQL_CONFIG)
-
     @contextmanager
     def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(
-            **{**self._settings, "autocommit": False}, cursorclass=DictCursor
-        )
-        try:
-            yield connection
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        with get_repo_connection() as connection:
+            try:
+                yield connection
+            except BaseException:
+                connection.rollback()
+                raise
 
     def create_oauth_state(self, username: str) -> str:
         state = secrets.token_urlsafe(32)

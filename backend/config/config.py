@@ -130,7 +130,7 @@ MYSQL_CONFIG = {
     "port": _get_env_int("MYSQL_PORT", 3306),
     "user": _require_env_str("MYSQL_USER"),
     "password": _require_env_str("MYSQL_PASSWORD"),
-    "database": _require_env_str("MYSQL_DATABASE"),
+    "database": os.getenv("MYSQL_TEST_DATABASE") or _require_env_str("MYSQL_DATABASE"),
     "charset": _get_env_str("MYSQL_CHARSET") or "utf8mb4",
     "autocommit": _is_truthy(_get_env_str("MYSQL_AUTOCOMMIT") or "true"),
 }
@@ -160,7 +160,8 @@ FACTOR_CATEGORY_MAP = {
 }
 
 # ====================== 分析模型配置 ======================
-ANALYSIS_MODEL_PRIORITY = ["glm", "deepseek", "qwen", "default"]
+# 分析模型优先级（越小越优先，default 兜底；历史 doubao 走 ELSE 999）
+ANALYSIS_MODEL_PRIORITY = ["glm", "kimi", "deepseek", "qwen", "default"]
 
 # 简化注册表
 ANALYSIS_MODEL_REGISTRY = {
@@ -344,3 +345,11 @@ if AUTH_ENABLED and not JWT_SECRET_KEY:
 
 # JWT 过期时间（小时），默认 24 小时
 JWT_EXPIRY_HOURS = int(_get_env_str("JWT_EXPIRY_HOURS") or "24")
+
+# 是否启用手机号登录（true=启用，false=关闭，仅账号密码登录；默认 true）
+AUTH_PHONE_LOGIN = _is_truthy(_get_env_str("AUTH_PHONE_LOGIN") or "true")
+
+# 规范角色（全库唯一词汇表）：普通用户一律为 user，member 为历史遗留叫法
+ROLE_ADMIN = "admin"
+ROLE_MANAGER = "manager"
+ROLE_USER = "user"
