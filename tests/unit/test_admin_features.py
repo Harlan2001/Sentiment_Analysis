@@ -1,16 +1,12 @@
 """管理员功能测试 — 只测 JWT 权限标识和路由权限校验，不操作真实数据库。"""
 
-from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from backend.auth.auth import create_jwt_token, verify_jwt_token
-from backend.auth.dependencies import auth_middleware
 from backend.config.config import API_PREFIX
-
 
 # ── 测试 fixture ──
 
@@ -23,9 +19,10 @@ def admin_app(monkeypatch) -> FastAPI:
     monkeypatch.setenv("LLM_BASE_URL", "http://localhost:8080/v1")
     # 重新加载模块以获取新的环境变量
     import importlib
-    import backend.config.config as cfg
+
     import backend.auth.auth as auth_mod
     import backend.auth.dependencies as deps
+    import backend.config.config as cfg
     importlib.reload(cfg)
     importlib.reload(auth_mod)
     importlib.reload(deps)
@@ -51,6 +48,7 @@ def admin_token(monkeypatch) -> str:
     """生成 admin JWT token。"""
     monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-secret-key")
     import importlib
+
     import backend.auth.auth as auth_mod
     importlib.reload(auth_mod)
     return auth_mod.create_jwt_token("admin", is_admin=True, role="admin")
@@ -61,6 +59,7 @@ def member_token(monkeypatch) -> str:
     """生成普通成员 JWT token。"""
     monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-secret-key")
     import importlib
+
     import backend.auth.auth as auth_mod
     importlib.reload(auth_mod)
     return auth_mod.create_jwt_token("user1", is_admin=False, role="member")
@@ -73,6 +72,7 @@ class TestAdminJwtClaims:
         """JWT payload 正确包含 is_admin=true。"""
         monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-jwt-secret")
         import importlib
+
         import backend.auth.auth as auth_mod
         importlib.reload(auth_mod)
 
@@ -87,6 +87,7 @@ class TestAdminJwtClaims:
         """普通成员 JWT 的 is_admin=false。"""
         monkeypatch.setenv("JWT_SECRET_KEY", "test-member-jwt-secret")
         import importlib
+
         import backend.auth.auth as auth_mod
         importlib.reload(auth_mod)
 
@@ -101,6 +102,7 @@ class TestAdminJwtClaims:
         """admin 和 member 角色的 token 包含不同的 role 值。"""
         monkeypatch.setenv("JWT_SECRET_KEY", "test-role-jwt-secret")
         import importlib
+
         import backend.auth.auth as auth_mod
         importlib.reload(auth_mod)
 

@@ -12,7 +12,6 @@ from fastapi.responses import JSONResponse
 
 from backend.auth.auth import check_password
 
-
 # ---------------------------------------------------------------------------
 # 密码验证
 # ---------------------------------------------------------------------------

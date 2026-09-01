@@ -4,10 +4,9 @@
 owner_username 过滤逻辑，不操作真实数据库。
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 测试数据
