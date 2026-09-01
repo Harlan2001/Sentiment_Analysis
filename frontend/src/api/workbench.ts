@@ -195,6 +195,38 @@ export async function sendMessage(
   }
 }
 
+export async function sendVisitorMessage(
+  content: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  onDelta: (delta: string) => void,
+) {
+  const response = await fetch(apiBaseUrl + '/sapi/workbench/conversations/visitor-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ content, history: history.slice(-10) }),
+  })
+  if (!response.ok || !response.body) throw new Error('发送消息失败')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const result = await reader.read()
+    if (result.done) break
+    buffer += decoder.decode(result.value, { stream: true })
+    const frames = buffer.split(/\r?\n\r?\n/)
+    buffer = frames.pop() || ''
+    for (const frame of frames) {
+      const eventName = frame.match(/^event:\s*(.+)$/m)?.[1]
+      const dataText = frame.match(/^data:\s*(.+)$/m)?.[1]
+      if (!eventName || !dataText) continue
+      const data = JSON.parse(dataText)
+      if (eventName === 'assistant.delta') onDelta(data.delta)
+      if (eventName === 'assistant.failed') throw new Error(data.error?.message || '发送消息失败')
+    }
+  }
+}
+
 export function deleteProject(projectId: string) {
   return request<{ deleted: boolean }>(`/sapi/workbench/projects/${projectId}`, { method: 'DELETE' })
 }

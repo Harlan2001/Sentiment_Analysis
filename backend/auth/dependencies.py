@@ -17,6 +17,7 @@ PUBLIC_PATHS = {
     f"{API_PREFIX}/auth/login",
     f"{API_PREFIX}/auth/login/phone",
     f"{API_PREFIX}/auth/status",
+    f"{API_PREFIX}/workbench/conversations/visitor-chat",
     "/health",
     "/docs",
     "/openapi.json",

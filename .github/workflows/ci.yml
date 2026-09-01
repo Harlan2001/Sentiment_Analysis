@@ -107,4 +107,5 @@ jobs:
       - name: 迁移测试库(重建 Sentiment_analysis_test; 脚本硬校验 *_test 后缀,不触生产库)
         run: uv run python scripts/migrate_test_db.py
       - name: 集成测试(真实 MySQL,LLM 用 respx mock)
+        if: ${{ hashFiles('tests/integration/**') != '' }}
         run: uv run pytest tests/integration -m integration -q --cov=backend --cov-report=term-missing:skip-covered

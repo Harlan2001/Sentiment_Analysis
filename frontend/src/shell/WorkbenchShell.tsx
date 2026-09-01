@@ -135,8 +135,15 @@ export function WorkbenchShell() {
 
   function handleLogout() {
     logout()
+    setProjects([])
+    setRecent([])
+    setAllRecent(null)
+    setExpandedProjectId(null)
+    setExpandedConversations([])
+    setConversationTopic('新建对话')
     setAccountOpen(false)
     setAccountInfoPanelOpen(false)
+    navigate('/chat', { replace: true })
     if (!authEnabled) {
       // 免登录模式：刷新页面重新以 admin 自动登录
       window.location.reload()
