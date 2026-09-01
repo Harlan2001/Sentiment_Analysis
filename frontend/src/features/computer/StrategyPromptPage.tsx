@@ -280,7 +280,6 @@ export function StrategyPromptPage() {
   const moduleProgress = (module: StrategyModule): 'done' | 'running' | 'pending' => {
     if (isDone) return 'done'
     if (module === 'prompt' && isPromptConfirmed) return 'done'
-    if (module === 'code' && Boolean(lastVersion?.code)) return 'done'
     if (isRunning && module !== 'prompt') return 'running'
     return 'pending'
   }
@@ -333,9 +332,9 @@ export function StrategyPromptPage() {
 
       <div className="strategy-stepper strategy-module-nav" aria-label="策略内容模块">
         {STRATEGY_MODULES.map((module) => {
-          const progress = moduleProgress(module)
+          const progress = moduleProgress(module.id)
           return (
-          <button type="button" key={module.id} className={`${progress}${activeModule === module.id ? ' selected' : ''}`} onClick={() => selectModule(module.id)} aria-current={activeModule === module.id ? 'page' : undefined} aria-label={`${module.label}，${moduleProgressLabel(module)}`}>
+          <button type="button" key={module.id} className={`${progress}${activeModule === module.id ? ' selected' : ''}`} onClick={() => selectModule(module.id)} aria-current={activeModule === module.id ? 'page' : undefined} aria-label={`${module.label}，${moduleProgressLabel(module.id)}`}>
             <span className="strategy-step-marker" aria-hidden="true">{progress === 'done' ? '✓' : '●'}</span>
             <strong>{module.label}</strong>
           </button>
