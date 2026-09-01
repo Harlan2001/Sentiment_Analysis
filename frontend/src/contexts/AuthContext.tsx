@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { storage } from '@/utils/helpers'
 import { API_PREFIX } from '@/api/client'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -26,6 +27,7 @@ const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient()
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
@@ -223,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    queryClient.clear()
     storage.remove(TOKEN_KEY)
     storage.remove(USER_KEY)
     setState((prev) => ({
@@ -235,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin: false,
       role: 'user',
     }))
-  }, [])
+  }, [queryClient])
 
   return <AuthContext.Provider value={{ ...state, login, loginByPhone, logout }}>{children}</AuthContext.Provider>
 }

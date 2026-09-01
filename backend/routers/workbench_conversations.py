@@ -92,8 +92,47 @@ class MessageCreateRequest(BaseModel):
         return cleaned
 
 
+class VisitorHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class VisitorChatRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+    history: list[VisitorHistoryMessage] = Field(default_factory=list, max_length=10)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        return _clean_required(value)
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/visitor-chat")
+async def visitor_chat(body: VisitorChatRequest):
+    """访客临时聊天：调用 Agent，但不创建或写入任何会话记录。"""
+    messages = [message.model_dump() for message in body.history]
+    messages.append({"role": "user", "content": body.content})
+
+    async def event_stream():
+        try:
+            async for delta in agent_chat_stream(messages, "anonymous"):
+                yield _sse("assistant.delta", {"delta": delta})
+        except AgentGenerationError as exc:
+            yield _sse("assistant.failed", {"error": {"code": exc.code, "message": str(exc)}})
+        except Exception:
+            logger.exception("访客 Agent 会话失败")
+            yield _sse("assistant.failed", {"error": {"code": "VISITOR_CHAT_FAILED", "message": "会话生成失败"}})
+        yield _sse("stream.done", {})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("")

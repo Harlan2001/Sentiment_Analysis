@@ -2,7 +2,7 @@ import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Conversation, Message, createConversation, getConversation, sendMessage } from '@/api/workbench'
+import { Conversation, Message, createConversation, getConversation, sendMessage, sendVisitorMessage } from '@/api/workbench'
 import { getSkills, Skill } from '@/api/skills'
 import { uuid } from '@/utils/helpers'
 import { WatchlistAction } from '@/features/market/components/WatchlistAction'
@@ -201,27 +201,55 @@ type VisitorMessage = { id: string; role: 'user' | 'assistant'; content: string;
 function VisitorChatPage() {
   const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState('')
-  const [messages, setMessages] = useState<VisitorMessage[]>(() => {
+  const [messages, setMessages] = useState<VisitorMessage[]>([])
+  const [isReplying, setIsReplying] = useState(false)
+  const [error, setError] = useState('')
+  const initialSubmitted = useRef(false)
+
+  useEffect(() => {
     const initialQuestion = searchParams.get('draft')?.trim()
-    if (!initialQuestion) return []
+    if (!initialQuestion || initialSubmitted.current) return
+    initialSubmitted.current = true
+    void submitMessage(initialQuestion)
+  }, [searchParams])
+
+  async function submitMessage(content: string) {
+    if (isReplying) return
     const now = new Date().toISOString()
-    return [{ id: uuid(), role: 'user', content: initialQuestion, created_at: now }, { id: uuid(), role: 'assistant', content: '这是访客临时会话，用于体验基础问答。登录后可保存会话、使用个人上下文，并在项目中继续讨论。', created_at: now }]
-  })
+    const assistantId = uuid()
+    const history = messages.map(({ role, content: messageContent }) => ({ role, content: messageContent }))
+    setMessages(current => [...current,
+      { id: uuid(), role: 'user', content, created_at: now },
+      { id: assistantId, role: 'assistant', content: '', created_at: now },
+    ])
+    setError('')
+    setIsReplying(true)
+    try {
+      await sendVisitorMessage(content, history, delta => {
+        setMessages(current => current.map(message => message.id === assistantId ? { ...message, content: message.content + delta } : message))
+      })
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '发送消息失败')
+      setMessages(current => current.filter(message => message.id !== assistantId))
+    } finally {
+      setIsReplying(false)
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content) return
-    const now = new Date().toISOString()
-    setMessages(current => [...current, { id: uuid(), role: 'user', content, created_at: now }, { id: uuid(), role: 'assistant', content: '已收到你的问题。当前为访客临时会话，不会保存到历史记录；登录后可获得完整的会话与个人数据能力。', created_at: now }])
+    if (!content || isReplying) return
     setDraft('')
+    void submitMessage(content)
   }
 
   const hasMessages = messages.length > 0
   return <section className={'chat-page ' + (hasMessages ? 'has-messages' : 'empty-state')}>
     {!hasMessages && <div className="empty-chat-intro"><span>BondSense</span><h1>我们要一起做些什么？</h1></div>}
     <div className="chat-messages" aria-live="polite">{messages.map(message => <article className={'chat-message ' + message.role} key={message.id}><span className="message-avatar">{message.role === 'assistant' ? 'B' : '你'}</span><div className="message-body"><div className="message-meta"><strong>{message.role === 'assistant' ? 'BondSense' : '你'}</strong><time>{timeLabel(message.created_at)}</time></div><div className="message-bubble">{message.content}</div></div></article>)}</div>
-    <form className="chat-composer" onSubmit={submit}><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="输入你的债券分析问题…" rows={2} /><div className="chat-composer-actions"><span className="composer-status">BondSense · Agent 对话 · 访客会话不会保存到历史记录</span><button type="submit" disabled={!draft.trim()} aria-label="发送消息">↑</button></div></form>
+    {error && <p className="chat-error">{error}</p>}
+    <form className="chat-composer" onSubmit={submit}><textarea value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="输入你的债券分析问题…" rows={2} /><div className="chat-composer-actions"><span className="composer-status">BondSense · Agent 对话 · 访客会话不会保存到历史记录</span><button type="submit" disabled={!draft.trim() || isReplying} aria-label="发送消息">↑</button></div></form>
   </section>
 }
 
