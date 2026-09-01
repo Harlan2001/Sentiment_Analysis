@@ -51,7 +51,7 @@ export interface NewsItem {
   summary?: string
   publish_time?: string
   publisher?: string
-  source?: string // 新闻源：cls, wechat 等
+  source?: string // 新闻源：wallstreetcn, yicai 等
   direction?: string // 分析方向：看涨、看跌、中性
   horizon?: string // 分析期限：短期、中期、长期
   reason?: string // 分析原因

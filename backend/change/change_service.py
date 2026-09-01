@@ -5,94 +5,57 @@
 依赖：
 - analysis.reason（新闻摘要）作为 LLM 输入
 - 快照写入 strategy_change_snapshot 表
-- LLM 调用复用 config.get_llm_api_key() / get_llm_base_url()
+- LLM 调用复用 common.llm_call（客户端缓存 + 统一超时 / token 日志）
 """
 
 import json
-import logging
-import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from backend.common.database import get_db_connection
-from backend.common.llm_logger import log_llm_usage
-from backend.config.config import (
-    create_openai_http_client,
-    get_analysis_model_info,
-    get_default_analysis_model_name,
-    get_llm_api_key,
-    get_llm_base_url,
-)
-
-logger = logging.getLogger("change_router")
+from backend.common.llm_call import llm_chat
+from backend.common.llm_json import extract_json
+from backend.config.config import get_analysis_model_info, get_default_analysis_model_name
 
 CHANGE_TZ = ZoneInfo("Asia/Shanghai")
 DEFAULT_MODEL = get_default_analysis_model_name()
-
-# LLM client（LLM_API_KEY / LLM_BASE_URL）
-_llm_api_key = get_llm_api_key()
-_llm_base_url = get_llm_base_url()
-
-
-def _get_llm_client():
-    from openai import OpenAI
-
-    return OpenAI(
-        api_key=_llm_api_key,
-        base_url=_llm_base_url,
-        http_client=create_openai_http_client(),
-    )
 
 
 # ============================================================
 # 数据库操作
 # ============================================================
-def latest_snapshot() -> Optional[Dict[str, Any]]:
+_SNAPSHOT_COLUMNS = (
+    "id, version_time, window_start, window_end, news_total, "
+    "news_added_count, news_removed_count, stock_recommend, strategy_recommend, "
+    "summary_stats, generate_status, create_time "
+)
+
+
+def _query_snapshot(sql_tail: str, params: tuple) -> Optional[Dict[str, Any]]:
+    """按给定 SQL 尾部（WHERE/ORDER/LIMIT）取单条快照，统一 _row_to_dict 序列化。"""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, version_time, window_start, window_end, news_total, "
-                "news_added_count, news_removed_count, stock_recommend, strategy_recommend, "
-                "summary_stats, generate_status, create_time "
-                "FROM strategy_change_snapshot ORDER BY version_time DESC LIMIT 1"
+                f"SELECT {_SNAPSHOT_COLUMNS} FROM strategy_change_snapshot {sql_tail}",
+                params,
             )
             row = cur.fetchone()
     if not row:
         return None
     return _row_to_dict(row)
+
+
+def latest_snapshot() -> Optional[Dict[str, Any]]:
+    return _query_snapshot("ORDER BY version_time DESC LIMIT 1", ())
 
 
 def snapshot_by_id(snapshot_id: int) -> Optional[Dict[str, Any]]:
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, version_time, window_start, window_end, news_total, "
-                "news_added_count, news_removed_count, stock_recommend, strategy_recommend, "
-                "summary_stats, generate_status, create_time "
-                "FROM strategy_change_snapshot WHERE id = %s",
-                (snapshot_id,),
-            )
-            row = cur.fetchone()
-    if not row:
-        return None
-    return _row_to_dict(row)
+    return _query_snapshot("WHERE id = %s", (snapshot_id,))
 
 
 def snapshot_by_version_time(version_time: str) -> Optional[Dict[str, Any]]:
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, version_time, window_start, window_end, news_total, "
-                "news_added_count, news_removed_count, stock_recommend, strategy_recommend, "
-                "summary_stats, generate_status, create_time "
-                "FROM strategy_change_snapshot WHERE version_time = %s",
-                (version_time,),
-            )
-            row = cur.fetchone()
-    if not row:
-        return None
-    return _row_to_dict(row)
+    return _query_snapshot("WHERE version_time = %s", (version_time,))
 
 
 def list_snapshots(hours: int = 168) -> List[Dict[str, Any]]:
@@ -210,13 +173,14 @@ def _row_to_dict(row) -> Dict[str, Any]:
     }
 
 
-def _build_model_priority_case() -> str:
-    """构建分析模型优先级 CASE WHEN 子句（glm > deepseek > ...）"""
+def _model_rank(model: Optional[str]) -> int:
+    """模型优先级排名（越小越优先）；未知模型（含历史 doubao）视为兜底。"""
     from backend.config.config import ANALYSIS_MODEL_PRIORITY
 
-    return " ".join(
-        [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
-    )
+    try:
+        return ANALYSIS_MODEL_PRIORITY.index(model)
+    except ValueError:
+        return 999
 
 
 def get_latest_news_pub_time() -> Optional[datetime]:
@@ -275,48 +239,34 @@ def count_news_raw(window_start: datetime, window_end: datetime) -> int:
 
 
 def query_news_ids_analyzed(window_start: datetime, window_end: datetime) -> set:
-    """查询窗口内已完成分析（有 reason）的新闻ID集合，按模型优先级去重（兼容 MySQL 5.x）"""
-    priority_cases = _build_model_priority_case()
+    """查询窗口内已完成分析（有 reason）的新闻ID集合，按模型优先级去重。
 
-    sql = f"""
-        SELECT DISTINCT n.id AS news_id
+    与 query_news_for_window 使用同一 _model_rank 优先级逻辑，保证新增/移除
+    新闻的统计口径与快照生成时的一致。
+    """
+    sql = """
+        SELECT n.id AS news_id, a.model
         FROM news n
         JOIN analysis a ON a.news_id = n.id
-        LEFT JOIN analysis a2 ON a2.news_id = a.news_id
-            AND a2.reason IS NOT NULL
-            AND TRIM(a2.reason) <> ''
-            AND CASE a2.model {priority_cases} ELSE 999 END
-              < CASE a.model {priority_cases} ELSE 999 END
         WHERE n.pub_time >= %s
           AND n.pub_time <= %s
           AND a.reason IS NOT NULL
           AND TRIM(a.reason) <> ''
-          AND a2.news_id IS NULL
     """
+    best: Dict[int, str] = {}
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 sql,
                 (window_start.replace(tzinfo=None), window_end.replace(tzinfo=None)),
             )
-            return {row[0] for row in cur.fetchall()}
-
-
-def extract_json(text: str) -> Dict[str, Any]:
-    text = (text or "").strip()
-    if "```json" in text:
-        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-    elif "```" in text:
-        text = text.split("```", 1)[1].split("```", 1)[0].strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        # try to find JSON block
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            return json.loads(text[start : end + 1])
-        raise
+            for news_id, model in cur.fetchall():
+                if (
+                    news_id not in best
+                    or _model_rank(model) < _model_rank(best[news_id])
+                ):
+                    best[news_id] = model
+    return set(best)
 
 
 # ============================================================
@@ -328,10 +278,6 @@ def query_news_for_window(
     window_start: datetime, window_end: datetime
 ) -> List[Dict[str, Any]]:
     """查询窗口内的所有新闻，已分析的按模型优先级去重，未分析的也一并返回（content 作为 fallback）。"""
-    from backend.config.config import ANALYSIS_MODEL_PRIORITY
-
-    priority_map: Dict[str, int] = {m: i for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)}
-
     sql = """
         SELECT n.id AS news_id, n.title, n.pub_time, n.content,
                a.direction, a.reason, a.model
@@ -352,23 +298,17 @@ def query_news_for_window(
             )
             rows = cur.fetchall()
 
-    # 按模型优先级去重：同一条新闻有多条分析时，取最高优先级；无分析的行（model=NULL）直接保留
+    # 按模型优先级去重：同一条新闻有多条分析时，取最高优先级；无分析的行（model=NULL）直接保留。
+    # dict 保序 = SQL 首次出现顺序（pub_time, id），无需二次排序
     seen: Dict[int, tuple] = {}
     for row in rows:
         news_id = row[0]
-        model = row[6]
         if news_id not in seen:
             seen[news_id] = row
-        elif model and model in priority_map:
-            existing_model = seen[news_id][6]
-            existing_rank = (
-                priority_map.get(existing_model, 999) if existing_model else 999
-            )
-            new_rank = priority_map.get(model, 999)
-            if new_rank < existing_rank:
-                seen[news_id] = row
+        elif _model_rank(row[6]) < _model_rank(seen[news_id][6]):
+            seen[news_id] = row
 
-    result = [
+    return [
         {
             "news_id": row[0],
             "title": row[1],
@@ -380,15 +320,6 @@ def query_news_for_window(
         }
         for row in seen.values()
     ]
-    # 按 pub_time 排序（注意：pub_time 可能为 None 或 str，datetime 优先）
-    result.sort(
-        key=lambda x: (
-            x["pub_time"]
-            if isinstance(x["pub_time"], datetime)
-            else (x["pub_time"] or "")
-        )
-    )
-    return result
 
 
 # ============================================================
@@ -484,47 +415,17 @@ JSON 格式：
 }}
 """
 
-    client = _get_llm_client()
-    t0 = time.time()
-    try:
-        response = client.chat.completions.create(
-            model=provider_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是严格输出 JSON 的中国债券市场策略分析师。",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.4,
-            timeout=600,
-        )
-        latency_ms = int((time.time() - t0) * 1000)
-
-        if response.usage:
-            log_llm_usage(
-                call_source="change",
-                model_name=selected_model,
-                provider_model=provider_model,
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-                success=True,
-                latency_ms=latency_ms,
-            )
-    except Exception as exc:
-        latency_ms = int((time.time() - t0) * 1000)
-        log_llm_usage(
-            call_source="change",
-            model_name=selected_model,
-            provider_model=provider_model,
-            success=False,
-            error_message=str(exc),
-            latency_ms=latency_ms,
-        )
-        raise
-
-    raw = response.choices[0].message.content or ""
+    raw = llm_chat(
+        [
+            {"role": "system", "content": "你是严格输出 JSON 的中国债券市场策略分析师。"},
+            {"role": "user", "content": prompt},
+        ],
+        model=selected_model,
+        provider_model=provider_model,
+        call_source="change",
+        temperature=0.4,
+        timeout=600,
+    )
     return extract_json(raw)
 
 
@@ -533,104 +434,80 @@ JSON 格式：
 # ============================================================
 
 
+def _diff_items(
+    old_items: List[Dict[str, Any]],
+    new_items: List[Dict[str, Any]],
+    *,
+    id_key: str,
+    name_field: str,
+    removed_field: str,
+    removed_default: Any = None,
+    modified_fields: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """通用对比：以 id_key 区分新增/移除/修改（标的与策略共用一套口径）。
+
+    - added: 新版本新增的完整条目
+    - removed: {id_key, name_field, prev_{removed_field}}
+    - modified: {id_key, name_field[, old_x / new_x ...]}，x 取 modified_fields 中发生变化的字段，
+      默认值按字段类型给定（数字 0，字符串 ""）
+    """
+    old_map = {item[id_key]: item for item in old_items}
+    new_map = {item[id_key]: item for item in new_items}
+    old_ids = set(old_map)
+    new_ids = set(new_map)
+
+    added = [new_map[i] for i in new_ids - old_ids]
+
+    removed = [
+        {
+            id_key: i,
+            name_field: old_map[i].get(name_field, ""),
+            f"prev_{removed_field}": old_map[i].get(removed_field, removed_default),
+        }
+        for i in old_ids - new_ids
+    ]
+
+    modified = []
+    for i in old_ids & new_ids:
+        old_item = old_map[i]
+        new_item = new_map[i]
+        changes = {}
+        for field, default in modified_fields.items():
+            if old_item.get(field) != new_item.get(field):
+                changes[f"old_{field}"] = old_item.get(field, default)
+                changes[f"new_{field}"] = new_item.get(field, default)
+        if changes:
+            modified.append(
+                {id_key: i, name_field: new_item.get(name_field, ""), **changes}
+            )
+
+    return added, removed, modified
+
+
 def compute_diff(
     old_s: Dict[str, Any],
     new_s: Dict[str, Any],
 ) -> Dict[str, Any]:
     """对比两个快照，计算标的和策略的变动"""
 
-    old_stocks = old_s.get("stock_recommend") or []
-    new_stocks = new_s.get("stock_recommend") or []
-    old_strategies = old_s.get("strategy_recommend") or []
-    new_strategies = new_s.get("strategy_recommend") or []
-
-    # --- 标的对比 ---
-    old_stock_codes = {s["code"] for s in old_stocks}
-    new_stock_codes = {s["code"] for s in new_stocks}
-
-    old_stock_map = {s["code"]: s for s in old_stocks}
-    new_stock_map = {s["code"]: s for s in new_stocks}
-
-    added_codes = new_stock_codes - old_stock_codes
-    removed_codes = old_stock_codes - new_stock_codes
-    common_codes = old_stock_codes & new_stock_codes
-
-    stock_added = [new_stock_map[c] for c in added_codes]
-    stock_removed = [
-        {
-            "code": c,
-            "name": old_stock_map[c].get("name", ""),
-            "prev_rating": old_stock_map[c].get("rating", ""),
-        }
-        for c in removed_codes
-    ]
-
-    stock_modified = []
-    for code in common_codes:
-        old_item = old_stock_map[code]
-        new_item = new_stock_map[code]
-        changes = {}
-        if old_item.get("rating") != new_item.get("rating"):
-            changes["old_rating"] = old_item.get("rating", "")
-            changes["new_rating"] = new_item.get("rating", "")
-        if old_item.get("weight") != new_item.get("weight"):
-            changes["old_weight"] = old_item.get("weight", 0)
-            changes["new_weight"] = new_item.get("weight", 0)
-        if old_item.get("reason") != new_item.get("reason"):
-            changes["old_reason"] = old_item.get("reason", "")
-            changes["new_reason"] = new_item.get("reason", "")
-        if changes:
-            stock_modified.append(
-                {
-                    "code": code,
-                    "name": new_item.get("name", ""),
-                    **changes,
-                }
-            )
-
-    # --- 策略对比 ---
-    old_strat_ids = {s["id"] for s in old_strategies}
-    new_strat_ids = {s["id"] for s in new_strategies}
-
-    old_strat_map = {s["id"]: s for s in old_strategies}
-    new_strat_map = {s["id"]: s for s in new_strategies}
-
-    added_ids = new_strat_ids - old_strat_ids
-    removed_ids = old_strat_ids - new_strat_ids
-    common_ids = old_strat_ids & new_strat_ids
-
-    strategy_added = [new_strat_map[i] for i in added_ids]
-    strategy_removed = [
-        {
-            "id": i,
-            "name": old_strat_map[i].get("name", ""),
-            "prev_priority": old_strat_map[i].get("priority", 0),
-        }
-        for i in removed_ids
-    ]
-
-    strategy_modified = []
-    for sid in common_ids:
-        old_item = old_strat_map[sid]
-        new_item = new_strat_map[sid]
-        changes = {}
-        if old_item.get("priority") != new_item.get("priority"):
-            changes["old_priority"] = old_item.get("priority", 0)
-            changes["new_priority"] = new_item.get("priority", 0)
-        if old_item.get("weight") != new_item.get("weight"):
-            changes["old_weight"] = old_item.get("weight", 0)
-            changes["new_weight"] = new_item.get("weight", 0)
-        if old_item.get("trigger_logic") != new_item.get("trigger_logic"):
-            changes["old_trigger_logic"] = old_item.get("trigger_logic", "")
-            changes["new_trigger_logic"] = new_item.get("trigger_logic", "")
-        if changes:
-            strategy_modified.append(
-                {
-                    "id": sid,
-                    "name": new_item.get("name", ""),
-                    **changes,
-                }
-            )
+    stock_added, stock_removed, stock_modified = _diff_items(
+        old_s.get("stock_recommend") or [],
+        new_s.get("stock_recommend") or [],
+        id_key="code",
+        name_field="name",
+        removed_field="rating",
+        removed_default="",
+        modified_fields={"rating": "", "weight": 0, "reason": ""},
+    )
+    strategy_added, strategy_removed, strategy_modified = _diff_items(
+        old_s.get("strategy_recommend") or [],
+        new_s.get("strategy_recommend") or [],
+        id_key="id",
+        name_field="name",
+        removed_field="priority",
+        removed_default=0,
+        modified_fields={"priority": 0, "weight": 0, "trigger_logic": ""},
+    )
 
     return {
         "base_info": {

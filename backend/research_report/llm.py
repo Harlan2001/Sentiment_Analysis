@@ -12,25 +12,14 @@ import os
 import re
 from pathlib import Path
 
-from openai import OpenAI
-
-from backend.config.config import (
-    create_openai_http_client,
-    get_llm_api_key,
-    get_llm_base_url,
-)
+from backend.common.llm_call import get_llm_client
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT, LLM_MAX_TEXT_CHARS
 
 logger = logging.getLogger(__name__)
 
-llm_api_key = get_llm_api_key()
-llm_base_url = get_llm_base_url()
-
-_client = OpenAI(
-    api_key=llm_api_key,
-    base_url=llm_base_url,
-    http_client=create_openai_http_client(),
-)
+_client = get_llm_client()
+if _client is None:
+    raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
 
 PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报全文及图表，按 JSON 格式输出分析结果。
 
@@ -57,11 +46,12 @@ PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报�
 
 【图表说明】附加图片为研报中的关键图表，请结合图表数据辅助分析。"""
 
-# 模型短名 → provider/model
+# 模型短名 → provider/model（与 config.ANALYSIS_MODEL_REGISTRY 保持一致）
 MODEL_OPTIONS = {
     "glm": "glm-5.2",
     "deepseek": "deepseek-v4-pro",
-    "qwen": "qwen3.6-flash",
+    "qwen": "qwen3.7-flash",
+    "kimi": "kimi-k3",
 }
 
 DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")

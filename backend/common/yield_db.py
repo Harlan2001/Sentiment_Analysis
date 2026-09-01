@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from backend.common.database import execute_query, get_db_connection
+from backend.common.database import execute_batch, execute_query
 from backend.common.db_operations import DBOperations
 from backend.config.config import BOND_XLSX, PERIOD_MAP
 
@@ -65,15 +65,15 @@ def import_yield_data_from_excel(excel_path: Path = BOND_XLSX):
         long_df.sort_values(["period", "date"]).groupby("period")["value"].ffill()
     )
 
-    # 批量入库
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        for _, row in long_df.iterrows():
-            cursor.execute(
-                "INSERT IGNORE INTO yield_data (date, period, value) VALUES (%s, %s, %s)",
-                (row["date"], row["period"], row["value"]),
-            )
-        conn.commit()
+    # 批量入库（executemany 单次提交；无有效行时跳过）
+    params = [
+        (row["date"], row["period"], row["value"]) for _, row in long_df.iterrows()
+    ]
+    if params:
+        execute_batch(
+            "INSERT IGNORE INTO yield_data (date, period, value) VALUES (%s, %s, %s)",
+            params,
+        )
 
     logger.info(
         "导入完成: %d 条记录, 日期范围 %s ~ %s, 期限数 %d",

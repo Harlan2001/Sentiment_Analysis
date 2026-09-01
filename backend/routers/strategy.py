@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from openai import OpenAI
 
-from backend.config.config import (
-    API_PREFIX,
-    create_openai_http_client,
-    get_llm_api_key,
-    get_llm_base_url,
-)
+from backend.common.llm_call import get_llm_client
+from backend.config.config import API_PREFIX
 from backend.strategy.strategy_push import get_strategy_push_service
 
-llm_client = OpenAI(
-    api_key=get_llm_api_key(),
-    base_url=get_llm_base_url(),
-    http_client=create_openai_http_client(),
-)
+llm_client = get_llm_client()
+if llm_client is None:
+    raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
 
 strategy_push_service = get_strategy_push_service(llm_client)
 

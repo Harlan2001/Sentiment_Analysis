@@ -4,7 +4,6 @@
 """
 
 import logging
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -20,10 +19,8 @@ from backend.factor.factor_management import get_factors_from_db
 logger = logging.getLogger(__name__)
 
 
-# 添加项目根目录到路径
-project_root = Path(__file__).resolve().parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+# 相似度模型（models/ 目录下的子目录名）
+SIMILARITY_MODEL_NAME = "all-MiniLM-L6-v2"
 
 
 @dataclass
@@ -42,7 +39,7 @@ class SimilarityResult:
 class FactorSimilarityEngine:
     """
     因子相似度计算引擎
-    使用text2vec-base-chinese模型计算语义相似度
+    使用 all-MiniLM-L6-v2 模型计算语义相似度
     结合关键词重合度进行综合评分
     """
 
@@ -53,7 +50,7 @@ class FactorSimilarityEngine:
         self._initialized = False
         self._init_lock = Lock()
 
-    def initialize(self, model_name="all-MiniLM-L6-v2"):
+    def initialize(self, model_name: str = SIMILARITY_MODEL_NAME):
         """初始化引擎，加载模型和标准因子"""
         if self._initialized:
             return
@@ -63,20 +60,14 @@ class FactorSimilarityEngine:
             if self._initialized:
                 return
 
-            try:
-                model_path = Path(MODEL_DIR) / model_name
-                if not model_path.exists():
-                    raise FileNotFoundError(f"本地模型目录不存在: {model_path}")
+            model_path = Path(MODEL_DIR) / model_name
+            if not model_path.exists():
+                raise FileNotFoundError(f"本地模型目录不存在: {model_path}")
 
-                # 仅加载一次模型（删除冗余的_model_name判断）
-                if self.model is None:
-                    self.model = SentenceTransformer(
-                        str(model_path), local_files_only=True
-                    )
+            # 仅加载一次模型
+            if self.model is None:
+                self.model = SentenceTransformer(str(model_path), local_files_only=True)
                 logger.info("相似度模型加载成功")
-            except ImportError:
-                logger.warning("sentence-transformers未安装，使用备用方法")
-                self.model = None
 
             # 加载标准因子
             self.standard_factors = get_factors_from_db()
@@ -134,7 +125,7 @@ class FactorSimilarityEngine:
 
             factor_embedding = self.standard_embeddings[factor_code]
 
-            # ✅ 优化：归一化向量直接点积 = 余弦相似度（删除冗余方法）
+            # 归一化向量直接点积即为余弦相似度
             cosine_sim = float(np.dot(new_embedding, factor_embedding))
 
             # 计算关键词重合度
@@ -161,15 +152,10 @@ class FactorSimilarityEngine:
     def _calculate_keyword_overlap(
         self, new_text: str, standard_factor: Dict[str, Any]
     ) -> float:
-        """计算关键词重合度"""
-        try:
-            new_words = set(jieba.cut(new_text.lower()))
-            standard_words = set(jieba.cut(standard_factor["name"].lower()))
-            code_words = set(jieba.cut(standard_factor["code"].lower()))
-        except ImportError:
-            new_words = set(new_text.lower().split())
-            standard_words = set(standard_factor["name"].lower().split())
-            code_words = set(standard_factor["code"].lower().split())
+        """计算关键词重合度（Jaccard）"""
+        new_words = set(jieba.cut(new_text.lower()))
+        standard_words = set(jieba.cut(standard_factor["name"].lower()))
+        code_words = set(jieba.cut(standard_factor["code"].lower()))
 
         # 计算Jaccard相似度
         intersection = len(new_words & standard_words) + len(new_words & code_words)

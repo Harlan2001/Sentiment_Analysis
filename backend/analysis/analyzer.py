@@ -5,33 +5,33 @@
 
 import json
 import logging
-import re
 import time
 from typing import Any, Dict, Optional
-
-import openai
-from openai import AsyncOpenAI
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
+from backend.common.llm_call import async_chat_completion
+from backend.common.llm_json import extract_json_string
 from backend.common.llm_logger import log_llm_usage
 from backend.config.config import (
-    create_openai_async_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
     get_llm_api_key,
-    get_llm_base_url,
 )
 from backend.factor.factor_management import get_factor_prompt_text
 
 logger = logging.getLogger(__name__)
+
+
+class AnalysisError(RuntimeError):
+    """分析失败（LLM 输出无效 / API 调用重试耗尽），区别于信息不足时返回的中性结果。"""
+
+
+def fallback_analysis_result(reason: str) -> dict:
+    """构造“无法分析”的中性兜底结果（信息缺失场景，不视为失败）。"""
+    return {"direction": "neutral", "horizon": "短期", "reason": reason, "factors": []}
+
 
 # ========== 模型配置 ==========
 # 定义此分析器使用的模型短名
@@ -43,28 +43,6 @@ if not llm_api_key:
     raise ValueError(
         "LLM_API_KEY environment variable is not set. Please set it in your .env file."
     )
-llm_base_url = get_llm_base_url()
-
-# 创建异步客户端
-async_client = AsyncOpenAI(
-    api_key=llm_api_key,
-    base_url=llm_base_url,
-    http_client=create_openai_async_http_client(),
-)
-
-
-# API调用重试装饰器：最多重试3次，指数退避（1s, 2s, 4s）
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type(
-        (openai.APIError, openai.APIConnectionError, openai.RateLimitError)
-    ),
-    reraise=True,
-)
-async def async_chat_completion(**kwargs):
-    """带重试的异步API调用"""
-    return await async_client.chat.completions.create(**kwargs)
 
 
 async def analyze_bond_yield_async(
@@ -80,31 +58,16 @@ async def analyze_bond_yield_async(
         分析结果字典
     """
     if not news_id:
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": "无法获取新闻ID",
-            "factors": [],
-        }
+        raise AnalysisError("无法获取新闻ID")
 
-    # 从数据库获取完整的新闻信息
+    # 从数据库获取完整的新闻信息（DB 瞬时错误直接向上抛出，交由调用方重试）
     news_info = DBOperations.get_news_by_id(news_id)
     if not news_info:
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": "无法获取新闻信息",
-            "factors": [],
-        }
+        raise AnalysisError(f"新闻不存在: {news_id}")
 
     publish_date = news_info.get("publish_date")
     if not publish_date:
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": "无法获取新闻发布日期",
-            "factors": [],
-        }
+        return fallback_analysis_result("无法获取新闻发布日期")
 
     selected_model_name = model_name or MODEL_NAME
     provider_model = get_analysis_model_info(selected_model_name)["provider_model"]
@@ -215,19 +178,10 @@ async def analyze_bond_yield_async(
         if not response_text:
             raise ValueError("AI响应为空")
 
-        # 确保response_text是字符串类型
-        response_text = str(response_text)
-
-        # 提取JSON部分
-        if "```json" in response_text:
-            json_str = response_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in response_text:
-            json_str = response_text.split("```")[1].split("```")[0].strip()
-        else:
-            json_str = response_text.strip()
-
-        # 清理尾随逗号等常见 JSON 不合规问题
-        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+        # 提取并清理 JSON 文本（fenced code 提取 + 尾随逗号清洗，见 common.llm_json）
+        json_str = extract_json_string(response_text)
+        if not json_str:
+            raise ValueError("AI响应未包含有效JSON结构")
 
         result = json.loads(json_str)
 
@@ -256,20 +210,12 @@ async def analyze_bond_yield_async(
     except json.JSONDecodeError as e:
         logger.warning("JSON解析失败: %s", e)
         logger.debug("原始响应: %s", response_text[:500])
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": "分析失败: JSON解析错误",
-            "factors": [],
-        }
+        raise AnalysisError("LLM JSON解析错误") from e
+    except AnalysisError:
+        raise
     except Exception as e:
         logger.error("kingstar API调用失败: %s", e, exc_info=True)
-        return {
-            "direction": "neutral",
-            "horizon": "短期",
-            "reason": f"分析失败: {str(e)}",
-            "factors": [],
-        }
+        raise AnalysisError("LLM API调用失败") from e
 
 
 async def process_single_news_analysis(
@@ -278,16 +224,12 @@ async def process_single_news_analysis(
     """标准化的单条新闻分析工具函数：分析、落库并写入因子关联。"""
     with get_db_connection() as conn:
         try:
-            cur = conn.cursor()
-            cur.execute("SELECT id FROM news WHERE id = %s", (news_id,))
-            if not cur.fetchone():
-                return {"success": False, "message": "新闻不存在", "news_id": news_id}
-
             selected_model_name = model_name or MODEL_NAME
             provider_model = get_analysis_model_info(selected_model_name)[
                 "provider_model"
             ]
 
+            # 新闻存在性/发布日期的校验在 analyze_bond_yield_async 内部完成
             analysis_result = await analyze_bond_yield_async(
                 news_id, model_name=selected_model_name
             )

@@ -5,27 +5,24 @@
 import argparse
 import json
 import logging
-import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
 load_dotenv()
 
 from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.db_operations import DBOperations
+from backend.common.llm_call import get_llm_client
+from backend.common.llm_json import extract_json_string
 from backend.common.llm_logger import log_llm_usage
 from backend.common.task_logging import add_task_event, finish_task_run, start_task_run
 from backend.config.config import (
     MYSQL_CONFIG,
-    create_openai_http_client,
     get_analysis_model_info,
     get_default_analysis_model_name,
-    get_llm_api_key,
-    get_llm_base_url,
 )
 
 # 日志配置
@@ -33,15 +30,13 @@ logger = logging.getLogger(__name__)
 
 # 常量配置
 MODEL_NAME = get_default_analysis_model_name()
-MODEL_INFO = get_analysis_model_info(MODEL_NAME)
-MODEL_PROVIDER_MODEL = (
-    MODEL_INFO.get("provider_model", MODEL_NAME)
-    if isinstance(MODEL_INFO, dict)
-    else str(MODEL_INFO)
-)
+MODEL_PROVIDER_MODEL = get_analysis_model_info(MODEL_NAME)["provider_model"]
 PROMPT_VERSION = "v2.3"  # v2.3: 修复模型过度拒绝问题，优化分析指令适配实际可用数据
-LLM_API_KEY = get_llm_api_key()
-LLM_BASE_URL = get_llm_base_url()
+
+# 复用共享缓存客户端（避免每次调用/每个报告日期重建 httpx 连接）
+llm_client = get_llm_client()
+if llm_client is None:
+    raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
 
 # 报告生成时向前回溯的新闻天数（含 report_date 当天）
 NEWS_LOOKBACK_DAYS = 3
@@ -54,32 +49,6 @@ def _truncate_text(text: str, limit: int) -> str:
     if not text:
         return ""
     return f"{text[:limit]}..." if len(text) > limit else text
-
-
-def _sanitize_json(text: str) -> str:
-    """清理 LLM 返回文本中常见的 JSON 不合规问题。"""
-    if not text:
-        return ""
-    # 移除尾随逗号：逗号后紧跟 ] 或 }（中间允许空白）
-    text = re.sub(r",\s*([}\]])", r"\1", text)
-    return text
-
-
-def _extract_json_content(content: str) -> str:
-    """提取 fenced code block 中的 JSON 文本。"""
-    if not content:
-        return ""
-
-    #  Step 1: 移除代码块标记
-    cleaned = re.sub(r"```json|```", "", content).strip()
-
-    #  Step 2: 提取第一个 { ... } 结构（无视前后废话）
-    json_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if json_match:
-        return _sanitize_json(json_match.group().strip())
-
-    # 没找到 JSON 结构
-    return ""
 
 
 def construct_enhanced_prompt(
@@ -274,13 +243,7 @@ def call_llm(prompt: str) -> str:
     """
     t0 = time.time()
     try:
-        client = OpenAI(
-            api_key=LLM_API_KEY,
-            base_url=LLM_BASE_URL,
-            http_client=create_openai_http_client(),
-        )
-
-        response = client.chat.completions.create(
+        response = llm_client.chat.completions.create(
             model=MODEL_PROVIDER_MODEL,
             messages=[
                 {
@@ -315,7 +278,7 @@ def call_llm(prompt: str) -> str:
                 latency_ms=latency_ms,
             )
 
-        return _extract_json_content(content)
+        return extract_json_string(content)
 
     except Exception as e:
         latency_ms = int((time.time() - t0) * 1000)
@@ -409,8 +372,6 @@ def generate_for_news_date(report_date: str) -> bool:
 
     新闻范围向前回溯 NEWS_LOOKBACK_DAYS 天，避免单天新闻量过少或质量过低。
     """
-    from datetime import timedelta
-
     logger.info("开始生成 %s 的报告（新闻回溯 %d 天）", report_date, NEWS_LOOKBACK_DAYS)
 
     # 计算新闻查询范围
@@ -473,11 +434,12 @@ def generate_for_news_date(report_date: str) -> bool:
         logger.error(f"{report_date} 模型最终返回内容: {response}")  # 必加，方便调试
         return False
 
-    forecast_data.setdefault("生成时间", datetime.now().strftime("%Y-%m-%d"))
-
-    if not forecast_data:
-        logger.error("%s 的大模型返回校验失败", report_date)
+    if not isinstance(forecast_data, dict):
+        logger.error("%s 的大模型返回校验失败（期望 JSON 对象）", report_date)
+        logger.error("%s 模型最终返回内容: %s", report_date, response)  # 必加，方便调试
         return False
+
+    forecast_data.setdefault("生成时间", datetime.now().strftime("%Y-%m-%d"))
 
     # 保存报告
     success = save_enhanced_forecast(
@@ -530,12 +492,9 @@ def main() -> None:
     init_database(db_config)
     logger.info("数据库初始化成功")
 
-    if args.start_date or args.end_date:
-        news_dates = DBOperations.get_news_pub_dates_in_range(
-            args.start_date, args.end_date
-        )
-    else:
-        news_dates = DBOperations.get_news_pub_dates()
+    news_dates = DBOperations.get_news_pub_dates_in_range(
+        args.start_date, args.end_date
+    )
 
     task_payload = {
         "date_source": "news.pub_time",

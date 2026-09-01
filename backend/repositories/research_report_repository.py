@@ -6,38 +6,14 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import date
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-import pymysql
-from pymysql.cursors import DictCursor
-
-from backend.config.config import MYSQL_CONFIG
+from backend.repositories.base import BaseRepository
 
 
-class ResearchReportRepository:
+class ResearchReportRepository(BaseRepository):
     """研报列表 / 筛选面查询。"""
-
-    def __init__(self, settings: dict[str, Any]):
-        self._settings = settings
-
-    @classmethod
-    def from_environment(cls) -> "ResearchReportRepository":
-        return cls(dict(MYSQL_CONFIG))
-
-    @contextmanager
-    def _connection(self) -> Iterator[Any]:
-        connection = pymysql.connect(
-            **{**self._settings, "autocommit": False}, cursorclass=DictCursor
-        )
-        try:
-            yield connection
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
 
     def _build_where(
         self,

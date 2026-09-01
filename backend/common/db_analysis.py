@@ -3,10 +3,31 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import pymysql
-
 from backend.common.database import get_db_connection
-from backend.config.config import ANALYSIS_MODEL_PRIORITY, MYSQL_CONFIG
+from backend.config.config import ANALYSIS_MODEL_PRIORITY
+
+
+def _insert_analysis_row(
+    cur: Any, news_id: int, analysis_result: Dict[str, Any], model: str
+) -> None:
+    """向 analysis 表写入一条分析记录（INSERT ... ON DUPLICATE KEY UPDATE）。"""
+    direction = analysis_result.get("direction", "中性")
+    horizon = analysis_result.get("horizon", "短期")
+    reason = analysis_result.get("reason", "")
+
+    cur.execute(
+        """
+        INSERT INTO analysis
+        (news_id, direction, horizon, reason, model, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            direction = VALUES(direction),
+            horizon = VALUES(horizon),
+            reason = VALUES(reason),
+            created_at = VALUES(created_at)
+    """,
+        (news_id, direction, horizon, reason, model, datetime.now()),
+    )
 
 
 class AnalysisQueries:
@@ -26,46 +47,22 @@ class AnalysisQueries:
             news_id: 新闻ID
             analysis_result: 分析结果字典
             model: 模型名称
-            conn: 外部数据库连接，用于事务
+            conn: 外部数据库连接，用于事务（传入时不负责 commit/close）
 
         Returns:
             是否保存成功
         """
-        external_conn = conn is not None
-        if conn is None:
-            conn = pymysql.connect(**MYSQL_CONFIG)
-
-        try:
+        if conn is not None:
             with conn.cursor() as cur:
-                direction = analysis_result.get("direction", "中性")
-                horizon = analysis_result.get("horizon", "短期")
-                reason = analysis_result.get("reason", "")
+                _insert_analysis_row(cur, news_id, analysis_result, model)
+            return True
 
-                cur.execute(
-                    """
-                    INSERT INTO analysis
-                    (news_id, direction, horizon, reason, model, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        direction = VALUES(direction),
-                        horizon = VALUES(horizon),
-                        reason = VALUES(reason),
-                        created_at = VALUES(created_at)
-                """,
-                    (news_id, direction, horizon, reason, model, datetime.now()),
-                )
-
-                if not external_conn:
-                    conn.commit()
-                return True
-
-        except Exception as e:
-            if not external_conn:
-                conn.rollback()
-            raise e
-        finally:
-            if not external_conn:
-                conn.close()
+        # 无外部连接时使用共享连接池（池内连接 autocommit=False，需显式提交）
+        with get_db_connection() as db_conn:
+            with db_conn.cursor() as cur:
+                _insert_analysis_row(cur, news_id, analysis_result, model)
+            db_conn.commit()
+        return True
     @staticmethod
     def get_analysis_exists(news_id: int, model: Optional[str] = None) -> bool:
         """

@@ -152,7 +152,6 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
 
             pending_news = DBOperations.get_pending_news_by_mode(
                 mode=payload.mode,
-                model=selected_model_name,
                 limit=payload.limit,
                 start_time=payload.start_time,
                 end_time=payload.end_time,

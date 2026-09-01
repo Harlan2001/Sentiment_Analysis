@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
+from backend.auth.auth import hash_password
 from backend.common.database import get_connection
 from backend.config.config import API_PREFIX
 
@@ -72,7 +73,7 @@ def create_user(request: Request, body: UserCreateRequest):
             cursor.execute(
                 """INSERT INTO users (username, password, display_name, is_active, is_admin, role)
                    VALUES (%s, %s, %s, 1, %s, %s)""",
-                (body.username, body.password, body.display_name, is_admin, "admin" if is_admin else "user"),
+                (body.username, hash_password(body.password), body.display_name, is_admin, "admin" if is_admin else "user"),
             )
             user_id = cursor.lastrowid
             cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users WHERE id = %s", (user_id,))

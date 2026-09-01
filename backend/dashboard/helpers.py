@@ -76,6 +76,15 @@ def fmt_dt2(value: Any) -> Optional[str]:
     )
 
 
+def to_iso(value: Any) -> Optional[str]:
+    """时间值转 ISO 字符串；None 保持 None（收敛各处 isoformat 三元表达式）"""
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 def pct(numerator: int, denominator: int) -> float:
     """计算百分比，分母为0时返回0"""
     return round(numerator / denominator * 100, 1) if denominator > 0 else 0
@@ -87,14 +96,37 @@ def safe_one(sql: str, *params: Any) -> int:
     return row[0] if row else 0
 
 
+def normalize_route(route: str) -> str:
+    """路由归一化：将动态路由聚合到统一 key（看板统计口径的唯一入口）
+
+    - `/`、`/news` → `/news`
+    - `/research/<任意>` → `/research`
+    - `/ai-strategy-generation<任意>` → `/ai-strategy-generation`
+    - 其余原样返回
+    """
+    if not route:
+        return route
+    if route in ("/", "/news"):
+        return "/news"
+    if route.startswith("/research/"):
+        return "/research"
+    if route.startswith("/ai-strategy-generation"):
+        return "/ai-strategy-generation"
+    return route
+
+
 def page_title(route: str) -> str:
     """路由 → 中文页面标题"""
-    if route == "/" or (route or "").startswith("/news"):
-        return "新闻"
+    norm = normalize_route(route)
+    if norm.startswith("/news"):
+        return PAGE_TITLES["/news"]
+    if norm in PAGE_TITLES:
+        return PAGE_TITLES[norm]
+    # 兜底：匹配任意前缀页面（如 /forecast/detail → 预测）
     for path, title in PAGE_TITLES.items():
-        if route == path or route.startswith(path):
+        if norm.startswith(path):
             return title
-    return route
+    return norm
 
 
 def pad_page_routes(
@@ -111,12 +143,25 @@ def pad_page_routes(
 
 
 def assemble_trend(
-    rows: List[tuple], key_map: Optional[Dict[str, str]] = None
+    rows: List[tuple],
+    key_map: Optional[Dict[str, str]] = None,
+    total: bool = False,
+    unknown: str = "unknown",
 ) -> List[Dict[str, Any]]:
-    """将 (date, key, count) 行组装为趋势图数据 [{date, key1:cnt, key2:cnt}, ...]"""
+    """将 (date, key, count) 行组装为趋势图数据
+    [{date, key1:cnt, key2:cnt, ...}, ...]；
+    total=True 时按日追加合计字段；key 为 None 时归入 unknown 标签。
+    """
     bucket: Dict[str, Dict[str, int]] = {}
     for d, k, cnt in rows:
         ds = fmt_dt(d)
-        name = key_map.get(k, k) if key_map else k
+        name = (key_map or {}).get(k, k)
+        name = name if name is not None else unknown
         bucket.setdefault(ds, {})[name] = cnt
-    return [{"date": ds, **bucket[ds]} for ds in sorted(bucket)]
+    out = []
+    for ds in sorted(bucket):
+        entry = {"date": ds, **bucket[ds]}
+        if total:
+            entry["total"] = sum(bucket[ds].values())
+        out.append(entry)
+    return out

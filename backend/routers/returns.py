@@ -12,12 +12,12 @@ from fastapi import APIRouter, Query
 
 from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
-from backend.config.config import API_PREFIX, mask_news_source
+from backend.config.config import ANALYSIS_MODEL_PRIORITY, API_PREFIX, mask_news_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["returns"])
 
-# 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
+# 模型优先级 CASE 片段（glm > kimi > deepseek > qwen > default，历史 doubao 走 ELSE）
 MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
 # 按新闻选最高优先级模型的 analysis 的关联子句
 _BEST_ANALYSIS_JOIN = (
@@ -25,6 +25,12 @@ _BEST_ANALYSIS_JOIN = (
     " AND a.model = (SELECT a2.model FROM analysis a2"
     " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
     f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
+)
+# 因子关联的模型优先级 CASE（与分析模型优先级一致；历史 doubao 视为最高优先级）
+_FACTOR_MODEL_CASE = (
+    "CASE nf.model"
+    + "".join(f" WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY))
+    + " WHEN 'doubao' THEN 0 ELSE 999 END"
 )
 
 WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
@@ -156,7 +162,7 @@ def returns_calendar(
                     FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
                     WHERE nf.news_id IN ({placeholders})
                     ORDER BY nf.news_id,
-                             CASE nf.model WHEN 'glm' THEN 0 WHEN 'doubao' THEN 0 WHEN 'deepseek' THEN 1 ELSE 2 END,
+                             {_FACTOR_MODEL_CASE},
                              f.id""",
                 tuple(news_ids),
             )

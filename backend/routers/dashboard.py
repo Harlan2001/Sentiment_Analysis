@@ -19,18 +19,21 @@ from backend.config.config import (
 )
 from backend.dashboard.dashboard_service import (
     build_analysis_module,
+    build_behavior_stats,
     build_factor_module,
     build_forecast_module,
     build_news_module,
     build_research_module,
     build_vector_module,
     build_yield_module,
+    cache_lock,
     check_service_health,
     cleanup_cache,
     cleanup_old_behavior_logs,
     compute_user_profile,
+    fetch_profiles,
+    fetch_user_profile,
     get_base_stats,
-    get_department_behavior_stats,
     get_leader_overview,
     get_token_by_model,
     get_token_overview,
@@ -43,12 +46,12 @@ from backend.dashboard.dashboard_service import (
 )
 from backend.dashboard.helpers import (
     admin_check,
-    fmt_dt,
+    assemble_trend,
     fmt_dt2,
     manager_check,
-    pad_page_routes,
     page_title,
     safe_one,
+    to_iso,
 )
 
 router = APIRouter(prefix=f"{API_PREFIX}/dashboard", tags=["dashboard"])
@@ -63,8 +66,6 @@ def get_dashboard_core():
     前端大盘首页核心数据接口（GET请求）
     逻辑：先读缓存→无缓存加锁再读一次缓存→无缓存全量计算→写入缓存→返回数据
     """
-    from backend.dashboard.dashboard_service import cache_lock
-
     cached = read_cache()
     if cached:
         return {**cached, "from_cache": True}
@@ -90,11 +91,11 @@ def get_dashboard_core():
                 "factor_total": base["factor_total"],
                 "yield_days": base["yield_days"],
             },
-            "news": build_news_module(base["news_total"], base),
+            "news": build_news_module(base["news_total"]),
             "analysis": build_analysis_module(
                 base["analyzed"], base["pending"], base["news_total"], base
             ),
-            "factor": build_factor_module(base["factor_total"], base),
+            "factor": build_factor_module(base["factor_total"]),
             "vector": build_vector_module(base["indexed"], base["vec_pending"]),
             "yield": build_yield_module(),
             "forecast": build_forecast_module(base["report_total"]),
@@ -267,100 +268,11 @@ def trigger_cleanup_behavior_logs(
 @router.get("/behavior-stats")
 def get_behavior_stats(days: int = Query(7, ge=1, le=90), _a=Depends(admin_check)):
     """行为统计：活跃用户、会话数、页面访问排行、平均停留时长 + 7日趋势 + 时段热力图"""
-    from backend.dashboard.dashboard_service import read_cache, write_cache
-
     cache_key = f"behavior_{days}"
     cached = read_cache(cache_key)
     if cached:
         return cached
-    # 活跃趋势
-    trend_rows = execute_query(
-        """
-        SELECT DATE(login_time)d,COUNT(DISTINCT user_id)dau,COUNT(*)sessions
-        FROM user_session WHERE login_time>=DATE_SUB(CURDATE(),INTERVAL %s DAY)
-        GROUP BY d ORDER BY d""",
-        (days,),
-    )
-    activity_trend = [
-        {"date": fmt_dt(r[0]), "dau": r[1], "sessions": r[2]} for r in trend_rows
-    ]
-
-    # 时段热力分布
-    heatmap_rows = execute_query(
-        """
-        SELECT HOUR(enter_time)h,DAYOFWEEK(enter_time)dow,COUNT(*)c
-        FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
-        GROUP BY h,dow ORDER BY dow,h""",
-        (days,),
-    )
-    heatmap = [{"hour": r[0], "day_of_week": r[1], "count": r[2]} for r in heatmap_rows]
-
-    # 重度用户 + 流失风险
-    power_users = safe_one(
-        "SELECT COUNT(*) FROM user_behavior_profile WHERE is_power_user=1"
-    )
-    churn_users = safe_one(
-        "SELECT COUNT(*) FROM user_behavior_profile WHERE churn_risk_score>0.5"
-    )
-
-    result = {
-        "active_users_today": safe_one(
-            "SELECT COUNT(DISTINCT user_id) FROM user_page_view WHERE DATE(enter_time)=CURDATE()"
-        ),
-        "sessions_today": safe_one(
-            "SELECT COUNT(*) FROM user_session WHERE DATE(login_time)=CURDATE()"
-        ),
-        "avg_duration_7d": int(
-            safe_one(
-                "SELECT COALESCE(AVG(duration_sec),0) FROM user_session "
-                "WHERE login_time>=DATE_SUB(NOW(),INTERVAL %s DAY) AND duration_sec>0",
-                days,
-            )
-        ),
-        "top_page": (lambda r: r[0] if r else None)(
-            execute_query(
-                "SELECT page_route FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY) "
-                "GROUP BY page_route ORDER BY COUNT(*) DESC LIMIT 1",
-                (days,),
-                one=True,
-            )
-        ),
-        "power_users": power_users,
-        "churn_risk_users": churn_users,
-        "activity_trend": activity_trend,
-        "hourly_heatmap": heatmap,
-        "page_distribution": pad_page_routes(
-            [
-                {"page_route": r[0], "page_title": page_title(r[0]), "count": r[1]}
-                for r in execute_query(
-                    """
-                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news'
-                WHEN page_route LIKE '/research/%%' THEN '/research'
-                WHEN page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation'
-                ELSE page_route END AS route,
-                COUNT(*)c FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
-                GROUP BY route ORDER BY c DESC""",
-                    (days,),
-                )
-            ]
-        ),
-        "page_avg_duration": pad_page_routes(
-            [
-                {"page_route": r[0], "avg_sec": round(float(r[1]), 0) if r[1] else 0}
-                for r in execute_query(
-                    """
-                SELECT CASE WHEN page_route IN ('/','/news') THEN '/news'
-                WHEN page_route LIKE '/research/%%' THEN '/research'
-                WHEN page_route LIKE '/ai-strategy-generation%%' THEN '/ai-strategy-generation'
-                ELSE page_route END AS route,
-                AVG(duration_sec) FROM user_page_view WHERE enter_time>=DATE_SUB(NOW(),INTERVAL %s DAY)
-                AND duration_sec>0 GROUP BY route ORDER BY 2 DESC""",
-                    (days,),
-                )
-            ],
-            count_key="avg_sec",
-        ),
-    }
+    result = build_behavior_stats(days=days)
     result["_ts"] = datetime.now().isoformat()
     write_cache(result, cache_key)
     return result
@@ -420,14 +332,8 @@ def get_behavior_logs(
                 "username": r[3],
                 "page_route": r[4],
                 "page_title": page_title(r[4]) if r[4] else "",
-                "enter_time": (
-                    r[6].isoformat() if hasattr(r[6], "isoformat") else str(r[6])
-                ),
-                "leave_time": (
-                    r[7].isoformat()
-                    if r[7] and hasattr(r[7], "isoformat")
-                    else (str(r[7]) if r[7] else None)
-                ),
+                "enter_time": to_iso(r[6]),
+                "leave_time": to_iso(r[7]),
                 "duration_sec": r[8],
                 "exit_type": r[9],
                 "action_type": r[10] or "page_enter",
@@ -489,32 +395,14 @@ def get_behavior_profiles(
     if sort_by not in allowed:
         sort_by = "last_visit"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
-    rows = execute_query(
-        f"""SELECT id,user_id,username,total_sessions,total_page_views,total_active_sec,
-        first_visit,last_visit,active_days_30d,avg_session_sec,avg_daily_pages_30d,
-        page_affinity_json,peak_hour,hour_distribution_json,
-        distinct_pages_30d,advanced_feature_used,
-        is_power_user,is_report_focused,is_strategy_focused,churn_risk_score,
-        computed_at,profile_version,updated_at
-        FROM user_behavior_profile ORDER BY {sort_by} {order_dir}"""
-    )
+    rows = fetch_profiles(sort_by=sort_by, order=order_dir)
     return {"profiles": [profile_row_to_dict(r) for r in rows], "count": len(rows)}
 
 
 @router.get("/behavior/profile/{user_id}")
 def get_behavior_profile(user_id: int, _a=Depends(admin_check)):
     """获取单个用户画像（含雷达图数据），不存在时自动计算"""
-    r = execute_query(
-        """SELECT id,user_id,username,total_sessions,total_page_views,total_active_sec,
-        first_visit,last_visit,active_days_30d,avg_session_sec,avg_daily_pages_30d,
-        page_affinity_json,peak_hour,hour_distribution_json,
-        distinct_pages_30d,advanced_feature_used,
-        is_power_user,is_report_focused,is_strategy_focused,churn_risk_score,
-        computed_at,profile_version,updated_at
-        FROM user_behavior_profile WHERE user_id=%s""",
-        (user_id,),
-        one=True,
-    )
+    r = fetch_user_profile(user_id)
     if not r:
         ur = execute_query(
             "SELECT id,username FROM users WHERE id=%s", (user_id,), one=True
@@ -522,17 +410,7 @@ def get_behavior_profile(user_id: int, _a=Depends(admin_check)):
         if not ur:
             raise HTTPException(404, f"用户 {user_id} 不存在")
         compute_user_profile(ur[0], ur[1])
-        r = execute_query(
-            """SELECT id,user_id,username,total_sessions,total_page_views,total_active_sec,
-            first_visit,last_visit,active_days_30d,avg_session_sec,avg_daily_pages_30d,
-            page_affinity_json,peak_hour,hour_distribution_json,
-            distinct_pages_30d,advanced_feature_used,
-            is_power_user,is_report_focused,is_strategy_focused,churn_risk_score,
-            computed_at,profile_version,updated_at
-            FROM user_behavior_profile WHERE user_id=%s""",
-            (user_id,),
-            one=True,
-        )
+        r = fetch_user_profile(user_id)
         if not r:
             raise HTTPException(500, "画像计算失败")
 
@@ -692,8 +570,6 @@ def trigger_all_profiles_compute(_a=Depends(admin_check)):
 @router.get("/token/overview")
 def token_overview(dep=Depends(manager_check)):
     """Token 消耗全局汇总（今日/本月/总计 + 按来源分组）；经理仅看本部门+本公司"""
-    from backend.dashboard.dashboard_service import read_cache, write_cache
-
     cache_key = f"token_{dep['department']}_{dep['company']}"
     cached = read_cache(cache_key)
     if cached:
@@ -760,7 +636,7 @@ def dept_behavior(days: int = Query(7, ge=1, le=90), dep=Depends(manager_check))
     """部门行为统计 — 经理可见；包含活跃趋势、时段热力、页面分布、停留排行"""
     if not dep["department"]:
         raise HTTPException(400, "管理员请使用 /dashboard/behavior-stats 接口")
-    return get_department_behavior_stats(
+    return build_behavior_stats(
         department=dep["department"], company=dep["company"], days=days
     )
 
@@ -781,8 +657,6 @@ def my_usage_overview(request: Request):
             "total_tokens": 0,
             "total_calls": 0,
         }
-
-    from backend.dashboard.dashboard_service import safe_one
 
     today = safe_one(
         "SELECT COALESCE(SUM(total_tokens),0) FROM llm_usage_log WHERE username=%s AND DATE(created_at)=CURDATE() AND success=1",
@@ -827,16 +701,7 @@ def my_usage_trend(request: Request, days: int = Query(7, ge=1, le=90)):
         GROUP BY d, model_name ORDER BY d""",
         (username, days),
     )
-    bucket: dict = {}
-    for d, model, t in rows:
-        ds = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
-        bucket.setdefault(ds, {})[model or "unknown"] = int(t)
-    result = []
-    for ds in sorted(bucket):
-        entry = {"date": ds, **bucket[ds]}
-        entry["total"] = sum(bucket[ds].values())
-        result.append(entry)
-    return {"trend": result}
+    return {"trend": assemble_trend(rows, total=True)}
 
 
 @router.get("/my-usage/behavior")

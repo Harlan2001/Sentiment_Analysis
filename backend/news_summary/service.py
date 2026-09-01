@@ -7,19 +7,20 @@ import logging
 from collections import Counter
 from typing import Any
 
-from backend.analysis.analyzer import MODEL_NAME, async_chat_completion
+from backend.common.llm_call import llm_chat_async
 from backend.common.llm_logger import log_llm_usage
-from backend.config.config import get_analysis_model_info
+from backend.config.config import get_analysis_model_info, get_default_analysis_model_name
 from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 from backend.routers.news import get_news
 
 logger = logging.getLogger(__name__)
 
+MODEL_NAME = get_default_analysis_model_name()
+
 CHUNK_SIZE = 80
 MAX_REFERENCES = 500
 MODEL_CALL_TIMEOUT_SECONDS = 90
-CHUNK_OUTPUT_MAX_TOKENS = 4096
-FINAL_OUTPUT_MAX_TOKENS = 4096
+SUMMARY_MAX_TOKENS = 4096
 FINAL_CHUNK_CHARS = 1800
 SYSTEM_PROMPT = """你是专业的中国债券市场新闻编辑。请只基于用户提供的真实新闻条目生成中文 Markdown 总结。
 要求：归纳主题与因果链，不逐条堆砌；区分事实与判断；保留日期范围和来源统计；列出重要事件、利率债/信用债/宏观流动性影响、风险与后续关注；不得编造条目中没有的数据，不给出具体投资建议。"""
@@ -36,33 +37,22 @@ def _news_line(item: dict[str, Any]) -> str:
 async def _complete(prompt: str, username: str, *, max_tokens: int) -> str:
     provider_model = get_analysis_model_info(MODEL_NAME)["provider_model"]
     try:
-        response = await asyncio.wait_for(
-            async_chat_completion(
-                model=provider_model,
+        content = await asyncio.wait_for(
+            llm_chat_async(
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
+                model=MODEL_NAME,
+                provider_model=provider_model,
+                call_source="daily_news_summary",
                 temperature=0.2,
                 max_tokens=max_tokens,
-                stream=False,
+                timeout=MODEL_CALL_TIMEOUT_SECONDS,
+                retry=True,
             ),
             timeout=MODEL_CALL_TIMEOUT_SECONDS,
         )
-        usage = response.usage
-        log_llm_usage(
-            username=username,
-            call_source="daily_news_summary",
-            model_name=MODEL_NAME,
-            provider_model=provider_model,
-            prompt_tokens=usage.prompt_tokens if usage else 0,
-            completion_tokens=usage.completion_tokens if usage else 0,
-            total_tokens=usage.total_tokens if usage else 0,
-        )
-        content = response.choices[0].message.content or ""
-        if not content.strip():
-            raise RuntimeError("AI 未返回总结内容")
-        return content.strip()
     except asyncio.TimeoutError as exc:
         message = f"模型网关在 {MODEL_CALL_TIMEOUT_SECONDS} 秒内未返回"
         log_llm_usage(
@@ -74,16 +64,18 @@ async def _complete(prompt: str, username: str, *, max_tokens: int) -> str:
             error_message=message,
         )
         raise RuntimeError(message) from exc
-    except Exception as exc:
+    if not content.strip():
+        message = "AI 未返回总结内容"
         log_llm_usage(
             username=username,
             call_source="daily_news_summary",
             model_name=MODEL_NAME,
             provider_model=provider_model,
             success=False,
-            error_message=str(exc),
+            error_message=message,
         )
-        raise
+        raise RuntimeError(message)
+    return content.strip()
 
 
 async def generate_daily_news_summary(
@@ -150,7 +142,7 @@ async def generate_daily_news_summary(
             )
             chunk_summaries.append(
                 await _complete(
-                    prompt, owner_username, max_tokens=CHUNK_OUTPUT_MAX_TOKENS
+                    prompt, owner_username, max_tokens=SUMMARY_MAX_TOKENS
                 )
             )
 
@@ -167,7 +159,7 @@ async def generate_daily_news_summary(
                     + "开头注明共覆盖多少条新闻，并保留重要新闻编号引用。\n\n"
                     + final_material,
                     owner_username,
-                    max_tokens=FINAL_OUTPUT_MAX_TOKENS,
+                    max_tokens=SUMMARY_MAX_TOKENS,
                 )
             except RuntimeError as exc:
                 logger.warning(

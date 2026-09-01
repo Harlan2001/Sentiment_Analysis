@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any, Optional
 
 
@@ -88,7 +87,3 @@ def add_task_event(
             """,
             (task_run_id, event_type, news_id, status, message, payload_json),
         )
-
-
-def current_time_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")

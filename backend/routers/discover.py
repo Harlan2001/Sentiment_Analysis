@@ -18,7 +18,7 @@ from backend.config.config import API_PREFIX, NEWS_SOURCE_LABELS
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["discover"])
 
-# 模型优先级 CASE 片段（glm > deepseek > qwen > default，历史 doubao 走 ELSE）
+# 模型优先级 CASE 片段（glm > kimi > deepseek > qwen > default，历史 doubao 走 ELSE）
 MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
 
 
@@ -127,14 +127,16 @@ def discover_news(
         cur.execute(f"""
             SELECT news_id, direction, reason
             FROM analysis
-            WHERE news_id IN ({ph}) AND model IN ('doubao','glm')
-            ORDER BY news_id, CASE model WHEN 'glm' THEN 1 ELSE 0 END
+            WHERE news_id IN ({ph}) AND model IN ('doubao','glm','kimi')
+            ORDER BY news_id, CASE model WHEN 'glm' THEN 0 WHEN 'kimi' THEN 1 ELSE 2 END
         """, news_ids)
         analysis_rows = cur.fetchall()
 
+    # 按最佳模型取一条分析（glm 优先，其次 kimi，历史 doubao 兜底）
     analysis_map: Dict[int, tuple] = {}
     for nid, adir, areason in analysis_rows:
-        analysis_map[nid] = (adir, areason)
+        if nid not in analysis_map:
+            analysis_map[nid] = (adir, areason)
 
     # 批量取因子
     with get_db_connection() as conn:

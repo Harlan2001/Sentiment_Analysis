@@ -132,7 +132,7 @@ def get_news(
         None, description="时间段结束日期，格式 YYYY-MM-DD"
     ),
     source: Optional[str] = Query(
-        None, description="新闻源过滤，多个用逗号分隔，如 cls,wechat"
+        None, description="新闻源过滤，多个用逗号分隔，如 wallstreetcn,yicai"
     ),
     keyword: Optional[str] = Query(
         None, description="关键词检索，多个用逗号分隔，命中标题或正文任意一个即可"
