@@ -31,6 +31,7 @@ from backend.dashboard.helpers import (
     safe_one,
     to_iso,
 )
+from backend.repositories.forecast_report_repository import ForecastReportRepository
 
 cache_lock = threading.Lock()
 
@@ -325,7 +326,7 @@ def build_yield_module() -> Dict[str, Any]:
 
 def build_forecast_module(report_total: int) -> Dict[str, Any]:
     """预测模块：报告总数、最新日期、30天覆盖情况"""
-    r = execute_query("SELECT MAX(trade_date) FROM forecast_report", one=True)
+    latest_date = ForecastReportRepository().get_latest_trade_date()
     cal = execute_query(
         "SELECT DISTINCT trade_date FROM forecast_report "
         "WHERE trade_date>=DATE_SUB(CURDATE(),INTERVAL 30 DAY) ORDER BY trade_date"
@@ -335,7 +336,7 @@ def build_forecast_module(report_total: int) -> Dict[str, Any]:
     dates = [today - timedelta(days=29 - i) for i in range(30)]
     return {
         "total_reports": report_total,
-        "latest_date": fmt_dt(r[0]) if r and r[0] else None,
+        "latest_date": fmt_dt(latest_date) if latest_date else None,
         "coverage_30d": [
             {"date": d.isoformat(), "has_report": d.isoformat() in covered}
             for d in dates

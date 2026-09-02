@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -78,6 +80,70 @@ class FeishuClient:
         )
         return self._get(f"/im/v1/messages?{query}", token)
 
+    # ===================== 机器人消息推送（tenant token） =====================
+
+    def tenant_access_token(self) -> str:
+        """获取机器人租户访问令牌（群消息推送场景，仅需 app_id / app_secret）。"""
+        if not self.app_id or not self.app_secret:
+            raise FeishuConnectionError(
+                "飞书机器人尚未配置：需 FEISHU_APP_ID / FEISHU_APP_SECRET。"
+            )
+        response = requests.post(
+            f"{self.API_BASE}/auth/v3/tenant_access_token/internal",
+            json={"app_id": self.app_id, "app_secret": self.app_secret},
+            timeout=20,
+            proxies=get_requests_proxies(),
+        )
+        payload = self._read_response(response)
+        token = payload.get("tenant_access_token")
+        if not token:
+            raise FeishuApiError("飞书未返回 tenant_access_token。")
+        return str(token)
+
+    def upload_file(self, token: str, path: str, file_type: str = "pdf") -> str:
+        """上传文件到飞书 IM，返回 file_key。"""
+        file_path = Path(path)
+        if not file_path.exists():
+            raise FeishuApiError(f"文件不存在：{path}")
+        with open(path, "rb") as f:
+            payload = self._request(
+                "POST",
+                "/im/v1/files",
+                token=token,
+                data={"file_name": file_path.name, "file_type": file_type},
+                files={"file": (file_path.name, f, "application/pdf")},
+            )
+        file_key = (payload.get("data") or {}).get("file_key")
+        if not file_key:
+            raise FeishuApiError(f"飞书上传未返回 file_key：{payload}")
+        return str(file_key)
+
+    def send_text(self, token: str, chat_id: str, text: str) -> None:
+        """向群聊发送文本消息。"""
+        self._post(
+            "/im/v1/messages",
+            {
+                "receive_id": chat_id,
+                "msg_type": "text",
+                "content": json.dumps({"text": text}, ensure_ascii=False),
+            },
+            token,
+            params={"receive_id_type": "chat_id"},
+        )
+
+    def send_file(self, token: str, chat_id: str, file_key: str) -> None:
+        """向群聊发送文件消息（upload_file 返回的 file_key）。"""
+        self._post(
+            "/im/v1/messages",
+            {
+                "receive_id": chat_id,
+                "msg_type": "file",
+                "content": json.dumps({"file_key": file_key}, ensure_ascii=False),
+            },
+            token,
+            params={"receive_id_type": "chat_id"},
+        )
+
     def _app_access_token(self) -> str:
         self._require_app_config()
         response = requests.post(
@@ -95,16 +161,33 @@ class FeishuClient:
     def _get(self, path: str, token: str) -> dict[str, Any]:
         return self._request("GET", path, token=token)
 
-    def _post(self, path: str, data: dict[str, Any], token: str) -> dict[str, Any]:
-        return self._request("POST", path, token=token, data=data)
+    def _post(
+        self,
+        path: str,
+        data: dict[str, Any],
+        token: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._request("POST", path, token=token, data=data, params=params)
 
     def _request(
-        self, method: str, path: str, *, token: str, data: dict[str, Any] | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         response = requests.request(
             method,
             f"{self.API_BASE}{path}",
-            json=data,
+            json=data if files is None else None,
+            data=None if files is None else data,
+            files=files,
+            params=params,
             headers={"Authorization": f"Bearer {token}"},
             timeout=30,
             proxies=get_requests_proxies(),

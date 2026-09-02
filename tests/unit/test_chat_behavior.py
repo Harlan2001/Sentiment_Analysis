@@ -158,7 +158,7 @@ def test_removing_token_changes_status_to_unauthenticated(chat_client):
     """服务端 JWT 无会话撤销表；退出的服务端效果来自后续请求不再携带 token。"""
     client, _ = chat_client
     cursor = MagicMock()
-    cursor.fetchone.return_value = (1, "user1", "用户一", 1, 0)
+    cursor.fetchone.return_value = (1, "user1", "用户一", 1, 0, "user")
     conn = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
     conn.cursor.return_value.__exit__.return_value = False

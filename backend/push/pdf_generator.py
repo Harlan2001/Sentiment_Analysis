@@ -7,23 +7,24 @@ PDF 生成器 — 从数据库 forecast_report 表读取数据，通过 Jinja2 +
 依赖：playwright + Chromium（`playwright install chromium`）
 """
 
-import json
+from __future__ import annotations
+
 import logging
 import os
-import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from backend.common.database import get_db_connection
+from backend.common.pdf_export import PlaywrightUnavailableError, render_html_to_pdf
+from backend.config.config import DATA_DIR
+from backend.repositories.forecast_report_repository import ForecastReportRepository
 
-logger = logging.getLogger("pdf_generator")
+logger = logging.getLogger(__name__)
 
-# 项目根目录 (backend/push/pdf_generator.py → backend → 项目根)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-PDF_DIR = Path(os.getenv("PDF_OUTPUT_DIR", str(_PROJECT_ROOT / "data" / "pdf")))
-FONTS_DIR = _PROJECT_ROOT / "data" / "fonts"
+# 输出目录：默认 data/pdf，可用 PDF_OUTPUT_DIR 覆盖；字体文件在 data/fonts/（复用 config.DATA_DIR）
+PDF_DIR = Path(os.getenv("PDF_OUTPUT_DIR", str(DATA_DIR / "pdf")))
+FONTS_DIR = DATA_DIR / "fonts"
 
 # Jinja2 模板环境
 _TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -52,31 +53,12 @@ def _fetch_report_from_db(trade_date: date) -> dict:
     Raises:
         ValueError: 未找到对应记录
     """
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT trade_date, model_name, prompt_version, prediction, created_at "
-            "FROM forecast_report "
-            "WHERE trade_date = %s AND forecast_type = 'full_report'",
-            (trade_date,),
+    report = ForecastReportRepository().get_full_report(trade_date)
+    if report is None:
+        raise ValueError(
+            f"未找到 {trade_date.isoformat()} 的预测报告（forecast_report 表中无 full_report 记录）"
         )
-        row = cur.fetchone()
-        if not row:
-            raise ValueError(
-                f"未找到 {trade_date.isoformat()} 的预测报告（forecast_report 表中无 full_report 记录）"
-            )
-
-        prediction = row[3]
-        if isinstance(prediction, str):
-            prediction = json.loads(prediction)
-
-        return {
-            "trade_date": row[0],
-            "model_name": row[1],
-            "prompt_version": row[2],
-            "prediction": prediction,
-            "created_at": row[4],
-        }
+    return report
 
 
 # ====================== HTML 渲染 ======================
@@ -201,9 +183,9 @@ def _build_report_html(report: dict) -> str:
 
 
 def generate_prediction_pdf(
-    report_date: date = None,
-    output_path: str = None,
-) -> tuple:
+    report_date: date | None = None,
+    output_path: str | None = None,
+) -> tuple[str, str]:
     """
     从数据库读取预测报告数据，生成 PDF 保存到 data/pdf/。
 
@@ -241,52 +223,21 @@ def generate_prediction_pdf(
 
     # 3. Playwright headless Chromium 渲染 HTML → PDF
     try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as e:
+        render_html_to_pdf(
+            html,
+            output_path=output_path,
+            margins={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"},
+        )
+    except PlaywrightUnavailableError as exc:
         raise RuntimeError(
             "PDF 生成不可用：playwright 未安装。"
             "请执行 `pip install playwright && playwright install chromium`"
-        ) from e
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-
-            # 写 HTML 到临时文件，再用 file:// URL 加载。
-            # page.set_content() 使用 about:blank 源，无法访问系统字体；
-            # file:// 协议下 Chromium 可以正常读取 @font-face 引用的字体文件。
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".html", encoding="utf-8", delete=False
-            ) as tmp:
-                tmp.write(html)
-                tmp_path = tmp.name
-
-            try:
-                page.goto(
-                    f"file:///{tmp_path.replace(os.sep, '/')}", wait_until="networkidle"
-                )
-                page.pdf(
-                    path=output_path,
-                    format="A4",
-                    margin={
-                        "top": "15mm",
-                        "bottom": "15mm",
-                        "left": "12mm",
-                        "right": "12mm",
-                    },
-                    print_background=True,
-                )
-            finally:
-                os.unlink(tmp_path)
-
-            browser.close()
-
-        file_size_kb = Path(output_path).stat().st_size / 1024
-        logger.info("PDF 生成成功: %s (%.1f KB)", output_path, file_size_kb)
-
-        return str(output_path), trade_date_str
-
+        ) from exc
     except Exception as e:
         logger.exception("PDF 生成失败: %s", e)
         raise RuntimeError(f"PDF 生成失败: {e}") from e
+
+    file_size_kb = Path(output_path).stat().st_size / 1024
+    logger.info("PDF 生成成功: %s (%.1f KB)", output_path, file_size_kb)
+
+    return str(output_path), trade_date_str

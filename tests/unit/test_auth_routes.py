@@ -43,7 +43,7 @@ class TestLogin:
             yield
 
     def test_login_success(self):
-        cursor = _make_cursor(fetchone_result=(1, "user1", "pass123", "用户一", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "pass123", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -57,7 +57,7 @@ class TestLogin:
             assert data["username"] == "user1"
 
     def test_login_wrong_password(self):
-        cursor = _make_cursor(fetchone_result=(1, "user1", "correct", "用户一", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "correct", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -67,7 +67,7 @@ class TestLogin:
             assert r.status_code == 401
 
     def test_login_disabled_account(self):
-        cursor = _make_cursor(fetchone_result=(1, "disabled", "pass", "已禁用", 0, 0))
+        cursor = _make_cursor(fetchone_result=(1, "disabled", "pass", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -87,7 +87,7 @@ class TestLogin:
             assert r.status_code == 401
 
     def test_login_returns_admin_role(self):
-        cursor = _make_cursor(fetchone_result=(1, "admin", "admin123", "管理员", 1, 1))
+        cursor = _make_cursor(fetchone_result=(1, "admin", "admin123", "管理员", 1, 1, "admin"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -98,8 +98,8 @@ class TestLogin:
             assert data["is_admin"] is True
             assert data["role"] == "admin"
 
-    def test_login_returns_member_role(self):
-        cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户一", 1, 0))
+    def test_login_returns_user_role(self):
+        cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -108,7 +108,7 @@ class TestLogin:
             r = client.post(f"{PREFIX}/auth/login", json={"username": "user1", "password": "pass"})
             data = r.json()
             assert data["is_admin"] is False
-            assert data["role"] == "member"
+            assert data["role"] == "user"
 
     def test_login_auth_disabled(self, monkeypatch):
         mock_conn = _mock_get_connection(_make_cursor())
@@ -134,7 +134,7 @@ class TestPhoneLogin:
             yield
 
     def test_login_phone_success(self):
-        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -157,7 +157,7 @@ class TestPhoneLogin:
             assert r.status_code == 401
 
     def test_login_phone_disabled_account(self):
-        cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0))
+        cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -203,7 +203,7 @@ class TestAuthStatus:
         from backend.auth.auth import create_jwt_token
         token = create_jwt_token("user1", is_admin=False, role="member")
 
-        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -254,7 +254,7 @@ class TestAuthMe:
         from backend.auth.auth import create_jwt_token
         token = create_jwt_token("user1", is_admin=False, role="member")
 
-        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -273,7 +273,7 @@ class TestAuthMe:
         from backend.auth.auth import create_jwt_token
         token = create_jwt_token("disabled", is_admin=False, role="member")
 
-        cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0))
+        cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):
@@ -298,7 +298,7 @@ class TestPublicPaths:
             yield
 
     def test_login_endpoint_no_auth_required(self):
-        cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户", 1, 0))
+        cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
         with patch("backend.routers.auth.get_connection", mock_conn):

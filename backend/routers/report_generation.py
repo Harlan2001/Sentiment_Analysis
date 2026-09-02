@@ -56,6 +56,12 @@ def _repository() -> ReportGenerationRepository:
     return ReportGenerationRepository.from_environment()
 
 
+def _validate_date_range(date_start: Optional[date], date_end: Optional[date]) -> None:
+    """路由参数日期区间校验：start > end 时抛 400。"""
+    if date_start and date_end and date_start > date_end:
+        raise HTTPException(status_code=400, detail="Start date cannot be after end date")
+
+
 def _raise_repository_error(exc: Exception) -> None:
     if isinstance(exc, ReportGenerationNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -73,8 +79,7 @@ def list_report_sources(
     date_end: Optional[date] = None,
     limit: int = Query(default=50, ge=1, le=100),
 ):
-    if date_start and date_end and date_start > date_end:
-        raise HTTPException(status_code=400, detail="Start date cannot be after end date")
+    _validate_date_range(date_start, date_end)
     data = _repository().list_sources(
         keyword=keyword.strip() if keyword else None,
         institution=institution,
@@ -96,8 +101,7 @@ def list_report_generation_tasks(
 ):
     if status and status not in ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid task status")
-    if date_start and date_end and date_start > date_end:
-        raise HTTPException(status_code=400, detail="Start date cannot be after end date")
+    _validate_date_range(date_start, date_end)
     items = _repository().list_tasks(
         request.state.username,
         status=status,

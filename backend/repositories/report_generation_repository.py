@@ -9,6 +9,26 @@ from typing import Any, Optional
 
 from backend.repositories.base import BaseRepository, serialize_row
 
+# 任务统一列（list_tasks / get_task 共用）；get_task 按需追加 result_markdown
+_TASK_COLUMNS = (
+    "id",
+    "title",
+    "requirement",
+    "date_start",
+    "date_end",
+    "report_ids_json",
+    "source_snapshot_json",
+    "status",
+    "model_name",
+    "error_message",
+    "retry_count",
+    "started_at",
+    "finished_at",
+    "created_at",
+    "updated_at",
+)
+_TASK_SELECT = ", ".join(_TASK_COLUMNS)
+
 
 class ReportGenerationNotFoundError(RuntimeError):
     """任务或研报来源不存在。"""
@@ -167,10 +187,7 @@ class ReportGenerationRepository(BaseRepository):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    f"""SELECT id, title, requirement, date_start, date_end,
-                               report_ids_json, source_snapshot_json, status, model_name,
-                               error_message, retry_count, started_at, finished_at,
-                               created_at, updated_at
+                    f"""SELECT {_TASK_SELECT}
                           FROM report_generation_tasks
                          WHERE {' AND '.join(conditions)}
                          ORDER BY updated_at DESC, id DESC
@@ -187,10 +204,7 @@ class ReportGenerationRepository(BaseRepository):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    f"""SELECT id, title, requirement, date_start, date_end,
-                               report_ids_json, source_snapshot_json, status, model_name,
-                               error_message, retry_count, started_at, finished_at,
-                               created_at, updated_at{result_column}
+                    f"""SELECT {_TASK_SELECT}{result_column}
                           FROM report_generation_tasks
                          WHERE id = %s AND owner_username = %s AND deleted_at IS NULL""",
                     (task_id, owner_username),

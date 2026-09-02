@@ -76,7 +76,7 @@ def discover_news(
         cur = conn.cursor()
         # 无条件返回全部新闻，pub_time DESC 无限滚动
         cur.execute(f"""
-            SELECT n.id, n.title, n.pub_time, n.source
+            SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid
             FROM news n {dir_join}
             WHERE {' AND '.join(where_clauses)}
             ORDER BY n.pub_time DESC
@@ -155,7 +155,7 @@ def discover_news(
 
     items = []
     for r in news_rows:
-        nid, title, pub_time, src = r
+        nid, title, pub_time, src, url, gid = r
         adir, areason = analysis_map.get(nid, (None, ""))
         items.append({
             "id": nid,
@@ -164,6 +164,8 @@ def discover_news(
             "pub_time": pub_time.strftime("%Y-%m-%d %H:%M:%S") if pub_time else "",
             "source": src or "",
             "source_name": NEWS_SOURCE_LABELS.get(src, src or ""),
+            "source_url": url or "",
+            "global_uid": gid,
             "thumbnail": thumbs.get(nid),
             "direction": adir,
             "reason": areason or "",

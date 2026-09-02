@@ -6,6 +6,7 @@
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import jwt
 import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -24,12 +25,13 @@ class TestCheckPassword:
         assert check_password("admin123", "wrong") is False
 
     def test_empty_password(self):
-        assert check_password("", "") is True
+        """空存储密码视为未设置，一律校验失败（auth 加固后行为）。"""
+        assert check_password("", "") is False
         assert check_password("user", "") is False
 
     def test_none_password(self):
-        """None 与 None 比对，None 与字符串比对。"""
-        assert check_password(None, None) is True
+        """None 存储密码视为未设置，一律校验失败。"""
+        assert check_password(None, None) is False
         assert check_password("user", None) is False
 
 
@@ -231,7 +233,8 @@ class TestAuthMiddleware:
 
         assert req.state.username == "user1"
         assert req.state.is_admin is False
-        assert req.state.role == "member"
+        # 历史 token 里的 "member" 角色经 normalize_role 归一化为规范角色 "user"
+        assert req.state.role == "user"
         call_next.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -257,7 +260,8 @@ class TestAuthMiddleware:
         req = _mock_request("/sapi/news", method="GET", auth_header="Bearer expired-token")
         call_next = AsyncMock(return_value=MagicMock())
 
-        with patch("backend.auth.dependencies.verify_jwt_token", side_effect=Exception("expired")):
+        with patch("backend.auth.dependencies.verify_jwt_token",
+                   side_effect=jwt.InvalidTokenError("expired")):
             await auth_middleware(req, call_next)
 
         assert req.state.username == "anonymous"
@@ -270,7 +274,8 @@ class TestAuthMiddleware:
                             auth_header="Bearer expired-token")
         call_next = AsyncMock()
 
-        with patch("backend.auth.dependencies.verify_jwt_token", side_effect=Exception("expired")):
+        with patch("backend.auth.dependencies.verify_jwt_token",
+                   side_effect=jwt.InvalidTokenError("expired")):
             resp = await auth_middleware(req, call_next)
 
         assert isinstance(resp, JSONResponse)
