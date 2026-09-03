@@ -24,7 +24,7 @@ function today() {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }
 
-export function ComputerDateRangePicker({ start, end, onChange, label = '日期范围' }: Props) {
+export function WorkflowDateRangePicker({ start, end, onChange, label = '日期范围' }: Props) {
   const anchor = start || end || today()
   const anchorDate = useMemo(() => new Date(`${anchor}T00:00:00`), [anchor])
   const [open, setOpen] = useState(false)

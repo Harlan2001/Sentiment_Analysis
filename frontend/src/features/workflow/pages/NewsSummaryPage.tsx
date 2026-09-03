@@ -4,7 +4,7 @@ import {
   createDailyNewsSummary, DailyNewsSummaryTask, deleteDailyNewsSummary, getDailyNewsSummaries, getDailyNewsSummary,
   getLatestNewsDate, getNewsSources, NewsSourceOption, retryDailyNewsSummary,
 } from '@/api/workbench'
-import { NewsCalendarPicker } from '@/features/computer/components/NewsCalendarPicker'
+import { NewsCalendarPicker } from '../components/NewsCalendarPicker'
 
 const STATUS: Record<DailyNewsSummaryTask['status'], string> = {
   pending: '等待生成', running: '正在生成', succeeded: '生成成功', failed: '生成失败', empty: '范围内无新闻',
@@ -16,7 +16,7 @@ const today = () => {
 const range = (task: DailyNewsSummaryTask) => task.start_date === task.end_date ? task.start_date : `${task.start_date} 至 ${task.end_date}`
 const time = (value: string | null) => value ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) : '-'
 
-export function NewsPage() {
+export function NewsSummaryPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const composerRef = useRef<HTMLTextAreaElement>(null)

@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/features/auth/LoginModal'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
 import { HomeChatDock } from '@/features/market/components/HomeChatDock'
-import { DEMO_WORKFLOWS } from '@/features/computer/WorkflowDemoPage'
+import { DEMO_WORKFLOWS } from '@/features/workflow/pages/WorkflowDemoPage'
 
 // 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
 const MonitorDashboardPanel = lazy(() => import('@/features/monitor/MonitorDashboardPanel'))

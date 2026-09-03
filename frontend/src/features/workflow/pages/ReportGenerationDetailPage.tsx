@@ -3,8 +3,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ReportGenerationTask, getReportGenerationTask, retryReportGenerationTask } from '@/api/reportGeneration'
-import { ReportGenerationExportButtons } from './ReportGenerationExportButtons'
-import { ReportSourceDetailPanel } from './ReportSourceDetailPanel'
+import { ReportExportButtons } from '../components/ReportExportButtons'
+import { ReportSourceDetailPanel } from '../components/ReportSourceDetailPanel'
 
 const LABEL = { queued: '排队中', running: '正在生成', completed: '已完成', failed: '生成失败' }
 
@@ -50,7 +50,7 @@ export function ReportGenerationDetailPage() {
           </div>
         </header>
         {error && <p className="chat-error">{error}</p>}
-        <ReportGenerationExportButtons task={task} onError={setError} />
+        <ReportExportButtons task={task} onError={setError} />
         <div className="report-detail-meta"><span>来源 {task.source_snapshot_json.length} 份</span><span>范围 {task.date_start || '未限定'} 至 {task.date_end || '未限定'}</span><span>模型 {task.model_name || '等待分配'}</span><span>重试 {task.retry_count} 次</span></div>
         {(task.status === 'queued' || task.status === 'running') && <div className="report-detail-state running"><span className="report-spinner" /><strong>{task.status === 'queued' ? '任务正在排队' : '模型正在综合研报'}</strong><p>页面会自动刷新；关闭或刷新页面不会丢失任务。</p></div>}
         {task.status === 'failed' && <div className="report-detail-state error"><strong>本次生成未完成</strong><p>{task.error_message || '生成服务返回未知错误，请重试。'}</p></div>}

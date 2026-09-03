@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ResearchListItem, getResearchList } from '@/api/reportGeneration'
-import { ComputerDateRangePicker } from './components/ComputerDateRangePicker'
-import { ReportSourceDetailPanel } from './ReportSourceDetailPanel'
+import { WorkflowDateRangePicker } from '../components/WorkflowDateRangePicker'
+import { ReportSourceDetailPanel } from '../components/ReportSourceDetailPanel'
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   parsed: { label: '已解析', tone: 'waiting' }, processing: { label: '分析中', tone: 'running' },
@@ -42,7 +42,7 @@ export function ReportLibraryPage() {
     <section className="computer-table-wrap report-library-page-wrap" style={{ overflow: 'visible' }}><div style={{ padding: 13 }}>
     <div className="computer-list-head" style={{ margin: '0 0 10px', padding: 0 }}><div><strong>研报库</strong><span>· {total} 份已完成 AI 分析的研报</span></div></div>
     <div className="report-library-filters">
-      <ComputerDateRangePicker start={filters.dateStart} end={filters.dateEnd} label="发布日期" onChange={(dateStart, dateEnd) => { setFilters((current) => ({ ...current, dateStart, dateEnd })); setPage(1) }} />
+      <WorkflowDateRangePicker start={filters.dateStart} end={filters.dateEnd} label="发布日期" onChange={(dateStart, dateEnd) => { setFilters((current) => ({ ...current, dateStart, dateEnd })); setPage(1) }} />
       <input value={filters.keyword} onChange={(event) => update('keyword', event.target.value)} placeholder="搜索标题或摘要" />
       <select value={filters.institution} onChange={(event) => update('institution', event.target.value)}><option value="">全部机构</option>{options.institutions.map((item) => <option key={item}>{item}</option>)}</select>
       <select value={filters.industry} onChange={(event) => update('industry', event.target.value)}><option value="">全部行业</option>{options.industries.map((item) => <option key={item}>{item}</option>)}</select>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ComputerTask, getComputerTasks } from '@/api/workbench'
-import { ComputerDatePicker } from './components/ComputerDatePicker'
+import { WorkflowTask, getWorkflowTasks } from '@/api/workbench'
+import { WorkflowDatePicker } from '../components/WorkflowDatePicker'
 
 type WorkflowModule = {
   id: string
@@ -9,7 +9,7 @@ type WorkflowModule = {
   description: string
   category: string
   to?: string
-  taskTypes?: ComputerTask['task_type'][]
+  taskTypes?: WorkflowTask['task_type'][]
 }
 
 const WORKFLOW_MODULES: WorkflowModule[] = [
@@ -43,22 +43,22 @@ function formatTime(value: string | null) {
   return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(date)
 }
 
-function taskTone(task: ComputerTask) {
+function taskTone(task: WorkflowTask) {
   if (task.status === 'failed') return 'failed'
   if (task.status === 'completed' || task.status === 'succeeded') return 'done'
   if (task.needs_action || task.status === 'pending_confirmation') return 'attention'
   return 'running'
 }
 
-function taskDate(task: ComputerTask) {
+function taskDate(task: WorkflowTask) {
   if (task.date) return task.date
   const date = new Date(task.updated_at)
   return Number.isNaN(date.getTime()) ? '未知日期' : date.toISOString().slice(0, 10)
 }
 
-export function ComputerPage() {
+export function WorkflowHomePage() {
   const navigate = useNavigate()
-  const [tasks, setTasks] = useState<ComputerTask[]>([])
+  const [tasks, setTasks] = useState<WorkflowTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [modulePage, setModulePage] = useState(0)
@@ -70,7 +70,7 @@ export function ComputerPage() {
   const loadTasks = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getComputerTasks()
+      const data = await getWorkflowTasks()
       setTasks(data.items)
       setError('')
     } catch (cause) {
@@ -92,7 +92,7 @@ export function ComputerPage() {
     return () => document.removeEventListener('mousedown', closeSourceFilter)
   }, [sourceFilterOpen])
 
-  function openTask(task: ComputerTask) {
+  function openTask(task: WorkflowTask) {
     const [, rawId] = task.task_id.split(':', 2)
     if (!rawId) return
     if (task.task_type === 'report_generation') navigate(`/computer/reports/${rawId}`)
@@ -108,7 +108,7 @@ export function ComputerPage() {
     task.needs_action || ['pending', 'queued', 'running', 'pending_confirmation', 'failed'].includes(task.status),
   ).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   const historyTasks = filteredTasks.filter((task) => !pendingTasks.some((item) => item.task_id === task.task_id))
-  const historyByDate = new Map<string, ComputerTask[]>()
+  const historyByDate = new Map<string, WorkflowTask[]>()
   for (const task of historyTasks) {
     const date = taskDate(task)
     const group = historyByDate.get(date) || []
@@ -183,7 +183,7 @@ export function ComputerPage() {
                 {WORKFLOW_MODULES.map((module) => <button type="button" role="option" aria-selected={sourceFilter === module.id} className={sourceFilter === module.id ? 'selected' : ''} onClick={() => { setSourceFilter(module.id); setSourceFilterOpen(false) }} key={module.id}>{module.title}</button>)}
               </div>}
             </div>
-            <ComputerDatePicker value={selectedDate} onChange={setSelectedDate} label="日期" popupAlign="left" inlinePopup />
+            <WorkflowDatePicker value={selectedDate} onChange={setSelectedDate} label="日期" popupAlign="left" inlinePopup />
             {selectedDate && <button type="button" className="workflow-filter-clear" onClick={() => setSelectedDate('')}>清除</button>}
           </div>
 

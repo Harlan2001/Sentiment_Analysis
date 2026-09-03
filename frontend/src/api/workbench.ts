@@ -92,7 +92,7 @@ export function removeWatchlistItem(itemId: string) {
 }
 
 import { authHeaders, request } from './client'
-import { buildDemoConversation, buildDemoDetail, buildDemoDraft, clearDemo, DEMO_CONVERSATION_ID, getDemoConversation, isDemoInstrument, markRunning, resetDemo } from '@/features/computer/strategyDemo'
+import { buildDemoConversation, buildDemoDetail, buildDemoDraft, clearDemo, DEMO_CONVERSATION_ID, getDemoConversation, isDemoInstrument, markRunning, resetDemo } from '@/api/strategyDemo'
 
 // 与主前端同域：开发环境经 Vite 代理转发，部署时可由同域反向代理提供此路径。
 const apiBaseUrl = ''
@@ -459,9 +459,9 @@ export function permanentlyDeleteDailyNewsSummary(taskId: number) {
   return request<{ deleted: boolean }>(`/sapi/daily-news-summaries/${taskId}/permanently`, { method: 'DELETE' })
 }
 
-// ── Computer 总览聚合 ──────────────────────────────────────
+// ── 工作流任务聚合 ──────────────────────────────────────
 
-export type ComputerTask = {
+export type WorkflowTask = {
   task_id: string
   task_type: 'report_generation' | 'strategy' | 'daily_news'
   module: '研报分析' | '策略开发' | '每日新闻总结'
@@ -476,8 +476,8 @@ export type ComputerTask = {
   needs_action: boolean
 }
 
-export function getComputerTasks() {
-  return request<{ items: ComputerTask[]; totals: Record<string, number> }>(
+export function getWorkflowTasks() {
+  return request<{ items: WorkflowTask[]; totals: Record<string, number> }>(
     '/sapi/workbench/computer/tasks',
   )
 }

@@ -5,15 +5,15 @@ import { WorkbenchShell } from '@/shell/WorkbenchShell'
 import { PlaceholderPage } from '@/shell/PlaceholderPage'
 import { HomePage } from '@/features/home/HomePage'
 import { ChatPage } from '@/features/chat/ChatPage'
-import { ComputerPage } from '@/features/computer/ComputerPage'
-import { ReportGenerationPage } from '@/features/computer/ReportGenerationPage'
-import { ReportGenerationDetailPage } from '@/features/computer/ReportGenerationDetailPage'
-import { ReportLibraryPage } from '@/features/computer/ReportLibraryPage'
-import { StrategyPage } from '@/features/computer/StrategyPage'
-import { NewsPage as ComputerNewsPage } from '@/features/computer/NewsPage'
-import { NewsSummaryDetailPage } from '@/features/computer/NewsSummaryDetailPage'
-import { StrategyPromptPage } from '@/features/computer/StrategyPromptPage'
-import { WorkflowDemoPage } from '@/features/computer/WorkflowDemoPage'
+import { WorkflowHomePage } from '@/features/workflow/pages/WorkflowHomePage'
+import { ReportGenerationPage } from '@/features/workflow/pages/ReportGenerationPage'
+import { ReportGenerationDetailPage } from '@/features/workflow/pages/ReportGenerationDetailPage'
+import { ReportLibraryPage } from '@/features/workflow/pages/ReportLibraryPage'
+import { StrategyPage } from '@/features/workflow/pages/StrategyPage'
+import { NewsSummaryPage } from '@/features/workflow/pages/NewsSummaryPage'
+import { NewsSummaryDetailPage } from '@/features/workflow/pages/NewsSummaryDetailPage'
+import { StrategyPromptPage } from '@/features/workflow/pages/StrategyPromptPage'
+import { WorkflowDemoPage } from '@/features/workflow/pages/WorkflowDemoPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
 import { MemoryPage } from '@/features/custom/MemoryPage'
@@ -44,7 +44,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/forecast': <ForecastSection />,
   '/watchlist': <WatchlistSection />,
   '/portfolio': <PortfolioSection />,
-  '/workflow': <ComputerPage />,
+  '/workflow': <WorkflowHomePage />,
   '/home': <HomePage />,
   '/chat': <ChatPage />,
   '/chat/:conversationId': <ChatPage />,
@@ -53,7 +53,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/computer/reports/:taskId': <ReportGenerationDetailPage />,
   '/computer/strategies': <StrategyPage />,
   '/computer/strategies/prompt': <StrategyPromptPage />,
-  '/computer/news': <ComputerNewsPage />,
+  '/computer/news': <NewsSummaryPage />,
   '/computer/news/:taskId': <NewsSummaryDetailPage />,
   '/computer/demo/:workflowId': <WorkflowDemoPage />,
   '/custom/mcp': <McpPage />,

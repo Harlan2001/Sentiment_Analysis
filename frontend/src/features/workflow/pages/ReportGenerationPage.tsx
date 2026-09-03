@@ -13,10 +13,10 @@ import {
   getResearchSummary,
   retryReportGenerationTask,
 } from '@/api/reportGeneration'
-import { ComputerDateRangePicker } from './components/ComputerDateRangePicker'
-import { ComputerDatePicker } from './components/ComputerDatePicker'
-import { ReportSourceDetailPanel } from './ReportSourceDetailPanel'
-import ResearchUploadModal from '@/features/computer/components/ResearchUploadModal'
+import { WorkflowDateRangePicker } from '../components/WorkflowDateRangePicker'
+import { WorkflowDatePicker } from '../components/WorkflowDatePicker'
+import { ReportSourceDetailPanel } from '../components/ReportSourceDetailPanel'
+import ResearchUploadModal from '@/features/workflow/components/ResearchUploadModal'
 
 function formatDateTime(value: string | null) {
   if (!value) return '—'
@@ -207,7 +207,7 @@ export function ReportGenerationPage() {
             </div>
           )}
         </div>
-        <ComputerDatePicker value={historyDateStart} label="任务日期" onChange={(value) => { setHistoryDateStart(value); setHistoryDateEnd(value) }} />
+        <WorkflowDatePicker value={historyDateStart} label="任务日期" onChange={(value) => { setHistoryDateStart(value); setHistoryDateEnd(value) }} />
         <span className="computer-spacer" />
         <button className="computer-button" onClick={() => { void loadTasks(); void loadLibrary(); void loadSummary() }}>刷新状态</button>
         <button className="computer-button primary" onClick={() => setComposerOpen(true)}>＋ 新建研报</button>
@@ -246,7 +246,7 @@ export function ReportGenerationPage() {
 
         {/* 库筛选 */}
         <div className="report-library-filters">
-          <ComputerDateRangePicker start={dateStart} end={dateEnd} label="发布日期" onChange={(s, e) => { setDateStart(s); setDateEnd(e) }} />
+          <WorkflowDateRangePicker start={dateStart} end={dateEnd} label="发布日期" onChange={(s, e) => { setDateStart(s); setDateEnd(e) }} />
           <input value={libraryFilters.keyword} onChange={(e) => handleLibraryFilter('keyword', e.target.value)} placeholder="搜索标题或摘要" />
           <select value={libraryFilters.institution} onChange={(e) => handleLibraryFilter('institution', e.target.value)}><option value="">全部机构</option>{libraryOptions.institutions.map((item) => <option key={item}>{item}</option>)}</select>
           <select value={libraryFilters.industry} onChange={(e) => handleLibraryFilter('industry', e.target.value)}><option value="">全部行业</option>{libraryOptions.industries.map((item) => <option key={item}>{item}</option>)}</select>

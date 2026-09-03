@@ -13,7 +13,7 @@ import {
   restoreStrategyConversation,
 } from '@/api/workbench'
 import { permanentlyDeleteReportGenerationTask, restoreReportGenerationTask } from '@/api/reportGeneration'
-import { ComputerDatePicker } from '@/features/computer/components/ComputerDatePicker'
+import { WorkflowDatePicker } from '@/features/workflow/components/WorkflowDatePicker'
 
 type SourceFilter = '全部' | '项目' | '会话' | '策略' | '研报' | '新闻总结'
 type EntryKind = Exclude<SourceFilter, '全部'>
@@ -126,7 +126,7 @@ export function DeletedItemsPanel({ open, onClose }: { open: boolean; onClose: (
       <header className="modal-head"><div><h2>最近删除</h2><p>恢复项目、会话和工作流记录；永久删除后无法找回。</p></div><button className="modal-close" onClick={onClose} aria-label="关闭">✕</button></header>
       <div className="recycle-toolbar">
         <div className="recycle-filters">{(['全部', '项目', '会话', '策略', '研报', '新闻总结'] as SourceFilter[]).map((tab) => <button key={tab} className={sourceFilter === tab ? 'active' : ''} onClick={() => setSourceFilter(tab)}>{tab}</button>)}</div>
-        <div className="recycle-actions"><ComputerDatePicker value={selectedDate} onChange={setSelectedDate} label={today()} /><label className="recycle-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称…" /></label><button className="recycle-empty" disabled={!entries.length || busyKey === 'empty'} onClick={() => void emptyAll()}>{busyKey === 'empty' ? '清空中…' : '全部删除'}</button></div>
+        <div className="recycle-actions"><WorkflowDatePicker value={selectedDate} onChange={setSelectedDate} label={today()} /><label className="recycle-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称…" /></label><button className="recycle-empty" disabled={!entries.length || busyKey === 'empty'} onClick={() => void emptyAll()}>{busyKey === 'empty' ? '清空中…' : '全部删除'}</button></div>
       </div>
       {error && <div className="recycle-error">{error}<button onClick={() => void load()}>重试</button></div>}
       <div className="recycle-count">{loading ? '正在读取…' : `显示 ${filtered.length} / ${entries.length} 项`}</div>

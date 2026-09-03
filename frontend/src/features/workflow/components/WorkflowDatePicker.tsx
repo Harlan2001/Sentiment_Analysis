@@ -20,7 +20,7 @@ function getMonthDays(year: number, month: number): (number | null)[] {
   ]
 }
 
-export function ComputerDatePicker({ value, onChange, label = '日期', popupAlign = 'right', inlinePopup = false }: Props) {
+export function WorkflowDatePicker({ value, onChange, label = '日期', popupAlign = 'right', inlinePopup = false }: Props) {
   const selectedDate = useMemo(() => value ? new Date(`${value}T00:00:00`) : new Date(), [value])
   const [open, setOpen] = useState(false)
   const [year, setYear] = useState(selectedDate.getFullYear())

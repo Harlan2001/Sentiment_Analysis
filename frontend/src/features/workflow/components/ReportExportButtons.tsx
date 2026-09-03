@@ -4,7 +4,7 @@ import { storage } from '@/utils/helpers'
 
 type Props = { task: ReportGenerationTask; onError: (message: string) => void }
 
-export function ReportGenerationExportButtons({ task, onError }: Props) {
+export function ReportExportButtons({ task, onError }: Props) {
   const [format, setFormat] = useState<'pdf' | 'docx' | null>(null)
   if (task.status !== 'completed') return null
 

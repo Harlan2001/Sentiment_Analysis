@@ -1,7 +1,7 @@
 import React from 'react'
 import { AppRoutes } from '@/routes'
 import { useBehaviorTracker } from './hooks/useBehaviorTracker'
-import './features/computer/ReportGeneration.css'
+import './features/workflow/workflow.css'
 
 /**
  * 应用入口：直接渲染应用路由，不再强制登录门。
