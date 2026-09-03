@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
-from datetime import date, datetime
 from typing import Any, Iterator
 
 import pymysql
 from pymysql.cursors import DictCursor
 
 from backend.config.config import MYSQL_CONFIG
+from backend.repositories.base import RecycleBinMixin, json_default, serialize_row
 
 
 class ArchivedConversationError(RuntimeError):
@@ -22,27 +22,33 @@ class GenerationInProgressError(RuntimeError):
     """会话仍有远端生成任务时禁止归档。"""
 
 
-def _json_default(value: Any) -> str:
-    return value.isoformat() if isinstance(value, (datetime, date)) else str(value)
+class AiStrategyHistoryRepository(RecycleBinMixin):
+    """AI 策略会话、消息与版本仓储，复用项目业务库连接。
 
+    回收站 CRUD（list_deleted / restore / permanently_delete）继承自
+    ``RecycleBinMixin``；``soft_delete_conversation`` 因检查的是子表
+    ``ai_strategy_messages`` 的状态（而非会话自身的 ``status``），与前两者不同，
+    保留自实现。
+    """
 
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in row.items():
-        if isinstance(value, (datetime, date)):
-            result[key] = value.isoformat()
-        elif key.endswith("_json") and isinstance(value, str):
-            try:
-                result[key] = json.loads(value)
-            except json.JSONDecodeError:
-                result[key] = value
-        else:
-            result[key] = value
-    return result
-
-
-class AiStrategyHistoryRepository:
-    """AI 策略会话、消息与版本仓储，复用项目业务库连接。"""
+    recycle_table = "ai_strategy_conversations"
+    recycle_now = "CURRENT_TIMESTAMP"
+    recycle_restore_suffix = ", updated_at = CURRENT_TIMESTAMP"
+    recycle_list_columns = (
+        "id",
+        "title",
+        "instrument",
+        "status",
+        "current_local_version_no",
+        "last_message_at",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    )
+    recycle_not_found = KeyError
+    recycle_not_in_trash_msg = "conversation_not_found"
+    recycle_restore_miss_msg = "恢复策略会话后未找到记录"
+    recycle_getter = "get_conversation"
 
     def __init__(self, settings: dict[str, Any]):
         self._settings = settings
@@ -115,7 +121,7 @@ class AiStrategyHistoryRepository:
                     (owner_username, limit),
                 )
                 rows = cursor.fetchall()
-        return [_serialize_row(row) for row in rows]
+        return [serialize_row(row) for row in rows]
 
     def get_conversation(
         self,
@@ -134,7 +140,7 @@ class AiStrategyHistoryRepository:
                     (conversation_id, owner_username),
                 )
                 row = cursor.fetchone()
-        return _serialize_row(row) if row else None
+        return serialize_row(row) if row else None
 
     def create_prompt_draft(
         self,
@@ -190,10 +196,10 @@ class AiStrategyHistoryRepository:
                         json.dumps(
                             context_snapshot.get("references", []),
                             ensure_ascii=False,
-                            default=_json_default,
+                            default=json_default,
                         ),
                         json.dumps(
-                            context_snapshot, ensure_ascii=False, default=_json_default
+                            context_snapshot, ensure_ascii=False, default=json_default
                         ),
                     ),
                 )
@@ -226,7 +232,7 @@ class AiStrategyHistoryRepository:
                     (assistant_message_id, conversation_id, owner_username),
                 )
                 row = cursor.fetchone()
-        return _serialize_row(row) if row else None
+        return serialize_row(row) if row else None
 
     def replace_prompt_draft(
         self,
@@ -251,10 +257,10 @@ class AiStrategyHistoryRepository:
                         json.dumps(
                             context_snapshot.get("references", []),
                             ensure_ascii=False,
-                            default=_json_default,
+                            default=json_default,
                         ),
                         json.dumps(
-                            context_snapshot, ensure_ascii=False, default=_json_default
+                            context_snapshot, ensure_ascii=False, default=json_default
                         ),
                         assistant_message_id,
                         conversation_id,
@@ -393,7 +399,7 @@ class AiStrategyHistoryRepository:
                                       FROM ai_strategy_versions WHERE id = %s""",
                         (version_id,),
                     )
-                    version = _serialize_row(cursor.fetchone())
+                    version = serialize_row(cursor.fetchone())
             conn.commit()
         return version
 
@@ -457,13 +463,13 @@ class AiStrategyHistoryRepository:
                                   FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s ORDER BY sequence_no ASC""",
                     (conversation_id, owner_username),
                 )
-                messages = [_serialize_row(row) for row in cursor.fetchall()]
+                messages = [serialize_row(row) for row in cursor.fetchall()]
                 cursor.execute(
                     """SELECT id, source_message_id, local_version_no, remote_template_version_id, remote_template_version_no, name, description, code, backtest_passed, backtest_exit_code, backtest_summary, backtest_metrics_json, created_at
                                   FROM ai_strategy_versions WHERE conversation_id = %s AND owner_username = %s ORDER BY local_version_no DESC""",
                     (conversation_id, owner_username),
                 )
-                versions = [_serialize_row(row) for row in cursor.fetchall()]
+                versions = [serialize_row(row) for row in cursor.fetchall()]
         return {
             "conversation": conversation,
             "messages": messages,
@@ -495,17 +501,7 @@ class AiStrategyHistoryRepository:
         return archived
 
     def list_deleted_conversations(self, owner_username: str, limit: int = 100) -> list[dict[str, Any]]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """SELECT id, title, instrument, status, current_local_version_no, last_message_at, created_at, updated_at, deleted_at
-                       FROM ai_strategy_conversations
-                       WHERE owner_username = %s AND deleted_at IS NOT NULL
-                       ORDER BY deleted_at DESC, id DESC LIMIT %s""",
-                    (owner_username, limit),
-                )
-                rows = cursor.fetchall()
-        return [_serialize_row(row) for row in rows]
+        return self.list_deleted_tasks(owner_username, limit)
 
     def soft_delete_conversation(self, owner_username: str, conversation_id: int) -> dict[str, bool]:
         with self._connection() as conn:
@@ -531,41 +527,10 @@ class AiStrategyHistoryRepository:
         return {"deleted": True}
 
     def restore_conversation(self, owner_username: str, conversation_id: int) -> dict[str, Any]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE ai_strategy_conversations SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (conversation_id, owner_username),
-                )
-                restored = cursor.rowcount == 1
-            conn.commit()
-        if not restored:
-            raise KeyError("conversation_not_found")
-        conversation = self.get_conversation(owner_username, conversation_id)
-        if not conversation:
-            raise RuntimeError("恢复策略会话后未找到记录")
-        return conversation
+        return self.restore_task(owner_username, conversation_id)
 
     def permanently_delete_conversation(self, owner_username: str, conversation_id: int) -> dict[str, bool]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM ai_strategy_conversations WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (conversation_id, owner_username),
-                )
-                deleted = cursor.rowcount == 1
-            conn.commit()
-        if not deleted:
-            raise KeyError("conversation_not_found")
-        return {"deleted": True}
+        return self.permanently_delete_task(owner_username, conversation_id)
 
     def permanently_delete_all_deleted_conversations(self, owner_username: str) -> int:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM ai_strategy_conversations WHERE owner_username = %s AND deleted_at IS NOT NULL",
-                    (owner_username,),
-                )
-                deleted = cursor.rowcount
-            conn.commit()
-        return int(deleted)
+        return self.permanently_delete_all_deleted_tasks(owner_username)

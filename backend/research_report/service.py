@@ -1,22 +1,26 @@
 """
 研报管道模块 — 上传入库 + 异步 AI 分析
 ========================================
-整合 scripts/research_report/ 的核心逻辑，提供 API 可调用的服务函数。
+整合研报解析/分析逻辑，提供 API 可调用的服务函数。
+数据访问统一收敛到 ResearchReportRepository，本层只保留业务编排与磁盘 IO。
 """
 
 import hashlib
-import json
 import logging
-import os
 import threading
 import time
 import traceback
 from datetime import datetime
 
-from backend.common.database import get_db_connection
+from backend.common.llm_logger import log_llm_usage
 from backend.config.config import BASE_DIR
+from backend.repositories.research_report_repository import ResearchReportRepository
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT
-from backend.research_report.llm import MODEL_OPTIONS, analyze_report
+from backend.research_report.llm import (
+    analyze_report,
+    get_research_model_name,
+    resolve_provider_model,
+)
 from backend.research_report.parser import ParseResult, parse_pdf
 
 logger = logging.getLogger(__name__)
@@ -24,9 +28,6 @@ logger = logging.getLogger(__name__)
 DATA_ROOT = BASE_DIR / "data"
 FIGURE_ROOT = DATA_ROOT / "pdf" / "research"
 PDF_ROOT = DATA_ROOT / "pdf" / "research" / "original"
-
-DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
-MODEL_FULL = MODEL_OPTIONS.get(DEFAULT_MODEL, MODEL_OPTIONS["glm"])
 
 
 # ========================================================================
@@ -96,23 +97,18 @@ def ingest_uploaded_pdf(
     返回:
         {"report_id": int, "title": str, "status": str, "is_duplicate": bool}
     """
+    repository = ResearchReportRepository.from_environment()
+
     # 计算哈希 + 查重
     file_hash = _compute_hash_from_bytes(pdf_bytes)
-
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, title, status FROM research_report WHERE file_hash=%s",
-                (file_hash,),
-            )
-            existing = cur.fetchone()
+    existing = repository.find_by_hash(file_hash)
 
     if existing:
-        logger.info("重复文件: hash=%s existing_id=%d", file_hash, existing[0])
+        logger.info("重复文件: hash=%s existing_id=%d", file_hash, existing["id"])
         return {
-            "report_id": existing[0],
-            "title": existing[1],
-            "status": existing[2],
+            "report_id": existing["id"],
+            "title": existing["title"],
+            "status": existing["status"],
             "is_duplicate": True,
         }
 
@@ -150,55 +146,26 @@ def ingest_uploaded_pdf(
     except ValueError:
         rel_path = str(pdf_path)
 
-    # 入库
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO research_report
-                (title, institution, analyst, publish_date, industry, symbols, report_type,
-                 file_path, file_hash, file_size_kb, page_count,
-                 full_text, status, source, uploaded_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'parsed', %s, %s)
-                """,
-                (
-                    result.title[:512],
-                    result.institution,
-                    ", ".join(result.analyst) if result.analyst else None,
-                    result.publish_date,
-                    ", ".join(result.industry) if result.industry else None,
-                    ", ".join(result.symbols) if result.symbols else None,
-                    report_type,
-                    rel_path[:512],
-                    result.file_hash,
-                    result.file_size_kb,
-                    result.page_count,
-                    result.full_text,
-                    source,
-                    uploaded_by,
-                ),
-            )
-            report_id = cur.lastrowid
-
-            for fig in figures:
-                cur.execute(
-                    """
-                    INSERT INTO report_figure
-                    (report_id, page_number, figure_order, figure_type, caption,
-                     image_path, image_size_kb)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        report_id,
-                        fig["page_number"],
-                        fig["figure_order"],
-                        fig.get("figure_type"),
-                        fig.get("caption"),
-                        fig["image_path"][:512],
-                        fig["image_size_kb"],
-                    ),
-                )
-        conn.commit()
+    # 入库（研报 + 图表，单事务）
+    report_id = repository.ingest_report(
+        {
+            "title": result.title[:512],
+            "institution": result.institution,
+            "analyst": ", ".join(result.analyst) if result.analyst else None,
+            "publish_date": result.publish_date,
+            "industry": ", ".join(result.industry) if result.industry else None,
+            "symbols": ", ".join(result.symbols) if result.symbols else None,
+            "report_type": report_type,
+            "rel_path": rel_path[:512],
+            "file_hash": result.file_hash,
+            "file_size_kb": result.file_size_kb,
+            "page_count": result.page_count,
+            "full_text": result.full_text,
+            "source": source,
+            "uploaded_by": uploaded_by,
+        },
+        figures,
+    )
 
     inst = result.institution or "-"
     logger.info(
@@ -228,9 +195,9 @@ def run_analysis_async(report_id: int, model: str | None = None):
 
     参数:
         report_id: 研报 ID
-        model: 模型短名 glm / deepseek / qwen，默认取环境变量
+        model: provider model 全名，默认取研报默认模型
     """
-    model = model or MODEL_FULL
+    model = model or resolve_provider_model()
 
     def _run():
         _analyze_report_sync(report_id, model)
@@ -246,111 +213,59 @@ def run_analysis_async(report_id: int, model: str | None = None):
 
 def _analyze_report_sync(report_id: int, model: str):
     """同步执行 AI 分析（在后台线程中调用）"""
+    repository = ResearchReportRepository.from_environment()
+    model_short = get_research_model_name()
     t_start = time.time()
     try:
-        with get_db_connection() as conn:
-            # 1. 抢占任务锁
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE research_report SET status='processing'
-                    WHERE id=%s AND status IN ('parsed','failed')
-                    """,
-                    (report_id,),
-                )
-                if cur.rowcount == 0:
-                    logger.warning(
-                        "抢占失败 report_id=%d（可能已被处理或状态不合法）", report_id
-                    )
-                    return
-            conn.commit()
-
-            # 2. 加载研报数据
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT title, full_text FROM research_report WHERE id=%s",
-                    (report_id,),
-                )
-                row = cur.fetchone()
-                if not row:
-                    logger.error("研报不存在 report_id=%d", report_id)
-                    return
-                title, full_text = row
-
-                # 加载图表路径
-                cur.execute(
-                    """
-                    SELECT image_path FROM report_figure
-                    WHERE report_id=%s AND image_size_kb > 15
-                    ORDER BY image_size_kb DESC LIMIT %s
-                    """,
-                    (report_id, FIGURE_MAX_PER_REPORT),
-                )
-                figure_paths = []
-                for (p,) in cur.fetchall():
-                    fp = DATA_ROOT / p
-                    if fp.exists():
-                        figure_paths.append(fp)
-
-            # 3. LLM 分析
-            parsed, raw, usage = analyze_report(
-                full_text,
-                figure_paths=figure_paths if figure_paths else None,
-                model=model,
+        # 1. 抢占任务锁
+        if not repository.claim_for_analysis(report_id):
+            logger.warning(
+                "抢占失败 report_id=%d（可能已被处理或状态不合法）", report_id
             )
-            elapsed = time.time() - t_start
+            return
 
-            if "error" in parsed:
-                logger.warning(
-                    "LLM 解析警告 report_id=%d: %s", report_id, parsed["error"][:100]
-                )
+        # 2. 加载研报数据与图表
+        analysis_input = repository.get_analysis_input(
+            report_id, figure_limit=FIGURE_MAX_PER_REPORT
+        )
+        if analysis_input is None:
+            logger.error("研报不存在 report_id=%d", report_id)
+            return
+        title, full_text, image_paths = analysis_input
+        figure_paths = []
+        for p in image_paths:
+            fp = DATA_ROOT / p
+            if fp.exists():
+                figure_paths.append(fp)
 
-            # 4. 写入分析结果
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE research_report SET
-                        ai_summary=%s, ai_key_points=%s, ai_symbols=%s, ai_industries=%s,
-                        ai_market_view=%s, ai_view_strength=%s, ai_time_horizon=%s,
-                        ai_evidence=%s, ai_analyzed_at=NOW(), ai_model=%s, ai_raw_response=%s,
-                        status='analyzed', parse_error=NULL
-                    WHERE id=%s
-                    """,
-                    (
-                        str(parsed.get("summary", ""))[:1024],
-                        json.dumps(parsed.get("key_points", []), ensure_ascii=False),
-                        json.dumps(parsed.get("symbols", []), ensure_ascii=False),
-                        json.dumps(parsed.get("industries", []), ensure_ascii=False),
-                        parsed.get("market_view", "neutral"),
-                        float(parsed.get("view_strength", 0.5)),
-                        parsed.get("time_horizon", "medium"),
-                        json.dumps(parsed.get("evidence", []), ensure_ascii=False),
-                        DEFAULT_MODEL,
-                        (
-                            json.dumps(raw, ensure_ascii=False)
-                            if isinstance(raw, str)
-                            else raw
-                        ),
-                        report_id,
-                    ),
-                )
-            conn.commit()
+        # 3. LLM 分析
+        parsed, raw, usage = analyze_report(
+            full_text,
+            figure_paths=figure_paths if figure_paths else None,
+            model=model,
+        )
+        elapsed = time.time() - t_start
 
-            # 5. 记录 LLM 用量
-            try:
-                from backend.common.llm_logger import log_llm_usage
+        if "error" in parsed:
+            logger.warning(
+                "LLM 解析警告 report_id=%d: %s", report_id, parsed["error"][:100]
+            )
 
-                log_llm_usage(
-                    call_source="research",
-                    model_name=DEFAULT_MODEL,
-                    provider_model=model,
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                    success=True,
-                )
-            except Exception:
-                logger.warning("LLM 用量记录失败", exc_info=True)
+        # 4. 写入分析结果
+        repository.finish_analysis(
+            report_id, model_name=model_short, parsed=parsed, raw=raw
+        )
+
+        # 5. 记录 LLM 用量
+        log_llm_usage(
+            call_source="research",
+            model_name=model_short,
+            provider_model=model,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_tokens=usage.get("total_tokens", 0),
+            success=True,
+        )
 
         logger.info(
             "分析完成 report_id=%d [%s] view=%s tokens=%d elapsed=%.1fs",
@@ -368,30 +283,14 @@ def _analyze_report_sync(report_id: int, model: str):
         )
 
         try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        UPDATE research_report SET
-                            status='failed', parse_error=%s,
-                            retry_count=COALESCE(retry_count,0)+1
-                        WHERE id=%s
-                        """,
-                        (err[:500], report_id),
-                    )
-                conn.commit()
+            repository.mark_analysis_failed(report_id, err)
         except Exception:
             logger.error("写入失败状态时出错", exc_info=True)
 
-        try:
-            from backend.common.llm_logger import log_llm_usage
-
-            log_llm_usage(
-                call_source="research",
-                model_name=DEFAULT_MODEL,
-                provider_model=model,
-                success=False,
-                error_message=err,
-            )
-        except Exception:
-            pass
+        log_llm_usage(
+            call_source="research",
+            model_name=model_short,
+            provider_model=model,
+            success=False,
+            error_message=err,
+        )

@@ -12,8 +12,9 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from backend.common.database import get_db_connection
-from backend.config.config import API_PREFIX
+from backend.config.config import ANALYSIS_MODEL_REGISTRY, API_PREFIX
 from backend.repositories.research_report_repository import ResearchReportRepository
+from backend.research_report.llm import resolve_provider_model
 from backend.research_report.parser import clean_display_text
 from backend.research_report.service import ingest_uploaded_pdf, run_analysis_async
 
@@ -318,16 +319,14 @@ def trigger_analysis(
         )
 
     # 验证模型名
-    from backend.research_report.llm import MODEL_OPTIONS
-
-    if model not in MODEL_OPTIONS:
+    if model not in ANALYSIS_MODEL_REGISTRY:
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的模型: {model}，可选: {', '.join(MODEL_OPTIONS.keys())}",
+            detail=f"不支持的模型: {model}，可选: {', '.join(ANALYSIS_MODEL_REGISTRY)}",
         )
 
     # 启动后台分析
-    run_analysis_async(report_id, MODEL_OPTIONS[model])
+    run_analysis_async(report_id, resolve_provider_model(model))
 
     return {
         "report_id": report_id,

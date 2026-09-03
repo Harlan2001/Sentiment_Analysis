@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import pymysql
 
@@ -28,10 +28,10 @@ class ProjectManagementRepository(MessageRepository):
         self,
         username: str,
         name: str,
-        description: Optional[str],
-        client_request_id: Optional[str] = None,
-        initial_memories: Optional[list[dict[str, Any]]] = None,
-        initial_members: Optional[list[dict[str, Any]]] = None,
+        description: str | None,
+        client_request_id: str | None = None,
+        initial_memories: list[dict[str, Any]] | None = None,
+        initial_members: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         initial_memories = initial_memories or []
         initial_members = initial_members or []
@@ -227,7 +227,7 @@ class ProjectManagementRepository(MessageRepository):
             conn.commit()
         return {"deleted": True}
 
-    def get_project_memory_context(self, username: str, project_id: str, max_chars: int = 6000) -> Optional[str]:
+    def get_project_memory_context(self, username: str, project_id: str, max_chars: int = 6000) -> str | None:
         memories = self.list_project_memories(username, project_id, include_inactive=False)
         if not memories:
             return None

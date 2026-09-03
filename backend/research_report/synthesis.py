@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-import re
 import time
 
-from backend.research_report.llm import DEFAULT_MODEL, _client, _resolve_model
+from backend.common.llm_call import get_llm_client
+from backend.research_report.llm import (
+    build_usage,
+    resolve_provider_model,
+    strip_code_fence,
+)
 
 
 def generate_research_synthesis(
@@ -18,7 +22,10 @@ def generate_research_synthesis(
     model: str | None = None,
 ) -> tuple[str, dict, str]:
     """将多份已分析研报综合为可追溯的 Markdown 报告。"""
-    provider_model = model or _resolve_model(DEFAULT_MODEL)
+    client = get_llm_client()
+    if client is None:
+        raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
+    provider_model = model or resolve_provider_model()
     source_sections: list[str] = []
     for index, source in enumerate(sources, start=1):
         # Prefer the existing structured analysis and keep raw-text context bounded.
@@ -60,22 +67,17 @@ AI 摘要：{source.get('ai_summary') or ''}
 
     started_at = time.time()
     # 综合研报只尝试一次并在 90 秒内返回明确状态，避免任务因 SDK 默认重试长期停在生成中。
-    response = _client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
+    response = client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
         model=provider_model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
         max_tokens=2500,
     )
     latency_ms = int((time.time() - started_at) * 1000)
-    content = (response.choices[0].message.content or "").strip()
-    content = re.sub(r"^```(?:markdown|md)?\s*", "", content)
-    content = re.sub(r"\s*```$", "", content)
-    usage = {
-        "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-        "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-        "total_tokens": response.usage.total_tokens if response.usage else 0,
-        "latency_ms": latency_ms,
-    }
+    content = strip_code_fence(
+        (response.choices[0].message.content or "").strip(), "markdown|md"
+    )
+    usage = build_usage(response, latency_ms)
     if not content:
         raise RuntimeError("模型未返回研报内容")
     return content, usage, provider_model

@@ -1,6 +1,6 @@
 """
 研报 AI 分析模块
-- 使用 kingstar API（OpenAI 兼容）调用多模态模型
+- 使用 OpenAI 兼容协议调用多模态模型
 - 输入：研报全文 + 关键图表（base64）
 - 输出：摘要、要点、标的、行业、情感判断
 """
@@ -13,13 +13,14 @@ import re
 from pathlib import Path
 
 from backend.common.llm_call import get_llm_client
+from backend.common.llm_json import extract_json_string
+from backend.config.config import get_analysis_model_info
 from backend.research_report.constants import FIGURE_MAX_PER_REPORT, LLM_MAX_TEXT_CHARS
 
 logger = logging.getLogger(__name__)
 
-_client = get_llm_client()
-if _client is None:
-    raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
+# 研报模块默认模型短名（provider model 映射统一收敛到 config.ANALYSIS_MODEL_REGISTRY）
+RESEARCH_MODEL_ENV = "RESEARCH_ANALYSIS_MODEL"
 
 PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报全文及图表，按 JSON 格式输出分析结果。
 
@@ -46,24 +47,43 @@ PROMPT_TEMPLATE = """你是资深卖方研究员。请仔细阅读以下研报�
 
 【图表说明】附加图片为研报中的关键图表，请结合图表数据辅助分析。"""
 
-# 模型短名 → provider/model（与 config.ANALYSIS_MODEL_REGISTRY 保持一致）
-MODEL_OPTIONS = {
-    "glm": "glm-5.2",
-    "deepseek": "deepseek-v4-pro",
-    "qwen": "qwen3.7-flash",
-    "kimi": "kimi-k3",
-}
+# 图片扩展名 → data URL media type
+_MEDIA_TYPES = {"png": "png", "jpg": "jpeg", "jpeg": "jpeg"}
 
-DEFAULT_MODEL = os.getenv("RESEARCH_ANALYSIS_MODEL", "glm")
+
+def get_research_model_name() -> str:
+    """研报分析默认模型短名（RESEARCH_ANALYSIS_MODEL，缺省 glm）。"""
+    return os.getenv(RESEARCH_MODEL_ENV) or "glm"
+
+
+def resolve_provider_model(short_name: str | None = None) -> str:
+    """模型短名 → provider model 全名，缺省取研报默认模型。"""
+    return get_analysis_model_info(short_name or get_research_model_name())[
+        "provider_model"
+    ]
+
+
+def strip_code_fence(text: str, lang: str = "") -> str:
+    """剥离首尾 fenced code block 标记（如 ```json ... ```）。"""
+    text = re.sub(rf"^```(?:{lang})?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    return text
+
+
+def build_usage(response, latency_ms: int = 0) -> dict:
+    """从 chat.completions 响应提取 token 用量统计。"""
+    usage = response.usage
+    return {
+        "prompt_tokens": usage.prompt_tokens if usage else 0,
+        "completion_tokens": usage.completion_tokens if usage else 0,
+        "total_tokens": usage.total_tokens if usage else 0,
+        "latency_ms": latency_ms,
+    }
 
 
 def _encode_image(image_path: Path) -> str:
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
-
-
-def _resolve_model(short_name: str) -> str:
-    return MODEL_OPTIONS.get(short_name, MODEL_OPTIONS["glm"])
 
 
 def analyze_report(
@@ -82,8 +102,12 @@ def analyze_report(
     返回:
         (解析后dict, LLM原始返回字符串, usage_info)
     """
+    client = get_llm_client()
+    if client is None:
+        raise RuntimeError("LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）")
+
     text = full_text[:LLM_MAX_TEXT_CHARS]
-    model = model or _resolve_model(DEFAULT_MODEL)
+    provider_model = model or resolve_provider_model()
 
     content = [{"type": "text", "text": PROMPT_TEMPLATE.format(text=text)}]
 
@@ -95,11 +119,7 @@ def analyze_report(
             try:
                 b64 = _encode_image(fp)
                 ext = fp.suffix.lower().lstrip(".")
-                media_type = (
-                    "png"
-                    if ext == "png"
-                    else "jpeg" if ext in ("jpg", "jpeg") else "png"
-                )
+                media_type = _MEDIA_TYPES.get(ext, "png")
                 content.append(
                     {
                         "type": "image_url",
@@ -109,32 +129,25 @@ def analyze_report(
             except Exception:
                 logger.warning("图片编码失败: %s", fp)
 
-    resp = _client.chat.completions.create(
-        model=model,
+    resp = client.chat.completions.create(
+        model=provider_model,
         messages=[{"role": "user", "content": content}],
         temperature=0.2,
         max_tokens=3000,
     )
-    usage = {
-        "prompt_tokens": resp.usage.prompt_tokens if resp.usage else 0,
-        "completion_tokens": resp.usage.completion_tokens if resp.usage else 0,
-        "total_tokens": resp.usage.total_tokens if resp.usage else 0,
-    }
+    usage = build_usage(resp)
 
-    raw = resp.choices[0].message.content.strip()
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        m = re.search(r"\{[\s\S]*\}", raw)
-        if m:
-            try:
-                parsed = json.loads(m.group(0))
-            except json.JSONDecodeError:
-                parsed = {"error": "JSON解析失败", "raw": raw[:500]}
-        else:
-            parsed = {"error": "JSON解析失败", "raw": raw[:500]}
+    raw = strip_code_fence(resp.choices[0].message.content or "", "json").strip()
+    json_str = extract_json_string(raw)
+    parsed = None
+    if json_str:
+        try:
+            candidate = json.loads(json_str)
+            if isinstance(candidate, dict):
+                parsed = candidate
+        except json.JSONDecodeError:
+            parsed = None
+    if parsed is None:
+        parsed = {"error": "JSON解析失败", "raw": raw[:500]}
 
     return parsed, raw, usage

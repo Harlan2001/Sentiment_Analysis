@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from backend.repositories.workbench_repository import (
     WorkbenchNotFoundError,
@@ -16,7 +16,9 @@ from backend.repositories.workbench_repository import (
 
 
 class SkillRepository(WorkbenchRepository):
-    def _get_accessible(self, cursor: Any, username: str, skill_id: str) -> Optional[dict[str, Any]]:
+    """用户自定义 Skill 与其附件的持久化访问。"""
+
+    def _get_accessible(self, cursor: Any, username: str, skill_id: str) -> dict[str, Any] | None:
         cursor.execute(
             """SELECT * FROM workbench_skills
                WHERE id = %s AND (owner_type = 'system' OR owner_username = %s)""",
@@ -25,18 +27,16 @@ class SkillRepository(WorkbenchRepository):
         return cursor.fetchone()
 
     @staticmethod
-    def _skill(row: Optional[dict[str, Any]]) -> dict[str, Any]:
-        result = _serialize_row(row) or {}
-        if isinstance(result.get("input_schema_json"), str):
-            result["input_schema_json"] = json.loads(result["input_schema_json"])
-        return result
+    def _skill(row: dict[str, Any] | None) -> dict[str, Any]:
+        """序列化技能行（``input_schema_json`` 已由 ``serialize_row`` 解析为结构）。"""
+        return _serialize_row(row) or {}
 
     @staticmethod
     def _require_owner(skill: dict[str, Any], username: str) -> None:
         if skill.get("owner_type") != "user" or skill.get("owner_username") != username:
             raise WorkbenchPermissionError("Only the creator can modify this Skill")
 
-    def list_skills(self, username: str, query: str = "", scope: str = "all", status: Optional[str] = None) -> list[dict[str, Any]]:
+    def list_skills(self, username: str, query: str = "", scope: str = "all", status: str | None = None) -> list[dict[str, Any]]:
         clauses = ["(owner_type = 'system' OR owner_username = %s)"]
         params: list[Any] = [username]
         if scope == "mine":
@@ -95,7 +95,11 @@ class SkillRepository(WorkbenchRepository):
             with conn.cursor() as cursor:
                 if not self._get_accessible(cursor, username, skill_id):
                     raise WorkbenchNotFoundError("Skill not found")
-                cursor.execute("SELECT id, original_filename, content_type, size_bytes, created_at FROM workbench_skill_attachments WHERE skill_id = %s ORDER BY created_at ASC", (skill_id,))
+                cursor.execute(
+                    """SELECT id, original_filename, content_type, size_bytes, created_at
+                       FROM workbench_skill_attachments WHERE skill_id = %s ORDER BY created_at ASC""",
+                    (skill_id,),
+                )
                 rows = cursor.fetchall()
         return [_serialize_row(row) or {} for row in rows]
 
@@ -108,7 +112,12 @@ class SkillRepository(WorkbenchRepository):
                 if not skill:
                     raise WorkbenchNotFoundError("Skill not found")
                 self._require_owner(skill, username)
-                cursor.execute("INSERT INTO workbench_skill_attachments (id, skill_id, original_filename, stored_filename, content_type, size_bytes, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s)", (attachment_id, skill_id, filename, stored_name, content_type, len(content), username))
+                cursor.execute(
+                    """INSERT INTO workbench_skill_attachments
+                       (id, skill_id, original_filename, stored_filename, content_type, size_bytes, created_by)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                    (attachment_id, skill_id, filename, stored_name, content_type, len(content), username),
+                )
             conn.commit()
         folder = Path(__file__).resolve().parents[2] / "data" / "skill_attachments" / skill_id
         folder.mkdir(parents=True, exist_ok=True)
@@ -122,7 +131,10 @@ class SkillRepository(WorkbenchRepository):
                 if not skill:
                     raise WorkbenchNotFoundError("Skill not found")
                 self._require_owner(skill, username)
-                cursor.execute("SELECT stored_filename FROM workbench_skill_attachments WHERE id = %s AND skill_id = %s", (attachment_id, skill_id))
+                cursor.execute(
+                    "SELECT stored_filename FROM workbench_skill_attachments WHERE id = %s AND skill_id = %s",
+                    (attachment_id, skill_id),
+                )
                 attachment = cursor.fetchone()
                 if not attachment:
                     raise WorkbenchNotFoundError("Attachment not found")
