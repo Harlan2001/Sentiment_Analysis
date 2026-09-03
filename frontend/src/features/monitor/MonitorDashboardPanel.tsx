@@ -9,10 +9,10 @@
  */
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { SystemMonitorTab } from './tabs/SystemMonitorTab'
-import { UserManagementTab } from './tabs/UserManagementTab'
-import { TrafficStatsTab } from './tabs/TrafficStatsTab'
-import './monitor-dashboard.css'
+import { SystemOverviewPanel } from './components/SystemOverviewPanel'
+import { UserUsagePanel } from './components/UserUsagePanel'
+import { MyUsagePanel } from './components/MyUsagePanel'
+import './monitor.css'
 
 type TopTab = 'system' | 'user' | 'traffic'
 
@@ -72,9 +72,9 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
         </nav>
 
         <div className="monitor-drawer-body">
-          {tab === 'system' && <SystemMonitorTab />}
-          {tab === 'user' && <UserManagementTab />}
-          {tab === 'traffic' && <TrafficStatsTab />}
+          {tab === 'system' && <SystemOverviewPanel />}
+          {tab === 'user' && <UserUsagePanel />}
+          {tab === 'traffic' && <MyUsagePanel />}
         </div>
       </section>
     </>

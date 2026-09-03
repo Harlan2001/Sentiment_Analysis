@@ -7,7 +7,7 @@ interface Props {
   data: ResearchModuleData | undefined
 }
 
-export const ResearchModule: React.FC<Props> = ({ data }) => {
+export const ResearchPanel: React.FC<Props> = ({ data }) => {
   if (!data) return null
 
   const analyzedPct = data.total > 0 ? ((data.analyzed / data.total) * 100).toFixed(0) : '0'

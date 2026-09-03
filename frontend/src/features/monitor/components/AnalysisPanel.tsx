@@ -25,7 +25,7 @@ const directionColors: Record<string, string> = {
   中性: '#9ca3af',
 }
 
-export const AnalysisModule: React.FC<Props> = ({ data }) => {
+export const AnalysisPanel: React.FC<Props> = ({ data }) => {
   const pendingStatus = data.pending > 500 ? 'danger' : data.pending > 100 ? 'warning' : 'normal'
   const coverageStatus = data.coverage_pct < 50 ? 'danger' : data.coverage_pct < 80 ? 'warning' : 'normal'
   const validStatus = data.valid_analysis_pct < 90 ? 'warning' : 'normal'

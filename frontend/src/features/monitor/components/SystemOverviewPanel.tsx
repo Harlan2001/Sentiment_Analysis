@@ -5,20 +5,20 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCoreDashboard } from '@/features/monitor/hooks/useCoreDashboard'
-import { TopSummaryCards } from '@/features/monitor/panels/TopCards'
-import { NewsModule } from '@/features/monitor/panels/NewsModule'
-import { AnalysisModule } from '@/features/monitor/panels/AnalysisModule'
-import { FactorModule } from '@/features/monitor/panels/FactorModule'
-import { VectorModule } from '@/features/monitor/panels/VectorModule'
-import { YieldModule } from '@/features/monitor/panels/YieldModule'
-import { ForecastModule } from '@/features/monitor/panels/ForecastModule'
-import { ResearchModule } from '@/features/monitor/panels/ResearchModule'
-import { HistorySnapshot } from '@/features/monitor/panels/HistorySnapshot'
-import TokenOverviewPanel from '@/features/monitor/panels/TokenOverviewPanel'
+import { TopSummaryCards } from './TopSummaryCards'
+import { NewsPanel } from './NewsPanel'
+import { AnalysisPanel } from './AnalysisPanel'
+import { FactorPanel } from './FactorPanel'
+import { VectorPanel } from './VectorPanel'
+import { YieldPanel } from './YieldPanel'
+import { ForecastPanel } from './ForecastPanel'
+import { ResearchPanel } from './ResearchPanel'
+import { HistorySnapshotPanel } from './HistorySnapshotPanel'
+import TokenOverviewPanel from './TokenOverviewPanel'
 
 type SubTab = 'data' | 'token'
 
-export const SystemMonitorTab: React.FC = () => {
+export const SystemOverviewPanel: React.FC = () => {
   const { isAdmin, role } = useAuth()
   const canViewMonitor = isAdmin || role === 'manager'
   const [subTab, setSubTab] = useState<SubTab>('data')
@@ -86,21 +86,21 @@ function DataBoard() {
 
       <TopSummaryCards cards={coreData.top_cards} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <NewsModule data={coreData.news} />
-        <AnalysisModule data={coreData.analysis} />
-        <FactorModule data={coreData.factor} />
+        <NewsPanel data={coreData.news} />
+        <AnalysisPanel data={coreData.analysis} />
+        <FactorPanel data={coreData.factor} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <YieldModule data={coreData.yield} />
+        <YieldPanel data={coreData.yield} />
         <div className="flex flex-col gap-4">
-          <VectorModule data={coreData.vector} />
-          <ForecastModule data={coreData.forecast} />
-          <ResearchModule data={coreData.research} />
+          <VectorPanel data={coreData.vector} />
+          <ForecastPanel data={coreData.forecast} />
+          <ResearchPanel data={coreData.research} />
         </div>
       </div>
-      <HistorySnapshot />
+      <HistorySnapshotPanel />
     </div>
   )
 }
 
-export default SystemMonitorTab
+export default SystemOverviewPanel

@@ -9,7 +9,7 @@ interface Props {
   className?: string
 }
 
-export const HistorySnapshot: React.FC<Props> = ({ className = '' }) => {
+export const HistorySnapshotPanel: React.FC<Props> = ({ className = '' }) => {
   const [showHistory, setShowHistory] = useState(false)
   const [snapshotCreating, setSnapshotCreating] = useState(false)
   const [selectedSnapshot, setSelectedSnapshot] = useState<any>(null)

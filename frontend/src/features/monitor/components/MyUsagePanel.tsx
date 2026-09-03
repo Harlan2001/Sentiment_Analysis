@@ -9,10 +9,6 @@ import { isNewPage } from '@/config/routes'
 
 import { API_PREFIX } from '@/api/client'
 
-interface MyUsagePageProps {
-  embedded?: boolean
-}
-
 interface MyUsageOverview {
   today_tokens: number
   month_tokens: number
@@ -59,7 +55,7 @@ function authHeaders(): Record<string, string> {
   return {}
 }
 
-const MyUsagePage: React.FC<MyUsagePageProps> = ({ embedded = false }) => {
+export function MyUsagePanel() {
   const { username, displayName } = useAuth()
   const [overview, setOverview] = useState<MyUsageOverview | null>(null)
   const [trend, setTrend] = useState<TrendItem[]>([])
@@ -104,9 +100,7 @@ const MyUsagePage: React.FC<MyUsagePageProps> = ({ embedded = false }) => {
   }
 
   return (
-    <div className={`space-y-4 ${embedded ? '' : 'max-w-5xl mx-auto'}`}>
-      {!embedded && <h1 className="text-xl font-bold text-white">📊 我的使用</h1>}
-
+    <div className="space-y-4">
       {/* 个人汇总卡片 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-3">
@@ -258,5 +252,3 @@ const MyUsagePage: React.FC<MyUsagePageProps> = ({ embedded = false }) => {
     </div>
   )
 }
-
-export default MyUsagePage

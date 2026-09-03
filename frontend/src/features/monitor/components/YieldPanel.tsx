@@ -11,7 +11,7 @@ interface Props {
   data: YieldModuleData
 }
 
-export const YieldModule: React.FC<Props> = ({ data }) => {
+export const YieldPanel: React.FC<Props> = ({ data }) => {
   // E4: 各期限完整性横向柱状图
   const barOption = {
     tooltip: {

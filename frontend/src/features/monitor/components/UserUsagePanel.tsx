@@ -3,9 +3,9 @@
  * 二级导航：行为总览 / 用户画像 / Token消耗
  */
 import React, { useState } from 'react'
-import { BehaviorPanel } from '@/features/monitor/panels/BehaviorPanel'
-import { UserProfilePanel } from '@/features/monitor/panels/UserProfilePanel'
-import UserTokenPanel from '@/features/monitor/panels/UserTokenPanel'
+import { BehaviorPanel } from './BehaviorPanel'
+import { UserProfilePanel } from './UserProfilePanel'
+import UserTokenPanel from './UserTokenPanel'
 import { useBehaviorStats } from '@/features/monitor/hooks/useSimpleBehavior'
 
 type SubTab = 'overview' | 'profile' | 'token'
@@ -16,7 +16,7 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: 'token', label: 'Token消耗' },
 ]
 
-export const UserManagementTab: React.FC = () => {
+export const UserUsagePanel: React.FC = () => {
   const [subTab, setSubTab] = useState<SubTab>('overview')
 
   return (
@@ -65,4 +65,4 @@ function BehaviorOverview() {
   )
 }
 
-export default UserManagementTab
+export default UserUsagePanel

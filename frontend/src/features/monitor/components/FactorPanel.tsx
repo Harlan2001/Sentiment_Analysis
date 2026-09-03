@@ -11,7 +11,7 @@ interface Props {
   data: FactorModuleData
 }
 
-export const FactorModule: React.FC<Props> = ({ data }) => {
+export const FactorPanel: React.FC<Props> = ({ data }) => {
   const assocStatus = data.association_coverage_pct < ALERT.FACTOR_ASSOC_COVERAGE_YELLOW ? 'warning' : 'normal'
 
   // C2: 南丁格尔玫瑰图（去除图例，避免遮挡）

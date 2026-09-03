@@ -10,7 +10,7 @@ interface Props {
   data: VectorModuleData
 }
 
-export const VectorModule: React.FC<Props> = ({ data }) => {
+export const VectorPanel: React.FC<Props> = ({ data }) => {
   const pendingStatus =
     data.pending_count > ALERT.VECTOR_PENDING_RED
       ? 'danger'

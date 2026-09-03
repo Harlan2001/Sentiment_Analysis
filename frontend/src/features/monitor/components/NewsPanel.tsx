@@ -123,7 +123,7 @@ function buildDonutOption(data: NewsModuleData) {
   }
 }
 
-export const NewsModule: React.FC<Props> = ({ data }) => (
+export const NewsPanel: React.FC<Props> = ({ data }) => (
   <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
     <PanelTitle title="新闻数据流" icon="📰" />
 

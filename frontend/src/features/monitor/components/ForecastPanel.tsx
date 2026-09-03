@@ -11,7 +11,7 @@ interface Props {
   data: ForecastModuleData
 }
 
-export const ForecastModule: React.FC<Props> = ({ data }) => {
+export const ForecastPanel: React.FC<Props> = ({ data }) => {
   // F2 状态判断
   const latestDateStatus = (() => {
     if (!data.latest_date) return 'danger'
