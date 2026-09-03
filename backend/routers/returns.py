@@ -8,24 +8,18 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Dict, List
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from backend.common.database import get_db_connection
-from backend.common.db_operations import DBOperations
+from backend.common.api_response import ok
+from backend.common.database import build_in_placeholders, get_db_connection
+from backend.common.db_analysis import AnalysisQueries
 from backend.config.config import ANALYSIS_MODEL_PRIORITY, API_PREFIX, mask_news_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["returns"])
 
-# 模型优先级 CASE 片段（glm > kimi > deepseek > qwen > default，历史 doubao 走 ELSE）
-MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
-# 按新闻选最高优先级模型的 analysis 的关联子句
-_BEST_ANALYSIS_JOIN = (
-    "JOIN analysis a ON n.id = a.news_id"
-    " AND a.model = (SELECT a2.model FROM analysis a2"
-    " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
-    f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
-)
+# 按新闻选最高优先级模型的 analysis 的关联子句（discover / returns 共用同一来源）
+_BEST_ANALYSIS_JOIN = AnalysisQueries.best_analysis_join("JOIN")
 # 因子关联的模型优先级 CASE（与分析模型优先级一致；历史 doubao 视为最高优先级）
 _FACTOR_MODEL_CASE = (
     "CASE nf.model"
@@ -53,9 +47,9 @@ def returns_calendar(
         start_dt = datetime.strptime(start, "%Y-%m-%d").date()
         end_dt = datetime.strptime(end, "%Y-%m-%d").date()
     except ValueError:
-        return {"error": "日期格式错误，请使用 YYYY-MM-DD"}
+        raise HTTPException(status_code=400, detail="日期格式错误，请使用 YYYY-MM-DD")
     if start_dt > end_dt:
-        return {"error": "start 不能晚于 end"}
+        raise HTTPException(status_code=400, detail="start 不能晚于 end")
 
     periods = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
     period_labels = {
@@ -156,7 +150,7 @@ def returns_calendar(
         news_factors_map: Dict[int, List[Dict]] = defaultdict(list)
         if news_rows:
             news_ids = [r[0] for r in news_rows]
-            placeholders = ",".join(["%s"] * len(news_ids))
+            placeholders = build_in_placeholders(news_ids)
             cur.execute(
                 f"""SELECT nf.news_id, f.id, f.name, nf.direction, nf.model
                     FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
@@ -237,10 +231,10 @@ def returns_calendar(
                 "active_factors": day_factors.get(ds, []),
             })
 
-    return {
+    return ok({
         "days": days,
         "yields_by_date": dict(yields_by_date),
         "news_by_date": dict(news_by_date),
         "macro_by_month": macro_by_month,
         "query": {"start": start, "end": end},
-    }
+    })

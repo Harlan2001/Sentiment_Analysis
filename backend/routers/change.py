@@ -23,9 +23,10 @@ from backend.change.change_service import (
     snapshot_by_id,
     snapshot_by_version_time,
 )
+from backend.common.api_response import ok
 from backend.config.config import API_PREFIX
 
-logger = logging.getLogger("change_router")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=f"{API_PREFIX}/change", tags=["change"])
 
@@ -93,8 +94,7 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
     )
 
     if not news_rows and not request.force:
-        return {
-            "success": True,
+        return ok({
             "message": (
                 f"窗口内无新闻数据（{window_start.strftime('%Y-%m-%d %H:%M')}"
                 f" ~ {window_end.strftime('%Y-%m-%d %H:%M')}）。"
@@ -107,7 +107,7 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
                 "total_news_raw": total_news_raw,
                 "analyzed_count": 0,
             },
-        }
+        })
 
     # 计算相比上一版本的新闻变动（仅统计已分析新闻，保持与历史快照一致）
     current_news_ids = query_news_ids_analyzed(window_start, window_end)
@@ -201,15 +201,14 @@ async def trigger_snapshot(request: TriggerRequest = Body(default=TriggerRequest
         raise HTTPException(status_code=500, detail=f"快照写入失败: {exc}")
 
     snapshot["id"] = new_id
-    return {
-        "success": True,
+    return ok({
         "snapshot": snapshot,
         "message": (
             "快照生成成功"
             if generate_status == 1
             else f"快照已生成（待确认），警告: {'; '.join(warnings)}"
         ),
-    }
+    })
 
 
 @router.get("/snapshots")
@@ -217,7 +216,7 @@ def get_snapshots(hours: int = Query(168, ge=1, le=720)):
     """返回指定小时数内的快照列表，用于时间轴渲染"""
     try:
         items = list_snapshots(hours)
-        return {"success": True, "items": items, "count": len(items)}
+        return ok({"items": items, "count": len(items)})
     except Exception as exc:
         logger.exception("快照列表查询失败")
         raise HTTPException(status_code=500, detail=f"快照列表查询失败: {exc}")
@@ -266,7 +265,7 @@ def compare_snapshots(request: CompareRequest = Body(default=CompareRequest())):
         diff["new_snapshot_id"] = new_snapshot["id"]
         diff["old_summary"] = old_snapshot.get("summary_stats", {})
         diff["new_summary"] = new_snapshot.get("summary_stats", {})
-        return {"success": True, **diff}
+        return ok(diff)
     except Exception as exc:
         logger.exception("快照对比失败")
         raise HTTPException(status_code=500, detail=f"快照对比失败: {exc}")

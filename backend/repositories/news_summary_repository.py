@@ -6,14 +6,55 @@ import json
 from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository, json_default, serialize_row
+from backend.repositories.base import (
+    BaseRepository,
+    RecycleBinMixin,
+    RepositoryError,
+    json_default,
+    serialize_row,
+)
 
 
-class DailyNewsSummaryNotFoundError(RuntimeError):
+class DailyNewsSummaryNotFoundError(RepositoryError):
     """任务不存在或不属于当前用户。"""
 
+    status_code = 404
 
-class DailyNewsSummaryRepository(BaseRepository):
+
+class DailyNewsSummaryConflictError(RepositoryError):
+    """当前任务状态不允许执行请求的操作（如进行中禁止删除）。"""
+
+    status_code = 409
+
+
+class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
+    """每日新闻总结任务持久化。
+
+    回收站 CRUD（soft_delete / restore / permanently_delete）继承自
+    ``RecycleBinMixin``。
+    """
+
+    recycle_table = "daily_news_summary_tasks"
+    recycle_now = "CURRENT_TIMESTAMP(6)"
+    recycle_list_columns = (
+        "id",
+        "start_date",
+        "end_date",
+        "focus",
+        "status",
+        "news_count",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    )
+    recycle_in_flight = frozenset({"pending", "running"})
+    recycle_not_found = DailyNewsSummaryNotFoundError
+    recycle_conflict = DailyNewsSummaryConflictError
+    recycle_not_found_msg = "新闻总结任务不存在"
+    recycle_in_flight_msg = "进行中的新闻总结任务不能删除"
+    recycle_not_in_trash_msg = "新闻总结任务不存在或不在最近删除中"
+    recycle_restore_miss_msg = "恢复新闻总结任务后未找到记录"
+    recycle_getter = "get_task"
 
     def create_task(
         self,
@@ -135,75 +176,3 @@ class DailyNewsSummaryRepository(BaseRepository):
                 )
             conn.commit()
         return int(affected)
-
-    def list_deleted_tasks(self, owner_username: str, limit: int = 100) -> list[dict[str, Any]]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """SELECT id, start_date, end_date, focus, status, news_count, created_at, updated_at, deleted_at
-                       FROM daily_news_summary_tasks
-                       WHERE owner_username = %s AND deleted_at IS NOT NULL
-                       ORDER BY deleted_at DESC, id DESC LIMIT %s""",
-                    (owner_username, limit),
-                )
-                rows = cursor.fetchall()
-        return [serialize_row(row) or {} for row in rows]
-
-    def soft_delete_task(self, owner_username: str, task_id: int) -> dict[str, bool]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT status FROM daily_news_summary_tasks WHERE id = %s AND owner_username = %s AND deleted_at IS NULL FOR UPDATE",
-                    (task_id, owner_username),
-                )
-                task = cursor.fetchone()
-                if not task:
-                    raise DailyNewsSummaryNotFoundError("新闻总结任务不存在")
-                if task["status"] in {"pending", "running"}:
-                    raise RuntimeError("进行中的新闻总结任务不能删除")
-                cursor.execute(
-                    "UPDATE daily_news_summary_tasks SET deleted_at = CURRENT_TIMESTAMP(6) WHERE id = %s AND owner_username = %s",
-                    (task_id, owner_username),
-                )
-            conn.commit()
-        return {"deleted": True}
-
-    def restore_task(self, owner_username: str, task_id: int) -> dict[str, Any]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE daily_news_summary_tasks SET deleted_at = NULL WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (task_id, owner_username),
-                )
-                restored = cursor.rowcount == 1
-            conn.commit()
-        if not restored:
-            raise DailyNewsSummaryNotFoundError("新闻总结任务不存在或不在最近删除中")
-        task = self.get_task(owner_username, task_id)
-        if not task:
-            raise RuntimeError("恢复新闻总结任务后未找到记录")
-        return task
-
-    def permanently_delete_task(self, owner_username: str, task_id: int) -> dict[str, bool]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM daily_news_summary_tasks WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (task_id, owner_username),
-                )
-                deleted = cursor.rowcount == 1
-            conn.commit()
-        if not deleted:
-            raise DailyNewsSummaryNotFoundError("新闻总结任务不存在或不在最近删除中")
-        return {"deleted": True}
-
-    def permanently_delete_all_deleted_tasks(self, owner_username: str) -> int:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM daily_news_summary_tasks WHERE owner_username = %s AND deleted_at IS NOT NULL",
-                    (owner_username,),
-                )
-                deleted = cursor.rowcount
-            conn.commit()
-        return int(deleted)

@@ -11,9 +11,12 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
+from backend.common.api_response import ok
 from backend.common.database import get_db_connection
-from backend.config.config import API_PREFIX
+from backend.common.pagination import paginated_payload
+from backend.config.config import ANALYSIS_MODEL_REGISTRY, API_PREFIX
 from backend.repositories.research_report_repository import ResearchReportRepository
+from backend.research_report.llm import resolve_provider_model
 from backend.research_report.parser import clean_display_text
 from backend.research_report.service import ingest_uploaded_pdf, run_analysis_async
 
@@ -91,7 +94,7 @@ def get_summary():
             )
             date_range = cur.fetchone()
 
-        return {
+        return ok({
             "total": total,
             "analyzed": views.get("bullish", 0)
             + views.get("bearish", 0)
@@ -102,7 +105,7 @@ def get_summary():
             "institutions": institutions,
             "date_start": str(date_range[0]) if date_range[0] else None,
             "date_end": str(date_range[1]) if date_range[1] else None,
-        }
+        })
 
 
 @router.get("/list")
@@ -141,13 +144,11 @@ def get_research_list(
         offset=(page - 1) * page_size,
         order_by="publish_date DESC, created_at DESC",
     )
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "items": [_research_list_item(row) for row in rows],
-        "filters": repository.get_filter_facets(),
-    }
+    payload = paginated_payload(
+        [_research_list_item(row) for row in rows], total, page, page_size
+    )
+    payload["filters"] = repository.get_filter_facets()
+    return ok(payload)
 
 
 @router.get("/{report_id}")
@@ -196,7 +197,7 @@ def get_research_detail(report_id: int):
                 }
             )
 
-        return {
+        return ok({
             "id": row[0],
             "title": row[1],
             "institution": row[2],
@@ -225,7 +226,7 @@ def get_research_detail(report_id: int):
             "source": row[25],
             "created_at": str(row[26]) if row[26] else None,
             "figures": figures,
-        }
+        })
 
 
 @router.post("/upload")
@@ -269,12 +270,12 @@ async def upload_research_pdf(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"入库失败: {e}")
 
-    return {
+    return ok({
         "report_id": result["report_id"],
         "title": result["title"],
         "status": result["status"],
         "is_duplicate": result["is_duplicate"],
-    }
+    })
 
 
 @router.post("/{report_id}/analyze")
@@ -299,17 +300,17 @@ def trigger_analysis(
 
     current_status = row[1]
     if current_status == "analyzed":
-        return {
+        return ok({
             "report_id": report_id,
             "status": "analyzed",
             "message": "已完成分析，无需重复触发",
-        }
+        })
     if current_status == "processing":
-        return {
+        return ok({
             "report_id": report_id,
             "status": "processing",
             "message": "正在分析中，请稍候",
-        }
+        })
 
     if current_status not in ("parsed", "failed"):
         raise HTTPException(
@@ -318,19 +319,17 @@ def trigger_analysis(
         )
 
     # 验证模型名
-    from backend.research_report.llm import MODEL_OPTIONS
-
-    if model not in MODEL_OPTIONS:
+    if model not in ANALYSIS_MODEL_REGISTRY:
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的模型: {model}，可选: {', '.join(MODEL_OPTIONS.keys())}",
+            detail=f"不支持的模型: {model}，可选: {', '.join(ANALYSIS_MODEL_REGISTRY)}",
         )
 
     # 启动后台分析
-    run_analysis_async(report_id, MODEL_OPTIONS[model])
+    run_analysis_async(report_id, resolve_provider_model(model))
 
-    return {
+    return ok({
         "report_id": report_id,
         "status": "processing",
         "message": "分析任务已提交",
-    }
+    })

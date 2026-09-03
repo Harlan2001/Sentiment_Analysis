@@ -11,6 +11,8 @@ from backend.research_report.synthesis import generate_research_synthesis
 
 logger = logging.getLogger(__name__)
 
+CALL_SOURCE = "report_generation"
+
 
 def _run_report_generation(task_id: str) -> None:
     repository = ReportGenerationRepository.from_environment()
@@ -28,7 +30,7 @@ def _run_report_generation(task_id: str) -> None:
             date_end=task.get("date_end"),
         )
         log_llm_usage(
-            call_source="report_generation",
+            call_source=CALL_SOURCE,
             model_name=provider_model,
             provider_model=provider_model,
             prompt_tokens=usage["prompt_tokens"],
@@ -43,16 +45,14 @@ def _run_report_generation(task_id: str) -> None:
         logger.info("研报生成完成: task_id=%s sources=%d", task_id, len(sources))
     except Exception as exc:
         logger.exception("研报生成失败: task_id=%s", task_id)
-        try:
-            log_llm_usage(
-                call_source="report_generation",
-                model_name="research-default",
-                provider_model="research-default",
-                success=False,
-                error_message=str(exc),
-            )
-        except Exception:
-            logger.warning("研报生成失败日志写入异常: task_id=%s", task_id)
+        # log_llm_usage 内部已吞掉写库异常（llm_logger），失败日志无需再套 try/except
+        log_llm_usage(
+            call_source=CALL_SOURCE,
+            model_name="research-default",
+            provider_model="research-default",
+            success=False,
+            error_message=str(exc),
+        )
         repository.finish_task_failed(task_id, f"生成失败：{exc}")
 
 

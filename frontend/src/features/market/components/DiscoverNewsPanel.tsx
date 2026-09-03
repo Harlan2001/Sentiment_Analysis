@@ -18,7 +18,7 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick }) => {
       queryKey: ['discover', 'news'],
       queryFn: ({ pageParam = 1 }) =>
         fetchDiscoverNews({ page: pageParam as number, page_size: PAGE_SIZE }),
-      getNextPageParam: (lp) => lp.has_more ? lp.page + 1 : undefined,
+      getNextPageParam: (lp) => (lp.page < lp.total_pages ? lp.page + 1 : undefined),
       initialPageParam: 1, staleTime: 0, refetchOnMount: true,
     })
 

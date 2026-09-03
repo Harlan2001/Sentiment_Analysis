@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from typing import Any, List, Optional
 
@@ -12,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from backend.common.database import execute_query, execute_update, get_db_connection
+
+logger = logging.getLogger(__name__)
 from backend.config.config import (
     API_PREFIX,
     BEHAVIOR_LOG_DEFAULT_DAYS,
@@ -138,7 +141,7 @@ def create_dashboard_snapshot():
         "INSERT INTO dashboard_snapshot (snapshot_time,metrics_json) VALUES (NOW(),%s)",
         (json.dumps(core, default=str, ensure_ascii=False),),
     )
-    return {"success": True}
+    return {"data": None}
 
 
 # ============================================================
@@ -558,7 +561,7 @@ def trigger_all_profiles_compute(_a=Depends(admin_check)):
             compute_user_profile(uid, un)
             done += 1
         except Exception:
-            pass
+            logger.exception("用户画像计算失败: user_id=%s", uid)
     return {"total_users": len(users), "computed": done}
 
 

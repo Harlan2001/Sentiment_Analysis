@@ -1,20 +1,4 @@
 import { request } from './workbench'
-import { storage } from '@/utils/helpers'
-
-// 旧 API 不包裹 { data: ... }，直接返回数据体
-async function requestLegacy<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = storage.get<string>('auth_token')
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(payload?.detail || '请求失败')
-  return payload as T
-}
 
 export type ReportSource = {
   id: number
@@ -148,7 +132,7 @@ export type ResearchListItem = {
 }
 
 export function getResearchSummary() {
-  return requestLegacy<ResearchSummary>('/sapi/research/summary')
+  return request<ResearchSummary>('/sapi/research/summary')
 }
 
 export function getResearchList(params: {
@@ -160,9 +144,12 @@ export function getResearchList(params: {
   status?: string
   keyword?: string
 }) {
-  return requestLegacy<{
+  return request<{
     items: ResearchListItem[]
     total: number
+    page: number
+    page_size: number
+    total_pages: number
     filters: { institutions: string[]; industries: string[] }
   }>(`/sapi/research/list?${toQuery({
     page: params.page ?? 1,

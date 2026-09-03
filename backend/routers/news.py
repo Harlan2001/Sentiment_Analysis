@@ -5,9 +5,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+import pymysql
+from fastapi import APIRouter, HTTPException, Query
 
-from backend.common.database import execute_query, get_db_connection
+from backend.common.api_response import ok
+from backend.common.database import build_in_placeholders, execute_query, get_db_connection
+from backend.common.db_analysis import AnalysisQueries
 from backend.common.db_operations import DBOperations
 from backend.common.vector_store import get_faiss_store
 from backend.common.yield_db import get_yield_window_by_news_id
@@ -25,9 +28,42 @@ logger = logging.getLogger(__name__)
 
 
 def _priority_cases() -> str:
-    return "".join(
-        [f"WHEN '{m}' THEN {i} " for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
-    )
+    """模型优先级 SQL CASE 片段（来源唯一：db_analysis.AnalysisQueries）。"""
+    return AnalysisQueries.priority_case_sql()
+
+
+def _serialize_news_item(
+    r: Dict[str, Any],
+    *,
+    include_content: bool = False,
+    selected: Optional[Dict[str, Any]] = None,
+    analyses: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """把 news 行（DictCursor）序列化为前端新闻项。
+
+    single/best 视图在 SQL 中已联结 analysis（row 自带 direction/horizon/reason/model），
+    传入 ``selected=None`` 直接取行内列；all 视图在 Python 侧选最佳分析，传入
+    ``selected``（含 direction/horizon/reason/model）与 ``analyses``（全量模型列表）。
+    """
+    sel = selected if selected is not None else r
+    return {
+        "id": r["id"],
+        "title": r["title"],
+        "publish_time": r["pub_time"],
+        "source": mask_news_source(r["source"]),
+        "source_key": r["source"],
+        "source_url": r["url"],
+        "global_uid": r["global_uid"],
+        "author": r["author"],
+        "source_news_id": r["source_news_id"],
+        "direction": sel.get("direction"),
+        "horizon": sel.get("horizon"),
+        "reason": sel.get("reason"),
+        "model": sel.get("model"),
+        "selected_model": sel.get("model"),
+        "analyses": analyses if analyses is not None else [],
+        **({"content": r["content"]} if include_content else {}),
+    }
 
 
 def _keyword_like_filter(keywords: List[str]) -> tuple[str, List[str]]:
@@ -57,7 +93,7 @@ def _attach_best_analysis(
         return {}
 
     news_ids = [r[0] for r in news_rows]
-    placeholders = ",".join(["%s"] * len(news_ids))
+    placeholders = build_in_placeholders(news_ids)
     analysis_sql = (
         "SELECT news_id, direction, horizon, reason, model FROM analysis "
         f"WHERE news_id IN ({placeholders})"
@@ -115,11 +151,16 @@ def _attach_best_analysis(
 @router.get("/yields")
 def get_yields(start: str, end: str, type: str = Query("10年")):
     try:
-        return DBOperations.get_yield_series_by_period(start, end, type)
+        return ok(DBOperations.get_yield_series_by_period(start, end, type))
     except Exception as exc:
-        return {
-            "error": f"数据库表不存在或数据未初始化: {str(exc)}. 请运行 python init_yield_db.py 初始化数据库"
-        }
+        logger.exception("yield 序列查询失败")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "数据库表不存在或数据未初始化: "
+                f"{exc}. 请运行 python init_yield_db.py 初始化数据库"
+            ),
+        ) from exc
 
 
 @router.get("/news")
@@ -141,9 +182,18 @@ def get_news(
         None, description="模型短名，用于 single/all 视图过滤"
     ),
     view: str = Query("best", description="best | single | all"),
+    include_content: bool = Query(
+        False, description="是否在列表返回新闻正文（content），供外部批量消费"
+    ),
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        le=5000,
+        description="可选：返回条数上限，缺省返回全部匹配项；配合 offset 分页",
+    ),
+    offset: int = Query(0, ge=0, description="可选：配合 limit 使用的跳过条数"),
 ):
-    priority_cases = _priority_cases()
-    params = []
+    params: List[Any] = []
     date_filter = ""
 
     if date:
@@ -162,7 +212,7 @@ def get_news(
     if source:
         sources = [s.strip() for s in source.split(",") if s.strip()]
         if sources:
-            placeholders = ",".join(["%s" for _ in sources])
+            placeholders = build_in_placeholders(sources)
             source_filter = f"AND n.source IN ({placeholders})"
             params.extend(sources)
 
@@ -173,17 +223,25 @@ def get_news(
             keyword_filter, kw_params = _keyword_like_filter(kw_list)
             params.extend(kw_params)
 
+    # 对外开放：可选返回正文 + 可选分页（只在显式给 limit 时生效，保持原默认行为）
+    content_col = ", n.content" if include_content else ""
+    pagination_clause = ""
+    if limit is not None:
+        pagination_clause = " LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
     effective_view = view if view in ("best", "single", "all") else "best"
     if effective_view == "single" and not model:
         model = get_default_analysis_model_name()
 
     with get_db_connection() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(pymysql.cursors.DictCursor)
 
         if effective_view == "single":
             cur.execute(
                 f"""
-                SELECT n.id, n.title, n.pub_time, n.source,
+                SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid,
+                       n.author, n.source_news_id{content_col},
                        COALESCE(a.direction, '中性') as direction,
                        COALESCE(a.horizon, '短期') as horizon,
                        COALESCE(a.reason, '待分析') as reason,
@@ -192,82 +250,54 @@ def get_news(
                 LEFT JOIN analysis a ON a.news_id = n.id AND a.model = %s
                 WHERE {date_filter} {source_filter} {keyword_filter}
                 ORDER BY n.pub_time DESC
+                {pagination_clause}
                 """,
                 [model, model] + params,
             )
             rows = cur.fetchall()
-            return [
-                {
-                    "id": r[0],
-                    "title": r[1],
-                    "publish_time": r[2],
-                    "source": mask_news_source(r[3]),
-                    "direction": r[4],
-                    "horizon": r[5],
-                    "reason": r[6],
-                    "model": r[7],
-                    "selected_model": r[7],
-                    "analyses": [],
-                }
-                for r in rows
-            ]
+            return ok(
+                [_serialize_news_item(r, include_content=include_content) for r in rows]
+            )
 
         if effective_view == "best":
             cur.execute(
                 f"""
-                SELECT n.id, n.title, n.pub_time, n.source,
+                SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid,
+                       n.author, n.source_news_id{content_col},
                        COALESCE(a.direction, '中性') as direction,
                        COALESCE(a.horizon, '短期') as horizon,
                        COALESCE(a.reason, '待分析') as reason,
                        COALESCE(a.model, 'default') as model
                 FROM news n
-                LEFT JOIN analysis a ON a.news_id = n.id
-                    AND a.model = (
-                        SELECT model FROM analysis
-                        WHERE news_id = n.id
-                        ORDER BY CASE model
-                            {priority_cases}
-                            ELSE 999
-                        END
-                        LIMIT 1
-                    )
+                {AnalysisQueries.best_analysis_join()}
                 WHERE {date_filter} {source_filter} {keyword_filter}
                 ORDER BY n.pub_time DESC
+                {pagination_clause}
                 """,
                 params,
             )
             rows = cur.fetchall()
-            return [
-                {
-                    "id": r[0],
-                    "title": r[1],
-                    "publish_time": r[2],
-                    "source": mask_news_source(r[3]),
-                    "direction": r[4],
-                    "horizon": r[5],
-                    "reason": r[6],
-                    "model": r[7],
-                    "selected_model": r[7],
-                    "analyses": [],
-                }
-                for r in rows
-            ]
+            return ok(
+                [_serialize_news_item(r, include_content=include_content) for r in rows]
+            )
 
         cur.execute(
             f"""
-            SELECT n.id, n.title, n.pub_time, n.source
+            SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid,
+                   n.author, n.source_news_id{content_col}
             FROM news n
             WHERE {date_filter} {source_filter} {keyword_filter}
             ORDER BY n.pub_time DESC
+            {pagination_clause}
             """,
             params,
         )
         news_rows = cur.fetchall()
         if not news_rows:
-            return []
+            return ok([])
 
-        news_ids = [r[0] for r in news_rows]
-        placeholders = ",".join(["%s"] * len(news_ids))
+        news_ids = [r["id"] for r in news_rows]
+        placeholders = build_in_placeholders(news_ids)
         analysis_sql = f"""
             SELECT news_id, direction, horizon, reason, model
             FROM analysis
@@ -282,13 +312,13 @@ def get_news(
         analysis_rows = cur.fetchall()
 
     analyses_by_news: Dict[int, List[Dict[str, Any]]] = {}
-    for news_id, direction, horizon, reason, model_name in analysis_rows:
-        analyses_by_news.setdefault(news_id, []).append(
+    for a in analysis_rows:
+        analyses_by_news.setdefault(a["news_id"], []).append(
             {
-                "direction": direction or "中性",
-                "horizon": horizon or "短期",
-                "reason": reason or "待分析",
-                "model": model_name,
+                "direction": a["direction"] or "中性",
+                "horizon": a["horizon"] or "短期",
+                "reason": a["reason"] or "待分析",
+                "model": a["model"],
             }
         )
 
@@ -296,7 +326,7 @@ def get_news(
     result: List[Dict[str, Any]] = []
 
     for row in news_rows:
-        current_analyses = analyses_by_news.get(row[0], [])
+        current_analyses = analyses_by_news.get(row["id"], [])
         if current_analyses:
             selected = sorted(
                 current_analyses, key=lambda x: priority_rank.get(x["model"], 999)
@@ -310,31 +340,25 @@ def get_news(
             }
 
         result.append(
-            {
-                "id": row[0],
-                "title": row[1],
-                "publish_time": row[2],
-                "source": mask_news_source(row[3]),
-                "direction": selected["direction"],
-                "horizon": selected["horizon"],
-                "reason": selected["reason"],
-                "model": selected["model"],
-                "selected_model": selected["model"],
-                "analyses": current_analyses,
-            }
+            _serialize_news_item(
+                row,
+                include_content=include_content,
+                selected=selected,
+                analyses=current_analyses,
+            )
         )
 
-    return result
+    return ok(result)
 
 
 @router.get("/news/sources")
 def get_news_sources():
-    return {
+    return ok({
         "sources": [
             {"key": key, "name": mask_news_source(key), "enabled": True}
             for key in NEWS_SOURCES
         ]
-    }
+    })
 
 
 @router.get("/news/latest-trading-day")
@@ -352,7 +376,7 @@ def get_latest_publish_day():
                 if result and result[0]
                 else datetime.now().strftime("%Y-%m-%d")
             )
-    return {"latest_date": latest_date}
+    return ok({"latest_date": latest_date})
 
 
 @router.get("/news/similar")
@@ -362,7 +386,7 @@ def similar_news(news_id: int, top_k: int = 5):
         cur.execute("SELECT content FROM news WHERE id=%s", (news_id,))
         row = cur.fetchone()
         if not row:
-            return []
+            return ok([])
         content = row[0]
         store = get_faiss_store()
         query_emb = store.model.encode(
@@ -382,7 +406,7 @@ def similar_news(news_id: int, top_k: int = 5):
                 out.append({"news_id": nid, "score": round(score, 3), "title": row[0]})
             if len(out) >= top_k:
                 break
-    return out
+    return ok(out)
 
 
 @router.get("/news/search")
@@ -399,7 +423,7 @@ def search_news(
     """
     keywords = [k.strip() for k in q.split(",") if k.strip()]
     if not keywords:
-        return {"query": {"q": q, "keywords": keywords}, "total": 0, "items": []}
+        return ok({"query": {"q": q, "keywords": keywords}, "total": 0, "items": []})
 
     # 日期过滤（可选）
     date_filter = ""
@@ -429,7 +453,8 @@ def search_news(
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT n.id, n.title, n.pub_time, n.source, {match_cases} AS matched_count
+            SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid,
+                   n.author, n.source_news_id, {match_cases} AS matched_count
             FROM news n
             WHERE ({like_conds}) {date_filter}
             ORDER BY matched_count DESC, n.pub_time DESC
@@ -449,12 +474,13 @@ def search_news(
         exact_ids = {r[0] for r in exact_rows}
         sem_ids = [nid for nid in semantic_map if nid not in exact_ids]
         if sem_ids:
-            placeholders = ",".join(["%s"] * len(sem_ids))
+            placeholders = build_in_placeholders(sem_ids)
             with get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute(
                     f"""
-                    SELECT n.id, n.title, n.pub_time, n.source, 0 AS matched_count
+                    SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid,
+                           n.author, n.source_news_id, 0 AS matched_count
                     FROM news n
                     WHERE n.id IN ({placeholders}) {date_filter}
                     """,
@@ -466,11 +492,11 @@ def search_news(
 
     all_rows = exact_rows + semantic_rows
     if not all_rows:
-        return {
+        return ok({
             "query": {"q": q, "keywords": keywords},
             "total": 0,
             "items": [],
-        }
+        })
 
     # 3. 读取正文用于计算每个关键词的命中情况（前端可据此高亮）
     content_map: Dict[int, str] = {}
@@ -485,7 +511,7 @@ def search_news(
 
     merged: List[Dict[str, Any]] = []
     for r in all_rows:
-        nid, title, pub_time, source_key, _sql_count = r
+        nid, title, pub_time, source_key, url, gid, author, src_nid, _sql_count = r
         text = f"{title or ''} {content_map.get(nid, '')}"
         matched_keywords = [k for k in keywords if k in text]
         merged.append(
@@ -494,6 +520,11 @@ def search_news(
                 "title": title,
                 "publish_time": pub_time,
                 "_source_key": source_key,
+                "source_key": source_key,
+                "source_url": url,
+                "global_uid": gid,
+                "author": author,
+                "source_news_id": src_nid,
                 "matched_count": len(matched_keywords),
                 "matched_keywords": matched_keywords,
                 "semantic_score": semantic_map.get(nid),
@@ -529,13 +560,15 @@ def search_news(
                 "semantic_score": x["semantic_score"],
             }
         )
+        for extra in ("source_key", "source_url", "global_uid", "author", "source_news_id"):
+            item[extra] = x.get(extra)
         items.append(item)
 
-    return {
+    return ok({
         "query": {"q": q, "keywords": keywords},
         "total": len(items),
         "items": items,
-    }
+    })
 
 
 @router.get("/news/{news_id}")
@@ -546,7 +579,7 @@ def get_news_detail(
 ):
     news_row = execute_query(
         """
-        SELECT id, title, pub_time, content, source
+        SELECT id, title, pub_time, content, source, url, global_uid, author, source_news_id
         FROM news
         WHERE id = %s
         """,
@@ -554,7 +587,7 @@ def get_news_detail(
         one=True,
     )
     if not news_row:
-        return {}
+        raise HTTPException(status_code=404, detail="新闻不存在")
 
     all_analysis_rows = execute_query(
         """
@@ -674,13 +707,18 @@ def get_news_detail(
 
     source_key = news_row[4] if news_row[4] else ""
     source_display = mask_news_source(source_key)
-    return {
+    return ok({
         "id": news_row[0],
         "title": news_row[1],
         "publish_time": news_row[2],
         "content": news_row[3],
         "content_blocks": content_blocks,
         "source": source_display,
+        "source_key": source_key,
+        "source_url": news_row[5],
+        "global_uid": news_row[6],
+        "author": news_row[7],
+        "source_news_id": news_row[8],
         "direction": selected_analysis["direction"],
         "horizon": selected_analysis["horizon"],
         "reason": selected_analysis["reason"],
@@ -688,7 +726,7 @@ def get_news_detail(
         "selected_model": selected_model,
         "factors": selected_factors,
         "analyses": analyses_payload,
-    }
+    })
 
 
 @router.get("/factor/{factor_code}/news")
@@ -704,7 +742,7 @@ def get_news_by_factor(
         )
         factor_row = cur.fetchone()
         if not factor_row:
-            return {"factor": None, "news": []}
+            raise HTTPException(status_code=404, detail="因子不存在")
 
         factor_id = factor_row[0]
         factor_name = factor_row[1] or factor_code
@@ -715,6 +753,7 @@ def get_news_by_factor(
             cur.execute(
                 """
                 SELECT DISTINCT n.id, n.title, n.pub_time, DATE(n.pub_time) as publish_date,
+                       n.url, n.global_uid, n.source,
                        COALESCE(a.direction, '中性') as direction,
                        COALESCE(a.horizon, '短期') as horizon,
                        nf.direction as factor_direction,
@@ -731,6 +770,7 @@ def get_news_by_factor(
             cur.execute(
                 f"""
                 SELECT DISTINCT n.id, n.title, n.pub_time, DATE(n.pub_time) as publish_date,
+                       n.url, n.global_uid, n.source,
                        COALESCE(a.direction, '中性') as direction,
                        COALESCE(a.horizon, '短期') as horizon,
                        nf.direction as factor_direction,
@@ -761,15 +801,18 @@ def get_news_by_factor(
             "title": r[1],
             "publish_time": r[2],
             "publish_date": r[3],
-            "direction": r[4],
-            "horizon": r[5],
-            "factor_direction": r[6],
-            "model": r[7],
+            "source": r[6] or "",
+            "source_url": r[4] or "",
+            "global_uid": r[5],
+            "direction": r[7],
+            "horizon": r[8],
+            "factor_direction": r[9],
+            "model": r[10],
         }
         for r in rows
     ]
 
-    return {
+    return ok({
         "factor": {
             "code": factor_code,
             "name": factor_name,
@@ -777,7 +820,7 @@ def get_news_by_factor(
         },
         "news": news_list,
         "count": len(news_list),
-    }
+    })
 
 
 @router.get("/news/{news_id}/yield")
@@ -795,7 +838,7 @@ def get_news_yield_data(
     )
 
     if not data:
-        return {"error": "新闻不存在或无法获取收益率数据"}
+        raise HTTPException(status_code=404, detail="新闻不存在或无法获取收益率数据")
 
     news_info = DBOperations.get_news_by_id(news_id)
     publish_date_str = news_info.get("publish_date") if news_info else None
@@ -819,7 +862,7 @@ def get_news_yield_data(
             for item in data
         ]
 
-    return {
+    return ok({
         "news_id": news_id,
         "period": period,
         "publish_date": publish_date_str,
@@ -829,4 +872,4 @@ def get_news_yield_data(
         "window_after": window_after,
         "window_start": window_start,
         "window_end": window_end,
-    }
+    })

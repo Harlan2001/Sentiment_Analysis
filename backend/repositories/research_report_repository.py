@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
-from typing import Any, Optional
+from typing import Any
 
 from backend.repositories.base import BaseRepository
 
@@ -18,14 +19,14 @@ class ResearchReportRepository(BaseRepository):
     def _build_where(
         self,
         *,
-        keyword: Optional[str] = None,
+        keyword: str | None = None,
         keyword_columns: tuple[str, ...] = ("title", "ai_summary"),
-        institution: Optional[str] = None,
-        industry: Optional[str] = None,
-        market_view: Optional[str] = None,
-        status: Optional[str] = None,
-        date_start: Optional[date] = None,
-        date_end: Optional[date] = None,
+        institution: str | None = None,
+        industry: str | None = None,
+        market_view: str | None = None,
+        status: str | None = None,
+        date_start: date | None = None,
+        date_end: date | None = None,
     ) -> tuple[str, list[Any]]:
         """根据筛选条件生成 WHERE 子句与参数。"""
         conditions: list[str] = []
@@ -61,15 +62,15 @@ class ResearchReportRepository(BaseRepository):
         self,
         *,
         columns: tuple[str, ...],
-        keyword: Optional[str] = None,
+        keyword: str | None = None,
         keyword_columns: tuple[str, ...] = ("title", "ai_summary"),
-        institution: Optional[str] = None,
-        industry: Optional[str] = None,
-        market_view: Optional[str] = None,
-        status: Optional[str] = None,
-        date_start: Optional[date] = None,
-        date_end: Optional[date] = None,
-        limit: Optional[int] = None,
+        institution: str | None = None,
+        industry: str | None = None,
+        market_view: str | None = None,
+        status: str | None = None,
+        date_start: date | None = None,
+        date_end: date | None = None,
+        limit: int | None = None,
         offset: int = 0,
         order_by: str = "publish_date DESC, id DESC",
     ) -> list[dict[str, Any]]:
@@ -101,14 +102,14 @@ class ResearchReportRepository(BaseRepository):
     def count_reports(
         self,
         *,
-        keyword: Optional[str] = None,
+        keyword: str | None = None,
         keyword_columns: tuple[str, ...] = ("title", "ai_summary"),
-        institution: Optional[str] = None,
-        industry: Optional[str] = None,
-        market_view: Optional[str] = None,
-        status: Optional[str] = None,
-        date_start: Optional[date] = None,
-        date_end: Optional[date] = None,
+        institution: str | None = None,
+        industry: str | None = None,
+        market_view: str | None = None,
+        status: str | None = None,
+        date_start: date | None = None,
+        date_end: date | None = None,
     ) -> int:
         """统计符合筛选条件的研报数量。"""
         where, params = self._build_where(
@@ -131,7 +132,7 @@ class ResearchReportRepository(BaseRepository):
         return int(row["total"]) if row else 0
 
     def get_filter_facets(
-        self, *, status: Optional[str] = None
+        self, *, status: str | None = None
     ) -> dict[str, list[str]]:
         """机构/行业筛选面（可选 status 约束，默认不约束）。"""
         status_cond = "AND status = %s" if status else ""
@@ -159,3 +160,170 @@ class ResearchReportRepository(BaseRepository):
                     )
 
         return {"institutions": institutions, "industries": sorted(industries)}
+
+    # ========================================================================
+    # 入库与分析链路（service 层不再内联 SQL）
+    # ========================================================================
+
+    def find_by_hash(self, file_hash: str) -> dict[str, Any] | None:
+        """按文件哈希查重：命中返回已有行（id/title/status），未命中返回 None。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, title, status FROM research_report WHERE file_hash=%s",
+                    (file_hash,),
+                )
+                row = cursor.fetchone()
+        return row
+
+    def ingest_report(
+        self, report: dict[str, Any], figures: list[dict[str, Any]]
+    ) -> int:
+        """单事务内写入研报 + 图表，返回新研报 id。
+
+        ``report`` 为已格式化好的列值（分隔符拼接、截断等由调用方处理）。
+        """
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO research_report
+                    (title, institution, analyst, publish_date, industry, symbols, report_type,
+                     file_path, file_hash, file_size_kb, page_count,
+                     full_text, status, source, uploaded_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'parsed', %s, %s)
+                    """,
+                    (
+                        report["title"],
+                        report["institution"],
+                        report["analyst"],
+                        report["publish_date"],
+                        report["industry"],
+                        report["symbols"],
+                        report["report_type"],
+                        report["rel_path"],
+                        report["file_hash"],
+                        report["file_size_kb"],
+                        report["page_count"],
+                        report["full_text"],
+                        report["source"],
+                        report["uploaded_by"],
+                    ),
+                )
+                report_id = cursor.lastrowid
+
+                for fig in figures:
+                    cursor.execute(
+                        """
+                        INSERT INTO report_figure
+                        (report_id, page_number, figure_order, figure_type, caption,
+                         image_path, image_size_kb)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            report_id,
+                            fig["page_number"],
+                            fig["figure_order"],
+                            fig.get("figure_type"),
+                            fig.get("caption"),
+                            fig["image_path"],
+                            fig["image_size_kb"],
+                        ),
+                    )
+            conn.commit()
+        return report_id
+
+    def claim_for_analysis(self, report_id: int) -> bool:
+        """抢占分析任务：仅 status IN ('parsed','failed') 可转为 processing。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE research_report SET status='processing'
+                    WHERE id=%s AND status IN ('parsed','failed')
+                    """,
+                    (report_id,),
+                )
+                claimed = cursor.rowcount == 1
+            conn.commit()
+        return claimed
+
+    def get_analysis_input(
+        self, report_id: int, *, figure_limit: int
+    ) -> tuple[str, str, list[str]] | None:
+        """读取分析所需数据：标题、全文、有效图表 image_path 列表。
+
+        图表按大小倒序取前 ``figure_limit`` 张（image_size_kb > 15 过滤装饰图）。
+        """
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT title, full_text FROM research_report WHERE id=%s",
+                    (report_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                cursor.execute(
+                    """
+                    SELECT image_path FROM report_figure
+                    WHERE report_id=%s AND image_size_kb > 15
+                    ORDER BY image_size_kb DESC LIMIT %s
+                    """,
+                    (report_id, figure_limit),
+                )
+                image_paths = [r["image_path"] for r in cursor.fetchall()]
+        return row["title"], row["full_text"], image_paths
+
+    def finish_analysis(
+        self,
+        report_id: int,
+        *,
+        model_name: str,
+        parsed: dict[str, Any],
+        raw: str,
+    ) -> None:
+        """写入 AI 分析结果，状态转 analyzed。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE research_report SET
+                        ai_summary=%s, ai_key_points=%s, ai_symbols=%s, ai_industries=%s,
+                        ai_market_view=%s, ai_view_strength=%s, ai_time_horizon=%s,
+                        ai_evidence=%s, ai_analyzed_at=NOW(), ai_model=%s, ai_raw_response=%s,
+                        status='analyzed', parse_error=NULL
+                    WHERE id=%s
+                    """,
+                    (
+                        str(parsed.get("summary", ""))[:1024],
+                        json.dumps(parsed.get("key_points", []), ensure_ascii=False),
+                        json.dumps(parsed.get("symbols", []), ensure_ascii=False),
+                        json.dumps(parsed.get("industries", []), ensure_ascii=False),
+                        parsed.get("market_view", "neutral"),
+                        float(parsed.get("view_strength", 0.5)),
+                        parsed.get("time_horizon", "medium"),
+                        json.dumps(parsed.get("evidence", []), ensure_ascii=False),
+                        model_name,
+                        json.dumps(raw, ensure_ascii=False)
+                        if isinstance(raw, str)
+                        else raw,
+                        report_id,
+                    ),
+                )
+            conn.commit()
+
+    def mark_analysis_failed(self, report_id: int, error_message: str) -> None:
+        """分析失败：状态转 failed，重试次数 +1。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE research_report SET
+                        status='failed', parse_error=%s,
+                        retry_count=COALESCE(retry_count,0)+1
+                    WHERE id=%s
+                    """,
+                    (error_message[:500], report_id),
+                )
+            conn.commit()

@@ -1,23 +1,25 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.analysis.analyzer import process_single_news_analysis
-from backend.common.database import DatabaseConfig, get_db_connection, init_database
+from backend.common.database import get_db_connection
 from backend.common.db_operations import DBOperations
 from backend.common.task_logging import add_task_event, finish_task_run, start_task_run
 from backend.common.vector_store import get_faiss_store
 from backend.config.config import (
     API_PREFIX,
-    MYSQL_CONFIG,
     get_default_analysis_model_name,
 )
 
 router = APIRouter(prefix=API_PREFIX, tags=["pipeline"])
+
+logger = logging.getLogger(__name__)
 
 
 class AnalysisTriggerRequest(BaseModel):
@@ -37,8 +39,7 @@ class AnalysisTriggerRequest(BaseModel):
 def _run_vector_index_update(
     batch_size: int = 200, limit: Optional[int] = None
 ) -> Dict[str, Any]:
-    db_config = DatabaseConfig(**MYSQL_CONFIG)
-    init_database(db_config)
+    # 连接池在应用启动时已初始化，这里不再重复 init_database（重建两个连接池）
     store = get_faiss_store()
 
     processed = 0
@@ -300,5 +301,5 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                         )
                     retry_conn.commit()
             except Exception:
-                pass
+                logger.exception("pipeline 触发失败后无法记录任务失败状态")
             return {"success": False, "message": f"触发失败: {str(exc)}"}

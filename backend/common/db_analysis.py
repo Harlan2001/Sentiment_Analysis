@@ -137,7 +137,7 @@ class AnalysisQueries:
         Returns:
             新闻分析列表，每条含 title/content/pub_date/direction/horizon/reason/model
         """
-        priority_cases = AnalysisQueries.priority_case_sql()
+        join_sql = AnalysisQueries.best_analysis_join()
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -149,17 +149,7 @@ class AnalysisQueries:
                            COALESCE(a.reason, '') AS reason,
                            a.model
                     FROM news n
-                    LEFT JOIN analysis a ON a.news_id = n.id
-                        AND a.model = (
-                            SELECT a2.model
-                            FROM analysis a2
-                            WHERE a2.news_id = n.id
-                            ORDER BY CASE a2.model
-                                {priority_cases}
-                                ELSE 999
-                            END
-                            LIMIT 1
-                        )
+                    {join_sql}
                     WHERE DATE(n.pub_time) BETWEEN %s AND %s
                     ORDER BY n.pub_time DESC
                     LIMIT %s
@@ -197,4 +187,25 @@ class AnalysisQueries:
         """
         return " ".join(
             [f"WHEN '{m}' THEN {i}" for i, m in enumerate(ANALYSIS_MODEL_PRIORITY)]
+        )
+
+    @staticmethod
+    def best_analysis_join(join_type: str = "LEFT JOIN") -> str:
+        """生成「每条新闻取最高优先级模型 analysis」的 JOIN 片段。
+
+        以 ``priority_case_sql()`` 排序取每条新闻的最优模型记录。discover /
+        returns 各自维护的 ``_BEST_ANALYSIS_JOIN``、本模块日期范围查询内联的
+        CASE 副本均收敛到此处（``join_type`` 支持 LEFT JOIN / JOIN）。
+
+        Returns:
+            SQL JOIN 片段，形如 ``LEFT JOIN analysis a ON a.news_id = n.id AND ...``
+        """
+        priority_cases = AnalysisQueries.priority_case_sql()
+        return (
+            f"{join_type} analysis a ON a.news_id = n.id"
+            " AND a.model = ("
+            "  SELECT a2.model FROM analysis a2"
+            "  WHERE a2.news_id = n.id"
+            f"  ORDER BY CASE a2.model {priority_cases} ELSE 999 END"
+            "  LIMIT 1)"
         )

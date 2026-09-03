@@ -5,39 +5,44 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any
 
 import pymysql
 
-from backend.common.database import get_repo_connection
+from backend.repositories.base import BaseRepository, RepositoryError, serialize_row
 
 
-class WorkbenchNotFoundError(RuntimeError):
+class WorkbenchNotFoundError(RepositoryError):
     """资源不存在或当前用户无权访问。"""
 
+    status_code = 404
 
-class WorkbenchPermissionError(RuntimeError):
+
+class WorkbenchPermissionError(RepositoryError):
     """当前用户缺少写入权限。"""
 
+    status_code = 403
 
-class WorkbenchConflictError(RuntimeError):
+
+class WorkbenchConflictError(RepositoryError):
     """会话状态或幂等键冲突。"""
 
+    status_code = 409
 
-class WorkbenchCursorError(ValueError):
+
+class WorkbenchCursorError(RepositoryError):
     """分页游标格式无效。"""
 
+    status_code = 400
 
-def _serialize_row(row: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
-    if row is None:
-        return None
-    result: dict[str, Any] = {}
-    for key, value in row.items():
-        result[key] = value.isoformat() if isinstance(value, (datetime, date)) else value
-    return result
+
+Row = dict[str, Any] | None
+
+# 兼容别名：升级为基类的全文序列化（date/datetime → ISO，*_json 列 → 结构）。
+# 下游（conversation/message/project_management/watchlist/skill）仍按 `_serialize_row` 引用。
+_serialize_row = serialize_row
 
 
 def _encode_cursor(sort_value: Any, item_id: str) -> str:
@@ -47,7 +52,7 @@ def _encode_cursor(sort_value: Any, item_id: str) -> str:
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
-def _decode_cursor(cursor: Optional[str]) -> Optional[tuple[str, str]]:
+def _decode_cursor(cursor: str | None) -> tuple[str, str] | None:
     if not cursor:
         return None
     try:
@@ -59,21 +64,12 @@ def _decode_cursor(cursor: Optional[str]) -> Optional[tuple[str, str]]:
         raise WorkbenchCursorError("分页游标无效") from exc
 
 
-class WorkbenchRepository:
-    """新版工作台仓储，仅操作 workbench_* 表。"""
+class WorkbenchRepository(BaseRepository):
+    """新版工作台仓储，仅操作 workbench_* 表。
 
-    @classmethod
-    def from_environment(cls) -> "WorkbenchRepository":
-        return cls()
-
-    @contextmanager
-    def _connection(self) -> Iterator[Any]:
-        with get_repo_connection() as connection:
-            try:
-                yield connection
-            except BaseException:
-                connection.rollback()
-                raise
+    连接上下文与工厂（``_connection`` / ``from_environment``）继承自
+    ``BaseRepository``，不再重复样板。
+    """
 
     def ensure_tables(self) -> None:
         """启动时应用工作台自己的迁移，不影响旧表。按文件顺序执行所有迁移。"""
@@ -111,7 +107,7 @@ class WorkbenchRepository:
             conn.commit()
 
     @staticmethod
-    def _project_for_user(cursor, username: str, project_id: str) -> Optional[dict[str, Any]]:
+    def _project_for_user(cursor, username: str, project_id: str) -> dict[str, Any] | None:
         cursor.execute(
             """SELECT p.*, pm.role
                FROM workbench_projects p
@@ -122,7 +118,7 @@ class WorkbenchRepository:
         return cursor.fetchone()
 
     @staticmethod
-    def _conversation_for_user(cursor, username: str, conversation_id: str) -> Optional[dict[str, Any]]:
+    def _conversation_for_user(cursor, username: str, conversation_id: str) -> dict[str, Any] | None:
         cursor.execute(
             """SELECT c.*, pm.role AS project_role
                FROM workbench_conversations c
@@ -148,7 +144,7 @@ class WorkbenchRepository:
         if not conversation.get("project_id") and conversation.get("owner_username") != username:
             raise WorkbenchPermissionError("当前用户没有会话写入权限")
 
-    def create_project(self, username: str, name: str, description: Optional[str]) -> dict[str, Any]:
+    def create_project(self, username: str, name: str, description: str | None) -> dict[str, Any]:
         project_id = str(uuid.uuid4())
         with self._connection() as conn:
             with conn.cursor() as cursor:
@@ -174,7 +170,7 @@ class WorkbenchRepository:
         project["unread_count"] = 0
         return _serialize_row(project) or {}
 
-    def list_projects(self, username: str, limit: int, cursor: Optional[str] = None) -> dict[str, Any]:
+    def list_projects(self, username: str, limit: int, cursor: str | None = None) -> dict[str, Any]:
         decoded = _decode_cursor(cursor)
         params: list[Any] = [username]
         page_sql = ""
@@ -293,7 +289,7 @@ class WorkbenchRepository:
             conn.commit()
         return {"deleted": True}
 
-    def create_conversation(self, username: str, project_id: Optional[str], title: Optional[str], source: str) -> dict[str, Any]:
+    def create_conversation(self, username: str, project_id: str | None, title: str | None, source: str) -> dict[str, Any]:
         conversation_id = str(uuid.uuid4())
         with self._connection() as conn:
             with conn.cursor() as cursor:

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.common.database import get_db_connection
+from backend.common.api_response import ok
+from backend.common.database import build_in_placeholders, get_db_connection
 from backend.config.config import API_PREFIX
 
 router = APIRouter(prefix=f"{API_PREFIX}/macro-data", tags=["macro-data"])
@@ -102,12 +103,12 @@ def get_macro_indicators():
             }
         )
 
-    return {
+    return ok({
         "indicators": indicators,
         "categories": [{"key": k, "label": v} for k, v in CATEGORY_LABELS.items()],
         "domains": [{"key": k, "label": v} for k, v in DOMAIN_LABELS.items()],
         "total": len(indicators),
-    }
+    })
 
 
 @router.get("/data")
@@ -123,7 +124,7 @@ def get_macro_data(
     if not codes:
         raise HTTPException(status_code=400, detail="zbcode 不能为空")
 
-    conditions = ["zbcode IN ({})".format(",".join(["%s"] * len(codes)))]
+    conditions = ["zbcode IN ({})".format(build_in_placeholders(codes))]
     params: list = codes.copy()
 
     if start:
@@ -177,7 +178,7 @@ def get_macro_data(
     # 保持请求顺序
     ordered = [result[code] for code in codes if code in result]
 
-    return {
+    return ok({
         "indicators": ordered,
         "query": {"zbcode": zbcode, "start": start, "end": end},
-    }
+    })

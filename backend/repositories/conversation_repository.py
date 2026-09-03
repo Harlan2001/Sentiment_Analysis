@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import pymysql
 
@@ -47,7 +47,7 @@ class ConversationRepository(WorkbenchRepository):
                     message["skill_names"] = skill_names_by_message.get(message["id"], [])
         return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages]}
 
-    def list_conversations(self, username: str, project_id: Optional[str], limit: int, cursor: Optional[str] = None, archived: bool = False) -> dict[str, Any]:
+    def list_conversations(self, username: str, project_id: str | None, limit: int, cursor: str | None = None, archived: bool = False) -> dict[str, Any]:
         decoded = _decode_cursor(cursor)
         status = "archived" if archived else "active"
         page_sql, page_params = "", []
@@ -226,7 +226,7 @@ class ConversationRepository(WorkbenchRepository):
             "limits": {"project_conversations": conversation_limit, "recent_conversations": conversation_limit},
         }
 
-    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
+    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """原子保存用户消息和占位助手消息，防止重试重复调用 Agent。
         并发重试撞唯一索引时回查已存消息做幂等返回（对齐 create_project 的兜底）。"""
         try:

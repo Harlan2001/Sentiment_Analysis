@@ -1271,7 +1271,7 @@ export interface DiscoverNewsResponse {
   total: number;
   page: number;
   page_size: number;
-  has_more: boolean;
+  total_pages: number;
 }
 
 export interface YieldRateItem {

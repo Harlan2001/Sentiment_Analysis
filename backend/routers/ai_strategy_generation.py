@@ -7,16 +7,17 @@ import logging
 import os
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from backend.common.api_response import ok
+from backend.common.pagination import limit_param
 from backend.config.config import API_PREFIX, AUTH_ENABLED
 from backend.integrations.dream.service import generate_strategy
 from backend.repositories.ai_strategy_history_repository import (
     AiStrategyHistoryRepository,
-    ArchivedConversationError,
-    GenerationInProgressError,
 )
+from backend.routers.workbench_helpers import raise_repository_error
 from backend.strategy.dream_strategy_prompt import (
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
@@ -119,20 +120,14 @@ def _draft_context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
 def create_conversation(request: Request, body: ConversationCreateRequest):
     owner_username = _history_owner(request)
     repository = _history_repository()
-    return {
-        "success": True,
-        "data": repository.create_conversation(owner_username, body.title),
-    }
+    return ok(repository.create_conversation(owner_username, body.title))
 
 
 @router.get("/conversations")
-def list_conversations(request: Request, limit: int = Query(default=50, ge=1, le=100)):
+def list_conversations(request: Request, limit: int = limit_param()):
     owner_username = _history_owner(request)
     repository = _history_repository()
-    return {
-        "success": True,
-        "data": {"items": repository.list_conversations(owner_username, limit)},
-    }
+    return ok({"items": repository.list_conversations(owner_username, limit)})
 
 
 @router.get("/conversations/{conversation_id}")
@@ -142,7 +137,7 @@ def get_conversation(request: Request, conversation_id: int):
     detail = repository.get_conversation_detail(owner_username, conversation_id)
     if not detail:
         raise HTTPException(status_code=404, detail="History conversation not found")
-    return {"success": True, "data": detail}
+    return ok(detail)
 
 
 @router.post("/conversations/{conversation_id}/draft")
@@ -174,29 +169,15 @@ async def create_prompt_draft(
             context["prompt"],
             snapshot,
         )
-    except GenerationInProgressError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail="Confirm or wait for the current strategy turn first",
-        ) from exc
-    except ArchivedConversationError as exc:
-        raise HTTPException(
-            status_code=409, detail="Archived conversations cannot be continued"
-        ) from exc
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404, detail="History conversation not found"
-        ) from exc
-    return {
-        "success": True,
-        "data": {
-            "user_message_id": turn["user_message_id"],
-            "assistant_message_id": turn["assistant_message_id"],
-            "status": "pending_confirmation",
-            "system_draft_prompt": context["prompt"],
-            "context": snapshot,
-        },
-    }
+    except Exception as exc:
+        raise_repository_error(exc)
+    return ok({
+        "user_message_id": turn["user_message_id"],
+        "assistant_message_id": turn["assistant_message_id"],
+        "status": "pending_confirmation",
+        "system_draft_prompt": context["prompt"],
+        "context": snapshot,
+    })
 
 
 async def _run_generation(
@@ -318,14 +299,11 @@ async def confirm_prompt_draft(
     task.add_done_callback(_background_generation_tasks.discard)
     _background_generation_tasks.add(task)
 
-    return {
-        "success": True,
-        "data": {
-            "conversation_id": conversation_id,
-            "assistant_message_id": assistant_message_id,
-            "status": "running",
-        },
-    }
+    return ok({
+        "conversation_id": conversation_id,
+        "assistant_message_id": assistant_message_id,
+        "status": "running",
+    })
 
 
 @router.patch("/conversations/{conversation_id}/archive")
@@ -334,39 +312,35 @@ def archive_conversation(request: Request, conversation_id: int):
     repository = _history_repository()
     try:
         archived = repository.archive_conversation(owner_username, conversation_id)
-    except GenerationInProgressError as exc:
-        raise HTTPException(
-            status_code=409, detail="Wait for the running generation before archiving"
-        ) from exc
+    except Exception as exc:
+        raise_repository_error(exc)
     if not archived:
         raise HTTPException(status_code=404, detail="History conversation not found")
-    return {"success": True}
+    return ok(None)
 
 
 @router.delete("/conversations/{conversation_id}")
 def delete_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return {"success": True, "data": _history_repository().soft_delete_conversation(owner_username, conversation_id)}
-    except GenerationInProgressError as exc:
-        raise HTTPException(status_code=409, detail="进行中的策略生成任务不能删除") from exc
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+        return ok(_history_repository().soft_delete_conversation(owner_username, conversation_id))
+    except Exception as exc:
+        raise_repository_error(exc)
 
 
 @router.post("/conversations/{conversation_id}/restore")
 def restore_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return {"success": True, "data": _history_repository().restore_conversation(owner_username, conversation_id)}
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+        return ok(_history_repository().restore_conversation(owner_username, conversation_id))
+    except Exception as exc:
+        raise_repository_error(exc)
 
 
 @router.delete("/conversations/{conversation_id}/permanently")
 def permanently_delete_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return {"success": True, "data": _history_repository().permanently_delete_conversation(owner_username, conversation_id)}
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="History conversation not found") from exc
+        return ok(_history_repository().permanently_delete_conversation(owner_username, conversation_id))
+    except Exception as exc:
+        raise_repository_error(exc)

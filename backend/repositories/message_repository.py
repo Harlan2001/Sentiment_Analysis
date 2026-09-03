@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from backend.repositories.conversation_repository import ConversationRepository
 from backend.repositories.workbench_repository import WorkbenchNotFoundError, _serialize_row
 
 
 class MessageRepository(ConversationRepository):
+    """Agent 会话上下文与助手消息状态持久化，复用通用会话能力。"""
+
     def get_agent_history(self, username: str, conversation_id: str, limit: int) -> list[dict[str, str]]:
         self.get_conversation(username, conversation_id)
         with self._connection() as conn:
@@ -24,7 +26,7 @@ class MessageRepository(ConversationRepository):
                 rows = cursor.fetchall()
         return [{"role": row["role"], "content": row["content"]} for row in rows]
 
-    def finish_assistant_message(self, assistant_message_id: str, content: str, status: str, error_code: Optional[str] = None) -> dict[str, Any]:
+    def finish_assistant_message(self, assistant_message_id: str, content: str, status: str, error_code: str | None = None) -> dict[str, Any]:
         """在 SSE 结束、失败或断连时保存完整或部分助手内容。"""
         with self._connection() as conn:
             with conn.cursor() as cursor:

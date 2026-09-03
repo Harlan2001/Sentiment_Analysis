@@ -344,10 +344,16 @@ def _extract_meta_from_text(text: str) -> dict:
             if name not in result["analyst"]:
                 result["analyst"].append(name)
 
-    for kw, industry in INDUSTRY_KEYWORDS.items():
-        if kw in snippet and industry not in result["industry"]:
-            result["industry"].append(industry)
+    result["industry"] = _extract_industries(text, 1000)
     return result
+
+
+def _extract_industries(text: str, max_chars: int) -> list[str]:
+    """按行业关键词从正文前 max_chars 字符中提取行业列表（去重保序）。"""
+    snippet = text[:max_chars]
+    return list(
+        dict.fromkeys(ind for kw, ind in INDUSTRY_KEYWORDS.items() if kw in snippet)
+    )
 
 
 def _extract_symbols(text: str) -> list[str]:
@@ -365,13 +371,6 @@ def _extract_symbols(text: str) -> list[str]:
             seen.add(code)
             symbols.append(code)
     return symbols[:30]
-
-
-def _extract_industries_from_text(text: str) -> list[str]:
-    snippet = text[:5000]
-    return list(
-        dict.fromkeys(ind for kw, ind in INDUSTRY_KEYWORDS.items() if kw in snippet)
-    )
 
 
 # ========================================================================
@@ -640,7 +639,7 @@ def parse_pdf(pdf_path: Path) -> ParseResult:
         else:
             meta_info["industry"] = text_meta.get("industry", [])
             if not meta_info["industry"]:
-                meta_info["industry"] = _extract_industries_from_text(full_text)
+                meta_info["industry"] = _extract_industries(full_text, 5000)
 
         symbols = _extract_symbols(full_text)
 

@@ -9,20 +9,19 @@ from datetime import datetime, timedelta
 
 from backend.macrosignal.macro_signal import (
     DIRECTIONAL_THRESHOLD,
+    NewsFactorRow,
     _compute_directional,
     _compute_presence,
     _direction_to_score,
-    _format_time_range,
-    _get_hit_news_ids,
     _score_to_signal,
 )
 
 START = datetime(2026, 8, 1)
 END = datetime(2026, 8, 28)
 
-# 查询行结构: (factor_code, news_id, direction, pub_time)
+# news_factor 查询行结构：factor_code, news_id, direction, pub_time
 def _row(code, news_id, direction, pub_time):
-    return (code, news_id, direction, pub_time)
+    return NewsFactorRow(code, news_id, direction, pub_time)
 
 
 # ---- 方向 → 分数映射 ----
@@ -56,26 +55,19 @@ def test_presence_counts_matching_news_and_marks_hit_ids():
     rows = [
         _row("GDP", 1, "positive", END),
         _row("GDP", 2, "negative", END),
-        _row("CPI", 3, "positive", END),
     ]
     result = _compute_presence(rows, "GDP", START, END)
     assert result["signal_value"] == 1
     assert result["news_count"] == 2
     assert result["hit_news_ids"] == [1, 2]
-    assert result["time_range"] == _format_time_range(START, END)
+    assert result["time_range"] == {"start": START.isoformat(), "end": END.isoformat()}
 
 
 def test_presence_for_factor_without_news_returns_zero():
-    rows = [_row("GDP", 1, "positive", END)]
-    result = _compute_presence(rows, "CPI", START, END)
+    result = _compute_presence([], "GDP", START, END)
     assert result["signal_value"] == 0
     assert result["news_count"] == 0
     assert result["hit_news_ids"] == []
-
-
-def test_get_hit_news_ids_extracts_second_element_in_order():
-    rows = [_row("GDP", 1, "positive", END), _row("GDP", 2, "negative", END)]
-    assert _get_hit_news_ids(rows) == [1, 2]
 
 
 # ---- directional（时间衰减） ----

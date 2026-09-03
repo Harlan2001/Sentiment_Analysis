@@ -5,30 +5,85 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import date
-from typing import Any, Optional
+from typing import Any
 
-from backend.repositories.base import BaseRepository, serialize_row
+from backend.repositories.base import (
+    BaseRepository,
+    RecycleBinMixin,
+    RepositoryError,
+    serialize_row,
+)
+
+# 任务统一列（list_tasks / get_task 共用）；get_task 按需追加 result_markdown
+_TASK_COLUMNS = (
+    "id",
+    "title",
+    "requirement",
+    "date_start",
+    "date_end",
+    "report_ids_json",
+    "source_snapshot_json",
+    "status",
+    "model_name",
+    "error_message",
+    "retry_count",
+    "started_at",
+    "finished_at",
+    "created_at",
+    "updated_at",
+)
+_TASK_SELECT = ", ".join(_TASK_COLUMNS)
 
 
-class ReportGenerationNotFoundError(RuntimeError):
+class ReportGenerationNotFoundError(RepositoryError):
     """任务或研报来源不存在。"""
 
+    status_code = 404
 
-class ReportGenerationConflictError(RuntimeError):
+
+class ReportGenerationConflictError(RepositoryError):
     """当前任务状态不允许执行请求的操作。"""
 
+    status_code = 409
 
-class ReportGenerationRepository(BaseRepository):
-    """仅负责任务持久化和读取既有研报数据。"""
+
+class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
+    """仅负责任务持久化和读取既有研报数据。
+
+    回收站 CRUD（soft_delete / restore / permanently_delete）继承自
+    ``RecycleBinMixin``。
+    """
+
+    recycle_table = "report_generation_tasks"
+    recycle_now = "NOW(6)"
+    recycle_list_columns = (
+        "id",
+        "title",
+        "requirement",
+        "date_start",
+        "date_end",
+        "status",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    )
+    recycle_in_flight = frozenset({"queued", "running"})
+    recycle_not_found = ReportGenerationNotFoundError
+    recycle_conflict = ReportGenerationConflictError
+    recycle_not_found_msg = "研报生成任务不存在"
+    recycle_in_flight_msg = "进行中的研报生成任务不能删除"
+    recycle_not_in_trash_msg = "研报生成任务不存在或不在最近删除中"
+    recycle_restore_miss_msg = "恢复研报生成任务后未找到记录"
+    recycle_getter = "get_task"
 
     def list_sources(
         self,
         *,
-        keyword: Optional[str],
-        institution: Optional[str],
-        industry: Optional[str],
-        date_start: Optional[date],
-        date_end: Optional[date],
+        keyword: str | None,
+        institution: str | None,
+        industry: str | None,
+        date_start: date | None,
+        date_end: date | None,
         limit: int,
     ) -> dict[str, Any]:
         # 研报来源筛选复用 ResearchReportRepository（与 /research/list 共用一套查询/筛选面）
@@ -101,8 +156,8 @@ class ReportGenerationRepository(BaseRepository):
         owner_username: str,
         title: str,
         requirement: str,
-        date_start: Optional[date],
-        date_end: Optional[date],
+        date_start: date | None,
+        date_end: date | None,
         sources: list[dict[str, Any]],
     ) -> dict[str, Any]:
         task_id = str(uuid.uuid4())
@@ -147,9 +202,9 @@ class ReportGenerationRepository(BaseRepository):
         self,
         owner_username: str,
         *,
-        status: Optional[str],
-        date_start: Optional[date],
-        date_end: Optional[date],
+        status: str | None,
+        date_start: date | None,
+        date_end: date | None,
         limit: int,
     ) -> list[dict[str, Any]]:
         conditions = ["owner_username = %s", "deleted_at IS NULL"]
@@ -167,10 +222,7 @@ class ReportGenerationRepository(BaseRepository):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    f"""SELECT id, title, requirement, date_start, date_end,
-                               report_ids_json, source_snapshot_json, status, model_name,
-                               error_message, retry_count, started_at, finished_at,
-                               created_at, updated_at
+                    f"""SELECT {_TASK_SELECT}
                           FROM report_generation_tasks
                          WHERE {' AND '.join(conditions)}
                          ORDER BY updated_at DESC, id DESC
@@ -182,15 +234,12 @@ class ReportGenerationRepository(BaseRepository):
 
     def get_task(
         self, owner_username: str, task_id: str, *, include_result: bool = True
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         result_column = ", result_markdown" if include_result else ""
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    f"""SELECT id, title, requirement, date_start, date_end,
-                               report_ids_json, source_snapshot_json, status, model_name,
-                               error_message, retry_count, started_at, finished_at,
-                               created_at, updated_at{result_column}
+                    f"""SELECT {_TASK_SELECT}{result_column}
                           FROM report_generation_tasks
                          WHERE id = %s AND owner_username = %s AND deleted_at IS NULL""",
                     (task_id, owner_username),
@@ -198,7 +247,7 @@ class ReportGenerationRepository(BaseRepository):
                 row = cursor.fetchone()
         return serialize_row(row) if row else None
 
-    def claim_task(self, task_id: str) -> Optional[dict[str, Any]]:
+    def claim_task(self, task_id: str) -> dict[str, Any] | None:
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -271,78 +320,6 @@ class ReportGenerationRepository(BaseRepository):
         if not task:
             raise RuntimeError("重试任务后未找到记录")
         return task
-
-    def list_deleted_tasks(self, owner_username: str, limit: int = 100) -> list[dict[str, Any]]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """SELECT id, title, requirement, date_start, date_end, status, created_at, updated_at, deleted_at
-                          FROM report_generation_tasks
-                         WHERE owner_username = %s AND deleted_at IS NOT NULL
-                         ORDER BY deleted_at DESC, id DESC LIMIT %s""",
-                    (owner_username, limit),
-                )
-                rows = cursor.fetchall()
-        return [serialize_row(row) for row in rows]
-
-    def soft_delete_task(self, owner_username: str, task_id: str) -> dict[str, bool]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT status FROM report_generation_tasks WHERE id = %s AND owner_username = %s AND deleted_at IS NULL FOR UPDATE",
-                    (task_id, owner_username),
-                )
-                task = cursor.fetchone()
-                if not task:
-                    raise ReportGenerationNotFoundError("研报生成任务不存在")
-                if task["status"] in {"queued", "running"}:
-                    raise ReportGenerationConflictError("进行中的研报生成任务不能删除")
-                cursor.execute(
-                    "UPDATE report_generation_tasks SET deleted_at = NOW(6) WHERE id = %s AND owner_username = %s",
-                    (task_id, owner_username),
-                )
-            conn.commit()
-        return {"deleted": True}
-
-    def restore_task(self, owner_username: str, task_id: str) -> dict[str, Any]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE report_generation_tasks SET deleted_at = NULL WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (task_id, owner_username),
-                )
-                restored = cursor.rowcount == 1
-            conn.commit()
-        if not restored:
-            raise ReportGenerationNotFoundError("研报生成任务不存在或不在最近删除中")
-        task = self.get_task(owner_username, task_id)
-        if not task:
-            raise RuntimeError("恢复研报生成任务后未找到记录")
-        return task
-
-    def permanently_delete_task(self, owner_username: str, task_id: str) -> dict[str, bool]:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM report_generation_tasks WHERE id = %s AND owner_username = %s AND deleted_at IS NOT NULL",
-                    (task_id, owner_username),
-                )
-                deleted = cursor.rowcount == 1
-            conn.commit()
-        if not deleted:
-            raise ReportGenerationNotFoundError("研报生成任务不存在或不在最近删除中")
-        return {"deleted": True}
-
-    def permanently_delete_all_deleted_tasks(self, owner_username: str) -> int:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM report_generation_tasks WHERE owner_username = %s AND deleted_at IS NOT NULL",
-                    (owner_username,),
-                )
-                deleted = cursor.rowcount
-            conn.commit()
-        return int(deleted)
 
     def mark_incomplete_failed(self) -> int:
         with self._connection() as conn:

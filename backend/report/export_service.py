@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import html
 import re
-import tempfile
 import zipfile
 from io import BytesIO
-from pathlib import Path
 from xml.sax.saxutils import escape
+
+from backend.common.pdf_export import PlaywrightUnavailableError, render_html_to_pdf
 
 
 def _safe_filename(title: str) -> str:
@@ -43,6 +43,25 @@ def _strip_markdown(value: str) -> str:
     return re.sub(r"(\*\*|__|`|\[|\])", "", value)
 
 
+_UNKNOWN_TITLE = "未命名研报"
+_UNKNOWN_INSTITUTION = "未知机构"
+_UNKNOWN_DATE = "日期未知"
+# PDF 显式边距，与页面 CSS 内 `@page { … margin: 20mm }` 保持一致
+# （显式 margin 优先于 CSS @page margin）
+_PDF_MARGIN = {"top": "20mm", "bottom": "20mm", "left": "20mm", "right": "20mm"}
+
+
+def _format_source_line(source: dict, *, separator: str = " · ") -> str:
+    """将来源字典格式化为「标题 · 机构 · 日期」，空字段用统一默认值兜底（DOCX 与 PDF 共用）。"""
+    return separator.join(
+        (
+            source.get("title") or _UNKNOWN_TITLE,
+            source.get("institution") or _UNKNOWN_INSTITUTION,
+            str(source.get("publish_date") or _UNKNOWN_DATE),
+        )
+    )
+
+
 def generate_docx(title: str, markdown: str, sources: list[dict]) -> bytes:
     """生成最小、兼容 Word 的 OOXML 文档，避免引入平行运行时依赖。"""
     paragraphs = [
@@ -65,7 +84,7 @@ def generate_docx(title: str, markdown: str, sources: list[dict]) -> bytes:
 
     paragraphs.append('<w:p><w:pPr><w:spacing w:before="240" w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t>来源研报</w:t></w:r></w:p>')
     for index, source in enumerate(sources, start=1):
-        source_line = f"{index}. {source.get('title') or '未命名研报'} | {source.get('institution') or '未知机构'} | {source.get('publish_date') or '日期未知'}"
+        source_line = f"{index}. {_format_source_line(source, separator=' | ')}"
         paragraphs.append(f'<w:p><w:pPr><w:ind w:left="540" w:hanging="270"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Microsoft YaHei"/></w:rPr><w:t xml:space="preserve">{escape(source_line)}</w:t></w:r></w:p>')
 
     document_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -86,27 +105,17 @@ def generate_docx(title: str, markdown: str, sources: list[dict]) -> bytes:
 
 def generate_pdf(title: str, markdown: str, sources: list[dict]) -> bytes:
     """复用项目 Playwright 运行时，将结果渲染为 A4 PDF。"""
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as exc:
-        raise RuntimeError("PDF 导出不可用：playwright 未安装") from exc
     content = []
     for kind, text in _markdown_blocks(markdown):
         tag = {"h1": "h1", "h2": "h2", "h3": "h3", "p": "p", "bullet": "li"}[kind]
         content.append(f"<{tag}>{html.escape(_strip_markdown(text))}</{tag}>")
-    source_html = "".join(f"<li>{html.escape(source.get('title') or '未命名研报')} · {html.escape(source.get('institution') or '未知机构')} · {html.escape(str(source.get('publish_date') or '日期未知'))}</li>" for source in sources)
+    source_html = "".join(
+        f"<li>{html.escape(_format_source_line(source))}</li>" for source in sources
+    )
     page_html = f'''<!doctype html><html><head><meta charset="utf-8"><style>@page{{size:A4;margin:20mm}}body{{font-family:"Microsoft YaHei",Arial,sans-serif;color:#202020;font-size:10.5pt;line-height:1.75}}h1{{font-size:18pt;margin:18pt 0 8pt}}h2{{font-size:14pt;margin:16pt 0 7pt;border-bottom:1px solid #ddd;padding-bottom:4pt}}h3{{font-size:12pt;margin:12pt 0 5pt}}p{{margin:0 0 7pt}}li{{margin:0 0 4pt}}.title{{font-size:24pt;font-weight:700;margin:0 0 10pt}}.sources{{margin-top:22pt}}</style></head><body><div class="title">{html.escape(title)}</div>{''.join(content)}<section class="sources"><h2>来源研报</h2><ol>{source_html}</ol></section></body></html>'''
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary:
-        output_path = Path(temporary.name)
     try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.set_content(page_html, wait_until="networkidle")
-            page.pdf(path=str(output_path), format="A4", print_background=True)
-            browser.close()
-        return output_path.read_bytes()
+        return render_html_to_pdf(page_html, margins=_PDF_MARGIN)
+    except PlaywrightUnavailableError as exc:
+        raise RuntimeError("PDF 导出不可用：playwright 未安装") from exc
     except Exception as exc:
         raise RuntimeError('PDF export is unavailable; install the Playwright Chromium browser') from exc
-    finally:
-        output_path.unlink(missing_ok=True)

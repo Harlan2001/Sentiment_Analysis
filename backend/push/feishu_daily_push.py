@@ -10,17 +10,14 @@ import logging
 import os
 import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional, Tuple
 from zoneinfo import ZoneInfo
 
-import requests
+from backend.integrations.feishu.client import FeishuApiError, FeishuClient
+from backend.push.pdf_generator import generate_prediction_pdf
+from backend.repositories.forecast_report_repository import ForecastReportRepository
 
 logger = logging.getLogger(__name__)
-
-from backend.common.database import DatabaseConfig, get_db_connection, init_database
-from backend.config.config import MYSQL_CONFIG, get_requests_proxies
-from backend.push.pdf_generator import generate_prediction_pdf
 
 # ===================== 配置 =====================
 
@@ -28,31 +25,34 @@ APP_ID = os.getenv("FEISHU_APP_ID")
 APP_SECRET = os.getenv("FEISHU_APP_SECRET")
 GROUP_ID = os.getenv("FEISHU_GROUP_ID")
 
-for k, v in {
-    "FEISHU_APP_ID": APP_ID,
-    "FEISHU_APP_SECRET": APP_SECRET,
-    "FEISHU_GROUP_ID": GROUP_ID,
-}.items():
-    if not v:
-        raise RuntimeError(f"缺少必要的环境变量: {k}，请在 .env 文件中配置")
+
+def _require_env() -> None:
+    """校验必需环境变量（延迟到 main 调用，保持模块可导入 / 可单测）。"""
+    for k, v in {
+        "FEISHU_APP_ID": APP_ID,
+        "FEISHU_APP_SECRET": APP_SECRET,
+        "FEISHU_GROUP_ID": GROUP_ID,
+    }.items():
+        if not v:
+            raise RuntimeError(f"缺少必要的环境变量: {k}，请在 .env 文件中配置")
+
 
 # ===================== PDF 生成 =====================
 
 
-def generate_latest_pdf() -> Optional[Tuple[str, str]]:
-    """查询最新报告日期，直接调用 pdf_generator 生成 PDF，返回 (file_path, file_name)。"""
+def generate_latest_pdf(
+    repo: Optional[ForecastReportRepository] = None,
+) -> Optional[Tuple[str, str]]:
+    """查询最新报告日期并生成 PDF，返回 (file_path, trade_date_str)；无可报告时返回 None。"""
     try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT MAX(trade_date) FROM forecast_report")
-            row = cur.fetchone()
-            if not row or not row[0]:
-                logger.error("[PDF] forecast_report 表为空")
-                return None
-            report_date = row[0]
+        repo = repo or ForecastReportRepository()
+        report_date = repo.get_latest_trade_date()
+        if report_date is None:
+            logger.error("[PDF] forecast_report 表为空")
+            return None
 
-        pdf_path, _actual_trade_date = generate_prediction_pdf(report_date=report_date)
-        return str(pdf_path), os.path.basename(pdf_path)
+        pdf_path, trade_date_str = generate_prediction_pdf(report_date=report_date)
+        return str(pdf_path), trade_date_str
     except Exception as e:
         logger.error("[PDF] 生成失败: %s", e, exc_info=True)
         return None
@@ -61,207 +61,79 @@ def generate_latest_pdf() -> Optional[Tuple[str, str]]:
 # ===================== 报告摘要 =====================
 
 
-def _safe_get(pred: dict, key: str, default=None):
-    """安全取值：若值为 JSON 字符串则自动解析。"""
-    v = pred.get(key, default)
-    if isinstance(v, str):
+def _summary_text(pred: dict) -> str:
+    """提取报告摘要字段；兼容嵌套 JSON 字符串（解析后取文本）。"""
+    value = pred.get("报告摘要")
+    if isinstance(value, str):
         try:
-            return json.loads(v)
+            value = json.loads(value)
         except (json.JSONDecodeError, TypeError):
-            return v
-    return v if v is not None else default
+            pass
+    summary = value if value is not None else ""
+    return str(summary).strip() if summary else "—"
 
 
-def build_summary(pdf_file_name: str) -> str:
+def build_summary(trade_date_str: str, repo: Optional[ForecastReportRepository] = None) -> str:
     """从 forecast_report 表中提取报告摘要，生成推送文本。"""
-    date_str = pdf_file_name.replace(".pdf", "")
-    fallback = f"📊 {date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
+    fallback = f"📊 {trade_date_str} 债券市场预测报告\n\n📄 完整分析请查看下方 PDF"
 
     try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT prediction FROM forecast_report WHERE trade_date = %s AND forecast_type = 'full_report'",
-                (date_str,),
-            )
-            row = cur.fetchone()
-            if not row:
-                return fallback
+        repo = repo or ForecastReportRepository()
+        pred = repo.get_prediction(trade_date_str)
+        if pred is None:
+            return fallback
 
-            pred = row[0]
-            if isinstance(pred, str):
-                pred = json.loads(pred)
-            if not isinstance(pred, dict):
-                return fallback
-
-            summary = _safe_get(pred, "报告摘要", "")
-            summary_str = str(summary).strip() if summary else "—"
-
-            return (
-                f"📊 {date_str} 债券市场预测报告\n\n"
-                f"【报告摘要】\n{summary_str}\n\n"
-                f"📄 完整分析请查看下方 PDF"
-            )
+        summary_str = _summary_text(pred)
+        return (
+            f"📊 {trade_date_str} 债券市场预测报告\n\n"
+            f"【报告摘要】\n{summary_str}\n\n"
+            f"📄 完整分析请查看下方 PDF"
+        )
     except Exception as e:
         logger.warning("[摘要] 生成失败: %s", e)
         return fallback
 
 
-# ===================== 飞书 API =====================
-
-FEISHU_TOKEN_URL = (
-    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-)
-FEISHU_IM_FILES_URL = "https://open.feishu.cn/open-apis/im/v1/files"
-FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages"
-
-
-def get_tenant_token() -> Optional[str]:
-    """获取飞书 tenant_access_token。"""
-    try:
-        resp = requests.post(
-            FEISHU_TOKEN_URL,
-            json={"app_id": APP_ID, "app_secret": APP_SECRET},
-            timeout=10,
-            proxies=get_requests_proxies(),
-        )
-        result = resp.json()
-        if result.get("code") == 0:
-            return result["tenant_access_token"]
-        logger.error("[Token] 获取失败: %s", result)
-        return None
-    except Exception as e:
-        logger.error("[Token] 异常: %s", e, exc_info=True)
-        return None
-
-
-def upload_pdf_to_im(token: str, pdf_path: str) -> Optional[str]:
-    """上传 PDF 到飞书 IM，返回 file_key。"""
-    pdf_file = Path(pdf_path)
-    if not pdf_file.exists() or pdf_file.suffix.lower() != ".pdf":
-        logger.error("[上传] 文件无效: %s", pdf_path)
-        return None
-
-    try:
-        with open(pdf_path, "rb") as f:
-            resp = requests.post(
-                FEISHU_IM_FILES_URL,
-                headers={"Authorization": f"Bearer {token}"},
-                files={"file": (pdf_file.name, f, "application/pdf")},
-                data={"file_name": pdf_file.name, "file_type": "pdf"},
-                timeout=120,
-                proxies=get_requests_proxies(),
-            )
-        res = resp.json()
-        file_key = res.get("data", {}).get("file_key") if res.get("code") == 0 else None
-        if file_key:
-            return file_key
-        logger.error("[上传] 失败: %s", res)
-        return None
-    except Exception as e:
-        logger.error("[上传] 异常: %s", e, exc_info=True)
-        return None
-
-
-def send_text(token: str, chat_id: str, text: str) -> bool:
-    """发送文本消息到飞书群。"""
-    try:
-        resp = requests.post(
-            FEISHU_MSG_URL,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            params={"receive_id_type": "chat_id"},
-            json={
-                "receive_id": chat_id,
-                "msg_type": "text",
-                "content": json.dumps({"text": text}),
-            },
-            timeout=30,
-            proxies=get_requests_proxies(),
-        )
-        ok = resp.json().get("code") == 0
-        if not ok:
-            logger.warning("[消息] 文本发送失败: %s", resp.text[:200])
-        return ok
-    except Exception as e:
-        logger.error("[消息] 文本发送异常: %s", e, exc_info=True)
-        return False
-
-
-def send_file(token: str, chat_id: str, file_key: str) -> bool:
-    """发送 PDF 文件消息到飞书群。"""
-    try:
-        resp = requests.post(
-            FEISHU_MSG_URL,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            params={"receive_id_type": "chat_id"},
-            json={
-                "receive_id": chat_id,
-                "msg_type": "file",
-                "content": json.dumps({"file_key": file_key}),
-            },
-            timeout=30,
-            proxies=get_requests_proxies(),
-        )
-        ok = resp.json().get("code") == 0
-        if not ok:
-            logger.warning("[消息] 文件发送失败: %s", resp.text[:200])
-        return ok
-    except Exception as e:
-        logger.error("[消息] 文件发送异常: %s", e, exc_info=True)
-        return False
-
-
 # ===================== 主流程 =====================
 
 
-def main():
-    # 0. 初始化数据库连接
-    init_database(DatabaseConfig(**MYSQL_CONFIG))
+def main() -> None:
+    # 0. 校验环境变量
+    _require_env()
 
     # 1. 生成 PDF
     result = generate_latest_pdf()
     if not result:
         logger.error("[主流程] PDF 生成失败，终止")
         sys.exit(1)
-    pdf_path, pdf_name = result
+    pdf_path, trade_date_str = result
 
     # 日期校验：仅前一日报告才推送（报告日期按 Asia/Shanghai 生成，避免容器 UTC 时区差一天）
-    report_date_str = pdf_name.replace(".pdf", "")
-    yesterday_str = (datetime.now(ZoneInfo("Asia/Shanghai")) - timedelta(days=1)).strftime("%Y-%m-%d")
-    if report_date_str != yesterday_str:
+    yesterday_str = (datetime.now(ZoneInfo("Asia/Shanghai")) - timedelta(days=1)).strftime(
+        "%Y-%m-%d"
+    )
+    if trade_date_str != yesterday_str:
         logger.info(
             "报告日期校验未通过，当前最新报告日期: %s，期望日期: %s，跳过推送",
-            report_date_str,
+            trade_date_str,
             yesterday_str,
         )
         return
 
-    # 2. 获取 Token
-    token = get_tenant_token()
-    if not token:
-        logger.error("[主流程] Token 获取失败，终止")
+    # 2. 上传 PDF 并发送文本 + 文件到飞书群
+    client = FeishuClient()
+    try:
+        token = client.tenant_access_token()
+        file_key = client.upload_file(token, pdf_path)
+
+        summary = build_summary(trade_date_str)
+        client.send_text(token, GROUP_ID, summary)
+        client.send_file(token, GROUP_ID, file_key)
+    except FeishuApiError as e:
+        logger.error("[主流程] 飞书推送失败: %s", e)
         sys.exit(1)
 
-    # 3. 上传 PDF 到飞书 IM
-    file_key = upload_pdf_to_im(token, pdf_path)
-    if not file_key:
-        logger.error("[主流程] 文件上传失败，终止")
-        sys.exit(1)
-
-    # 4. 发送报告摘要文本
-    summary = build_summary(pdf_name)
-    send_text(token, GROUP_ID, summary)
-
-    # 5. 发送 PDF 文件
-    send_file(token, GROUP_ID, file_key)
-
-    logger.info("[主流程] 推送完成: %s", pdf_name)
+    logger.info("[主流程] 推送完成: %s", trade_date_str)
 
 
 if __name__ == "__main__":

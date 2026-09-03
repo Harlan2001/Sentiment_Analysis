@@ -15,7 +15,19 @@ from backend.repositories.workbench_repository import (
 WatchlistObjectType = Literal["news", "factor", "macro_signal"]
 
 
+def _row_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    """将 ``metadata_json`` 列重命名为 ``metadata`` 并保证为结构。
+
+    ``serialize_row`` 已把 JSON 字符串解析为结构，此处仅做键名迁移；
+    对残留字符串（极少见的非法 JSON）再兜底解析一次。
+    """
+    metadata = row.pop("metadata_json", None) or {}
+    return json.loads(metadata) if isinstance(metadata, str) else metadata
+
+
 class WatchlistRepository(WorkbenchRepository):
+    """个人关注列表（新闻/因子/宏观信号）的增删查。"""
+
     def list_items(self, username: str) -> list[dict[str, Any]]:
         with self._connection() as conn:
             with conn.cursor() as cursor:
@@ -27,7 +39,7 @@ class WatchlistRepository(WorkbenchRepository):
                 )
                 rows = cursor.fetchall()
         for row in rows:
-            row["metadata"] = json.loads(row.pop("metadata_json") or "{}")
+            row["metadata"] = _row_metadata(row)
         return [_serialize_row(row) or {} for row in rows]
 
     def add_item(
@@ -60,7 +72,7 @@ class WatchlistRepository(WorkbenchRepository):
                 )
                 row = cursor.fetchone()
             conn.commit()
-        row["metadata"] = json.loads(row.pop("metadata_json") or "{}")
+        row["metadata"] = _row_metadata(row)
         return _serialize_row(row) or {}
 
     def remove_item(self, username: str, item_id: str) -> dict[str, bool]:

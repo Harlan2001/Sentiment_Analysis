@@ -1,12 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react'
 import { Modal } from '@/components/UI'
-import { API_PREFIX } from '@/api/client'
-import { storage } from '@/utils/helpers'
-
-function authHeaders(): Record<string, string> {
-  const token = storage.get<string>('auth_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+import { API_PREFIX, request } from '@/api/client'
 
 function formatSize(kb: number): string {
   if (kb < 1024) return `${kb} KB`
@@ -90,18 +84,10 @@ export default function ResearchUploadModal({ isOpen, onClose, onSubmitted, vari
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const resp = await fetch(`${API_PREFIX}/research/upload`, {
+      const data: UploadResult = await request<UploadResult>(`${API_PREFIX}/research/upload`, {
         method: 'POST',
-        headers: authHeaders(),
         body: formData,
       })
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: '上传失败' }))
-        throw new Error(err.detail || `服务器错误 (${resp.status})`)
-      }
-
-      const data: UploadResult = await resp.json()
       setUploadResult(data)
       setStep('parsed')
     } catch (e: any) {
@@ -117,15 +103,10 @@ export default function ResearchUploadModal({ isOpen, onClose, onSubmitted, vari
     setErrorMsg('')
 
     try {
-      const resp = await fetch(`${API_PREFIX}/research/${uploadResult.report_id}/analyze`, {
+      await request<Record<string, unknown>>(`${API_PREFIX}/research/${uploadResult.report_id}/analyze`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
       })
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: '分析触发失败' }))
-        throw new Error(err.detail || `服务器错误 (${resp.status})`)
-      }
 
       setStep('submitted')
     } catch (e: any) {

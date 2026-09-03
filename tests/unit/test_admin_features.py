@@ -1,6 +1,8 @@
 """管理员功能测试 — 只测 JWT 权限标识和路由权限校验，不操作真实数据库。"""
 
 
+from unittest.mock import patch
+
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -8,27 +10,24 @@ from fastapi.testclient import TestClient
 
 from backend.config.config import API_PREFIX
 
+# 与 admin_app 中间件校验共用，保证签发的 token 能被本地中间件验证
+TEST_ADMIN_SECRET = "test-admin-secret-key-0123456789abcdef"
+
+
 # ── 测试 fixture ──
 
 @pytest.fixture
-def admin_app(monkeypatch) -> FastAPI:
-    """构建一个带认证中间件的迷你 FastAPI 应用，用于测试权限路由。"""
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-secret-key")
-    monkeypatch.setenv("LLM_API_KEY", "test-key")
-    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:8080/v1")
-    # 重新加载模块以获取新的环境变量
-    import importlib
+def admin_app():
+    """构建一个带认证中间件的迷你 FastAPI 应用，用于测试权限路由。
 
-    import backend.auth.auth as auth_mod
-    import backend.auth.dependencies as deps
-    import backend.config.config as cfg
-    importlib.reload(cfg)
-    importlib.reload(auth_mod)
-    importlib.reload(deps)
+    直接 patch 模块级 AUTH_ENABLED / JWT_SECRET_KEY，而非 setenv + importlib.reload：
+    config.py 在加载时以 override=True 重读 .env（load_dotenv），
+    测试期内设置的 AUTH_ENABLED 会被 .env 覆盖，靠 reload 翻转 AUTH_ENABLED 不可靠。
+    """
+    from backend.auth.dependencies import auth_middleware
 
     app = FastAPI()
-    app.middleware("http")(deps.auth_middleware)
+    app.middleware("http")(auth_middleware)
 
     @app.get(f"{API_PREFIX}/workbench/users")
     def list_users(request: Request):
@@ -40,29 +39,27 @@ def admin_app(monkeypatch) -> FastAPI:
     def market_data(request: Request):
         return {"data": "public"}
 
-    return app
+    with patch("backend.auth.dependencies.AUTH_ENABLED", True), \
+         patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+        yield app
 
 
 @pytest.fixture
-def admin_token(monkeypatch) -> str:
+def admin_token() -> str:
     """生成 admin JWT token。"""
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-secret-key")
-    import importlib
+    from backend.auth.auth import create_jwt_token
 
-    import backend.auth.auth as auth_mod
-    importlib.reload(auth_mod)
-    return auth_mod.create_jwt_token("admin", is_admin=True, role="admin")
+    with patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+        return create_jwt_token("admin", is_admin=True, role="admin")
 
 
 @pytest.fixture
-def member_token(monkeypatch) -> str:
-    """生成普通成员 JWT token。"""
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-secret-key")
-    import importlib
+def member_token() -> str:
+    """生成普通成员 JWT token（role 走规范角色 "member"→"user" 归一化）。"""
+    from backend.auth.auth import create_jwt_token
 
-    import backend.auth.auth as auth_mod
-    importlib.reload(auth_mod)
-    return auth_mod.create_jwt_token("user1", is_admin=False, role="member")
+    with patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+        return create_jwt_token("user1", is_admin=False, role="member")
 
 
 # ── JWT 权限标识 ──
