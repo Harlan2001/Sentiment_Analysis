@@ -154,7 +154,7 @@ export function WorkbenchShell() {
     <div className="workbench-shell">
       <aside className="sidebar">
         <div className="sidebar-top">
-          <NavLink className="brand" to="/market"><span className="brand-mark">B</span><span className="brand-text"><strong>债券信号</strong><small>返回首页</small></span></NavLink>
+          <NavLink className="brand" to="/market" onClick={() => setMonitorPanelOpen(false)}><span className="brand-mark">B</span><span className="brand-text"><strong>债券信号</strong><small>返回首页</small></span></NavLink>
           <nav className="primary-nav" aria-label="主要功能">
             <NavLink className="new-chat" to="/chat"><span>＋</span><span>新建对话</span></NavLink>
             {PRODUCT_LINKS.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}><span>{item.icon}</span>{item.label}</NavLink>)}
@@ -192,7 +192,7 @@ export function WorkbenchShell() {
               <button className="account-menu-item" onClick={() => { setAccountInfoPanelOpen(true); setAccountOpen(false) }}><span>◉</span>账户信息<i className="account-menu-caret-right" /></button>
               <button className="account-menu-item" onClick={() => { setDeletedPanelOpen(true); setAccountOpen(false) }}><span>🗑</span>最近删除<i className="account-menu-caret-right" /></button>
               <button className="account-menu-item" onClick={() => { setMonitorPanelOpen(true); setAccountOpen(false) }}><span>▦</span>{isAdmin ? '监控看板' : '我的使用'}<i className="account-menu-caret-right" /></button>
-              {isAdmin && <button className="account-menu-item" onClick={() => { setUserManagementOpen(true); setAccountOpen(false) }}>用户管理</button>}
+              {isAdmin && <button className="account-menu-item" onClick={() => { setUserManagementOpen(true); setAccountOpen(false) }}><span className="account-menu-user-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M7.5 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 16.5v-1.2c0-2.1 2.2-3.8 5-3.8s5 1.7 5 3.8v1.2M12.5 4.2a2.6 2.6 0 0 1 0 5.1M13.8 11.8c2.1.5 3.7 1.8 3.7 3.5v1.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" /></svg></span>用户管理<i className="account-menu-caret-right" /></button>}
               <button className="account-menu-item logout" onClick={handleLogout}><span>↪</span>退出</button>
             </div>}
             <button className={'account-button' + (accountOpen ? ' active' : '')} onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}><span className="avatar">你</span><span className="account-copy"><strong>{displayName || username || 'admin'}</strong><small>账户与设置</small></span><span className="account-arrow" aria-hidden="true" /></button>
