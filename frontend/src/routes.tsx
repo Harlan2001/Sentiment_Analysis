@@ -30,7 +30,6 @@ import {
 import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
 import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
 import FactorDetailPage from '@/features/market/pages/FactorDetailPage'
-import StrategyDetailPage from '@/features/market/pages/StrategyDetailPage'
 import { LoginRequiredPage } from '@/features/auth/LoginRequiredPage'
 
 /**
@@ -65,7 +64,6 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/news/:newsId': <NewsDetailPage />,
   '/yield/:period': <YieldDetailPage />,
   '/factor/:factorId': <FactorDetailPage />,
-  '/strategy': <StrategyDetailPage />,
   '/settings': (
     <PlaceholderPage
       title="设置"

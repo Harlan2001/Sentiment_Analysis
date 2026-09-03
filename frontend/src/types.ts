@@ -1310,13 +1310,6 @@ export interface AIMarketSummaryData {
   drivers: string[];
 }
 
-export interface StrategySignalData {
-  recommendation: string;
-  confidence: number;
-  reasons: string[];
-  analysis_date: string;
-}
-
 export interface YieldDetailData {
   period: string;
   label: string;
@@ -1370,20 +1363,10 @@ export interface FactorDetailData {
   related_factors: { id: number; name: string; category: string; shared_count: number }[];
 }
 
-export interface StrategyLatestData {
-  recommendations: StrategySignalData[];
-  market_overview: string;
-  sentiment_summary: string;
-  risk_alert: string;
-  not_recommended: string[];
-  analysis_date: string;
-}
-
 export interface MarketPanelResponse {
   yields: MarketPanelYields;
   factors: FactorActivity[];
   ai_summary: AIMarketSummaryData | null;
-  strategy_signals: StrategySignalData[];
 }
 
 // ── 收益日历 ──

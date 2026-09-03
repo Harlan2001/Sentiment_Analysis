@@ -17,7 +17,6 @@ from backend.integrations.feishu.repository import FeishuConnectionRepository
 from backend.repositories.ai_strategy_history_repository import AiStrategyHistoryRepository
 from backend.repositories.project_management_repository import ProjectManagementRepository
 from backend.repositories.report_generation_repository import ReportGenerationRepository
-from backend.routers.ai_strategy import router as ai_strategy_router
 from backend.routers.ai_strategy_generation import (
     router as ai_strategy_generation_router,
 )
@@ -39,8 +38,6 @@ from backend.routers.report_generation import router as report_generation_router
 from backend.routers.research import router as research_router
 from backend.routers.returns import router as returns_router
 from backend.routers.skills import router as skills_router
-from backend.routers.strategy import router as strategy_router
-from backend.routers.strategy import start_strategy_services, stop_strategy_services
 from backend.routers.watchlist import router as watchlist_router
 from backend.routers.workbench_computer import router as workbench_computer_router
 from backend.routers.workbench_conversations import router as workbench_conversations_router
@@ -50,7 +47,6 @@ from backend.routers.workbench_project_management import (
 from backend.routers.workbench_projects import router as workbench_projects_router
 from backend.routers.workbench_sidebar import router as workbench_sidebar_router
 from backend.routers.workbench_users import router as workbench_users_router
-from backend.strategy.scheduler import start_strategy_scheduler, stop_strategy_scheduler
 
 app = FastAPI(title="Bond Yield Backend")
 
@@ -81,9 +77,7 @@ async def log_unhandled_exceptions(request: Request, call_next):
 
 
 app.include_router(auth_router)
-app.include_router(ai_strategy_router)
 app.include_router(ai_strategy_generation_router)
-app.include_router(strategy_router)
 app.include_router(macro_router)
 app.include_router(factors_router)
 app.include_router(news_router)
@@ -148,19 +142,3 @@ def startup_workbench():
         logger.warning(
             "已将 %d 个中断的新闻总结任务标记为 failed", interrupted_summaries
         )
-
-
-@app.on_event("startup")
-async def startup_services():
-    logger.info("正在启动策略推送服务...")
-    await start_strategy_services()
-    logger.info("策略推送服务启动完成")
-    start_strategy_scheduler()
-
-
-@app.on_event("shutdown")
-async def shutdown_services():
-    logger.info("正在停止策略推送服务...")
-    await stop_strategy_services()
-    stop_strategy_scheduler()
-    logger.info("策略推送服务已停止")

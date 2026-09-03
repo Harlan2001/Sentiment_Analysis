@@ -33,7 +33,6 @@ class AnalysisTriggerRequest(BaseModel):
     run_vector_index: bool = True
     vector_batch_size: int = 200
     vector_limit: Optional[int] = None
-    run_strategy_push: bool = True
 
 
 def _run_vector_index_update(
@@ -203,48 +202,6 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                     payload=vector_result,
                 )
 
-            strategy_push_result: Dict[str, Any] = {"skipped": True}
-            if payload.run_strategy_push:
-                add_task_event(
-                    conn,
-                    task_run_id=task_run_id,
-                    event_type="strategy_push_started",
-                    status="running",
-                    message="开始生成并推送交易策略建议",
-                    payload=None,
-                )
-                try:
-                    from backend.routers.strategy import strategy_push_service
-
-                    strategy_snapshot = await strategy_push_service.trigger_now()
-                    strategy_push_result = {
-                        "skipped": False,
-                        "success": True,
-                        "snapshot": strategy_snapshot,
-                    }
-                    add_task_event(
-                        conn,
-                        task_run_id=task_run_id,
-                        event_type="strategy_push_completed",
-                        status="success",
-                        message="交易策略建议生成并推送完成",
-                        payload={"items": len(strategy_snapshot.get("items", []))},
-                    )
-                except Exception as strategy_exc:
-                    strategy_push_result = {
-                        "skipped": False,
-                        "success": False,
-                        "message": str(strategy_exc),
-                    }
-                    add_task_event(
-                        conn,
-                        task_run_id=task_run_id,
-                        event_type="strategy_push_failed",
-                        status="failed",
-                        message="交易策略建议生成或推送失败",
-                        payload={"error": str(strategy_exc)},
-                    )
-
             combined_result = {
                 "analysis": {
                     "model_name": selected_model_name,
@@ -253,15 +210,11 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                     "results": results,
                 },
                 "vector_index": vector_result,
-                "strategy_push": strategy_push_result,
             }
 
-            strategy_push_has_error = payload.run_strategy_push and not combined_result[
-                "strategy_push"
-            ].get("success", False)
             final_status = (
                 "completed"
-                if success_count == len(pending_news) and not strategy_push_has_error
+                if success_count == len(pending_news)
                 else "completed_with_errors"
             )
             finish_task_run(
@@ -280,7 +233,6 @@ async def trigger_hourly_pipeline(payload: AnalysisTriggerRequest):
                 "status": final_status,
                 "analysis": combined_result["analysis"],
                 "vector_index": combined_result["vector_index"],
-                "strategy_push": combined_result["strategy_push"],
             }
         except Exception as exc:
             conn.rollback()

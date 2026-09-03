@@ -1207,18 +1207,6 @@ sequenceDiagram
     
     API-->>SSE: event: done
     SSE-->>Client: 对话完成
-    
-    Note over Client,LLM: 场景二：策略推送
-    
-    Client->>API: GET /sapi/strategy/sse
-    API->>SSE: 建立SSE长连接
-    
-    loop 策略更新
-        Service->>Service: 定时策略生成
-        Service-->>API: 新策略信号
-        API-->>SSE: event: strategy_update
-        SSE-->>Client: 推送策略卡片
-    end
 ```
 
 ## 5.5 部署架构图

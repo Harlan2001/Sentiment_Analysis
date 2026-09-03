@@ -6,16 +6,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional
-from zoneinfo import ZoneInfo
 
 from backend.common.database import get_db_connection
-from backend.config.config import get_default_analysis_model_name
+from backend.config.config import PORTFOLIO_TZ, get_default_analysis_model_name
 
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_LOOKBACK_DAYS = 30
 YIELD_PERIODS = ("1Y", "5Y", "10Y", "30Y")
 SHORT_HORIZON = "短期"
-BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
 @dataclass(frozen=True)
@@ -72,24 +70,49 @@ def _compact_text(value: Any, limit: int = 56) -> str:
     return text if len(text) <= limit else f"{text[:limit]}…"
 
 
-def _factor_names(factors: list[dict[str, Any]]) -> str:
+def format_factor_names(factors: list[dict[str, Any]]) -> str:
+    """将因子列表格式化为顿号分隔的名称串（dream_strategy_prompt 也复用）。"""
     return "、".join(item["name"] for item in factors) if factors else "暂无高置信号"
 
 
-def _build_synthesis(news_counts: dict[str, int], scope: MarketContextScope) -> str:
+def format_yield_curve(yield_curve: list[dict[str, Any]]) -> str:
+    """将收益率曲线格式化为中文摘要串（dream_strategy_prompt 也复用）。"""
+    return "；".join(
+        f"{item['period']} {item['value']:.2f}%（5日{item['change_5d_bp']:+.0f}bp）"
+        for item in yield_curve
+    )
+
+
+def sentiment_dominance(counts: dict[str, int], scope: MarketContextScope) -> str:
+    """判断新闻情绪方向倾向，供 _build_synthesis 与 dream prompt 共用。
+
+    返回 "background_only" | "no_data" | "positive" | "negative" | "balanced"。
+    """
     if not scope.directional_trade_guidance:
+        return "background_only"
+    if counts.get("positive", 0) + counts.get("negative", 0) == 0:
+        return "no_data"
+    if counts.get("positive", 0) > counts.get("negative", 0):
+        return "positive"
+    if counts.get("negative", 0) > counts.get("positive", 0):
+        return "negative"
+    return "balanced"
+
+
+def _build_synthesis(news_counts: dict[str, int], scope: MarketContextScope) -> str:
+    dominance = sentiment_dominance(news_counts, scope)
+    if dominance == "background_only":
         return (
             f"已按{scope.label}过滤新闻。现有分析模型的方向标签以债券语境为主，"
             "只能作为风险背景和信号过滤，不得直接解读为标的多空交易方向。"
         )
-    directional_total = news_counts["positive"] + news_counts["negative"]
-    if directional_total == 0:
+    if dominance == "no_data":
         return (
             "当前范围没有方向明确的新闻；不以新闻形成交易方向，等待价格和技术信号确认。"
         )
-    if news_counts["positive"] > news_counts["negative"]:
+    if dominance == "positive":
         return f"利多{scope.label}信号占优；仅在价格确认后考虑使用与趋势一致的仓位。"
-    if news_counts["negative"] > news_counts["positive"]:
+    if dominance == "negative":
         return f"利空{scope.label}信号占优；仅在价格确认后收缩仓位或提高开仓阈值。"
     return "正负向信号均衡；保持中性仓位，不用新闻单独触发交易。"
 
@@ -128,10 +151,7 @@ def _build_prompt(
         or "- 当前统计窗口及30日补充范围内暂无与标的匹配的新闻。"
     )
     yield_text = (
-        "；".join(
-            f"{item['period']} {item['value']:.2f}%（5日{item['change_5d_bp']:+.0f}bp）"
-            for item in yield_curve
-        )
+        format_yield_curve(yield_curve)
         if scope.include_yield_curve
         else "本标的不使用债券收益率曲线；价格和技术数据由策略运行时读取。"
     )
@@ -143,8 +163,8 @@ def _build_prompt(
         f"【二、新闻提取结果】方向明确{news_counts['positive'] + news_counts['negative']}条；"
         f"正向{news_counts['positive']}、负向{news_counts['negative']}；短期{horizon_counts.get(SHORT_HORIZON, 0)}条。\n"
         f"代表性新闻引用（优先当前统计窗口，不足时补充30日标题匹配背景）：\n{event_text}\n"
-        f"【三、因子整合】正向因子：{_factor_names(positive_factors)}。"
-        f"负向因子：{_factor_names(negative_factors)}。\n"
+        f"【三、因子整合】正向因子：{format_factor_names(positive_factors)}。"
+        f"负向因子：{format_factor_names(negative_factors)}。\n"
         f"【四、市场验证】{yield_text}。\n"
         f"【五、给策略 AI 的使用方式】{_build_synthesis(news_counts, scope)}"
         "新闻不代替价格、流动性和回测验证，不得单独作为交易触发。"
@@ -334,7 +354,7 @@ def build_sentiment_strategy_context(
         scope,
     )
     return {
-        "generated_at": datetime.now(BEIJING_TZ).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(PORTFOLIO_TZ).isoformat(timespec="seconds"),
         "reference_time": reference_time,
         "window_start": window_start,
         "lookback_days": lookback_days,
@@ -344,21 +364,12 @@ def build_sentiment_strategy_context(
             "keywords": list(scope.news_keywords),
             "directional_trade_guidance": scope.directional_trade_guidance,
         },
-        "source_summary": {
-            "news": ["id", "title", "pub_time"],
-            "analysis": ["direction", "horizon", "reason"],
-            "factors": ["code", "name", "category", "net_direction"],
-            "yield_curve": ["period", "date", "value"],
-        },
         "events": events,
         "prompt": prompt,
-        "quant_message": {"role": "user", "content": prompt},
         "news_sentiment": {"counts": news_counts, "horizons": horizon_counts},
         "factors": {
             "positive": positive_factors,
             "negative": negative_factors,
-            "bond_bullish": positive_factors,
-            "bond_bearish": negative_factors,
         },
         "yield_curve": yield_curve,
     }

@@ -34,25 +34,7 @@
 | `/api/macro/signal` | GET | 计算宏观信号。两种类型：**存在性信号**（某因子是否被提及）和**方向性信号**（因子方向强度+时间衰减） |
 | `/api/macro/signal/logs` | GET | 查看宏观信号的请求历史记录（支持多条件筛选） |
 
-## 五、策略推送
-
-| 接口 | 方式 | 功能说明 |
-|------|------|----------|
-| `/api/strategy/snapshot` | GET | 查看当前策略快照（基于最新 AI 分析生成的交易策略建议） |
-| `/api/strategy/trigger` | POST | 手动触发一次策略快照生成 |
-| `/api/strategy/sse` | GET | 实时接收策略更新推送（服务端事件流，前端自动更新） |
-| `/api/strategy/portfolio-analysis` | POST | 组合策略分析，生成完整的投资组合配置建议 |
-
-## 六、AI 策略推荐
-
-| 接口 | 方式 | 功能说明 |
-|------|------|----------|
-| `/api/ai-strategy-recommendation/analyze` | POST | 触发 AI 策略推荐分析（可指定分析日期、是否强制刷新） |
-| `/api/ai-strategy-recommendation/latest` | GET | 查看最新的 AI 策略推荐结果 |
-| `/api/ai-strategy-recommendation/history` | GET | 查看历史 AI 推荐记录 |
-| `/api/ai-strategy-recommendation/strategies` | GET | 获取系统支持的全部策略列表 |
-
-## 七、标的 & 策略变动对比
+## 五、标的 & 策略变动对比
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
@@ -60,39 +42,39 @@
 | `/api/change/snapshots` | GET | 查看近期快照列表（用于时间轴展示） |
 | `/api/change/compare` | POST | 对比任意两版快照，展示标的和策略的变动情况 |
 
-## 八、AI 对话
+## 六、AI 对话
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
 | `/api/chat` | POST | 债市分析 AI 助手对话，解答债券市场、货币政策、宏观经济相关问题 |
 
-## 九、报告导出
+## 七、报告导出
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
 | `/api/report/generate-prediction` | POST | 将预测报告生成为 PDF 文件 |
 | `/api/report/files/{文件名}` | GET | 下载已生成的 PDF 报告文件 |
 
-## 十、内部流水线
+## 八、内部流水线
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
 | `/api/internal/pipeline/trigger` | POST | 一键触发完整分析流水线（AI 分析 → 向量索引 → 策略推送），通常由定时任务调用 |
 
-## 十一、图谱增强
+## 九、图谱增强
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
 | `/api/graph-augment/job-by-news/{新闻ID}` | GET | 查看某条新闻的图谱增强分析结果（提取实体、关系等） |
 | `/api/graph-augment/save` | POST | 保存图谱增强分析结果 |
 
-## 十二、收益率数据
+## 十、收益率数据
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|
 | `/api/yields` | GET | 查询指定时间段的国债收益率序列数据 |
 
-## 十三、用户认证
+## 十一、用户认证
 
 | 接口 | 方式 | 功能说明 |
 |------|------|----------|

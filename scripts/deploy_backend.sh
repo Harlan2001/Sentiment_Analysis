@@ -98,6 +98,9 @@ deploy_to() {
 
     "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
+# 先删旧代码/配置文件再解压 —— 被删除的源文件才会同步移除
+# 刻意保留 data/ logs/ models/（挂载卷，不在此包内）
+rm -rf main.py backend docker-compose.yml .env scripts
 tar -xzf sentiment-deploy-${TARGET}.tar.gz
 rm sentiment-deploy-${TARGET}.tar.gz
 REMOTE_EOF

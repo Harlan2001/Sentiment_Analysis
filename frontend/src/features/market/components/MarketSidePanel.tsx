@@ -7,17 +7,15 @@ import { fetchMarketPanel } from '@/api/market'
 import YieldCardGrid from './YieldCardGrid'
 import FactorActivityBar from './FactorActivityBar'
 import AIMarketSummary from './AIMarketSummary'
-import StrategySignal from './StrategySignal'
 import { Skeleton } from '@/components/UI'
 
 interface Props {
   onYieldClick: (period: string) => void
   onFactorClick: (factorId: number) => void
   onSummaryClick: () => void
-  onStrategyClick: () => void
 }
 
-const MarketSidePanel: React.FC<Props> = ({ onYieldClick, onFactorClick, onSummaryClick, onStrategyClick }) => {
+const MarketSidePanel: React.FC<Props> = ({ onYieldClick, onFactorClick, onSummaryClick }) => {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['discover', 'market-panel'],
     queryFn: fetchMarketPanel,
@@ -53,13 +51,6 @@ const MarketSidePanel: React.FC<Props> = ({ onYieldClick, onFactorClick, onSumma
       ) : (
         <div className="rounded-xl bg-[#111111] border border-[#2a2a2a] p-3 text-center text-[11px] text-[#6b7280]">
           AI 市场摘要暂无数据
-        </div>
-      )}
-      {data.strategy_signals && data.strategy_signals.length > 0 ? (
-        <StrategySignal signals={data.strategy_signals} onClick={onStrategyClick} />
-      ) : (
-        <div className="rounded-xl bg-[#111111] border border-[#2a2a2a] p-3 text-center text-[11px] text-[#6b7280]">
-          策略信号暂无数据
         </div>
       )}
     </div>

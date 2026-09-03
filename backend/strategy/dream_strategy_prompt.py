@@ -6,8 +6,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from backend.strategy.sentiment_context import (
+    SHORT_HORIZON,
     MarketContextScope,
     build_sentiment_strategy_context,
+    format_factor_names,
+    format_yield_curve,
+    sentiment_dominance,
 )
 
 TEMPLATE_PATH = (
@@ -59,7 +63,6 @@ BOND_SCOPE = MarketContextScope(
 )
 DEFAULT_SCOPE = BOND_SCOPE
 
-_GOLD_KEYWORDS = ("黄金", "金价", "贵金属", "现货金")
 # Words that mark a gold mention as excluded ("除...黄金外") rather than requested.
 _NEGATION_MARKERS = ("除", "除了", "除外", "排除", "不要", "剔除")
 
@@ -71,10 +74,11 @@ def _resolve_market_scope(requirement: str) -> MarketContextScope:
     user's own requirement text which is passed through verbatim.
     """
 
+    gold_keywords = GOLD_SCOPE.news_keywords
     text = "".join(requirement.split())
-    if not any(keyword in text for keyword in _GOLD_KEYWORDS):
+    if not any(keyword in text for keyword in gold_keywords):
         return BOND_SCOPE
-    first_gold = min(text.index(k) for k in _GOLD_KEYWORDS if k in text)
+    first_gold = min(text.index(k) for k in gold_keywords if k in text)
     if any(marker in text[:first_gold] for marker in _NEGATION_MARKERS):
         return BOND_SCOPE
     return GOLD_SCOPE
@@ -95,32 +99,26 @@ def _format_events(events: list[dict[str, Any]]) -> str:
     )
 
 
-def _format_factors(factors: list[dict[str, Any]]) -> str:
-    return "、".join(item["name"] for item in factors) if factors else "暂无高置信号"
-
-
 def _format_yields(yield_curve: list[dict[str, Any]], scope: MarketContextScope) -> str:
     if not scope.include_yield_curve:
         return "本标的不使用债券收益率曲线；价格和技术数据由策略运行时读取。"
     if not yield_curve:
         return "暂无可用收益率数据"
-    return "；".join(
-        f"{item['period']} {item['value']:.2f}%（5日{item['change_5d_bp']:+.0f}bp）"
-        for item in yield_curve
-    )
+    return format_yield_curve(yield_curve)
 
 
 def _sentiment_guidance(
     counts: dict[str, int], scope: MarketContextScope
 ) -> tuple[str, str]:
-    if not scope.directional_trade_guidance:
+    dominance = sentiment_dominance(counts, scope)
+    if dominance == "background_only":
         return (
             f"已仅按{scope.label}检索新闻；原有方向标签不直接等同于{scope.label}多空。",
             "新闻仅用于风险提示、信号过滤或提高开仓阈值，不单独决定交易方向。",
         )
-    if counts["positive"] > counts["negative"]:
+    if dominance == "positive":
         return f"利多{scope.label}信号占优", "将新闻仅用于方向确认或降低开仓阈值"
-    if counts["negative"] > counts["positive"]:
+    if dominance == "negative":
         return (
             f"利空{scope.label}信号占优",
             "将新闻仅用于空头方向确认、提高开仓阈值或风险降级",
@@ -252,11 +250,11 @@ def build_dream_strategy_prompt(
         "POSITIVE_EVENT_COUNT": str(counts["positive"]),
         "NEGATIVE_EVENT_COUNT": str(counts["negative"]),
         "SHORT_HORIZON_COUNT": str(
-            context["news_sentiment"]["horizons"].get("短期", 0)
+            context["news_sentiment"]["horizons"].get(SHORT_HORIZON, 0)
         ),
         "REPRESENTATIVE_EVENTS": _format_events(context["events"]),
-        "POSITIVE_FACTORS": _format_factors(context["factors"]["positive"]),
-        "NEGATIVE_FACTORS": _format_factors(context["factors"]["negative"]),
+        "POSITIVE_FACTORS": format_factor_names(context["factors"]["positive"]),
+        "NEGATIVE_FACTORS": format_factor_names(context["factors"]["negative"]),
         "YIELD_CURVE_DETAIL": _format_yields(
             context["yield_curve"], scope
         ),
@@ -270,7 +268,6 @@ def build_dream_strategy_prompt(
         {
             "user_requirement": normalized_requirement,
             "prompt": prompt,
-            "quant_message": {"role": "user", "content": prompt},
             "prompt_version": "sentiment-strategy-chat-v2-instrument-scoped",
             "instrument": scope.label,
             "frequency": DEFAULT_FREQUENCY,

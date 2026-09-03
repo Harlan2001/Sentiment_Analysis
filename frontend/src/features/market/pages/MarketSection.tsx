@@ -10,13 +10,11 @@ import MarketSidePanel from '../components/MarketSidePanel'
 import NewsDetailPanel from '../components/NewsDetailPanel'
 import YieldDetailPanel from '../components/YieldDetailPanel'
 import FactorDetailPanel from '../components/FactorDetailPanel'
-import StrategyDetailPanel from '../components/StrategyDetailPanel'
 
 type DetailView =
   | { type: 'news'; newsId: number }
   | { type: 'yield'; period: string }
   | { type: 'factor'; factorId: number }
-  | { type: 'strategy' }
   | null
 
 const MarketSection: React.FC = () => {
@@ -60,7 +58,6 @@ const MarketSection: React.FC = () => {
             onYieldClick={(period) => openDetail({ type: 'yield', period })}
             onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })}
             onSummaryClick={() => navigate('/forecast')}
-            onStrategyClick={() => openDetail({ type: 'strategy' })}
           />
         </div>
       </div>
@@ -70,7 +67,6 @@ const MarketSection: React.FC = () => {
       {detailView?.type === 'news' && <NewsDetailPanel newsId={detailView.newsId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'yield' && <YieldDetailPanel period={detailView.period} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />}
       {detailView?.type === 'factor' && <FactorDetailPanel factorId={detailView.factorId} onClose={handleCloseDetail} onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })} />}
-      {detailView?.type === 'strategy' && <StrategyDetailPanel onClose={handleCloseDetail} />}
     </div>
   )
 }

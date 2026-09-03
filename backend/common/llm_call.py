@@ -196,7 +196,7 @@ async def llm_chat_async(
 async def llm_completion_with_retry(client, **kwargs):
     """带指数退避重试的异步 chat.completions 调用（最多重试 3 次）。
 
-    收敛 analyzer / strategy_recommendation 两处相同的 LLM 重试装饰器。
+    收敛 analyzer 中同名的 LLM 重试装饰器。
     client 为 None（未配置密钥）时直接抛错，不参与重试。
     """
     if client is None:
@@ -207,7 +207,7 @@ async def llm_completion_with_retry(client, **kwargs):
 async def async_chat_completion(client: Optional[AsyncOpenAI] = None, **kwargs):
     """带指数退避重试的异步 chat.completions 调用（不写 usage 日志，由调用方记录）。
 
-    收敛 analyzer / strategy_recommendation 中各自的同名薄包装；
+    收敛 analyzer 中各自的同名薄包装；
     client 缺省时取缓存的异步客户端，供各调用方统一使用。
     """
     return await llm_completion_with_retry(client or get_async_llm_client(), **kwargs)

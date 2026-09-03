@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -290,54 +289,12 @@ def market_panel():
     except Exception as e:
         logger.warning("discover/market-panel ai_summary failed: %s", e)
 
-    # 策略信号（取最新推荐中的前3条）
-    strategy_signals = []
-    try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT outcome, analysis_date FROM ai_strategy_recommendation ORDER BY analysis_date DESC, id DESC LIMIT 1"
-            )
-            srr = cur.fetchone()
-
-        if srr and srr[0]:
-            out = json.loads(srr[0]) if isinstance(srr[0], str) else (srr[0] or {})
-            if isinstance(out, dict):
-                recs = out.get("recommendations") or []
-                for rec in recs[:3]:
-                    if not isinstance(rec, dict):
-                        continue
-                    strategy_name = (
-                        (rec.get("strategy") or {}).get("name", "")
-                        or rec.get("target", {}).get("name", "")
-                    )
-                    if not strategy_name:
-                        strategy_name = str(rec.get("reason", ""))[:40]
-
-                    reason = rec.get("reason", "")
-                    risk = rec.get("risk_level", "")
-                    drivers = [reason] if reason else []
-                    if risk:
-                        drivers.insert(0, f"风险等级：{risk}")
-
-                    priority = rec.get("priority", 1)
-                    confidence = max(0.3, round(1.0 - (priority - 1) * 0.2, 2))
-
-                    if strategy_name:
-                        strategy_signals.append({
-                            "recommendation": strategy_name,
-                            "confidence": confidence,
-                            "reasons": drivers[:2],
-                            "analysis_date": str(srr[1]) if srr[1] else "",
-                        })
-    except Exception as e:
-        logger.warning("discover/market-panel strategy_signal failed: %s", e)
+    # 策略信号（已下线：AI 策略推荐业务整体移除，market-panel 不再返回 strategy_signals）
 
     return ok({
         "yields": {"items": yields, "spread_10y2y": spread, "update_date": datetime.now().strftime("%Y-%m-%d")},
         "factors": factors,
         "ai_summary": ai_summary,
-        "strategy_signals": strategy_signals,
     })
 
 

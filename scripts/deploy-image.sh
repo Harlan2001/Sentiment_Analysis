@@ -116,6 +116,9 @@ REMOTE_EOF
 
     "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
+# 先删旧配置/脚本再解压 —— 被删除的配置/脚本才会同步移除
+# data/ logs/ models/（挂载卷）不在此包内，保留不动
+rm -rf docker-compose.yml .env scripts
 tar -xzf sentiment-config-${TARGET}.tar.gz
 rm sentiment-config-${TARGET}.tar.gz
 REMOTE_EOF

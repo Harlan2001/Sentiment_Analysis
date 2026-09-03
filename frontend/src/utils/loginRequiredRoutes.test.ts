@@ -41,7 +41,6 @@ const PUBLIC_ROUTES = [
   '/news/123',
   '/yield/10Y',
   '/factor/42',
-  '/strategy',
 ]
 
 describe('LOGIN_REQUIRED_ROUTES', () => {

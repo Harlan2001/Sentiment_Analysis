@@ -270,7 +270,7 @@ def query_news_ids_analyzed(window_start: datetime, window_end: datetime) -> set
 
 
 # ============================================================
-# 新闻查询（复用 ai_strategy_recommendation 的查询模式）
+# 新闻查询（已分析的按模型优先级去重，未分析的直接保留）
 # ============================================================
 
 

@@ -73,14 +73,6 @@ NAME_OVERRIDES: Dict[str, str] = {
     "GET /sapi/forecast/history": "history",
     "GET /sapi/macro/signal": "signal",
     "GET /sapi/macro/signal/logs": "signal-logs",
-    "GET /sapi/strategy/snapshot": "snapshot",
-    "POST /sapi/strategy/trigger": "trigger",
-    "GET /sapi/strategy/sse": "sse",
-    "POST /sapi/strategy/portfolio-analysis": "portfolio",
-    "POST /sapi/ai-strategy-recommendation/analyze": "analyze",
-    "GET /sapi/ai-strategy-recommendation/latest": "latest",
-    "GET /sapi/ai-strategy-recommendation/history": "history",
-    "GET /sapi/ai-strategy-recommendation/strategies": "strategies",
     "POST /sapi/change/trigger": "trigger",
     "GET /sapi/change/snapshots": "snapshots",
     "POST /sapi/change/compare": "compare",
@@ -94,12 +86,11 @@ NAME_OVERRIDES: Dict[str, str] = {
 
 # 友好分组名（tag → 命令组）
 GROUP_ALIASES: Dict[str, str] = {
-    "ai-strategy": "recommend",
     "graph-augment": "graph",
 }
 
-# SSE / chunked 流式操作
-STREAMING_OPS = {"GET /sapi/strategy/sse"}
+# SSE / chunked 流式操作（无：策略 /sse 已随策略业务下线）
+STREAMING_OPS: set[str] = set()
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────

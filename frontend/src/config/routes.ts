@@ -79,7 +79,6 @@ export const ROUTES: RouteMeta[] = [
   { path: '/news/:newsId', title: '新闻详情', shellTitle: '新闻详情' },
   { path: '/yield/:period', title: '收益率详情', shellTitle: '收益率详情' },
   { path: '/factor/:factorId', title: '因子详情', shellTitle: '因子详情' },
-  { path: '/strategy', title: '策略推荐', shellTitle: '策略推荐' },
 ]
 
 // ========== 路径匹配 ==========

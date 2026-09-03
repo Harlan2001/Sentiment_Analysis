@@ -55,20 +55,6 @@ LOG_LEVEL = _get_env_str("LOG_LEVEL") or "INFO"
 LOG_DIR = _get_env_str("LOG_DIR") or str(BASE_DIR / "logs")
 LOG_MAX_DAYS = _get_env_int("LOG_MAX_DAYS", 30)
 
-# ====================== 本地快照配置 ======================
-# 【临时兼容】SaaS 无法访问内网 API 时，使用本地快照文件替代实时 API 调用
-# 使用前需在内网环境运行 scripts/generate_snapshot.py 生成快照文件
-# 本地快照目录：默认 data/snapshots；可用 SNAPSHOT_DIR 环境变量覆盖
-# （相对路径基于项目根目录解析，绝对路径直接使用）
-_snapshot_dir_env = _get_env_str("SNAPSHOT_DIR")
-if _snapshot_dir_env:
-    SNAPSHOT_DIR = Path(_snapshot_dir_env)
-    if not SNAPSHOT_DIR.is_absolute():
-        SNAPSHOT_DIR = BASE_DIR / SNAPSHOT_DIR
-else:
-    SNAPSHOT_DIR = DATA_DIR / "snapshots"
-USE_LOCAL_SNAPSHOT = _is_truthy(_get_env_str("USE_LOCAL_SNAPSHOT") or "false")
-
 
 # ====================== 代理配置 ======================
 def is_outbound_proxy_enabled() -> bool:
@@ -226,15 +212,10 @@ def mask_news_source(source_key: str) -> str:
     return NEWS_SOURCE_LABELS.get(source_key, "数据源")
 
 
-# ====================== 投资组合策略配置 ======================
+# ====================== 组合策略配置 ======================
 
 # 组合策略时区：统一使用北京时间进行日期计算和时间戳生成
 PORTFOLIO_TZ = ZoneInfo("Asia/Shanghai")
-
-# 每日定时自动生成 AI 策略推荐（STRATEGY_AUTO_ENABLED=true 时生效）
-STRATEGY_AUTO_ENABLED = _is_truthy(_get_env_str("STRATEGY_AUTO_ENABLED") or "true")
-# 触发时间（cron 格式，仅取小时字段，如 "0 9 * * *" = 每天 9:00）
-STRATEGY_AUTO_CRON = _get_env_str("STRATEGY_AUTO_CRON") or "0 9 * * *"
 
 # ====================== API 路由前缀 ======================
 # 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
