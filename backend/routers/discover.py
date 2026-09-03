@@ -9,17 +9,21 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from backend.common.database import get_db_connection
-from backend.common.db_operations import DBOperations
+from backend.common.api_response import ok
+from backend.common.database import build_in_placeholders, get_db_connection
+from backend.common.db_analysis import AnalysisQueries
+from backend.common.pagination import paginated_payload
 from backend.config.config import API_PREFIX, NEWS_SOURCE_LABELS
+from backend.repositories.forecast_report_repository import ForecastReportRepository
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=API_PREFIX, tags=["discover"])
 
-# 模型优先级 CASE 片段（glm > kimi > deepseek > qwen > default，历史 doubao 走 ELSE）
-MODEL_PRIORITY_CASE = DBOperations.priority_case_sql()
+
+def _forecast_repository() -> ForecastReportRepository:
+    return ForecastReportRepository.from_environment()
 
 
 def _map_direction(d, default=None):
@@ -32,13 +36,8 @@ def _map_direction(d, default=None):
     if dv in ("bearish", "negative", "down", "跌", "利空"):
         return "negative"
     return default
-# 按新闻选最高优先级模型的 analysis 的关联子句
-_BEST_ANALYSIS_JOIN = (
-    "LEFT JOIN analysis a ON n.id = a.news_id"
-    " AND a.model = (SELECT a2.model FROM analysis a2"
-    " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
-    f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
-)
+# 按新闻选最高优先级模型的 analysis 的关联子句（discover / returns 共用同一来源）
+_BEST_ANALYSIS_JOIN = AnalysisQueries.best_analysis_join()
 
 
 # ── 1. 发现页新闻列表 ──────────────────────────────────────────────────
@@ -56,12 +55,7 @@ def discover_news(
     dir_join = ""
     if direction:
         # 按最佳模型（glm 优先，历史 doubao 兜底）取每条新闻的方向做过滤
-        dir_join = (
-            "LEFT JOIN analysis a ON n.id = a.news_id"
-            " AND a.model = (SELECT a2.model FROM analysis a2"
-            " WHERE a2.news_id = n.id ORDER BY CASE a2.model"
-            f" {MODEL_PRIORITY_CASE} ELSE 999 END LIMIT 1)"
-        )
+        dir_join = AnalysisQueries.best_analysis_join()
 
     where_clauses = ["1=1"]
     where_params: List[str] = []
@@ -96,18 +90,12 @@ def discover_news(
 
     # 空页直接返回，避免 IN () 语法错误
     if not news_ids:
-        return {
-            "items": [],
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "has_more": offset + page_size < total,
-        }
+        return ok(paginated_payload([], total, page, page_size))
 
     # 批量取缩略图
     with get_db_connection() as conn:
         cur = conn.cursor()
-        ph = ",".join(["%s"] * len(news_ids))
+        ph = build_in_placeholders(news_ids)
         cur.execute(f"""
             SELECT news_id, image_url FROM news_content_blocks
             WHERE news_id IN ({ph}) AND block_type='image'
@@ -123,7 +111,7 @@ def discover_news(
     # 批量取 analysis
     with get_db_connection() as conn:
         cur = conn.cursor()
-        ph = ",".join(["%s"] * len(news_ids))
+        ph = build_in_placeholders(news_ids)
         cur.execute(f"""
             SELECT news_id, direction, reason
             FROM analysis
@@ -141,7 +129,7 @@ def discover_news(
     # 批量取因子
     with get_db_connection() as conn:
         cur = conn.cursor()
-        ph = ",".join(["%s"] * len(news_ids))
+        ph = build_in_placeholders(news_ids)
         cur.execute(f"""
             SELECT nf.news_id, f.id, f.name
             FROM news_factor nf JOIN factor f ON nf.factor_id = f.id
@@ -172,13 +160,7 @@ def discover_news(
             "factors": factors_map.get(nid, []),
         })
 
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "has_more": offset + page_size < total,
-    }
+    return ok(paginated_payload(items, total, page, page_size))
 
 
 # ── 2. 市场数据面板 ────────────────────────────────────────────────────
@@ -250,17 +232,14 @@ def market_panel():
     # AI 摘要：取 trade_date 最大 + id 最大的行
     ai_summary = None
     try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT trade_date, prediction FROM forecast_report ORDER BY trade_date DESC, id DESC LIMIT 1"
-            )
-            frr = cur.fetchone()
-            logger.info("discover/market-panel ai_summary: trade_date=%s", frr[0] if frr else "None")
+        latest_prediction = _forecast_repository().get_latest_prediction()
+        logger.info(
+            "discover/market-panel ai_summary: trade_date=%s",
+            latest_prediction[0] if latest_prediction else "None",
+        )
 
-        if frr and frr[1]:
-            raw = frr[1]
-            pred = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        if latest_prediction and latest_prediction[1]:
+            pred = latest_prediction[1]
             if isinstance(pred, dict):
                 text = str(pred.get("市场概览") or pred.get("报告摘要") or "")
                 drivers: List[str] = []
@@ -303,7 +282,7 @@ def market_panel():
                         cleaned_text = str(pred.get("报告摘要") or "")
                     if cleaned_text:
                         ai_summary = {
-                            "date": str(frr[0]) if frr[0] else "",
+                            "date": str(latest_prediction[0]) if latest_prediction[0] else "",
                             "text": cleaned_text[:600],
                             "direction": direction,
                             "drivers": drivers[:3],
@@ -354,12 +333,12 @@ def market_panel():
     except Exception as e:
         logger.warning("discover/market-panel strategy_signal failed: %s", e)
 
-    return {
+    return ok({
         "yields": {"items": yields, "spread_10y2y": spread, "update_date": datetime.now().strftime("%Y-%m-%d")},
         "factors": factors,
         "ai_summary": ai_summary,
         "strategy_signals": strategy_signals,
-    }
+    })
 
 
 # ── 3. 收益率详情 ────────────────────────────────────────────────────
@@ -380,7 +359,7 @@ def yield_detail(period: str = Query("10Y")):
         )
         pts = cur.fetchall()
         if not pts:
-            return {"error": "No data"}
+            raise HTTPException(status_code=404, detail="No data")
 
         latest = float(pts[0][1])
         prev = float(pts[1][1]) if len(pts) > 1 else latest
@@ -463,7 +442,7 @@ def yield_detail(period: str = Query("10Y")):
                 filtered.append({"id": r[0], "title": r[1] or "", "direction": md})
             tc["news"] = filtered
 
-    return {
+    return ok({
         "period": period,
         "label": p_label,
         "value": latest,
@@ -473,7 +452,7 @@ def yield_detail(period: str = Query("10Y")):
         "key_metrics": key_metrics,
         "significant_dates": top_changes,
         "update_date": datetime.now().strftime("%Y-%m-%d"),
-    }
+    })
 
 
 # ── 4. 因子详情 ────────────────────────────────────────────────────
@@ -488,7 +467,7 @@ def factor_detail(factor_id: int = Query(...)):
         )
         fr = cur.fetchone()
         if not fr:
-            return {"error": "Factor not found"}
+            raise HTTPException(status_code=404, detail="Factor not found")
 
         fid, fcode, fname, fcat, factor_type = fr
 
@@ -502,7 +481,7 @@ def factor_detail(factor_id: int = Query(...)):
         )
         latest_news_date = cur.fetchone()[0]
         if latest_news_date is None:
-            return {
+            return ok({
                 "id": fid,
                 "code": fcode or "",
                 "name": fname or "",
@@ -523,7 +502,7 @@ def factor_detail(factor_id: int = Query(...)):
                 "daily_counts": [],
                 "related_news": [],
                 "related_factors": [],
-            }
+            })
 
         # 7 天逐日新闻计数
         anchor_date = latest_news_date.date() if isinstance(latest_news_date, datetime) else latest_news_date
@@ -695,7 +674,7 @@ def factor_detail(factor_id: int = Query(...)):
             f" {anchor_date.strftime('%m月%d日')}。"
         )
 
-    return {
+    return ok({
         "id": fid,
         "code": fcode or "",
         "name": fname or "",
@@ -720,4 +699,4 @@ def factor_detail(factor_id: int = Query(...)):
         "daily_counts": daily,
         "related_news": related_news,
         "related_factors": related_factors,
-    }
+    })

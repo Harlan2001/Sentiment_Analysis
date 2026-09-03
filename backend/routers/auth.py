@@ -16,7 +16,7 @@ from backend.auth.auth import (
     verify_jwt_token,
 )
 from backend.auth.dependencies import extract_bearer_token
-from backend.common.database import get_connection
+from backend.common.database import get_db_connection
 from backend.config.config import (
     API_PREFIX,
     AUTH_ENABLED,
@@ -75,8 +75,7 @@ def login(request: Request, body: LoginRequest):
     client_ip = _client_ip(request)
     if login_rate_limited(client_ip, body.username):
         raise HTTPException(status_code=429, detail=_RATE_LIMIT_MESSAGE)
-    conn = get_connection()
-    try:
+    with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 """SELECT id, username, password, display_name, is_active,
@@ -100,8 +99,6 @@ def login(request: Request, body: LoginRequest):
             conn.commit()
         record_login_success(client_ip, body.username)
         return _response(row[0], row[1], row[3], row[5], row[6])
-    finally:
-        conn.close()
 
 
 @router.post("/login/phone", response_model=LoginResponse)
@@ -116,8 +113,7 @@ def login_by_phone(request: Request, body: PhoneLoginRequest):
     phone_identity = f"phone:{body.phone}"
     if login_rate_limited(client_ip, phone_identity):
         raise HTTPException(status_code=429, detail=_RATE_LIMIT_MESSAGE)
-    conn = get_connection()
-    try:
+    with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 """SELECT id, username, display_name, is_active,
@@ -134,13 +130,10 @@ def login_by_phone(request: Request, body: PhoneLoginRequest):
             raise HTTPException(status_code=403, detail="账户已被禁用")
         record_login_success(client_ip, phone_identity)
         return _response(row[0], row[1], row[2], row[4], row[5])
-    finally:
-        conn.close()
 
 
 def _current_identity(username: str) -> dict | None:
-    conn = get_connection()
-    try:
+    with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 """SELECT id, username, display_name, is_active,
@@ -161,8 +154,6 @@ def _current_identity(username: str) -> dict | None:
             "is_active": bool(row[3]),
             "role": role,
         }
-    finally:
-        conn.close()
 
 
 @router.get("/status")

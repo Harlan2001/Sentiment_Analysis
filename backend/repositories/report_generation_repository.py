@@ -7,7 +7,12 @@ import uuid
 from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository, RecycleBinMixin, serialize_row
+from backend.repositories.base import (
+    BaseRepository,
+    RecycleBinMixin,
+    RepositoryError,
+    serialize_row,
+)
 
 # 任务统一列（list_tasks / get_task 共用）；get_task 按需追加 result_markdown
 _TASK_COLUMNS = (
@@ -30,12 +35,16 @@ _TASK_COLUMNS = (
 _TASK_SELECT = ", ".join(_TASK_COLUMNS)
 
 
-class ReportGenerationNotFoundError(RuntimeError):
+class ReportGenerationNotFoundError(RepositoryError):
     """任务或研报来源不存在。"""
 
+    status_code = 404
 
-class ReportGenerationConflictError(RuntimeError):
+
+class ReportGenerationConflictError(RepositoryError):
     """当前任务状态不允许执行请求的操作。"""
+
+    status_code = 409
 
 
 class ReportGenerationRepository(BaseRepository, RecycleBinMixin):

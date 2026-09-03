@@ -5,16 +5,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.conversation_repository import ConversationRepository
-from backend.routers.workbench_helpers import raise_repository_error
+from backend.routers.workbench_helpers import (
+    collapse_whitespace_required,
+    raise_repository_error,
+    strip_to_required,
+)
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-projects"])
-
-
-def _clean_required(value: str) -> str:
-    value = " ".join(value.split())
-    if not value:
-        raise ValueError("不能为空")
-    return value
 
 
 class InitialMemoryRequest(BaseModel):
@@ -25,15 +22,12 @@ class InitialMemoryRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("不能为空")
-        return value
+        return strip_to_required(value)
 
 
 class InitialMemberRequest(BaseModel):
@@ -43,7 +37,7 @@ class InitialMemberRequest(BaseModel):
     @field_validator("username")
     @classmethod
     def validate_username(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
 
 class ProjectCreateRequest(BaseModel):
@@ -56,7 +50,7 @@ class ProjectCreateRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
     @field_validator("description")
     @classmethod
@@ -79,7 +73,7 @@ class ProjectUpdateRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
-        return _clean_required(value) if value is not None else None
+        return collapse_whitespace_required(value) if value is not None else None
 
     @field_validator("description")
     @classmethod

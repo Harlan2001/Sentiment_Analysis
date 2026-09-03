@@ -31,6 +31,11 @@ def _ensure_pdf_storage() -> Path:
 def get_pdf_file(filename: str):
     """获取PDF文件，外部可访问链接"""
     storage = _ensure_pdf_storage()
+
+    # 防路径穿越：仅允许纯文件名（拒绝路径分隔符 / 相对路径 / 上层目录）
+    if Path(filename).name != filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="非法的文件名")
+
     file_path = storage / filename
 
     if not file_path.exists():

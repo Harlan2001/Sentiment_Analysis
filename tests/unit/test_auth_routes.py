@@ -25,10 +25,16 @@ def _make_cursor(fetchone_result=None, fetchall_result=None):
 
 
 def _mock_get_connection(cursor):
-    """返回 mock 的 get_connection 函数。"""
+    """返回 mock 的 get_db_connection 函数（上下文管理器风格）。
+
+    auth.py 现用 ``with get_db_connection() as conn:`` 取连接，故 mock 连接需
+    支持 ``__enter__`` 返回自身，游标经 ``with conn.cursor() as cursor`` 暴露。
+    """
     conn = MagicMock()
     conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
     conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    conn.__enter__.return_value = conn
+    conn.__exit__ = MagicMock(return_value=False)
     return MagicMock(return_value=conn)
 
 
@@ -46,7 +52,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=(1, "user1", "pass123", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "user1", "password": "pass123"})
@@ -60,7 +66,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=(1, "user1", "correct", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "user1", "password": "wrong"})
@@ -70,7 +76,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=(1, "disabled", "pass", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "disabled", "password": "pass"})
@@ -80,7 +86,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=None)
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "nobody", "password": "x"})
@@ -90,7 +96,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=(1, "admin", "admin123", "管理员", 1, 1, "admin"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "admin", "password": "admin123"})
@@ -102,7 +108,7 @@ class TestLogin:
         cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "user1", "password": "pass"})
@@ -113,7 +119,7 @@ class TestLogin:
     def test_login_auth_disabled(self, monkeypatch):
         mock_conn = _mock_get_connection(_make_cursor())
         with patch("backend.routers.auth.AUTH_ENABLED", False), \
-             patch("backend.routers.auth.get_connection", mock_conn):
+             patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "admin", "password": "x"})
@@ -137,7 +143,7 @@ class TestPhoneLogin:
         cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login/phone", json={"phone": "13800138000"})
@@ -150,7 +156,7 @@ class TestPhoneLogin:
         cursor = _make_cursor(fetchone_result=None)
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login/phone", json={"phone": "13900000000"})
@@ -160,7 +166,7 @@ class TestPhoneLogin:
         cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login/phone", json={"phone": "13800138001"})
@@ -169,7 +175,7 @@ class TestPhoneLogin:
     def test_login_phone_auth_disabled(self, monkeypatch):
         mock_conn = _mock_get_connection(_make_cursor())
         with patch("backend.routers.auth.AUTH_ENABLED", False), \
-             patch("backend.routers.auth.get_connection", mock_conn):
+             patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login/phone", json={"phone": "13800138000"})
@@ -190,7 +196,7 @@ class TestAuthStatus:
     def test_auth_status_no_auth(self, monkeypatch):
         mock_conn = _mock_get_connection(_make_cursor())
         with patch("backend.routers.auth.AUTH_ENABLED", False), \
-             patch("backend.routers.auth.get_connection", mock_conn):
+             patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(f"{PREFIX}/auth/status")
@@ -206,7 +212,7 @@ class TestAuthStatus:
         cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(
@@ -219,7 +225,7 @@ class TestAuthStatus:
 
     def test_auth_status_unauthenticated(self):
         mock_conn = _mock_get_connection(_make_cursor())
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(f"{PREFIX}/auth/status")
@@ -229,7 +235,7 @@ class TestAuthStatus:
 
     def test_auth_status_invalid_token(self):
         mock_conn = _mock_get_connection(_make_cursor())
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(
@@ -257,7 +263,7 @@ class TestAuthMe:
         cursor = _make_cursor(fetchone_result=(1, "user1", "用户一", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(
@@ -276,7 +282,7 @@ class TestAuthMe:
         cursor = _make_cursor(fetchone_result=(1, "disabled", "已禁用", 0, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get(
@@ -301,7 +307,7 @@ class TestPublicPaths:
         cursor = _make_cursor(fetchone_result=(1, "user1", "pass", "用户", 1, 0, "user"))
         mock_conn = _mock_get_connection(cursor)
 
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.post(f"{PREFIX}/auth/login", json={"username": "user1", "password": "pass"})
@@ -309,7 +315,7 @@ class TestPublicPaths:
 
     def test_health_no_auth_required(self):
         mock_conn = _mock_get_connection(_make_cursor())
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get("/health")
@@ -317,7 +323,7 @@ class TestPublicPaths:
 
     def test_docs_no_auth_required(self):
         mock_conn = _mock_get_connection(_make_cursor())
-        with patch("backend.routers.auth.get_connection", mock_conn):
+        with patch("backend.routers.auth.get_db_connection", mock_conn):
             from backend.app import app
             client = TestClient(app)
             r = client.get("/docs")

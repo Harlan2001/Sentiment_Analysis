@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.watchlist_repository import WatchlistRepository
-from backend.routers.workbench_helpers import raise_repository_error
+from backend.routers.workbench_helpers import collapse_whitespace_required, raise_repository_error
 
 router = APIRouter(prefix=f"{API_PREFIX}/watchlist", tags=["watchlist"])
 
@@ -20,10 +20,7 @@ class WatchlistItemCreateRequest(BaseModel):
     @field_validator("object_id", "title")
     @classmethod
     def clean_required(cls, value: str) -> str:
-        value = " ".join(value.split())
-        if not value:
-            raise ValueError("不能为空")
-        return value
+        return collapse_whitespace_required(value)
 
 
 def _repository() -> WatchlistRepository:

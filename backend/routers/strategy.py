@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from backend.common.api_response import ok
 from backend.common.llm_call import get_llm_client
 from backend.config.config import API_PREFIX
 from backend.strategy.strategy_push import get_strategy_push_service
@@ -19,7 +20,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/strategy", tags=["strategy"])
 
 @router.get("/snapshot")
 async def get_strategy_snapshot():
-    return await strategy_push_service.get_snapshot()
+    return ok(await strategy_push_service.get_snapshot())
 
 
 async def start_strategy_services() -> None:

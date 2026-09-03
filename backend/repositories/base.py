@@ -41,6 +41,16 @@ def json_default(value: Any) -> str:
     return value.isoformat() if isinstance(value, (date, datetime)) else str(value)
 
 
+class RepositoryError(Exception):
+    """仓储层领域异常基类：路由层据此统一映射 HTTP 状态码。
+
+    各域异常不应再各自手写「异常 → 4xx」映射；声明 ``status_code`` 后即可被
+    ``routers.workbench_helpers.raise_repository_error`` 统一处理。
+    """
+
+    status_code: int = 400
+
+
 class BaseRepository:
     """提供面向 repositories/ 的共享连接管理与工厂方法，避免各仓储重复样板。"""
 

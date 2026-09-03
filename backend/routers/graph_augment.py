@@ -4,6 +4,7 @@ import json
 
 from fastapi import APIRouter
 
+from backend.common.api_response import ok
 from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
 
@@ -28,9 +29,9 @@ def get_graph_augment_by_news(news_id: int):
         result = cur.fetchone()
 
     if not result:
-        return {"job": None}
+        return ok({"job": None})
 
-    return {
+    return ok({
         "job": {
             "id": result[0],
             "news_id": result[1],
@@ -42,4 +43,4 @@ def get_graph_augment_by_news(news_id: int):
             "created_at": result[7].isoformat() if result[7] else None,
             "updated_at": result[8].isoformat() if result[8] else None,
         }
-    }
+    })

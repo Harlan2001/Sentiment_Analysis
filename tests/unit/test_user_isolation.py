@@ -49,8 +49,8 @@ MOCK_CONVERSATION_B = {
 def _mock_repo_connection(cursor, monkeypatch):
     """替换仓储连接的获取，返回固定的 mock 连接。
 
-    仓储经 WorkbenchRepository._connection → get_repo_connection 取连接，
-    因此 patch workbench_repository 模块内的名称（而非 pymysql.connect）。
+    仓储经 BaseRepository._connection → base.get_repo_connection 取连接，
+    因此 patch repositories.base 模块内的名称（而非各类线性支测试内部模块）。
     """
     mock_conn = MagicMock()
     mock_conn.cursor.return_value.__enter__.return_value = cursor
@@ -61,7 +61,7 @@ def _mock_repo_connection(cursor, monkeypatch):
         yield mock_conn
 
     monkeypatch.setattr(
-        "backend.repositories.workbench_repository.get_repo_connection", _fake
+        "backend.repositories.base.get_repo_connection", _fake
     )
     return mock_conn
 

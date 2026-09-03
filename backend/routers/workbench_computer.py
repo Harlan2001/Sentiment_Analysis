@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -12,6 +13,8 @@ from backend.repositories.news_summary_repository import DailyNewsSummaryReposit
 from backend.repositories.report_generation_repository import ReportGenerationRepository
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/computer", tags=["workbench-computer"])
+
+logger = logging.getLogger(__name__)
 
 _PER_SOURCE_LIMIT = 20
 
@@ -125,27 +128,31 @@ def list_computer_tasks(request: Request):
     username = _owner(request)
 
     # ── 研报生成 ──
+    report_tasks: list[dict[str, Any]] = []
     try:
         report_repo = ReportGenerationRepository.from_environment()
         report_tasks = report_repo.list_tasks(
             username, status=None, date_start=None, date_end=None, limit=_PER_SOURCE_LIMIT
         )
-    except Exception:
-        report_tasks = []
+    except Exception as exc:
+        # 聚合总览：单个子源失败不影响整页，但必须留痕
+        logger.warning("computer: 研报生成任务拉取失败: %s", exc)
 
     # ── 新闻总结 ──
+    news_tasks: list[dict[str, Any]] = []
     try:
         news_repo = DailyNewsSummaryRepository.from_environment()
         news_tasks = news_repo.list_tasks(username, _PER_SOURCE_LIMIT)
-    except Exception:
-        news_tasks = []
+    except Exception as exc:
+        logger.warning("computer: 新闻总结任务拉取失败: %s", exc)
 
     # ── 策略开发 ──
+    strategy_convs: list[dict[str, Any]] = []
     try:
         strategy_repo = AiStrategyHistoryRepository.from_environment()
         strategy_convs = strategy_repo.list_conversations(username, _PER_SOURCE_LIMIT)
-    except Exception:
-        strategy_convs = []
+    except Exception as exc:
+        logger.warning("computer: 策略会话拉取失败: %s", exc)
 
     items: list[dict[str, Any]] = []
     for task in report_tasks:

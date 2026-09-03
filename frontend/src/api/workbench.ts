@@ -91,26 +91,15 @@ export function removeWatchlistItem(itemId: string) {
   return request<{ deleted: boolean }>(`/sapi/watchlist/${itemId}`, { method: 'DELETE' })
 }
 
-import { storage } from '@/utils/helpers'
+import { authHeaders, request } from './client'
 import { buildDemoConversation, buildDemoDetail, buildDemoDraft, clearDemo, DEMO_CONVERSATION_ID, getDemoConversation, isDemoInstrument, markRunning, resetDemo } from '@/features/computer/strategyDemo'
 
 // 与主前端同域：开发环境经 Vite 代理转发，部署时可由同域反向代理提供此路径。
 const apiBaseUrl = ''
 
-function authorizationHeader(): Record<string, string> {
-  const token = storage.get<string>('auth_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-export async function request<T>(path: string, options: RequestInit = {}) {
-  const response = await fetch(apiBaseUrl + path, {
-    ...options,
-    headers: { ...authorizationHeader(), ...options.headers },
-  })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(payload?.error?.message || payload?.detail || payload?.message || '请求工作台服务失败')
-  return payload.data as T
-}
+// 统一请求封装收敛到 client.ts（解包 {"data": ...} + 非 2xx 抛错）；此处 re-export
+// 以兼容既有 `import { request } from './workbench'` 的调用方。
+export { request }
 
 export function getSidebar() {
   return request<{ projects: Array<Project & { recent_conversations: Conversation[] }>; recent_conversations: Conversation[]; current_user?: { username?: string } }>('/sapi/workbench/sidebar')
@@ -165,7 +154,7 @@ export async function sendMessage(
 ) {
   const response = await fetch(apiBaseUrl + `/sapi/workbench/conversations/${conversationId}/messages`, {
     method: 'POST',
-    headers: { ...authorizationHeader(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify({ content, client_message_id: clientMessageId, skill_ids: skillIds }),
   })
   if (!response.ok || !response.body) {
@@ -423,22 +412,12 @@ export type DailyNewsSummaryTask = {
   updated_at: string
 }
 
-export async function getNewsSources() {
-  const response = await fetch('/sapi/news/sources', {
-    headers: authorizationHeader(),
-  })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(payload?.detail || '读取新闻来源失败')
-  return payload as { sources: NewsSourceOption[] }
+export function getNewsSources() {
+  return request<{ sources: NewsSourceOption[] }>('/sapi/news/sources')
 }
 
 export async function getLatestNewsDate() {
-  const response = await fetch('/sapi/news/latest-trading-day', {
-    headers: authorizationHeader(),
-  })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(payload?.detail || '读取最新新闻日期失败')
-  return payload as { latest_date: string }
+  return request<{ latest_date: string }>('/sapi/news/latest-trading-day')
 }
 
 export function getDailyNewsSummaries(limit = 50) {

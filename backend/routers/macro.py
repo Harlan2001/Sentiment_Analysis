@@ -8,7 +8,9 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.common.api_response import ok
 from backend.common.database import get_db_connection
+from backend.common.pagination import paginated_payload
 from backend.config.config import API_PREFIX
 from backend.macrosignal.macro_signal import (
     DEFAULT_DECAY_LAMBDA,
@@ -288,21 +290,13 @@ def get_macro_signal_logs(
         for row in rows
     ]
 
-    total_pages = max(1, (total + page_size - 1) // page_size)
-    return {
-        "items": items,
-        "pagination": {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "total_pages": total_pages,
-        },
-        "filters": {
-            "request_id": request_id,
-            "factor_code": factor_code,
-            "success": success,
-            "signal_type": signal_type,
-            "start_time": start_time,
-            "end_time": end_time,
-        },
+    payload = paginated_payload(items, total, page, page_size)
+    payload["filters"] = {
+        "request_id": request_id,
+        "factor_code": factor_code,
+        "success": success,
+        "signal_type": signal_type,
+        "start_time": start_time,
+        "end_time": end_time,
     }
+    return ok(payload)

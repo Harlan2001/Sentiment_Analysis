@@ -5,19 +5,16 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.project_management_repository import ProjectManagementRepository
-from backend.routers.workbench_helpers import raise_repository_error
+from backend.routers.workbench_helpers import (
+    collapse_whitespace_required,
+    raise_repository_error,
+    strip_to_required,
+)
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-project-management"])
 
 MemoryCategory = Literal["background", "goal", "constraint", "preference", "conclusion", "other"]
 MemberRole = Literal["editor", "viewer"]
-
-
-def _clean_required(value: str) -> str:
-    value = " ".join(value.split())
-    if not value:
-        raise ValueError("不能为空")
-    return value
 
 
 class ProjectMemoryCreateRequest(BaseModel):
@@ -29,15 +26,12 @@ class ProjectMemoryCreateRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("不能为空")
-        return value
+        return strip_to_required(value)
 
 
 class ProjectMemoryUpdateRequest(BaseModel):
@@ -49,17 +43,14 @@ class ProjectMemoryUpdateRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: Optional[str]) -> Optional[str]:
-        return _clean_required(value) if value is not None else None
+        return collapse_whitespace_required(value) if value is not None else None
 
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        value = value.strip()
-        if not value:
-            raise ValueError("不能为空")
-        return value
+        return strip_to_required(value)
 
     @model_validator(mode="after")
     def require_change(self):
@@ -136,7 +127,7 @@ def list_project_members(request: Request, project_id: str):
 def upsert_project_member(request: Request, project_id: str, member_username: str, body: ProjectMemberUpsertRequest):
     repository: ProjectManagementRepository = request.app.state.repository
     try:
-        return {"data": repository.upsert_project_member(request.state.username, project_id, _clean_required(member_username), body.role)}
+        return {"data": repository.upsert_project_member(request.state.username, project_id, collapse_whitespace_required(member_username), body.role)}
     except Exception as exc:
         raise_repository_error(exc)
 

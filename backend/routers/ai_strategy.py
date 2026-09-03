@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.common.api_response import ok
 from backend.config.config import API_PREFIX
 from backend.strategy.strategy_recommendation import (
     get_all_strategies,
@@ -9,7 +10,7 @@ from backend.strategy.strategy_recommendation import (
     get_recommendation_history,
 )
 
-logger = logging.getLogger("ai_strategy_router")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix=f"{API_PREFIX}/ai-strategy-recommendation", tags=["ai-strategy"]
@@ -19,8 +20,7 @@ router = APIRouter(
 @router.get("/latest")
 def latest_recommendation():
     try:
-        data = get_latest_recommendation()
-        return {"success": True, "data": data}
+        return ok(get_latest_recommendation())
     except HTTPException:
         raise
     except Exception as exc:
@@ -31,7 +31,7 @@ def latest_recommendation():
 @router.get("/history")
 def recommendation_history(limit: int = Query(50, ge=1, le=200)):
     try:
-        return {"success": True, "items": get_recommendation_history(limit)}
+        return ok({"items": get_recommendation_history(limit)})
     except HTTPException:
         raise
     except Exception as exc:
@@ -43,8 +43,7 @@ def recommendation_history(limit: int = Query(50, ge=1, le=200)):
 def list_all_strategies():
     """统一获取所有策略列表（量化策略 + 交易策略），字段已标准化并带有中文标签"""
     try:
-        data = get_all_strategies()
-        return {"success": True, **data}
+        return ok(get_all_strategies())
     except HTTPException:
         raise
     except Exception as exc:

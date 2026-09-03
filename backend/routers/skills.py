@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.config.config import API_PREFIX
 from backend.repositories.skill_repository import SkillRepository
-from backend.routers.workbench_helpers import raise_repository_error
+from backend.routers.workbench_helpers import raise_repository_error, strip_to_required
 
 router = APIRouter(prefix=f"{API_PREFIX}/skills", tags=["skills"])
 
@@ -21,10 +21,7 @@ class SkillPayload(BaseModel):
     @field_validator("name", "description", "instructions")
     @classmethod
     def clean_text(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("Cannot be empty")
-        return value
+        return strip_to_required(value, "Cannot be empty")
 
 
 def _repository() -> SkillRepository:

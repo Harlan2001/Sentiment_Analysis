@@ -6,11 +6,25 @@ import json
 from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository, RecycleBinMixin, json_default, serialize_row
+from backend.repositories.base import (
+    BaseRepository,
+    RecycleBinMixin,
+    RepositoryError,
+    json_default,
+    serialize_row,
+)
 
 
-class DailyNewsSummaryNotFoundError(RuntimeError):
+class DailyNewsSummaryNotFoundError(RepositoryError):
     """任务不存在或不属于当前用户。"""
+
+    status_code = 404
+
+
+class DailyNewsSummaryConflictError(RepositoryError):
+    """当前任务状态不允许执行请求的操作（如进行中禁止删除）。"""
+
+    status_code = 409
 
 
 class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
@@ -35,7 +49,7 @@ class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
     )
     recycle_in_flight = frozenset({"pending", "running"})
     recycle_not_found = DailyNewsSummaryNotFoundError
-    recycle_conflict = RuntimeError
+    recycle_conflict = DailyNewsSummaryConflictError
     recycle_not_found_msg = "新闻总结任务不存在"
     recycle_in_flight_msg = "进行中的新闻总结任务不能删除"
     recycle_not_in_trash_msg = "新闻总结任务不存在或不在最近删除中"

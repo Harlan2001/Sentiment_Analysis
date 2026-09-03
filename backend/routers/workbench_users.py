@@ -4,8 +4,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
 from backend.auth.auth import hash_password
-from backend.common.database import get_connection
+from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX
+from backend.routers.workbench_helpers import strip_to_required
 
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/users", tags=["workspace-users"])
 
@@ -19,10 +20,7 @@ class UserCreateRequest(BaseModel):
     @field_validator("username", "display_name")
     @classmethod
     def clean_text(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("Cannot be empty")
-        return value
+        return strip_to_required(value, "Cannot be empty")
 
 
 class UserUpdateRequest(BaseModel):
@@ -50,41 +48,36 @@ def _require_admin(request: Request) -> None:
 @router.get("")
 def list_users(request: Request):
     _require_admin(request)
-    conn = get_connection()
-    try:
+    with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users ORDER BY username")
             rows = cursor.fetchall()
-        return {"data": {"items": [_as_user(row) for row in rows]}}
-    finally:
-        conn.close()
+    return {"data": {"items": [_as_user(row) for row in rows]}}
 
 
 @router.post("", status_code=201)
 def create_user(request: Request, body: UserCreateRequest):
     _require_admin(request)
     is_admin = body.role == "admin"
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (body.username,))
-            if cursor.fetchone():
-                raise HTTPException(status_code=409, detail="Username already exists")
-            cursor.execute(
-                """INSERT INTO users (username, password, display_name, is_active, is_admin, role)
-                   VALUES (%s, %s, %s, 1, %s, %s)""",
-                (body.username, hash_password(body.password), body.display_name, is_admin, "admin" if is_admin else "user"),
-            )
-            user_id = cursor.lastrowid
-            cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users WHERE id = %s", (user_id,))
-            row = cursor.fetchone()
-        conn.commit()
-        return {"data": _as_user(row)}
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    with get_db_connection() as conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id FROM users WHERE username = %s", (body.username,))
+                if cursor.fetchone():
+                    raise HTTPException(status_code=409, detail="Username already exists")
+                cursor.execute(
+                    """INSERT INTO users (username, password, display_name, is_active, is_admin, role)
+                       VALUES (%s, %s, %s, 1, %s, %s)""",
+                    (body.username, hash_password(body.password), body.display_name, is_admin, "admin" if is_admin else "user"),
+                )
+                user_id = cursor.lastrowid
+                cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users WHERE id = %s", (user_id,))
+                row = cursor.fetchone()
+            conn.commit()
+            return {"data": _as_user(row)}
+        except Exception:
+            conn.rollback()
+            raise
 
 
 @router.patch("/{user_id}")
@@ -105,18 +98,16 @@ def update_user(request: Request, user_id: int, body: UserUpdateRequest):
         is_admin = changes["role"] == "admin"
         fields.extend(["is_admin = %s", "role = %s"])
         params.extend([is_admin, "admin" if is_admin else "user"])
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = %s", (*params, user_id))
-            if cursor.rowcount != 1:
-                raise HTTPException(status_code=404, detail="User not found")
-            cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users WHERE id = %s", (user_id,))
-            row = cursor.fetchone()
-        conn.commit()
-        return {"data": _as_user(row)}
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    with get_db_connection() as conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = %s", (*params, user_id))
+                if cursor.rowcount != 1:
+                    raise HTTPException(status_code=404, detail="User not found")
+                cursor.execute("SELECT id, username, display_name, is_active, COALESCE(is_admin, 0) FROM users WHERE id = %s", (user_id,))
+                row = cursor.fetchone()
+            conn.commit()
+            return {"data": _as_user(row)}
+        except Exception:
+            conn.rollback()
+            raise

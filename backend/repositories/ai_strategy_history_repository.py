@@ -11,15 +11,25 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from backend.config.config import MYSQL_CONFIG
-from backend.repositories.base import RecycleBinMixin, json_default, serialize_row
+from backend.repositories.base import RecycleBinMixin, RepositoryError, json_default, serialize_row
 
 
-class ArchivedConversationError(RuntimeError):
+class ArchivedConversationError(RepositoryError):
     """已归档会话不可再写入，避免意外恢复历史策略。"""
 
+    status_code = 409
 
-class GenerationInProgressError(RuntimeError):
+
+class GenerationInProgressError(RepositoryError):
     """会话仍有远端生成任务时禁止归档。"""
+
+    status_code = 409
+
+
+class ConversationNotFoundError(RepositoryError):
+    """历史策略会话或消息不存在。"""
+
+    status_code = 404
 
 
 class AiStrategyHistoryRepository(RecycleBinMixin):
@@ -45,8 +55,8 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         "updated_at",
         "deleted_at",
     )
-    recycle_not_found = KeyError
-    recycle_not_in_trash_msg = "conversation_not_found"
+    recycle_not_found = ConversationNotFoundError
+    recycle_not_in_trash_msg = "History conversation not found"
     recycle_restore_miss_msg = "恢复策略会话后未找到记录"
     recycle_getter = "get_conversation"
 
@@ -159,16 +169,16 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 )
                 conversation = cursor.fetchone()
                 if not conversation:
-                    raise KeyError("conversation_not_found")
+                    raise ConversationNotFoundError("History conversation not found")
                 if conversation["status"] != "active":
-                    raise ArchivedConversationError("conversation_archived")
+                    raise ArchivedConversationError("Archived conversations cannot be continued")
                 cursor.execute(
                     "SELECT id FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s AND status IN ('running', 'pending_confirmation') LIMIT 1",
                     (conversation_id, owner_username),
                 )
                 if cursor.fetchone():
                     raise GenerationInProgressError(
-                        "generation_or_confirmation_in_progress"
+                        "Confirm or wait for the current strategy turn first"
                     )
                 cursor.execute(
                     "SELECT COALESCE(MAX(sequence_no), 0) AS last_sequence FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s",
@@ -321,7 +331,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     (template_id, session_id, conversation_id, owner_username),
                 )
                 if cursor.rowcount != 1:
-                    raise KeyError("conversation_not_found")
+                    raise ConversationNotFoundError("History conversation not found")
             conn.commit()
 
     def complete_generation(
@@ -348,7 +358,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 )
                 conversation = cursor.fetchone()
                 if not conversation:
-                    raise KeyError("conversation_not_found")
+                    raise ConversationNotFoundError("History conversation not found")
                 cursor.execute(
                     """UPDATE ai_strategy_messages SET content = %s, status = %s, public_error_message = %s, remote_message_id = %s, elapsed_seconds = %s, updated_at = CURRENT_TIMESTAMP
                                   WHERE id = %s AND conversation_id = %s AND owner_username = %s""",
@@ -364,7 +374,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     ),
                 )
                 if cursor.rowcount != 1:
-                    raise KeyError("assistant_message_not_found")
+                    raise ConversationNotFoundError("History conversation not found")
                 version = None
                 if has_strategy_code:
                     local_version_no = int(conversation["current_local_version_no"]) + 1
@@ -491,7 +501,9 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     (conversation_id, owner_username),
                 )
                 if cursor.fetchone():
-                    raise GenerationInProgressError("generation_in_progress")
+                    raise GenerationInProgressError(
+                        "Wait for the running generation before archiving"
+                    )
                 cursor.execute(
                     "UPDATE ai_strategy_conversations SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
                     (conversation_id, owner_username),
@@ -511,14 +523,14 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     (conversation_id, owner_username),
                 )
                 if not cursor.fetchone():
-                    raise KeyError("conversation_not_found")
+                    raise ConversationNotFoundError("History conversation not found")
                 cursor.execute(
                     """SELECT id FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s
                        AND status IN ('running', 'pending_confirmation') LIMIT 1""",
                     (conversation_id, owner_username),
                 )
                 if cursor.fetchone():
-                    raise GenerationInProgressError("generation_in_progress")
+                    raise GenerationInProgressError("进行中的策略生成任务不能删除")
                 cursor.execute(
                     "UPDATE ai_strategy_conversations SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
                     (conversation_id, owner_username),

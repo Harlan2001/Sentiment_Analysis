@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { API_PREFIX } from '@/api/client'
-import { storage } from '@/utils/helpers'
+import { request } from '@/api/client'
 
 interface Evidence {
   text: string
@@ -39,11 +38,6 @@ interface ResearchDetail {
 const VIEW_LABEL: Record<string, string> = { bullish: '看多', bearish: '看空', neutral: '中性' }
 const HORIZON_LABELS: Record<string, string> = { short: '短期(<1月)', medium: '中期(1-6月)', long: '长期(>6月)' }
 
-function authHeaders(): Record<string, string> {
-  const token = storage.get<string>('auth_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 function parseList(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
   if (typeof value !== 'string') return []
@@ -73,14 +67,7 @@ export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: numbe
     const controller = new AbortController()
     setDetail(null)
     setError('')
-    fetch(`${API_PREFIX}/research/${reportId}`, { headers: authHeaders(), signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) {
-          const body = await response.json().catch(() => null)
-          throw new Error(body?.detail || `读取来源研报失败 (${response.status})`)
-        }
-        return response.json() as Promise<ResearchDetail>
-      })
+    request<ResearchDetail>(`/sapi/research/${reportId}`, { signal: controller.signal })
       .then(setDetail)
       .catch((reason) => { if (reason.name !== 'AbortError') setError(reason instanceof Error ? reason.message : '读取来源研报失败') })
     return () => controller.abort()

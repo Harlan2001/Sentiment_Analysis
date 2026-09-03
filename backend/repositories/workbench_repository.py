@@ -11,23 +11,31 @@ from typing import Any
 
 import pymysql
 
-from backend.repositories.base import BaseRepository, serialize_row
+from backend.repositories.base import BaseRepository, RepositoryError, serialize_row
 
 
-class WorkbenchNotFoundError(RuntimeError):
+class WorkbenchNotFoundError(RepositoryError):
     """资源不存在或当前用户无权访问。"""
 
+    status_code = 404
 
-class WorkbenchPermissionError(RuntimeError):
+
+class WorkbenchPermissionError(RepositoryError):
     """当前用户缺少写入权限。"""
 
+    status_code = 403
 
-class WorkbenchConflictError(RuntimeError):
+
+class WorkbenchConflictError(RepositoryError):
     """会话状态或幂等键冲突。"""
 
+    status_code = 409
 
-class WorkbenchCursorError(ValueError):
+
+class WorkbenchCursorError(RepositoryError):
     """分页游标格式无效。"""
+
+    status_code = 400
 
 
 Row = dict[str, Any] | None

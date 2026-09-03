@@ -17,17 +17,13 @@ from backend.agent.demo_reply import (
 from backend.config.config import API_PREFIX, CONVERSATION_HISTORY_LIMIT
 from backend.repositories.message_repository import MessageRepository
 from backend.repositories.skill_repository import SkillRepository
-from backend.routers.workbench_helpers import raise_repository_error
+from backend.routers.workbench_helpers import (
+    collapse_whitespace_required,
+    raise_repository_error,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/conversations", tags=["workbench-conversations"])
-
-
-def _clean_required(value: str) -> str:
-    value = " ".join(value.split())
-    if not value:
-        raise ValueError("不能为空")
-    return value
 
 
 class ConversationCreateRequest(BaseModel):
@@ -38,7 +34,7 @@ class ConversationCreateRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: Optional[str]) -> Optional[str]:
-        return _clean_required(value) if value is not None else None
+        return collapse_whitespace_required(value) if value is not None else None
 
     @model_validator(mode="after")
     def validate_project_source(self):
@@ -56,7 +52,7 @@ class ConversationUpdateRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: Optional[str]) -> Optional[str]:
-        return _clean_required(value) if value is not None else None
+        return collapse_whitespace_required(value) if value is not None else None
 
     @model_validator(mode="after")
     def require_change(self):
@@ -81,12 +77,12 @@ class MessageCreateRequest(BaseModel):
     @field_validator("client_message_id")
     @classmethod
     def validate_client_message_id(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
     @field_validator("skill_ids")
     @classmethod
     def validate_skill_ids(cls, value: list[str]) -> list[str]:
-        cleaned = [_clean_required(skill_id) for skill_id in value]
+        cleaned = [collapse_whitespace_required(skill_id) for skill_id in value]
         if len(set(cleaned)) != len(cleaned):
             raise ValueError("Skill 不能重复选择")
         return cleaned
@@ -104,7 +100,7 @@ class VisitorChatRequest(BaseModel):
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: str) -> str:
-        return _clean_required(value)
+        return collapse_whitespace_required(value)
 
 
 def _sse(event: str, data: dict) -> str:

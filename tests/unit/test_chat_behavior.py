@@ -164,7 +164,7 @@ def test_removing_token_changes_status_to_unauthenticated(chat_client):
     conn.cursor.return_value.__exit__.return_value = False
 
     with patch("backend.routers.auth.AUTH_ENABLED", True), \
-         patch("backend.routers.auth.get_connection", return_value=conn):
+         patch("backend.routers.auth.get_db_connection", return_value=conn):
         authenticated = client.get(
             f"{PREFIX}/auth/status",
             headers={"Authorization": f"Bearer {_token()}"},
