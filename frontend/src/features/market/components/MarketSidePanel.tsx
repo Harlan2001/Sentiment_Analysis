@@ -7,7 +7,7 @@ import { fetchMarketPanel } from '@/api/market'
 import YieldCardGrid from './YieldCardGrid'
 import FactorActivityBar from './FactorActivityBar'
 import AIMarketSummary from './AIMarketSummary'
-import { Skeleton } from '@/components/UI'
+import { Skeleton } from '@/components/ui'
 
 interface Props {
   onYieldClick: (period: string) => void

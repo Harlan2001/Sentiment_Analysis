@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import Modal from '@/components/UI/Modal'
-import Button from '@/components/UI/Button'
-import { Input } from '@/components/UI/Input'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 type LoginMode = 'phone' | 'password'
 

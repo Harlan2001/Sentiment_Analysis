@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useForecastHistory, useForecastReport } from '@/features/market/hooks/useForecastApi'
-import { Skeleton } from '@/components/UI'
+import { Skeleton } from '@/components/ui'
 import type { FullForecastReport, ScenarioItem } from '@/types'
 import ForecastCalendar from '../components/ForecastCalendar'
 

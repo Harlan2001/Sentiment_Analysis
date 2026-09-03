@@ -1,6 +1,6 @@
 import React from 'react'
 import { AppRoutes } from '@/routes'
-import { useBehaviorTracker } from './hooks/useBehaviorTracker'
+import { useBehaviorTracker } from './utils/useBehaviorTracker'
 import './features/workflow/workflow.css'
 
 /**

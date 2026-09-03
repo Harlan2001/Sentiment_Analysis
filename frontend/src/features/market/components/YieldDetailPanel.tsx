@@ -3,7 +3,7 @@
  * 分段红/绿曲线 + 滚轮缩放（不滚动页面）+ hover 坐标 + 竖向时间轴 + 新闻
  */
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { Loading } from '@/components/UI'
+import { Loading } from '@/components/ui'
 import { request } from '@/api/client'
 
 interface Props { period: string; onClose: () => void; onNewsClick: (newsId: number) => void }

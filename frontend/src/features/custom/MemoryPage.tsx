@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Modal from '@/components/UI/Modal'
+import Modal from '@/components/ui/Modal'
 import { uuid } from '@/utils/helpers'
 import './memory.css'
 

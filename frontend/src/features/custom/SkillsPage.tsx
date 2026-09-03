@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Modal from '@/components/UI/Modal'
+import Modal from '@/components/ui/Modal'
 import { activateSkill, archiveSkill, createSkill, deleteSkill, deleteSkillAttachment, getSkills, Skill, SkillAttachment, SkillPayload, updateSkill, uploadSkillAttachment } from '@/api/skills'
 import './skills-interactions.css'
 

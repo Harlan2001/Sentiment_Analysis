@@ -5,7 +5,7 @@ import React, { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchNewsById, fetchNewsYieldData, fetchSimilarNews } from '@/api/market'
 import NewsContentBlocks from './NewsContentBlocks'
-import { Loading } from '@/components/UI'
+import { Loading } from '@/components/ui'
 import { WatchlistAction } from './WatchlistAction'
 
 interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void; closeLabel?: string }

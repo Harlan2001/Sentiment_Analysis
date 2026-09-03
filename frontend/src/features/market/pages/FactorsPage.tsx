@@ -4,7 +4,7 @@ import ReactECharts from 'echarts-for-react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchFactorActivityOverview, fetchMacroData, fetchMacroIndicators } from '@/api/market'
 import type { FactorDefinition } from '@/api/market'
-import { Skeleton } from '@/components/UI'
+import { Skeleton } from '@/components/ui'
 import { WatchlistAction } from '../components/WatchlistAction'
 
 const CATEGORIES: Record<string, string> = { LIQUIDITY: '货币流动性', POLICY: '政策监管', MACRO: '经济增长', RISK: '债券供需', SENTIMENT: '情绪风险', INDUSTRY: '债券供需' }

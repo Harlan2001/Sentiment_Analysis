@@ -7,7 +7,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { fetchDiscoverNews } from '@/api/market'
 import NewsCardLarge from './NewsCardLarge'
 import NewsCardSmall from './NewsCardSmall'
-import { Skeleton } from '@/components/UI'
+import { Skeleton } from '@/components/ui'
 
 interface Props { onNewsClick: (newsId: number) => void }
 const PAGE_SIZE = 20

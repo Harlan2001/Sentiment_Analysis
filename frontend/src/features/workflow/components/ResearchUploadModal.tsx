@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react'
-import { Modal } from '@/components/UI'
+import { Modal } from '@/components/ui'
 import { API_PREFIX, request } from '@/api/client'
 
 function formatSize(kb: number): string {

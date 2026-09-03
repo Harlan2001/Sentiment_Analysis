@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Loading } from '@/components/UI'
+import { Loading } from '@/components/ui'
 import { fetchFactorDetail } from '@/api/market'
 import type { FactorDetailData } from '@/types'
 

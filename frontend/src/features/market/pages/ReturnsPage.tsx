@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchReturnsCalendar } from '@/api/market'
-import { Skeleton } from '@/components/UI'
+import { Skeleton } from '@/components/ui'
 import NewsDetailPanel from '../components/NewsDetailPanel'
 
 const DAY_HEADERS = ['一', '二', '三', '四', '五', '六', '日']
