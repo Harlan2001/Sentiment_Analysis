@@ -20,12 +20,12 @@ import { MemoryPage } from '@/features/custom/MemoryPage'
 import { ProjectManagementPage } from '@/features/project/ProjectManagementPage'
 import { ProjectCreatePage } from '@/features/project/ProjectCreatePage'
 import {
-  MarketSection,
-  FactorsSection,
-  ReturnsSection,
-  ForecastSection,
-  WatchlistSection,
-  PortfolioSection,
+  MarketPage,
+  FactorsPage,
+  ReturnsPage,
+  ForecastPage,
+  WatchlistPage,
+  PortfolioPage,
 } from '@/features/market'
 import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
 import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
@@ -38,12 +38,12 @@ import { LoginRequiredPage } from '@/features/auth/LoginRequiredPage'
  * 若某条 ROUTES 记录缺少元素，会静默跳过 —— 保持元素映射与路由表一一对应。
  */
 const ROUTE_ELEMENTS: Record<string, ReactNode> = {
-  '/market': <MarketSection />,
-  '/factors': <FactorsSection />,
-  '/returns': <ReturnsSection />,
-  '/forecast': <ForecastSection />,
-  '/watchlist': <WatchlistSection />,
-  '/portfolio': <PortfolioSection />,
+  '/market': <MarketPage />,
+  '/factors': <FactorsPage />,
+  '/returns': <ReturnsPage />,
+  '/forecast': <ForecastPage />,
+  '/watchlist': <WatchlistPage />,
+  '/portfolio': <PortfolioPage />,
   '/workflow': <WorkflowHomePage />,
   '/home': <HomePage />,
   '/chat': <ChatPage />,

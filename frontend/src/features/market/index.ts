@@ -1,7 +1,7 @@
 // 市场工作台板块页（features/market/pages）
-export { default as MarketSection } from './pages/MarketSection'
-export { default as FactorsSection } from './pages/FactorsSection'
-export { default as ReturnsSection } from './pages/ReturnsSection'
-export { default as ForecastSection } from './pages/ForecastSection'
-export { default as WatchlistSection } from './pages/WatchlistWorkspace'
-export { default as PortfolioSection } from './pages/PortfolioSection'
+export { default as MarketPage } from './pages/MarketPage'
+export { default as FactorsPage } from './pages/FactorsPage'
+export { default as ReturnsPage } from './pages/ReturnsPage'
+export { default as ForecastPage } from './pages/ForecastPage'
+export { default as WatchlistPage } from './pages/WatchlistPage'
+export { default as PortfolioPage } from './pages/PortfolioPage'

@@ -17,7 +17,7 @@ type DetailView =
   | { type: 'factor'; factorId: number }
   | null
 
-const MarketSection: React.FC = () => {
+const MarketPage: React.FC = () => {
   const navigate = useNavigate()
   const [detailView, setDetailView] = useState<DetailView>(null)
 
@@ -71,4 +71,4 @@ const MarketSection: React.FC = () => {
   )
 }
 
-export default MarketSection
+export default MarketPage

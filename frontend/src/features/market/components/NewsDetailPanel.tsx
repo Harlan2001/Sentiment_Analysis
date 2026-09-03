@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchNewsById, fetchNewsYieldData, fetchSimilarNews } from '@/api/market'
-import NewsContentBlocks from '@/components/news/NewsContentBlocks'
+import NewsContentBlocks from './NewsContentBlocks'
 import { Loading } from '@/components/UI'
 import { WatchlistAction } from './WatchlistAction'
 

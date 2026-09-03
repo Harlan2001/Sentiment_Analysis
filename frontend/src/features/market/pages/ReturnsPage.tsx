@@ -21,7 +21,7 @@ function monthCells(year: number, month: number): (number | null)[] {
   return [...Array.from({ length: firstWeekday }, () => null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)]
 }
 
-export default function ReturnsSection() {
+export default function ReturnsPage() {
   const today = useMemo(() => new Date(), [])
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(dateKey(today))

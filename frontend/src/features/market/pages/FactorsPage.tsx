@@ -35,7 +35,7 @@ function normalizeFactor(raw: Factor): Factor {
   }
 }
 
-export default function FactorsSection() {
+export default function FactorsPage() {
   const [searchParams] = useSearchParams()
   const [view, setView] = useState<'signals' | 'macro'>(searchParams.get('view') === 'macro' ? 'macro' : 'signals')
   return <div className="home-section-page factor-section-page">

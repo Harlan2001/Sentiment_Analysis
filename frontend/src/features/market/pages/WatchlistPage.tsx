@@ -26,7 +26,7 @@ function baseLineOption(name: string, dates: string[], values: Array<number | nu
   }
 }
 
-export default function WatchlistWorkspace() {
+export default function WatchlistPage() {
   const location = useLocation()
   const [items, setItems] = useState<WatchlistItem[]>([])
   const [view, setView] = useState<View>('news')

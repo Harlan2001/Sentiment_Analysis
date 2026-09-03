@@ -43,7 +43,7 @@ function formatAmount(amountInTenThousands: number) {
     : `${Math.round(amountInTenThousands)} 万`
 }
 
-export default function PortfolioSection() {
+export default function PortfolioPage() {
   const [mode, setMode] = useState<'current' | 'edit'>('edit')
   const [manual, setManual] = useState<Record<string, number>>(aiDefault)
   const [duration, setDuration] = useState(4.92)

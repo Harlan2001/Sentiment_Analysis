@@ -29,7 +29,7 @@ function highlightNumbers(text: string): React.ReactNode {
   return nodes
 }
 
-export default function ForecastSection() {
+export default function ForecastPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const { data, isLoading, isError } = useForecastReport(selectedDate ?? undefined)
   const { data: history } = useForecastHistory(30)
