@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { WorkflowTask, getWorkflowTasks } from '@/api/workbench'
+import { WorkflowTask, getWorkflowTasks } from '@/api/tasks'
 import { WorkflowDatePicker } from '../components/WorkflowDatePicker'
 
 type WorkflowModule = {

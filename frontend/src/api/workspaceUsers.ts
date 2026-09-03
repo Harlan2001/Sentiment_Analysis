@@ -1,4 +1,4 @@
-import { request } from '@/api/workbench'
+import { request } from './client'
 
 export type WorkspaceUser = {
   id: string

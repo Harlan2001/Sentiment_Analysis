@@ -2,7 +2,7 @@ import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Conversation, Message, createConversation, getConversation, sendMessage, sendVisitorMessage } from '@/api/workbench'
+import { Conversation, Message, createConversation, getConversation, sendMessage, sendVisitorMessage } from '@/api/chat'
 import { getSkills, Skill } from '@/api/skills'
 import { uuid } from '@/utils/helpers'
 import { WatchlistAction } from '@/features/market/components/WatchlistAction'

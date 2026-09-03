@@ -2,12 +2,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChatPage } from './ChatPage'
-import * as workbench from '@/api/workbench'
+import * as chat from '@/api/chat'
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ authEnabled: true, isAuthenticated: false }),
 }))
-vi.mock('@/api/workbench', () => ({
+vi.mock('@/api/chat', () => ({
   createConversation: vi.fn(), getConversation: vi.fn(), sendMessage: vi.fn(),
   sendVisitorMessage: vi.fn(async (_content, _history, onDelta) => onDelta('真实 AI 回复')),
 }))
@@ -37,10 +37,10 @@ describe('visitor chat', () => {
 
     expect(screen.getByText('访客问题')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('真实 AI 回复')).toBeInTheDocument())
-    expect(workbench.sendVisitorMessage).toHaveBeenCalledOnce()
-    expect(workbench.createConversation).not.toHaveBeenCalled()
-    expect(workbench.getConversation).not.toHaveBeenCalled()
-    expect(workbench.sendMessage).not.toHaveBeenCalled()
+    expect(chat.sendVisitorMessage).toHaveBeenCalledOnce()
+    expect(chat.createConversation).not.toHaveBeenCalled()
+    expect(chat.getConversation).not.toHaveBeenCalled()
+    expect(chat.sendMessage).not.toHaveBeenCalled()
   })
 
   it('drops visitor messages after unmount and starts with a fresh web session', async () => {
@@ -50,7 +50,7 @@ describe('visitor chat', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '发送消息' }))
     expect(screen.getByText('不会保留的消息')).toBeInTheDocument()
-    await waitFor(() => expect(workbench.sendVisitorMessage).toHaveBeenCalled())
+    await waitFor(() => expect(chat.sendVisitorMessage).toHaveBeenCalled())
     first.unmount()
 
     renderVisitorChat()

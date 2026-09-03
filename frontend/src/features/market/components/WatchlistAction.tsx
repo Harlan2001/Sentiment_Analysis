@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useState } from 'react'
-import { addWatchlistItem, getWatchlistItems, type WatchlistObjectType } from '@/api/workbench'
+import { addWatchlistItem, getWatchlistItems, type WatchlistObjectType } from '@/api/watchlist'
 
 type Props = {
   objectType: WatchlistObjectType

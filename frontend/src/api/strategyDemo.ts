@@ -1,9 +1,9 @@
 // 策略生成演示：纯前端写死数据 + 状态机。
 // 命中演示标的（含「金融科技」）时，由 workbench.ts 的策略 API 拦截并返回这里的写死内容，
 // 模拟「输入标的 → 展示提示词 → 确认 → 约 10s → 出结果」的真实交互，全程不调后端、不调模型。
-// 说明：本文件只 `import type`（编译期擦除，不产生运行时循环依赖），供 workbench.ts 反向引用。
+// 说明：本文件只 `import type`（编译期擦除，不产生运行时循环依赖），供 strategy.ts 反向引用。
 
-import type { StrategyConversation, StrategyConversationDetail, StrategyDraft } from '@/api/workbench'
+import type { StrategyConversation, StrategyConversationDetail, StrategyDraft } from './strategy'
 
 // ── 演示标的 ──────────────────────────────────────────────
 export const DEMO_INSTRUMENT = {

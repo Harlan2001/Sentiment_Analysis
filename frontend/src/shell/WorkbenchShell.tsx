@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Conversation, Project, deleteConversation, deleteProject, getConversations, getProjectConversations, getSidebar } from '@/api/workbench'
+import { Conversation, Project, deleteConversation, deleteProject, getProjectConversations } from '@/api/projects'
+import { getConversations, getSidebar } from '@/api/chat'
 import { DeletedItemsPanel } from '@/features/account/DeletedItemsPanel'
 import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
 import { UserManagementPanel } from '@/features/account/UserManagementPanel'

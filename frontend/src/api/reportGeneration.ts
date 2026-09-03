@@ -1,4 +1,4 @@
-import { request } from './workbench'
+import { request } from './client'
 
 export type ReportSource = {
   id: number

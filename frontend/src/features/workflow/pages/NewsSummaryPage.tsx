@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   createDailyNewsSummary, DailyNewsSummaryTask, deleteDailyNewsSummary, getDailyNewsSummaries, getDailyNewsSummary,
   getLatestNewsDate, getNewsSources, NewsSourceOption, retryDailyNewsSummary,
-} from '@/api/workbench'
+} from '@/api/newsSummary'
 import { NewsCalendarPicker } from '../components/NewsCalendarPicker'
 
 const STATUS: Record<DailyNewsSummaryTask['status'], string> = {

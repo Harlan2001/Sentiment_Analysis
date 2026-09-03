@@ -1,4 +1,4 @@
-import { request } from '@/api/workbench'
+import { request } from './client'
 
 export type SkillStatus = 'draft' | 'published' | 'archived'
 export type SkillAttachment = { id: string; original_filename: string; content_type: string | null; size_bytes: number; created_at?: string }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router-dom'
-import { DailyNewsSummaryTask, getDailyNewsSummary, retryDailyNewsSummary } from '@/api/workbench'
+import { DailyNewsSummaryTask, getDailyNewsSummary, retryDailyNewsSummary } from '@/api/newsSummary'
 
 const STATUS: Record<DailyNewsSummaryTask['status'], string> = { pending: '等待生成', running: '正在生成', succeeded: '生成成功', failed: '生成失败', empty: '范围内无新闻' }
 const range = (task: DailyNewsSummaryTask) => task.start_date === task.end_date ? task.start_date : `${task.start_date} 至 ${task.end_date}`

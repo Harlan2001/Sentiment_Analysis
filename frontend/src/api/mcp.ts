@@ -1,4 +1,4 @@
-import { request } from '@/api/workbench'
+import { request } from './client'
 
 export type McpTool = { name: string; description: string; read_only: boolean }
 export type FeishuMcpConnection = {

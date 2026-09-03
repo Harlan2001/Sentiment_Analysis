@@ -20,7 +20,7 @@ import {
   updateProject,
   updateProjectMemory,
   upsertProjectMember,
-} from '@/api/projectManagement'
+} from '@/api/projects'
 import { uuid } from '@/utils/helpers'
 import './project-management.css'
 import './project-detail-refine.css'
@@ -99,7 +99,7 @@ export function ProjectManagementPage() {
       const [loadedProject, active, archived, loadedMemories, loadedMembers] = await Promise.all([
         getProject(projectId),
         getProjectConversations(projectId),
-        getProjectConversations(projectId, true),
+        getProjectConversations(projectId, { archived: true }),
         listProjectMemories(projectId),
         listProjectMembers(projectId),
       ])

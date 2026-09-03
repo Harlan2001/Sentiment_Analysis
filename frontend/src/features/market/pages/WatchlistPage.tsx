@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Link, useLocation } from 'react-router-dom'
 import { fetchFactorDetail, fetchMacroData, fetchNewsById } from '@/api/market'
-import { getWatchlistItems, removeWatchlistItem, type WatchlistItem, type WatchlistObjectType } from '@/api/workbench'
+import { getWatchlistItems, removeWatchlistItem, type WatchlistItem, type WatchlistObjectType } from '@/api/watchlist'
 
 type View = 'news' | 'factor' | 'macro_signal'
 type NewsAI = { direction?: string; reason?: string }

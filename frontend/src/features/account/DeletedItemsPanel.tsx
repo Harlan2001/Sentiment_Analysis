@@ -4,14 +4,12 @@ import {
   emptyDeletedItems,
   getDeletedItems,
   permanentlyDeleteConversation,
-  permanentlyDeleteDailyNewsSummary,
   permanentlyDeleteProject,
-  permanentlyDeleteStrategyConversation,
   restoreConversation,
-  restoreDailyNewsSummary,
   restoreProject,
-  restoreStrategyConversation,
-} from '@/api/workbench'
+} from '@/api/projects'
+import { permanentlyDeleteDailyNewsSummary, restoreDailyNewsSummary } from '@/api/newsSummary'
+import { permanentlyDeleteStrategyConversation, restoreStrategyConversation } from '@/api/strategy'
 import { permanentlyDeleteReportGenerationTask, restoreReportGenerationTask } from '@/api/reportGeneration'
 import { WorkflowDatePicker } from '@/features/workflow/components/WorkflowDatePicker'
 
