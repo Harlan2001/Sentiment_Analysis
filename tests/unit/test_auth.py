@@ -44,8 +44,8 @@ class TestJWT:
 
     @pytest.fixture(autouse=True)
     def _patch_jwt_config(self):
-        """注入测试用密钥，避免依赖真实 .env。"""
-        with patch("backend.auth.auth.JWT_SECRET_KEY", "test-jwt-secret"), \
+        """注入测试用密钥，避免依赖真实 .env（≥32 字节, 消除 InsecureKeyLengthWarning）。"""
+        with patch("backend.auth.auth.JWT_SECRET_KEY", "test-jwt-secret-0123456789abcdef"), \
              patch("backend.auth.auth.JWT_EXPIRY_HOURS", 24):
             yield
 
@@ -86,7 +86,12 @@ class TestJWT:
     def test_verify_tampered_token_raises(self):
         from backend.auth.auth import create_jwt_token, verify_jwt_token
         token = create_jwt_token("user1")
-        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+        # 篡改签名段首字符（确定性破坏签名）: 不要篡改末字符——
+        # HMAC-SHA256 签名 base64 的最后一位是 2-bit padding, 落在同一 padding 组内的
+        # 篡改不改变解码后的签名字节, 校验仍通过, 导致测试随机失败（flaky）。
+        head, payload_b64, sig = token.split(".")
+        flipped = "A" if sig[0] != "A" else "B"
+        tampered = f"{head}.{payload_b64}.{flipped}{sig[1:]}"
         with pytest.raises(Exception):
             verify_jwt_token(tampered)
 

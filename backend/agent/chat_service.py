@@ -15,7 +15,6 @@ from backend.common.llm_call import get_async_llm_client
 from backend.config.config import (
     get_analysis_model_info,
     get_chat_model_name,
-    get_llm_api_key,
 )
 
 
@@ -27,18 +26,8 @@ class AgentGenerationError(RuntimeError):
         self.code = code
 
 
-# ── LLM 客户端 ──
-llm_api_key = get_llm_api_key()
-if not llm_api_key:
-    raise ValueError(
-        "LLM_API_KEY environment variable is not set. Please set it in your .env file."
-    )
-
-# 复用 common.llm_call 的缓存异步客户端（上面已确认 key 存在）
-llm_async_client = get_async_llm_client()
-assert llm_async_client is not None
-
-# 聊天默认模型：CHAT_MODEL_NAME 填注册表短名（如 glm），与分析模型命名统一；
+# ── 聊天默认模型 ──
+# CHAT_MODEL_NAME 填注册表短名（如 glm），与分析模型命名统一；
 # 这里解析成 provider model 供 OpenAI 客户端使用。缺省跟随默认分析模型。
 CHAT_MODEL = get_analysis_model_info(get_chat_model_name())["provider_model"]
 
@@ -130,10 +119,16 @@ async def agent_chat_stream(
             + skill_context
         )
 
+    llm_client = get_async_llm_client()
+    if llm_client is None:
+        raise AgentGenerationError(
+            "LLM 客户端未初始化（缺少 LLM_API_KEY / LLM_BASE_URL）"
+        )
+
     async for sse_event in run_agent_loop(
         messages=messages,
         system_prompt=system_prompt,
-        client=llm_async_client,
+        client=llm_client,
         model=CHAT_MODEL,
         model_name=get_chat_model_name(),
         user_id=_resolve_user_id(username),

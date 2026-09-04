@@ -17,7 +17,6 @@ from backend.common.llm_logger import log_llm_usage
 from backend.config.config import (
     get_analysis_model_info,
     get_default_analysis_model_name,
-    get_llm_api_key,
 )
 from backend.factor.factor_management import get_factor_prompt_text
 
@@ -36,13 +35,6 @@ def fallback_analysis_result(reason: str) -> dict:
 # ========== 模型配置 ==========
 # 定义此分析器使用的模型短名
 MODEL_NAME = get_default_analysis_model_name()
-
-# LLM API 配置（LLM_API_KEY / LLM_BASE_URL）
-llm_api_key = get_llm_api_key()
-if not llm_api_key:
-    raise ValueError(
-        "LLM_API_KEY environment variable is not set. Please set it in your .env file."
-    )
 
 
 async def analyze_bond_yield_async(

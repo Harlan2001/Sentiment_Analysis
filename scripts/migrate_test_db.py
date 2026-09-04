@@ -151,12 +151,27 @@ def _apply_core_schema(conn, db_name: str) -> int:
     return applied
 
 
+# sql/ 中不得在「新建测试库」时应用的脚本：
+# - *_down.sql            回滚脚本（语义是撤销迁移, 不是建库）
+# - migration_company_dept.sql / migration_token_usage.sql
+#                         历史数据补丁: 给 users 加列用 ALTER ... AFTER <既有列>（依赖生产已有列）,
+#                         且 UPDATE 真实行; 新建的空测试库运行必然失败, 且语义不适合 schema 构建。
+#   （llm_usage_log 等表由代码 ensure_tables() 自动建, 见 backend/common/llm_logger.py）
+MIGRATIONS_SKIP = {
+    "migration_company_dept.sql",
+    "migration_token_usage.sql",
+}
+
+
 def _apply_incremental_migrations(conn, db_name: str) -> int:
-    """按文件名升序应用 sql/*.sql, 返回成功文件数。"""
+    """按文件名升序应用 sql/*.sql, 返回成功文件数（跳过回滚/数据补丁脚本）。"""
     conn.select_db(db_name)
     files = _sql_files_sorted()
     applied = 0
     for file in files:
+        if file.name.endswith("_down.sql") or file.name in MIGRATIONS_SKIP:
+            print(f"[migrate] 跳过(非建库脚本): {file.name}")
+            continue
         sql_text = file.read_text(encoding="utf-8")
         _apply_script(conn, str(file.relative_to(BASE_DIR)), sql_text)
         applied += 1

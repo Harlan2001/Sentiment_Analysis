@@ -29,8 +29,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
 from backend.analysis.analyzer import (
-    AnalysisError,
     MODEL_NAME,
+    AnalysisError,
     analyze_bond_yield_async,
     fallback_analysis_result,
 )
