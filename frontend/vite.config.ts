@@ -8,6 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "coverage",
+      // 报告模式（不上阈）：前端从零铺测试，先出数字再渐进收门槛
+      thresholds: { statements: 0, branches: 0, functions: 0, lines: 0 },
+    },
   },
   build: {
     rollupOptions: {

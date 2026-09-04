@@ -230,3 +230,6 @@ Xiang
 
 # 本地临时备份目录，不纳入版本控制
 .tmp_untracked_backup/
+
+# 前端 vitest coverage 输出
+/frontend/coverage/
