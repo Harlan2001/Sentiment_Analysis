@@ -10,9 +10,8 @@
 
 import pytest
 
-# migrate 脚本合成出来的表（docs/表结构.md 19 张 + sql/ 增量）。
-# 注意: docs/表结构.md 略缺 forecast_report 等生产在用表(P3 需与生产 schema 对齐),
-# 故此处只断言 migrate 确实建出的核心表, 防止冒烟被文档缺口误伤。
+# 生产权威 schema（sql/schema_full.sql 生产镜像）中的核心业务表。
+# 测试库由 scripts/migrate_test_db.py 按生产真实结构重建, 故断言生产真实表。
 CORE_TABLES = [
     "news",            # 新闻主表
     "news_content_blocks",
@@ -26,6 +25,7 @@ CORE_TABLES = [
     "task_events",
     "users",
     "macro_signal_request_log",
+    "forecast_report",   # 预测报告（docs/表结构.md 曾缺, 生产实有此表）
     "portfolio_strategy_analysis_cache",
     "research_report",
 ]
@@ -63,7 +63,7 @@ def test_core_table_snapshot_count(mysql_conn, test_db_name):
             "SELECT COUNT(*) FROM information_schema.TABLES "
             "WHERE TABLE_SCHEMA=%s AND TABLE_NAME IN "
             "('news','analysis','factor','yield_data','users','task_runs',"
-            "'news_vectors','news_factor')",
+            "'news_vectors','news_factor','forecast_report')",
             (test_db_name,),
         )
         count = cur.fetchone()[0]

@@ -4,24 +4,22 @@
 重复名去重、body $ref 参数)/agent 操作过滤/工具定义生成/执行器错误分支。
 """
 
-import pytest
 
+from backend.agent.client import BackendError, NetworkError
 from backend.agent.spec import (
     Operation,
     Param,
     Spec,
+    _resolve_ref,
+    _schema_enum,
+    _schema_type,
     derive_name,
     filter_agent_operations,
     generate_tool_definitions,
     generate_tool_executors,
     load_spec,
     urllib_quote,
-    _resolve_ref,
-    _schema_enum,
-    _schema_type,
 )
-from backend.agent.client import BackendError, NetworkError
-
 
 MINI_RAW = {
     "info": {"title": "test-api", "version": "9.9"},
