@@ -65,49 +65,44 @@ def member_token() -> str:
 # ── JWT 权限标识 ──
 
 class TestAdminJwtClaims:
-    def test_admin_jwt_contains_is_admin_true(self, monkeypatch):
-        """JWT payload 正确包含 is_admin=true。"""
-        monkeypatch.setenv("JWT_SECRET_KEY", "test-admin-jwt-secret")
-        import importlib
+    def test_admin_jwt_contains_is_admin_true(self):
+        """JWT payload 正确包含 is_admin=true。
 
-        import backend.auth.auth as auth_mod
-        importlib.reload(auth_mod)
+        直接 patch 模块级 JWT_SECRET_KEY，而非 setenv + importlib.reload：
+        config.py 已被缓存，重载 auth 模块不会重读环境变量，CI 下 JWT_SECRET_KEY 为空会抛 InvalidKeyError。
+        """
+        from backend.auth.auth import create_jwt_token, verify_jwt_token
 
-        token = auth_mod.create_jwt_token("admin", is_admin=True, role="admin")
-        payload = auth_mod.verify_jwt_token(token)
+        with patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+            token = create_jwt_token("admin", is_admin=True, role="admin")
+            payload = verify_jwt_token(token)
 
         assert payload["sub"] == "admin"
         assert payload["is_admin"] is True
         assert payload["role"] == "admin"
 
-    def test_member_jwt_is_admin_false(self, monkeypatch):
+    def test_member_jwt_is_admin_false(self):
         """普通成员 JWT 的 is_admin=false。"""
-        monkeypatch.setenv("JWT_SECRET_KEY", "test-member-jwt-secret")
-        import importlib
+        from backend.auth.auth import create_jwt_token, verify_jwt_token
 
-        import backend.auth.auth as auth_mod
-        importlib.reload(auth_mod)
-
-        token = auth_mod.create_jwt_token("user1", is_admin=False, role="member")
-        payload = auth_mod.verify_jwt_token(token)
+        with patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+            token = create_jwt_token("user1", is_admin=False, role="member")
+            payload = verify_jwt_token(token)
 
         assert payload["sub"] == "user1"
         assert payload["is_admin"] is False
         assert payload["role"] == "member"
 
-    def test_admin_role_vs_member_role_in_token(self, monkeypatch):
+    def test_admin_role_vs_member_role_in_token(self):
         """admin 和 member 角色的 token 包含不同的 role 值。"""
-        monkeypatch.setenv("JWT_SECRET_KEY", "test-role-jwt-secret")
-        import importlib
+        from backend.auth.auth import create_jwt_token, verify_jwt_token
 
-        import backend.auth.auth as auth_mod
-        importlib.reload(auth_mod)
+        with patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+            admin_token_val = create_jwt_token("admin", is_admin=True, role="admin")
+            member_token_val = create_jwt_token("user1", is_admin=False, role="member")
 
-        admin_token_val = auth_mod.create_jwt_token("admin", is_admin=True, role="admin")
-        member_token_val = auth_mod.create_jwt_token("user1", is_admin=False, role="member")
-
-        admin_payload = auth_mod.verify_jwt_token(admin_token_val)
-        member_payload = auth_mod.verify_jwt_token(member_token_val)
+            admin_payload = verify_jwt_token(admin_token_val)
+            member_payload = verify_jwt_token(member_token_val)
 
         assert admin_payload["role"] == "admin"
         assert member_payload["role"] == "member"

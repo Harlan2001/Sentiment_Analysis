@@ -1,6 +1,7 @@
 """analysis/analyzer 单测：LLM 分析主流程与错误分支。
 
-不碰真实 DB / LLM：monkeypatch 掉 DBOperations.get_news_by_id 与 analyzer.async_chat_completion。
+不碰真实 DB / LLM：monkeypatch 掉 DBOperations.get_news_by_id、analyzer.async_chat_completion
+与 analyzer.get_factor_prompt_text（prompt 内的预定义因子列表来自 factor 表，需一并打桩）。
 覆盖主路径、发布日缺失兜底、空响应、无 JSON、JSON 解析失败、新闻/ID 异常、LLM 外部异常等分支。
 """
 
@@ -44,11 +45,14 @@ def _news(publish_date: str = "2026-09-01") -> dict:
 
 @pytest.fixture(autouse=True)
 def _patch_llm(monkeypatch):
-    """默认: async_chat_completion 返回合法 JSON。单个用例可覆盖。"""
+    """默认: async_chat_completion 返回合法 JSON；get_factor_prompt_text 返回固定因子列表（不碰 DB）。单个用例可覆盖。"""
     async def _default(**kwargs):
         return _resp(_valid_json())
 
     monkeypatch.setattr(analyzer, "async_chat_completion", _default)
+    monkeypatch.setattr(
+        analyzer, "get_factor_prompt_text", lambda: "【MACRO】\n  Quantitative（量化）: RATE(利率)"
+    )
 
 
 def _stub_news(monkeypatch, news_row):
