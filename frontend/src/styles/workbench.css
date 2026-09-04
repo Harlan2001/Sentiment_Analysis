@@ -88,6 +88,8 @@
   color: inherit;
   text-shadow: none;
   letter-spacing: -0.02em;
+  font-size: 21px;
+  font-weight: 700;
 }
 
 .brand-text {
@@ -100,9 +102,9 @@
 
 .brand small {
   display: block;
-  margin-top: 6px;
-  color: #7d7d7d;
-  font-size: 11px;
+  margin-top: 5px;
+  color: #9c9c9c;
+  font-size: 13px;
   font-weight: 400;
   letter-spacing: 0;
 }
