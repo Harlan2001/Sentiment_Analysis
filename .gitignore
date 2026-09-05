@@ -233,3 +233,8 @@ Xiang
 
 # 前端 vitest coverage 输出
 /frontend/coverage/
+
+# Playwright E2E 产物
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/playwright/.cache/

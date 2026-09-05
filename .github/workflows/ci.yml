@@ -109,3 +109,62 @@ jobs:
       - name: 集成测试(真实 MySQL,LLM 用 respx mock)
         if: ${{ hashFiles('tests/integration/**') != '' }}
         run: uv run pytest tests/integration -m integration -q --cov=backend --cov-report=term-missing:skip-covered
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          # 只创建测试库; 生产库 Sentiment_analysis 不在此容器
+          MYSQL_DATABASE: Sentiment_analysis_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: test
+      MYSQL_DATABASE: Sentiment_analysis_test
+      MYSQL_TEST_DATABASE: Sentiment_analysis_test
+      LLM_API_KEY: ci-dummy-key
+      LLM_BASE_URL: http://127.0.0.1:8080/v1 # e2e 里指向同 job 内 mock_llm_server
+      OUTBOUND_PROXY_ENABLED: "false"
+      AUTH_ENABLED: "false" # e2e 走免登录, 登录链路单独另测
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --locked
+      - name: 迁移测试库(migrate_test_db.py 只操作 *_test 库)
+        run: uv run python scripts/migrate_test_db.py
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+      - name: 安装 Playwright 浏览器
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: E2E 测试(Playwright 拉起 backend+前端, 免登录)
+        working-directory: frontend
+        run: npm run e2e
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+      - name: 上传失败追踪
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
