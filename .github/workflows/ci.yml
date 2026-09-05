@@ -38,11 +38,13 @@ jobs:
       - name: 单元测试 + 覆盖率(只跑 fast,排除集成;不碰真实 DB/外部模型)
         run: uv run pytest -m "not slow and not integration" --cov=backend --cov-report=term-missing:skip-covered --cov-report=xml
 
-      - name: PR 增量覆盖率(gate 默认关闭,改为报告)
+      - name: PR 增量覆盖率(diff 门禁渐进: 新代码 <60% 拦截)
         run: uv run python scripts/check_diff_coverage.py
         env:
-          # PR 用 base 提交;push 到 main 用上一次提交。打开 gate:DIFF_COVERAGE_MIN=80
+          # PR 用 base 提交; push 到 main 用上一次提交。
+          # 渐进式门禁: 60(现) → 70 → 80(+DIFF_COVERAGE_STRICT=1)。
           DIFF_COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DIFF_COVERAGE_MIN: 60
 
       - uses: actions/upload-artifact@v4
         if: always()

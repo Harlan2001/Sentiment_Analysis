@@ -10,6 +10,7 @@ schema 由 CI workflow 或本地脚本 scripts/migrate_test_db.py 提前重建�
 """
 
 import os
+from pathlib import Path
 
 import pymysql
 import pytest
@@ -101,7 +102,12 @@ def clean_tables(mysql_conn):
 
 
 def pytest_collection_modifyitems(config, items):
-    """tests/integration 下的所有用例统一标记 integration（免 + 各文件重复打标）。"""
+    """仅 tests/integration 目录内的用例自动加 integration marker。
+
+    注意: 本 hook 收到的是整个 session 的全部 items, 必须限定目录,
+    否则会把 unit/其它目录的测试也误标记为 integration (导致 -m not integration 全排除)。
+    """
+    integration_root = Path(__file__).resolve().parent
     for item in items:
-        if "integration" not in item.keywords:
+        if integration_root in item.path.parents and "integration" not in item.keywords:
             item.add_marker(pytest.mark.integration)
