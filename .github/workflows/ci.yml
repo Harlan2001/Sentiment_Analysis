@@ -38,7 +38,7 @@ jobs:
       - name: 单元测试 + 覆盖率(只跑 fast,排除集成;不碰真实 DB/外部模型)
         run: uv run pytest -m "not slow and not integration" --cov=backend --cov-report=term-missing:skip-covered --cov-report=xml
 
-      - name: PR 增量覆盖率(diff 门禁渐进: 新代码 <60% 拦截)
+      - name: "PR 增量覆盖率(diff 门禁渐进: 新代码 <60% 拦截)"
         run: uv run python scripts/check_diff_coverage.py
         env:
           # PR 用 base 提交; push 到 main 用上一次提交。
