@@ -14,7 +14,8 @@ test('前端首页可达并展示导航', async ({ page }) => {
 
 test('市场页渲染主容器（骨架或空态）', async ({ page }) => {
   await page.goto('/market')
-  await expect(page.locator('.home-section-page, main, #root')).toBeVisible({
+  // 当前 /market 是 WorkbenchShell 内的 market-workspace(旧 home-section-page 选择器已不适用)
+  await expect(page.locator('.market-workspace')).toBeVisible({
     timeout: 15_000,
   })
 })

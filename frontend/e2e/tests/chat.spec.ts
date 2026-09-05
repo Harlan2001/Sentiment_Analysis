@@ -23,8 +23,13 @@ test('对话输入框为空时不发送', async ({ page }) => {
   const input = page.locator('input, textarea').first()
   await expect(input).toBeVisible({ timeout: 15_000 })
 
+  // 空内容时发送按钮是禁用态, 无法点击触发发送
   const sendBtn = page.getByRole('button', { name: '发送消息' }).first()
-  await sendBtn.click()
-  // 空内容不应在历史里追加用户消息, 输入框文本区没有新消息渲染即可
-  await expect(page.getByText('如何看待当前债市？')).toHaveCount(0)
+  await expect(sendBtn).toBeDisabled()
+  // Enter 走表单 requestSubmit()(不受按钮 disabled 拦截), 复测 submit 里对空内容的守卫:
+  // 用户消息数必须保持不变(新会话为 0; 侧边栏历史会话标题不在此列)
+  const userMessages = page.locator('.chat-message.user')
+  const userCount = await userMessages.count()
+  await input.press('Enter')
+  await expect(userMessages).toHaveCount(userCount)
 })
