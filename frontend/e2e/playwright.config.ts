@@ -26,17 +26,17 @@ export default defineConfig({
     {
       // bash -c 先 source ~/.bashrc: 本机 WSL 的 uv/nvm 等常在用户 shell 配置里,
       // Playwright 用 /bin/sh 起命令默认 PATH 找不到; CI runner 无此问题(source 失败被忽略)。
-      // 注意: 本 config 由 npm run e2e 从 frontend/ 目录加载 → webServer cwd = frontend,
-      // 而 uvicorn 需在仓库根(main.py / scripts/ 在根), 故先 cd .. 回到仓库根。
+      // 注意: Playwright webServer 默认 cwd = config 文件所在目录(frontend/e2e),
+      // 而 uvicorn 需在仓库根(main.py / scripts/ 在根), 故先 cd ../.. 回到仓库根。
       command:
-        'bash -c "source ~/.bashrc 2>/dev/null; cd .. && uv run uvicorn scripts.mock_llm_server:app --host 127.0.0.1 --port 8080"',
+        'bash -c "source ~/.bashrc 2>/dev/null; cd ../.. && uv run uvicorn scripts.mock_llm_server:app --host 127.0.0.1 --port 8080"',
       url: 'http://127.0.0.1:8080/health',
       reuseExistingServer: true,
       timeout: 30_000,
     },
     {
       command:
-        'bash -c "source ~/.bashrc 2>/dev/null; cd .. && uv run uvicorn main:app --host 127.0.0.1 --port 8000"',
+        'bash -c "source ~/.bashrc 2>/dev/null; cd ../.. && uv run uvicorn main:app --host 127.0.0.1 --port 8000"',
       url: 'http://127.0.0.1:8000/health',
       reuseExistingServer: true,
       timeout: 60_000,
