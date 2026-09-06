@@ -170,3 +170,38 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           if-no-files-found: ignore
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true # 观察期: 先报告不门禁; 审核通过并转 gate 时去掉 continue-on-error
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks 需要完整历史
+      - name: 后端依赖漏洞(pip-audit 扫 uv.lock 导出的 requirements)
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: |
+          uv export --format requirements-txt --no-dev > backend-reqs.txt
+          uvx pip-audit --requirement backend-reqs.txt
+      - name: 前端依赖漏洞(npm audit)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm audit --audit-level=high
+        working-directory: frontend
+        continue-on-error: true
+      - name: 密钥泄露检测(gitleaks 全历史)
+        run: |
+          # 与 specific 版本绑定的 gitleaks 二进制(避免 action v2 的 license 依赖)
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          chmod +x /tmp/gitleaks
+          /tmp/gitleaks detect --source . --log-opts="--all" --report-format=json --report-path=/tmp/gitleaks-report.json
+          echo "=== gitleaks 发现(0=干净) ==="
+        continue-on-error: true
