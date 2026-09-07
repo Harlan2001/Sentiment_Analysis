@@ -9,7 +9,7 @@
             "args": [
                 "-NoExit",
                 "-Command",
-                "& 'c:\\Project\\Python\\Sentiment\\.venv\\Scripts\\Activate.ps1'"
+                "& 'D:\\Project\\Sentiment_Analysis\\.venv\\Scripts\\activate.ps1'"
             ]
         }
     }
