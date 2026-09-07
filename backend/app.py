@@ -38,6 +38,7 @@ from backend.routers.report_generation import router as report_generation_router
 from backend.routers.research import router as research_router
 from backend.routers.returns import router as returns_router
 from backend.routers.skills import router as skills_router
+from backend.routers.strategy import router as strategy_router
 from backend.routers.watchlist import router as watchlist_router
 from backend.routers.workbench_computer import router as workbench_computer_router
 from backend.routers.workbench_conversations import router as workbench_conversations_router
@@ -101,6 +102,7 @@ app.include_router(workbench_computer_router)
 app.include_router(watchlist_router)
 app.include_router(feishu_mcp_router)
 app.include_router(skills_router)
+app.include_router(strategy_router)
 app.include_router(workbench_users_router)
 
 

@@ -6279,6 +6279,46 @@
         }
       }
     },
+    "/sapi/strategy/portfolio-analysis": {
+      "post": {
+        "tags": [
+          "strategy"
+        ],
+        "summary": "Portfolio Analysis",
+        "description": "生成当日组合策略配置约束建议（命中缓存直接返回，force_refresh 强制重算）。",
+        "operationId": "portfolio_analysis_sapi_strategy_portfolio_analysis_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/workbench/users": {
       "get": {
         "tags": [
@@ -7005,6 +7045,17 @@
           "phone"
         ],
         "title": "PhoneLoginRequest"
+      },
+      "PortfolioAnalysisRequest": {
+        "properties": {
+          "force_refresh": {
+            "type": "boolean",
+            "title": "Force Refresh",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PortfolioAnalysisRequest"
       },
       "ProjectCreateRequest": {
         "properties": {
