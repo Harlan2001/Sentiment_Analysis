@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { DemoNotice } from '@/components/ui/DemoNotice'
 
 type DemoWorkflow = { title: string; description: string; category: string }
 type DemoTask = { id: number; title: string; source: string; status: 'pending' | 'succeeded'; updatedAt: string; detail: string }
@@ -65,7 +66,12 @@ export function WorkflowDemoPage() {
       <span className="computer-count">{refreshMark || `${history.length} 条历史记录`}</span>
     </div>
 
-    <p className="workflow-demo-note">{workflow.category} · {workflow.description}。当前为前端演示数据，后续可直接接入真实任务服务。</p>
+    <DemoNotice
+      title={`${workflow.title}为演示功能`}
+      description={`当前页面及任务记录均为演示数据，不会执行真实的${workflow.title}处理；实际功能尚在开发中。`}
+    />
+
+    <p className="workflow-demo-note">{workflow.category} · {workflow.description}</p>
 
     <section className="computer-attention">
       <div className="computer-attention-head"><strong>需要处理 · {active.length}</strong><span aria-hidden="true">⌃</span></div>

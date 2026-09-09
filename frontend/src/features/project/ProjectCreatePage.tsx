@@ -1,6 +1,13 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { InitialProjectMember, InitialProjectMemory, MemoryCategory, createProject } from '@/api/projects'
+import {
+  InitialProjectMember,
+  InitialProjectMemory,
+  MemoryCategory,
+  createProject,
+  listProjectMembers,
+  listProjectMemories,
+} from '@/api/projects'
 import { uuid } from '@/utils/helpers'
 import './project-create.css'
 
@@ -31,13 +38,17 @@ export function ProjectCreatePage() {
   const [memoryTitle, setMemoryTitle] = useState('')
   const [memoryContent, setMemoryContent] = useState('')
   const [memberUsername, setMemberUsername] = useState('')
-  const [memberRole, setMemberRole] = useState<'editor' | 'viewer'>('viewer')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const pendingMemoryReady = Boolean(memoryTitle.trim() && memoryContent.trim())
+  const pendingMemberReady = Boolean(memberUsername.trim())
+  const finalMemoryCount = memories.length + (pendingMemoryReady ? 1 : 0)
+  const finalMemberCount = members.length + (pendingMemberReady ? 1 : 0)
+
   const completedSections = useMemo(() => {
-    return [Boolean(name.trim()), memories.length > 0, members.length > 0].filter(Boolean).length
-  }, [members.length, memories.length, name])
+    return [Boolean(name.trim()), finalMemoryCount > 0, finalMemberCount > 0].filter(Boolean).length
+  }, [finalMemberCount, finalMemoryCount, name])
 
   function addMemory() {
     if (!memoryTitle.trim() || !memoryContent.trim()) {
@@ -73,17 +84,32 @@ export function ProjectCreatePage() {
       {
         localId: uuid(),
         username,
-        role: memberRole,
+        role: 'editor',
       },
     ])
     setMemberUsername('')
-    setMemberRole('viewer')
     setError('')
   }
 
   async function submitProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!name.trim() || saving) return
+    const pendingMemoryStarted = Boolean(memoryTitle.trim() || memoryContent.trim())
+    if (pendingMemoryStarted && !pendingMemoryReady) {
+      setError('当前记忆尚未填写完整，请补全标题和内容后再创建项目。')
+      return
+    }
+    const pendingUsername = memberUsername.trim()
+    if (pendingUsername && members.some((member) => member.username === pendingUsername)) {
+      setError('当前输入的成员已经在初始成员列表中。')
+      return
+    }
+    const finalMemories = pendingMemoryReady
+      ? [...memories, { localId: uuid(), category: memoryCategory, title: memoryTitle.trim(), content: memoryContent.trim() }]
+      : memories
+    const finalMembers = pendingUsername
+      ? [...members, { localId: uuid(), username: pendingUsername, role: 'editor' as const }]
+      : members
     setSaving(true)
     setError('')
     try {
@@ -91,9 +117,27 @@ export function ProjectCreatePage() {
         name: name.trim(),
         description: description.trim() || undefined,
         client_request_id: requestId,
-        initial_memories: memories.map(({ category, title, content }) => ({ category, title, content })),
-        initial_members: members.map(({ username, role }) => ({ username, role })),
+        initial_memories: finalMemories.map(({ category, title, content }) => ({ category, title, content })),
+        initial_members: finalMembers.map(({ username, role }) => ({ username, role })),
       })
+      const [savedMemories, savedMembers] = await Promise.all([
+        listProjectMemories(project.id),
+        listProjectMembers(project.id),
+      ])
+      const memoriesPersisted = finalMemories.every((expected) =>
+        savedMemories.some(
+          (saved) =>
+            saved.category === expected.category &&
+            saved.title === expected.title &&
+            saved.content === expected.content
+        )
+      )
+      const membersPersisted = finalMembers.every((expected) =>
+        savedMembers.some((saved) => saved.username === expected.username && saved.role === 'editor')
+      )
+      if (!memoriesPersisted || !membersPersisted) {
+        throw new Error('项目已经创建，但初始记忆或成员未完整写入，请重试或进入项目检查。')
+      }
       window.dispatchEvent(new Event('bondsense-sidebar-refresh'))
       navigate(`/projects/${project.id}`, { replace: true })
     } catch (requestError) {
@@ -229,7 +273,7 @@ export function ProjectCreatePage() {
               <span>03</span>
               <div>
                 <h2>初始成员与权限</h2>
-                <p>当前仅能添加系统内已有用户；当前账户会自动成为项目所有者。</p>
+                <p>当前仅能添加系统内已有用户；当前账户会自动成为项目管理者，其他成员均为编辑者。</p>
               </div>
               <em>可选</em>
             </header>
@@ -243,16 +287,6 @@ export function ProjectCreatePage() {
                   placeholder="输入系统内已有用户名"
                 />
               </label>
-              <label>
-                <strong>项目角色</strong>
-                <select
-                  value={memberRole}
-                  onChange={(event) => setMemberRole(event.target.value as 'editor' | 'viewer')}
-                >
-                  <option value="viewer">查看者</option>
-                  <option value="editor">编辑者</option>
-                </select>
-              </label>
               <button className="pc-secondary" type="button" onClick={addMember}>
                 添加成员
               </button>
@@ -261,9 +295,9 @@ export function ProjectCreatePage() {
               <i>你</i>
               <div>
                 <strong>当前账户</strong>
-                <p>创建后自动成为项目所有者</p>
+                <p>创建后自动成为项目唯一管理者</p>
               </div>
-              <span>所有者</span>
+              <span>管理者</span>
             </div>
             {members.map((member) => (
               <div className="pc-member" key={member.localId}>
@@ -272,21 +306,7 @@ export function ProjectCreatePage() {
                   <strong>{member.username}</strong>
                   <p>系统内已有用户</p>
                 </div>
-                <select
-                  value={member.role}
-                  onChange={(event) =>
-                    setMembers((items) =>
-                      items.map((item) =>
-                        item.localId === member.localId
-                          ? { ...item, role: event.target.value as 'editor' | 'viewer' }
-                          : item
-                      )
-                    )
-                  }
-                >
-                  <option value="viewer">查看者</option>
-                  <option value="editor">编辑者</option>
-                </select>
+                <span>编辑者</span>
                 <button
                   type="button"
                   onClick={() => setMembers((items) => items.filter((item) => item.localId !== member.localId))}
@@ -305,20 +325,21 @@ export function ProjectCreatePage() {
           <dl>
             <div>
               <dt>初始记忆</dt>
-              <dd>{memories.length} 条</dd>
+              <dd>{finalMemoryCount} 条</dd>
             </div>
             <div>
               <dt>项目成员</dt>
-              <dd>{members.length + 1} 人</dd>
+              <dd>{finalMemberCount + 1} 人</dd>
             </div>
             <div>
               <dt>可见范围</dt>
-              <dd>{members.length ? '共享' : '私有'}</dd>
+              <dd>{finalMemberCount ? '共享' : '私有'}</dd>
             </div>
           </dl>
           <div className="pc-boundary">
             <strong>项目边界</strong>
             <p>项目会话独立归类；未发送消息的空会话不会进入历史；聊天内容不会自动写入项目记忆。</p>
+            <p>输入框中填写完整但尚未点击添加的记忆或成员，也会在创建项目时自动加入。</p>
           </div>
           {error && (
             <p className="pc-error" role="alert">

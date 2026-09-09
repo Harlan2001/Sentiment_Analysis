@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { DemoNotice } from '@/components/ui/DemoNotice'
 
 type Allocation = {
   id: string
@@ -104,6 +105,10 @@ export default function PortfolioPage() {
     <div className="market-workspace-body">
       <div className="market-discover-panel">
         <main className="space-y-4 pb-4 pl-4 pr-px pt-2">
+          <DemoNotice
+            title="投资组合为演示功能"
+            description="当前持仓、配置建议、风险指标和保存结果均为演示数据，不代表真实账户或交易指令；实际功能尚在开发中。"
+          />
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><h1 className="text-lg font-bold text-white">稳健型债券组合</h1><span className="rounded border border-[#343438] bg-[#191919] px-1.5 py-0.5 text-[10px] text-gray-300">研究方案</span></div>

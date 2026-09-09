@@ -1,0 +1,99 @@
+/* Shared disclosure for pages that still use demonstration-only data. */
+.demo-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 13px 15px;
+  border: 1px solid #8a6728;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #2a2111, #211b11);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  color: #f1d69b;
+}
+
+.demo-notice-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border: 1px solid #b98a32;
+  border-radius: 50%;
+  background: #3b2b10;
+  color: #ffd77a;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.demo-notice-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.demo-notice-copy strong {
+  display: block;
+  color: #ffe1a0;
+  font-size: 13px;
+}
+
+.demo-notice-copy p {
+  margin: 4px 0 0;
+  color: #c9b17d;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.demo-notice-badge,
+.workflow-module-demo-badge {
+  border: 1px solid #765b29;
+  border-radius: 6px;
+  background: #332611;
+  color: #e3bd69;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.demo-notice-badge {
+  flex: none;
+  padding: 4px 7px;
+  letter-spacing: 0.12em;
+}
+
+.workflow-main > .demo-notice {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+}
+
+.workflow-module-demo-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 3px 6px;
+}
+
+.workflow-module-card.demo {
+  border-color: #4b402c;
+}
+
+.custom-page > .demo-notice {
+  margin-top: 16px;
+}
+
+.market-workspace .demo-notice {
+  margin-bottom: 0;
+}
+
+@media (max-width: 620px) {
+  .demo-notice {
+    align-items: flex-start;
+  }
+
+  .demo-notice-badge {
+    display: none;
+  }
+
+  .workflow-main > .demo-notice {
+    margin-bottom: 16px;
+  }
+}

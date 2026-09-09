@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { storage } from '@/utils/helpers'
-import { API_PREFIX } from '@/api/client'
+import { API_PREFIX, AUTH_INVALIDATED_EVENT } from '@/api/client'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface AuthState {
@@ -239,6 +239,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: 'user',
     }))
   }, [queryClient])
+
+  useEffect(() => {
+    const handleInvalidated = () => logout()
+    window.addEventListener(AUTH_INVALIDATED_EVENT, handleInvalidated)
+    return () => window.removeEventListener(AUTH_INVALIDATED_EVENT, handleInvalidated)
+  }, [logout])
 
   return <AuthContext.Provider value={{ ...state, login, loginByPhone, logout }}>{children}</AuthContext.Provider>
 }

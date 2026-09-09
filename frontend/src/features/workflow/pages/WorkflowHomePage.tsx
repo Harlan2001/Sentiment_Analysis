@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WorkflowTask, getWorkflowTasks } from '@/api/tasks'
 import { WorkflowDatePicker } from '../components/WorkflowDatePicker'
+import { DemoNotice } from '@/components/ui/DemoNotice'
 
 type WorkflowModule = {
   id: string
@@ -135,21 +136,28 @@ export function WorkflowHomePage() {
             <span className="workflow-module-count">{WORKFLOW_MODULES.length} 个能力</span>
           </header>
 
+          <DemoNotice
+            title="部分工作流为演示功能"
+            description="研报分析、新闻总结和策略生成已接入真实服务；其余工作流当前使用演示数据，实际功能尚在开发中。"
+          />
+
           <div className="workflow-module-grid" aria-label="工作流能力">
-            {visibleModules.map((module) => (
-              <article className={`workflow-module-card${module.to ? ' available' : ''}`} key={module.id} role={module.to ? 'button' : undefined} tabIndex={module.to ? 0 : undefined} onClick={() => module.to && navigate(module.to)} onKeyDown={(event) => {
+            {visibleModules.map((module) => {
+              const isDemo = module.to?.startsWith('/computer/demo/') === true
+              return <article className={`workflow-module-card${module.to ? ' available' : ''}${isDemo ? ' demo' : ''}`} key={module.id} role={module.to ? 'button' : undefined} tabIndex={module.to ? 0 : undefined} onClick={() => module.to && navigate(module.to)} onKeyDown={(event) => {
                 if (module.to && (event.key === 'Enter' || event.key === ' ')) {
                   event.preventDefault()
                   navigate(module.to)
                 }
               }}>
+                {isDemo && <span className="workflow-module-demo-badge">演示</span>}
                 <div className="workflow-module-card-body">
                   <small>{module.category}</small>
                   <h2>{module.title}</h2>
                   <p>{module.description}</p>
                 </div>
               </article>
-            ))}
+            })}
           </div>
           {modulePageCount > 1 && <nav className="workflow-module-pagination" aria-label="工作流模块分页">
             <button type="button" onClick={() => setModulePage((current) => Math.max(0, current - 1))} disabled={modulePage === 0}>← 上一页</button>

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/ui/Modal'
+import { DemoNotice } from '@/components/ui/DemoNotice'
 import { uuid } from '@/utils/helpers'
 import './memory.css'
 
@@ -98,6 +99,11 @@ export function MemoryPage() {
       <button onClick={() => navigate('/custom/skills')}>Skills</button>
       <button className="active">记忆</button>
     </div>
+
+    <DemoNotice
+      title="记忆功能为演示版本"
+      description="当前页面使用当前浏览器中的演示数据，不会形成真实的账号记忆或自动用于后续对话；实际功能尚在开发中。"
+    />
 
     <header className="memory-head">
       <div>

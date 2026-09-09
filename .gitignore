@@ -229,3 +229,11 @@ Xiang
 /frontend/test-results/
 /frontend/playwright-report/
 /frontend/playwright/.cache/
+
+# Codex / AI 工具临时工作区（PPT 处理等任务产物，含 node_modules、PNG、JSON 等中间产物）
+.codex_tmp/
+
+# docs 下的 PPT 产物（二进制 pptx、inspect ndjson、路演版目录的 slide-*.png）；md 文档保留跟踪
+docs/**/*.pptx
+docs/**/*.pptx.inspect.ndjson
+docs/**/slide-*.png

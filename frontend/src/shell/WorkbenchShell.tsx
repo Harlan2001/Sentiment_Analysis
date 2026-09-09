@@ -169,14 +169,14 @@ export function WorkbenchShell() {
                 <NavLink to={`/projects/${project.id}`} className="side-row"><span>◈</span>{project.name}</NavLink>
                 <button className="project-row-caret" onClick={() => void toggleProject(project.id)} aria-label="展开项目会话">⌄</button>
                 <span style={{marginLeft:'auto',display:'flex',gap:0}}>
-                  {project.role === 'owner' && <button className="project-row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteProject(project.id, project.name) }} aria-label="删除项目">🗑</button>}
-                  {project.role !== 'viewer' && <button className="project-row-create" onClick={() => navigate(`/chat?project=${project.id}`)} aria-label="新建项目会话" style={{marginLeft:0}}>＋</button>}
+                  {(project.role === 'manager' || project.role === 'owner') && <button className="project-row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteProject(project.id, project.name) }} aria-label="删除项目">🗑</button>}
+                  <button className="project-row-create" onClick={() => navigate(`/chat?project=${project.id}`)} aria-label="新建项目会话" style={{marginLeft:0}}>＋</button>
                 </span>
               </div>
               {expandedProjectId === project.id && <div className="project-conversation-list">{expandedConversations.map((conversation) => <div className="conversation-row" key={conversation.id}>
                 <NavLink to={`/chat/${conversation.id}`} className="side-row project-conversation" title={conversation.title || '新建对话'}>{conversation.title || '新建对话'}</NavLink>
                 <div className="row-action-spacer" />
-                {project.role !== 'viewer' && <button className="row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteConversation(conversation.id, conversation.title) }} aria-label="删除会话">🗑</button>}
+                <button className="row-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDeleteConversation(conversation.id, conversation.title) }} aria-label="删除会话">🗑</button>
               </div>)}</div>}
             </div>)}
           </section>

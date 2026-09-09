@@ -129,7 +129,11 @@ class TestAuthMiddleware:
         """注入测试环境变量与 token 验证函数。"""
         with patch("backend.auth.dependencies.AUTH_ENABLED", True), \
              patch("backend.auth.dependencies.API_PREFIX", "/sapi"), \
-             patch("backend.auth.dependencies.INTERNAL_TOKEN", "internal-test-token"):
+             patch("backend.auth.dependencies.INTERNAL_TOKEN", "internal-test-token"), \
+             patch(
+                 "backend.auth.dependencies._load_current_identity",
+                 return_value={"is_active": True, "is_admin": False, "role": "user"},
+             ):
             yield
 
     # ---- 免登录模式 ----
@@ -250,12 +254,59 @@ class TestAuthMiddleware:
                             auth_header="Bearer admin-token")
         call_next = AsyncMock(return_value=MagicMock())
 
-        with patch("backend.auth.dependencies.verify_jwt_token", return_value=admin_payload):
+        with patch("backend.auth.dependencies.verify_jwt_token", return_value=admin_payload), \
+             patch(
+                 "backend.auth.dependencies._load_current_identity",
+                 return_value={"is_active": True, "is_admin": True, "role": "admin"},
+             ):
             await auth_middleware(req, call_next)
 
         assert req.state.username == "admin"
         assert req.state.is_admin is True
         assert req.state.role == "admin"
+
+    @pytest.mark.asyncio
+    async def test_inactive_account_with_valid_token_is_rejected(self):
+        from backend.auth.dependencies import auth_middleware
+        req = _mock_request(
+            "/sapi/workbench/projects/proj-001",
+            method="GET",
+            auth_header="Bearer still-valid-token",
+        )
+        call_next = AsyncMock()
+
+        with patch(
+            "backend.auth.dependencies.verify_jwt_token",
+            return_value={"sub": "disabled-user", "is_admin": False, "role": "user"},
+        ), patch(
+            "backend.auth.dependencies._load_current_identity",
+            return_value={"is_active": False, "is_admin": False, "role": "user"},
+        ):
+            response = await auth_middleware(req, call_next)
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 403
+        assert "已停用" in response.body.decode("utf-8")
+        call_next.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_deleted_account_with_valid_token_is_rejected(self):
+        from backend.auth.dependencies import auth_middleware
+        req = _mock_request(
+            "/sapi/workbench/projects/proj-001/members",
+            method="GET",
+            auth_header="Bearer still-valid-token",
+        )
+        call_next = AsyncMock()
+
+        with patch(
+            "backend.auth.dependencies.verify_jwt_token",
+            return_value={"sub": "deleted-user", "is_admin": False, "role": "user"},
+        ), patch("backend.auth.dependencies._load_current_identity", return_value=None):
+            response = await auth_middleware(req, call_next)
+
+        assert response.status_code == 403
+        call_next.assert_not_awaited()
 
     # ---- 过期/无效 token ----
 

@@ -20,9 +20,9 @@ class ProjectManagementRepository(MessageRepository):
     """在工作台消息仓储上补充项目管理能力。"""
 
     @staticmethod
-    def _require_project_owner(project: dict[str, Any]) -> None:
-        if project.get("role") != "owner":
-            raise WorkbenchPermissionError("只有项目所有者才能管理成员")
+    def _require_project_manager(project: dict[str, Any]) -> None:
+        if not ProjectManagementRepository._is_project_manager(project.get("role")):
+            raise WorkbenchPermissionError("只有项目管理者才能执行此操作")
 
     def create_project(
         self,
@@ -55,7 +55,7 @@ class ProjectManagementRepository(MessageRepository):
                 with conn.cursor() as cursor:
                     for member in initial_members:
                         if member["username"] == username:
-                            raise WorkbenchConflictError("项目所有者无需重复添加为成员")
+                            raise WorkbenchConflictError("项目管理者无需重复添加为成员")
                         cursor.execute(
                             "SELECT username FROM users WHERE username = %s AND is_active = 1",
                             (member["username"],),
@@ -72,7 +72,7 @@ class ProjectManagementRepository(MessageRepository):
                     )
                     cursor.execute(
                         """INSERT INTO workbench_project_members (project_id, username, role)
-                           VALUES (%s, %s, 'owner')""",
+                           VALUES (%s, %s, 'manager')""",
                         (project_id, username),
                     )
                     for memory in initial_memories:
@@ -155,7 +155,7 @@ class ProjectManagementRepository(MessageRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                self._require_project_write(project)
+                self._require_project_manager(project)
                 cursor.execute(
                     """INSERT INTO workbench_project_memories
                          (id, project_id, category, title, content, is_active, created_by, updated_by)
@@ -181,7 +181,7 @@ class ProjectManagementRepository(MessageRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                self._require_project_write(project)
+                self._require_project_manager(project)
                 cursor.execute(
                     "SELECT id FROM workbench_project_memories WHERE id = %s AND project_id = %s",
                     (memory_id, project_id),
@@ -213,7 +213,7 @@ class ProjectManagementRepository(MessageRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                self._require_project_write(project)
+                self._require_project_manager(project)
                 affected = cursor.execute(
                     "DELETE FROM workbench_project_memories WHERE id = %s AND project_id = %s",
                     (memory_id, project_id),
@@ -260,11 +260,11 @@ class ProjectManagementRepository(MessageRepository):
                 cursor.execute(
                     """SELECT pm.project_id, pm.username, pm.role, pm.created_at, pm.updated_at,
                               COALESCE(u.display_name, pm.username) AS display_name,
-                              COALESCE(u.is_active, TRUE) AS is_active
+                              COALESCE(u.is_active, FALSE) AS is_active
                        FROM workbench_project_members pm
                        LEFT JOIN users u ON u.username COLLATE utf8mb4_unicode_ci = pm.username
                        WHERE pm.project_id = %s
-                       ORDER BY FIELD(pm.role, 'owner', 'editor', 'viewer'), pm.created_at ASC""",
+                       ORDER BY FIELD(pm.role, 'manager', 'editor'), pm.created_at ASC""",
                     (project_id,),
                 )
                 rows = cursor.fetchall()
@@ -276,7 +276,7 @@ class ProjectManagementRepository(MessageRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                self._require_project_owner(project)
+                self._require_project_manager(project)
                 cursor.execute(
                     "SELECT username FROM users WHERE username = %s AND is_active = 1",
                     (member_username,),
@@ -288,8 +288,8 @@ class ProjectManagementRepository(MessageRepository):
                     (project_id, member_username),
                 )
                 existing = cursor.fetchone()
-                if existing and existing["role"] == "owner":
-                    raise WorkbenchConflictError("不能通过成员编辑变更项目所有者")
+                if existing and self._is_project_manager(existing["role"]):
+                    raise WorkbenchConflictError("不能通过成员编辑变更项目管理者")
                 cursor.execute(
                     """INSERT INTO workbench_project_members (project_id, username, role)
                        VALUES (%s, %s, %s)
@@ -312,7 +312,7 @@ class ProjectManagementRepository(MessageRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                self._require_project_owner(project)
+                self._require_project_manager(project)
                 cursor.execute(
                     "SELECT role FROM workbench_project_members WHERE project_id = %s AND username = %s",
                     (project_id, member_username),
@@ -320,14 +320,14 @@ class ProjectManagementRepository(MessageRepository):
                 member = cursor.fetchone()
                 if not member:
                     raise WorkbenchNotFoundError("项目成员不存在")
-                if member["role"] == "owner":
-                    raise WorkbenchConflictError("不能移除项目所有者")
+                if self._is_project_manager(member["role"]):
+                    raise WorkbenchConflictError("不能移除项目管理者")
                 cursor.execute(
                     "DELETE FROM workbench_project_members WHERE project_id = %s AND username = %s",
                     (project_id, member_username),
                 )
                 cursor.execute(
-                    "SELECT COUNT(*) AS cnt FROM workbench_project_members WHERE project_id = %s AND role <> 'owner'",
+                    "SELECT COUNT(*) AS cnt FROM workbench_project_members WHERE project_id = %s AND role <> 'manager'",
                     (project_id,),
                 )
                 visibility = "shared" if cursor.fetchone()["cnt"] else "private"

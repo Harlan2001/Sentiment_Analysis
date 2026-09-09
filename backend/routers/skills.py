@@ -13,7 +13,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/skills", tags=["skills"])
 class SkillPayload(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
-    instructions: str = Field(min_length=1, max_length=12000)
+    instructions: str = Field(min_length=1, max_length=4000)
     input_schema: list[dict] = Field(default_factory=list, max_length=20)
     output_format: Literal["markdown", "text"] = "markdown"
     status: Literal["draft", "published"] = "draft"
@@ -44,6 +44,14 @@ def create_skill(request: Request, body: SkillPayload):
         raise_repository_error(exc)
 
 
+@router.get("/chat-options")
+def list_chat_options(request: Request):
+    try:
+        return {"data": {"items": _repository().list_chat_options(request.state.username)}}
+    except Exception as exc:
+        raise_repository_error(exc)
+
+
 @router.get("/{skill_id}")
 def get_skill(request: Request, skill_id: str):
     try:
@@ -56,6 +64,22 @@ def get_skill(request: Request, skill_id: str):
 def update_skill(request: Request, skill_id: str, body: SkillPayload):
     try:
         return {"data": _repository().update_skill(request.state.username, skill_id, body.model_dump())}
+    except Exception as exc:
+        raise_repository_error(exc)
+
+
+@router.post("/{skill_id}/enable")
+def enable_system_skill(request: Request, skill_id: str):
+    try:
+        return {"data": _repository().enable_system_skill(request.state.username, skill_id)}
+    except Exception as exc:
+        raise_repository_error(exc)
+
+
+@router.post("/{skill_id}/disable")
+def disable_system_skill(request: Request, skill_id: str):
+    try:
+        return {"data": _repository().disable_system_skill(request.state.username, skill_id)}
     except Exception as exc:
         raise_repository_error(exc)
 
@@ -90,7 +114,7 @@ async def upload_attachment(request: Request, skill_id: str, file: UploadFile = 
     filename = (file.filename or "attachment").strip()
     if not any(filename.lower().endswith(suffix) for suffix in allowed):
         raise HTTPException(status_code=400, detail="Unsupported attachment type")
-    content = await file.read()
+    content = await file.read(10 * 1024 * 1024 + 1)
     if not content or len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Attachment must be between 1 byte and 10 MB")
     try:

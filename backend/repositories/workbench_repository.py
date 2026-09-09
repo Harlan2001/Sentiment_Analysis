@@ -107,6 +107,16 @@ class WorkbenchRepository(BaseRepository):
             conn.commit()
 
     @staticmethod
+    def _is_project_manager(role: str | None) -> bool:
+        """兼容迁移执行前仍存储为 owner 的项目。"""
+        return role in {"manager", "owner"}
+
+    @staticmethod
+    def _is_project_editor(role: str | None) -> bool:
+        """旧 viewer 会由迁移转成 editor；迁移前按新编辑者权限处理。"""
+        return role in {"editor", "viewer"}
+
+    @staticmethod
     def _project_for_user(cursor, username: str, project_id: str) -> dict[str, Any] | None:
         cursor.execute(
             """SELECT p.*, pm.role
@@ -115,7 +125,12 @@ class WorkbenchRepository(BaseRepository):
                WHERE p.id = %s AND pm.username = %s AND p.deleted_at IS NULL""",
             (project_id, username),
         )
-        return cursor.fetchone()
+        project = cursor.fetchone()
+        if project and project.get("role") == "owner":
+            project["role"] = "manager"
+        elif project and project.get("role") == "viewer":
+            project["role"] = "editor"
+        return project
 
     @staticmethod
     def _conversation_for_user(cursor, username: str, conversation_id: str) -> dict[str, Any] | None:
@@ -127,20 +142,50 @@ class WorkbenchRepository(BaseRepository):
                WHERE c.id = %s
                  AND c.deleted_at IS NULL
                  AND ((c.project_id IS NULL AND c.owner_username = %s)
-                      OR (c.project_id IS NOT NULL AND pm.username IS NOT NULL))""",
-            (username, conversation_id, username),
+                      OR (c.project_id IS NOT NULL AND
+                          pm.role IN ('manager', 'owner', 'editor', 'viewer') AND
+                          (pm.role IN ('manager', 'owner') OR c.owner_username = %s)))""",
+            (username, conversation_id, username, username),
         )
-        return cursor.fetchone()
+        conversation = cursor.fetchone()
+        if conversation and conversation.get("project_id"):
+            role = conversation.get("project_role")
+            if not (
+                WorkbenchRepository._is_project_manager(role)
+                or WorkbenchRepository._is_project_editor(role)
+            ):
+                return None
+        if conversation and conversation.get("project_role") == "owner":
+            conversation["project_role"] = "manager"
+        elif conversation and conversation.get("project_role") == "viewer":
+            conversation["project_role"] = "editor"
+        return conversation
 
     @staticmethod
     def _require_project_write(project: dict[str, Any]) -> None:
-        if project.get("role") not in {"owner", "editor"}:
-            raise WorkbenchPermissionError("当前用户没有项目写入权限")
+        if not WorkbenchRepository._is_project_manager(project.get("role")):
+            raise WorkbenchPermissionError("只有项目管理者可以修改项目设置")
+
+    @staticmethod
+    def _require_project_conversation_create(project: dict[str, Any]) -> None:
+        role = project.get("role")
+        if not (
+            WorkbenchRepository._is_project_manager(role)
+            or WorkbenchRepository._is_project_editor(role)
+        ):
+            raise WorkbenchPermissionError("当前用户没有创建项目会话的权限")
 
     @staticmethod
     def _require_conversation_write(conversation: dict[str, Any], username: str) -> None:
-        if conversation.get("project_id") and conversation.get("project_role") not in {"owner", "editor"}:
-            raise WorkbenchPermissionError("当前用户没有项目会话写入权限")
+        if conversation.get("project_id"):
+            role = conversation.get("project_role")
+            if not (
+                WorkbenchRepository._is_project_manager(role)
+                or WorkbenchRepository._is_project_editor(role)
+            ):
+                raise WorkbenchPermissionError("当前用户没有项目会话写入权限")
+            if conversation.get("owner_username") != username:
+                raise WorkbenchPermissionError("其他成员的项目会话仅供管理者查看")
         if not conversation.get("project_id") and conversation.get("owner_username") != username:
             raise WorkbenchPermissionError("当前用户没有会话写入权限")
 
@@ -155,7 +200,7 @@ class WorkbenchRepository(BaseRepository):
                 )
                 cursor.execute(
                     """INSERT INTO workbench_project_members (project_id, username, role)
-                       VALUES (%s, %s, 'owner')""",
+                       VALUES (%s, %s, 'manager')""",
                     (project_id, username),
                 )
             conn.commit()
@@ -193,6 +238,10 @@ class WorkbenchRepository(BaseRepository):
         has_more = len(rows) > limit
         rows = rows[:limit]
         for row in rows:
+            if row.get("role") == "owner":
+                row["role"] = "manager"
+            elif row.get("role") == "viewer":
+                row["role"] = "editor"
             row["unread_count"] = 0
         return {
             "items": [_serialize_row(row) for row in rows],
@@ -224,8 +273,8 @@ class WorkbenchRepository(BaseRepository):
                 project = self._project_for_user(cursor, username, project_id)
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                if project.get("role") != "owner":
-                    raise WorkbenchPermissionError("只有项目所有者才能删除项目")
+                if not self._is_project_manager(project.get("role")):
+                    raise WorkbenchPermissionError("只有项目管理者才能删除项目")
                 cursor.execute(
                     "UPDATE workbench_projects SET deleted_at = NOW(6) WHERE id = %s",
                     (project_id,),
@@ -252,8 +301,8 @@ class WorkbenchRepository(BaseRepository):
                 project = cursor.fetchone()
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                if project.get("role") != "owner":
-                    raise WorkbenchPermissionError("只有项目所有者才能恢复项目")
+                if not self._is_project_manager(project.get("role")):
+                    raise WorkbenchPermissionError("只有项目管理者才能恢复项目")
                 cursor.execute(
                     "UPDATE workbench_projects SET deleted_at = NULL WHERE id = %s",
                     (project_id,),
@@ -280,8 +329,8 @@ class WorkbenchRepository(BaseRepository):
                 project = cursor.fetchone()
                 if not project:
                     raise WorkbenchNotFoundError("项目不存在或不在最近删除中")
-                if project.get("role") != "owner":
-                    raise WorkbenchPermissionError("只有项目所有者才能永久删除项目")
+                if not self._is_project_manager(project.get("role")):
+                    raise WorkbenchPermissionError("只有项目管理者才能永久删除项目")
                 # The conversation FK is RESTRICT, while messages cascade from conversations.
                 cursor.execute("DELETE FROM workbench_conversations WHERE project_id = %s", (project_id,))
                 cursor.execute("DELETE FROM workbench_project_memories WHERE project_id = %s", (project_id,))
@@ -297,7 +346,7 @@ class WorkbenchRepository(BaseRepository):
                     project = self._project_for_user(cursor, username, project_id)
                     if not project:
                         raise WorkbenchNotFoundError("项目不存在或当前用户无权访问")
-                    self._require_project_write(project)
+                    self._require_project_conversation_create(project)
                 cursor.execute(
                     """INSERT INTO workbench_conversations
                          (id, owner_username, project_id, title, module_type, source, status)

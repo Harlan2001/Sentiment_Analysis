@@ -1,14 +1,28 @@
 import { request } from './client'
 
 export type SkillStatus = 'draft' | 'published' | 'archived'
-export type SkillAttachment = { id: string; original_filename: string; content_type: string | null; size_bytes: number; created_at?: string }
-export type Skill = { id: string; owner_type: 'system' | 'user'; owner_username: string | null; name: string; description: string; instructions: string; input_schema_json: Array<Record<string, unknown>>; attachments?: SkillAttachment[]; output_format: 'markdown' | 'text'; status: SkillStatus; version_no: number; created_at: string; updated_at: string }
+export type SkillAttachment = {
+  id: string
+  original_filename: string
+  content_type: string | null
+  size_bytes: number
+  parse_status: 'stored' | 'pending' | 'parsing' | 'ready' | 'failed'
+  parse_error?: string | null
+  page_count?: number | null
+  parsed_at?: string | null
+  created_at?: string
+}
+export type Skill = { id: string; owner_type: 'system' | 'user'; owner_username: string | null; name: string; description: string; instructions: string; input_schema_json: Array<Record<string, unknown>>; attachments?: SkillAttachment[]; output_format: 'markdown' | 'text'; status: SkillStatus; version_no: number; created_at: string; updated_at: string; is_enabled?: boolean }
 export type SkillPayload = Pick<Skill, 'name' | 'description' | 'instructions' | 'output_format' | 'status'> & { input_schema: Array<Record<string, unknown>> }
 
 export function getSkills(query = '', scope: 'all' | 'mine' | 'system' = 'all') {
   const params = new URLSearchParams({ scope }); if (query) params.set('query', query)
   return request<{ items: Skill[] }>(`/sapi/skills?${params}`)
 }
+export function getChatSkills() { return request<{ items: Skill[] }>('/sapi/skills/chat-options') }
+export function getSkill(id: string) { return request<Skill>(`/sapi/skills/${id}`) }
+export function enableSystemSkill(id: string) { return request<Skill>(`/sapi/skills/${id}/enable`, { method: 'POST' }) }
+export function disableSystemSkill(id: string) { return request<{ disabled: boolean }>(`/sapi/skills/${id}/disable`, { method: 'POST' }) }
 export function createSkill(input: SkillPayload) { return request<Skill>('/sapi/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }) }
 export function updateSkill(id: string, input: SkillPayload) { return request<Skill>(`/sapi/skills/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }) }
 export function archiveSkill(id: string) { return request<Skill>(`/sapi/skills/${id}/archive`, { method: 'POST' }) }

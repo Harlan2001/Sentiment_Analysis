@@ -14,7 +14,7 @@ from backend.routers.workbench_helpers import (
 router = APIRouter(prefix=f"{API_PREFIX}/workbench/projects", tags=["workbench-project-management"])
 
 MemoryCategory = Literal["background", "goal", "constraint", "preference", "conclusion", "other"]
-MemberRole = Literal["editor", "viewer"]
+MemberRole = Literal["editor"]
 
 
 class ProjectMemoryCreateRequest(BaseModel):
