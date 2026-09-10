@@ -10,6 +10,7 @@ import { storage } from '@/utils/helpers'
 
 /** API 路由前缀 */
 export const API_PREFIX = '/sapi'
+export const AUTH_INVALIDATED_EVENT = 'bondsense-auth-invalidated'
 
 /**
  * 获取认证请求头（如果已登录）
@@ -28,6 +29,16 @@ interface ErrorPayload {
   message?: string
 }
 
+export function invalidateAuthentication(status: number, detail = ''): void {
+  const disabledAccount = status === 403 && /(停用|禁用|账户不存在)/.test(detail)
+  if (status !== 401 && !disabledAccount) return
+  storage.remove('auth_token')
+  storage.remove('auth_user')
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_INVALIDATED_EVENT, { detail }))
+  }
+}
+
 /**
  * 统一请求封装：
  * - 合并 authHeaders 与调用方传入的 headers
@@ -42,6 +53,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const payload = (await response.json().catch(() => null)) as (ErrorPayload & { data?: T }) | null
   if (!response.ok) {
     const detail = payload?.error?.message || payload?.detail || payload?.message
+    invalidateAuthentication(response.status, detail)
     throw new Error(detail || '请求失败')
   }
   return payload?.data as T

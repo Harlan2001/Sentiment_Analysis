@@ -1,4 +1,4 @@
-import { authHeaders, request } from './client'
+import { authHeaders, invalidateAuthentication, request } from './client'
 import type { Conversation, Project } from './projects'
 export type { Conversation } from './projects'
 
@@ -65,7 +65,9 @@ export async function sendMessage(
   })
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => null)
-    throw new Error(payload?.detail || '发送消息失败')
+    const detail = payload?.detail || '发送消息失败'
+    invalidateAuthentication(response.status, detail)
+    throw new Error(detail)
   }
 
   const reader = response.body.getReader()

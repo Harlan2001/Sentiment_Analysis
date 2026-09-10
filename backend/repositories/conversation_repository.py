@@ -10,6 +10,7 @@ import pymysql
 from backend.repositories.workbench_repository import (
     WorkbenchConflictError,
     WorkbenchNotFoundError,
+    WorkbenchPermissionError,
     WorkbenchRepository,
     _decode_cursor,
     _encode_cursor,
@@ -47,7 +48,16 @@ class ConversationRepository(WorkbenchRepository):
                     message["skill_names"] = skill_names_by_message.get(message["id"], [])
         return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages]}
 
-    def list_conversations(self, username: str, project_id: str | None, limit: int, cursor: str | None = None, archived: bool = False) -> dict[str, Any]:
+    def list_conversations(
+        self,
+        username: str,
+        project_id: str | None,
+        limit: int,
+        cursor: str | None = None,
+        archived: bool = False,
+        conversation_owner: str | None = None,
+        include_all_members: bool = False,
+    ) -> dict[str, Any]:
         decoded = _decode_cursor(cursor)
         status = "archived" if archived else "active"
         page_sql, page_params = "", []
@@ -55,12 +65,19 @@ class ConversationRepository(WorkbenchRepository):
             page_sql = "AND (COALESCE(c.last_message_at, c.created_at) < %s OR (COALESCE(c.last_message_at, c.created_at) = %s AND c.id < %s))"
             page_params = [decoded[0], decoded[0], decoded[1]]
         if project_id:
-            self.get_project(username, project_id)
+            project = self.get_project(username, project_id)
+            if include_all_members and not self._is_project_manager(project.get("role")):
+                raise WorkbenchPermissionError("只有项目管理者可以查看其他成员的会话")
+            if conversation_owner and conversation_owner != username and not self._is_project_manager(project.get("role")):
+                raise WorkbenchPermissionError("编辑者只能查看自己的项目会话")
+            owner_sql = "" if include_all_members else "AND c.owner_username = %s"
+            owner_params = [] if include_all_members else [conversation_owner or username]
             query = f"""SELECT c.* FROM workbench_conversations c
                           INNER JOIN workbench_project_members pm ON pm.project_id = c.project_id
-                          WHERE c.project_id = %s AND pm.username = %s AND c.status = %s AND c.deleted_at IS NULL AND c.last_message_at IS NOT NULL {page_sql}
+                          WHERE c.project_id = %s AND pm.username = %s {owner_sql}
+                            AND c.status = %s AND c.deleted_at IS NULL AND c.last_message_at IS NOT NULL {page_sql}
                           ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC LIMIT %s"""
-            params = [project_id, username, status, *page_params, limit + 1]
+            params = [project_id, username, *owner_params, status, *page_params, limit + 1]
         else:
             query = f"""SELECT c.* FROM workbench_conversations c
                           WHERE c.owner_username = %s AND c.project_id IS NULL AND c.status = %s AND c.deleted_at IS NULL AND c.last_message_at IS NOT NULL {page_sql}
@@ -123,8 +140,10 @@ class ConversationRepository(WorkbenchRepository):
                        WHERE c.id = %s
                          AND c.deleted_at IS NOT NULL
                          AND ((c.project_id IS NULL AND c.owner_username = %s)
-                              OR (c.project_id IS NOT NULL AND pm.username IS NOT NULL))""",
-                    (username, conversation_id, username),
+                              OR (c.project_id IS NOT NULL AND
+                                  pm.role IN ('manager', 'owner', 'editor', 'viewer') AND
+                                  (pm.role IN ('manager', 'owner') OR c.owner_username = %s)))""",
+                    (username, conversation_id, username, username),
                 )
                 conversation = cursor.fetchone()
                 if not conversation:
@@ -154,8 +173,10 @@ class ConversationRepository(WorkbenchRepository):
                          ON pm.project_id = c.project_id AND pm.username = %s
                        WHERE c.id = %s AND c.deleted_at IS NOT NULL
                          AND ((c.project_id IS NULL AND c.owner_username = %s)
-                              OR (c.project_id IS NOT NULL AND pm.username IS NOT NULL))""",
-                    (username, conversation_id, username),
+                              OR (c.project_id IS NOT NULL AND
+                                  pm.role IN ('manager', 'owner', 'editor', 'viewer') AND
+                                  (pm.role IN ('manager', 'owner') OR c.owner_username = %s)))""",
+                    (username, conversation_id, username, username),
                 )
                 conversation = cursor.fetchone()
                 if not conversation:
@@ -172,7 +193,7 @@ class ConversationRepository(WorkbenchRepository):
                 cursor.execute(
                     """SELECT p.id FROM workbench_projects p
                        INNER JOIN workbench_project_members pm ON pm.project_id = p.id
-                       WHERE pm.username = %s AND pm.role = 'owner' AND p.deleted_at IS NOT NULL""",
+                       WHERE pm.username = %s AND pm.role IN ('manager', 'owner') AND p.deleted_at IS NOT NULL""",
                     (username,),
                 )
                 project_ids = [row["id"] for row in cursor.fetchall()]
@@ -196,7 +217,7 @@ class ConversationRepository(WorkbenchRepository):
                 cursor.execute(
                     """SELECT p.* FROM workbench_projects p
                        INNER JOIN workbench_project_members pm ON pm.project_id = p.id
-                       WHERE pm.username = %s AND pm.role = 'owner' AND p.deleted_at IS NOT NULL
+                       WHERE pm.username = %s AND pm.role IN ('manager', 'owner') AND p.deleted_at IS NOT NULL
                        ORDER BY p.deleted_at DESC LIMIT 50""",
                     (username,),
                 )
@@ -204,11 +225,15 @@ class ConversationRepository(WorkbenchRepository):
                 cursor.execute(
                     """SELECT c.* FROM workbench_conversations c
                        LEFT JOIN workbench_projects p ON p.id = c.project_id
+                       LEFT JOIN workbench_project_members pm
+                         ON pm.project_id = c.project_id AND pm.username = %s
                        WHERE c.owner_username = %s
                          AND c.deleted_at IS NOT NULL
-                         AND (c.project_id IS NULL OR p.deleted_at IS NULL)
+                         AND (c.project_id IS NULL OR
+                              (p.deleted_at IS NULL AND
+                               pm.role IN ('manager', 'owner', 'editor', 'viewer')))
                        ORDER BY c.deleted_at DESC LIMIT 50""",
-                    (username,),
+                    (username, username),
                 )
                 deleted_conversations = cursor.fetchall()
         return {
@@ -224,6 +249,40 @@ class ConversationRepository(WorkbenchRepository):
             "projects": projects,
             "recent_conversations": self.list_conversations(username, None, conversation_limit)["items"],
             "limits": {"project_conversations": conversation_limit, "recent_conversations": conversation_limit},
+        }
+
+    def get_message_retry(
+        self,
+        username: str,
+        conversation_id: str,
+        content: str,
+        client_message_id: str,
+    ) -> dict[str, Any] | None:
+        """Return an already accepted idempotent message before revalidating Skills."""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                conversation = self._conversation_for_user(cursor, username, conversation_id)
+                if not conversation:
+                    raise WorkbenchNotFoundError("会话不存在或当前用户无权访问")
+                self._require_conversation_write(conversation, username)
+                cursor.execute(
+                    "SELECT * FROM workbench_messages WHERE conversation_id = %s AND client_message_id = %s",
+                    (conversation_id, client_message_id),
+                )
+                user_message = cursor.fetchone()
+                if not user_message:
+                    return None
+                if user_message["content"] != content:
+                    raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
+                cursor.execute(
+                    "SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1",
+                    (user_message["id"],),
+                )
+                assistant_message = cursor.fetchone()
+        return {
+            "created": False,
+            "user_message": _serialize_row(user_message),
+            "assistant_message": _serialize_row(assistant_message),
         }
 
     def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: list[dict[str, Any]] | None = None) -> dict[str, Any]:

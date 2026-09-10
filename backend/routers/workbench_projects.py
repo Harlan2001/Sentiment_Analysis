@@ -32,7 +32,7 @@ class InitialMemoryRequest(BaseModel):
 
 class InitialMemberRequest(BaseModel):
     username: str = Field(min_length=1, max_length=191)
-    role: Literal["editor", "viewer"] = "viewer"
+    role: Literal["editor"] = "editor"
 
     @field_validator("username")
     @classmethod
@@ -133,10 +133,28 @@ def update_project(request: Request, project_id: str, body: ProjectUpdateRequest
 
 
 @router.get("/{project_id}/conversations")
-def list_project_conversations(request: Request, project_id: str, limit: int = Query(default=20, ge=1, le=50), cursor: Optional[str] = None, archived: bool = False):
+def list_project_conversations(
+    request: Request,
+    project_id: str,
+    limit: int = Query(default=20, ge=1, le=50),
+    cursor: Optional[str] = None,
+    archived: bool = False,
+    conversation_owner: Optional[str] = None,
+    include_all_members: bool = False,
+):
     repository: ConversationRepository = request.app.state.repository
     try:
-        return {"data": repository.list_conversations(request.state.username, project_id, limit, cursor, archived)}
+        return {
+            "data": repository.list_conversations(
+                request.state.username,
+                project_id,
+                limit,
+                cursor,
+                archived,
+                conversation_owner,
+                include_all_members,
+            )
+        }
     except Exception as exc:
         raise_repository_error(exc)
 

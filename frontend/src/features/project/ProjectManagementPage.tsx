@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Conversation,
@@ -36,11 +36,12 @@ const CATEGORY_LABELS: Record<MemoryCategory, string> = {
   other: '其他',
 }
 
-const ROLE_LABELS = { owner: '所有者', editor: '编辑者', viewer: '查看者' } as const
+const ROLE_LABELS = { manager: '管理者', owner: '管理者', editor: '编辑者', viewer: '编辑者' } as const
 const ROLE_SCOPES = {
-  owner: '可管理成员、设置和项目内容',
-  editor: '可编辑项目内容',
-  viewer: '仅查看项目内容',
+  manager: '可管理项目、记忆和成员，并查看所有成员会话',
+  owner: '可管理项目、记忆和成员，并查看所有成员会话',
+  editor: '可维护自己的项目会话，并查看项目记忆',
+  viewer: '可维护自己的项目会话，并查看项目记忆',
 } as const
 
 function formatTime(value: string | null) {
@@ -76,7 +77,9 @@ export function ProjectManagementPage() {
   const [success, setSuccess] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
+  const [conversationFilter, setConversationFilter] = useState('mine')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsNameRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -86,10 +89,31 @@ export function ProjectManagementPage() {
   const [memoryTitle, setMemoryTitle] = useState('')
   const [memoryContent, setMemoryContent] = useState('')
   const [memberUsername, setMemberUsername] = useState('')
-  const [memberRole, setMemberRole] = useState<'editor' | 'viewer'>('viewer')
 
-  const canWrite = project?.role === 'owner' || project?.role === 'editor'
-  const isOwner = project?.role === 'owner'
+  const canUseConversations = Boolean(project)
+  const isManager = project?.role === 'manager' || project?.role === 'owner'
+
+  const closeSettings = useCallback(() => {
+    if (project) {
+      setName(project.name)
+      setDescription(project.description || '')
+    }
+    setSettingsOpen(false)
+  }, [project])
+
+  function openSettings() {
+    setName(project?.name || '')
+    setDescription(project?.description || '')
+    setActionError('')
+    setSettingsOpen(true)
+  }
+
+  const conversationOptions =
+    conversationFilter === 'all'
+      ? { includeAllMembers: true }
+      : conversationFilter === 'mine'
+        ? {}
+        : { conversationOwner: conversationFilter }
 
   const loadProject = useCallback(async () => {
     if (isCreating || !projectId) return
@@ -98,8 +122,8 @@ export function ProjectManagementPage() {
     try {
       const [loadedProject, active, archived, loadedMemories, loadedMembers] = await Promise.all([
         getProject(projectId),
-        getProjectConversations(projectId),
-        getProjectConversations(projectId, { archived: true }),
+        getProjectConversations(projectId, conversationOptions),
+        getProjectConversations(projectId, { archived: true, ...conversationOptions }),
         listProjectMemories(projectId),
         listProjectMembers(projectId),
       ])
@@ -115,11 +139,21 @@ export function ProjectManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [isCreating, projectId])
+  }, [conversationFilter, isCreating, projectId])
 
   useEffect(() => {
     void loadProject()
   }, [loadProject])
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeSettings()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    settingsNameRef.current?.focus()
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [closeSettings, settingsOpen])
 
   function notify(message: string) {
     setSuccess(message)
@@ -166,13 +200,13 @@ export function ProjectManagementPage() {
   }
 
   async function handleDeleteProject() {
-    if (!project || !window.confirm(`确定删除项目「${project.name}」吗？项目会进入最近删除，可恢复。`)) return
+    if (!project || !window.confirm(`确定移除项目「${project.name}」吗？项目会进入最近删除，可恢复。`)) return
     try {
       await deleteProject(project.id)
       window.dispatchEvent(new Event('bondsense-sidebar-refresh'))
       navigate('/home', { replace: true })
     } catch (error) {
-      setActionError(messageOf(error, '删除项目失败'))
+      setActionError(messageOf(error, '移除项目失败'))
     }
   }
 
@@ -264,7 +298,7 @@ export function ProjectManagementPage() {
     if (!project || !memberUsername.trim() || saving) return
     setSaving(true)
     try {
-      await upsertProjectMember(project.id, memberUsername.trim(), memberRole)
+      await upsertProjectMember(project.id, memberUsername.trim())
       setMembers(await listProjectMembers(project.id))
       setMemberUsername('')
       notify('成员权限已保存')
@@ -272,17 +306,6 @@ export function ProjectManagementPage() {
       setActionError(messageOf(error, '保存成员失败'))
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function changeMemberRole(member: ProjectMember, role: 'editor' | 'viewer') {
-    if (!project) return
-    try {
-      await upsertProjectMember(project.id, member.username, role)
-      setMembers(await listProjectMembers(project.id))
-      notify('成员角色已更新')
-    } catch (error) {
-      setActionError(messageOf(error, '更新成员角色失败'))
     }
   }
 
@@ -386,19 +409,14 @@ export function ProjectManagementPage() {
           </div>
         </div>
         <div className="pm-actions">
-          {canWrite && (
-            <button className="pm-button" onClick={() => setSettingsOpen((open) => !open)}>
+          {isManager && (
+            <button className="pm-button" onClick={openSettings}>
               项目设置
             </button>
           )}
-          {isOwner && (
+          {isManager && (
             <button className="pm-button danger" onClick={() => void handleDeleteProject()}>
-              删除项目
-            </button>
-          )}
-          {canWrite && (
-            <button className="pm-button primary" onClick={() => navigate(`/chat?project=${project.id}`)}>
-              ＋ 新建项目会话
+              移除项目
             </button>
           )}
         </div>
@@ -439,36 +457,71 @@ export function ProjectManagementPage() {
           </button>
         </div>
       )}
-      {!canWrite && <div className="pm-readonly">你是查看者：可读取项目会话、记忆和成员，但不能修改内容。</div>}
+      {(project.role === 'editor' || project.role === 'viewer') && (
+        <div className="pm-readonly">你是编辑者：只能查看和管理自己的会话；项目记忆与成员由管理者维护。</div>
+      )}
 
       {settingsOpen && (
-        <form className="pm-card pm-settings" onSubmit={saveSettings}>
-          <div>
-            <h2>项目设置</h2>
-            <p>编辑项目名称和说明。</p>
-          </div>
-          <label>
-            <span>名称</span>
-            <input value={name} maxLength={80} required onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label>
-            <span>说明</span>
-            <textarea
-              value={description}
-              maxLength={1000}
-              rows={3}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-          <div className="pm-actions">
-            <button className="pm-button" type="button" onClick={() => setSettingsOpen(false)}>
-              取消
-            </button>
-            <button className="pm-button primary" disabled={!name.trim() || saving}>
-              {saving ? '保存中…' : '保存设置'}
-            </button>
-          </div>
-        </form>
+        <div className="modal-layer pm-settings-layer" role="presentation">
+          <button className="modal-backdrop" type="button" onClick={closeSettings} aria-label="关闭项目设置" />
+          <form
+            className="pm-settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="project-settings-title"
+            onSubmit={saveSettings}
+          >
+            <header className="pm-settings-head">
+              <div>
+                <span className="pm-eyebrow">基本信息</span>
+                <h2 id="project-settings-title">项目设置</h2>
+                <p>更新项目名称和说明，帮助成员快速理解项目目标。</p>
+              </div>
+              <button className="modal-close" type="button" onClick={closeSettings} aria-label="关闭">
+                ✕
+              </button>
+            </header>
+            {actionError && <div className="pm-settings-error" role="alert">{actionError}</div>}
+            <div className="pm-settings-fields">
+              <label className="pm-name-field">
+                <span>
+                  项目名称 <small>{name.length}/80</small>
+                </span>
+                <input
+                  ref={settingsNameRef}
+                  value={name}
+                  maxLength={80}
+                  required
+                  placeholder="输入项目名称"
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+              <label className="pm-description-field">
+                <span>
+                  项目说明 <small>{description.length}/1000</small>
+                </span>
+                <textarea
+                  value={description}
+                  maxLength={1000}
+                  rows={5}
+                  placeholder="简要说明项目目标、范围或协作约定"
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </label>
+            </div>
+            <footer className="pm-settings-footer">
+              <span>保存后会立即对所有项目成员显示。</span>
+              <div className="pm-actions">
+                <button className="pm-button" type="button" onClick={closeSettings}>
+                  取消
+                </button>
+                <button className="pm-button primary" disabled={!name.trim() || saving}>
+                  {saving ? '保存中…' : '保存设置'}
+                </button>
+              </div>
+            </footer>
+          </form>
+        </div>
       )}
 
       <nav className="pm-tabs" aria-label="项目分区">
@@ -485,26 +538,62 @@ export function ProjectManagementPage() {
 
       {tab === 'conversations' && (
         <section className="pm-card">
-          <header className="pm-card-head">
+          <header className="pm-card-head pm-conversation-head">
             <div>
               <h2>项目会话</h2>
               <p>只展示实际发送过内容的项目会话。</p>
             </div>
-            <div className="pm-toolbar">
-              <button className={`pm-chip${!showArchived ? ' active' : ''}`} onClick={() => setShowArchived(false)}>
-                进行中
-              </button>
-              <button className={`pm-chip${showArchived ? ' active' : ''}`} onClick={() => setShowArchived(true)}>
-                已归档 {archivedConversations.length}
-              </button>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索会话" />
+            <div className="pm-toolbar" aria-label="会话筛选">
+              {isManager && (
+                <label className="pm-source-filter">
+                  <span>会话来源</span>
+                  <select
+                    aria-label="按会话来源成员筛选"
+                    value={conversationFilter}
+                    onChange={(event) => setConversationFilter(event.target.value)}
+                  >
+                    <option value="mine">我的会话</option>
+                    <option value="all">全部成员</option>
+                    {members.filter((member) => member.role !== 'manager' && member.role !== 'owner').map((member) => (
+                      <option value={member.username} key={member.username}>
+                        {member.display_name}（@{member.username}）
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="pm-status-filter" aria-label="会话状态">
+                <button
+                  className={`pm-chip${!showArchived ? ' active' : ''}`}
+                  aria-pressed={!showArchived}
+                  onClick={() => setShowArchived(false)}
+                >
+                  进行中 <span>{conversations.length}</span>
+                </button>
+                <button
+                  className={`pm-chip${showArchived ? ' active' : ''}`}
+                  aria-pressed={showArchived}
+                  onClick={() => setShowArchived(true)}
+                >
+                  已归档 <span>{archivedConversations.length}</span>
+                </button>
+              </div>
+              <label className="pm-search-filter">
+                <span className="pm-visually-hidden">搜索会话</span>
+                <input
+                  aria-label="搜索会话"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="搜索会话"
+                />
+              </label>
             </div>
           </header>
           {visibleConversations.length === 0 ? (
             <div className="pm-empty">
               <strong>{search ? '没有匹配的会话' : showArchived ? '暂无已归档会话' : '还没有项目会话'}</strong>
               <p>{showArchived ? '归档后的会话会保留在这里。' : '创建会话并发送第一条消息后，它才会出现在历史中。'}</p>
-              {canWrite && !showArchived && (
+              {canUseConversations && !showArchived && (
                 <button className="pm-button primary" onClick={() => navigate(`/chat?project=${project.id}`)}>
                   新建项目会话
                 </button>
@@ -516,10 +605,13 @@ export function ProjectManagementPage() {
                 <article className="pm-row" key={conversation.id}>
                   <button className="pm-row-main" onClick={() => navigate(`/chat/${conversation.id}`)}>
                     <strong>{conversation.title || '新建对话'}</strong>
-                    <span>{formatTime(conversation.last_message_at)}</span>
+                    <span>
+                      {isManager && conversationFilter !== 'mine' ? `@${conversation.owner_username} · ` : ''}
+                      {formatTime(conversation.last_message_at)}
+                    </span>
                   </button>
                   <span className="pm-badge">{showArchived ? '已归档' : '项目会话'}</span>
-                  {canWrite && (
+                  {canUseConversations && (!isManager || conversation.owner_username === project.owner_username) && (
                     <div className="pm-row-actions">
                       <button onClick={() => void toggleArchive(conversation)}>{showArchived ? '恢复' : '归档'}</button>
                       <button className="danger" onClick={() => void handleDeleteConversation(conversation)}>
@@ -541,7 +633,7 @@ export function ProjectManagementPage() {
               <h2>项目记忆</h2>
               <p>仅启用的条目会作为该项目后续 AI 会话的限长上下文；不会自动保存临时聊天。</p>
             </div>
-            {canWrite && (
+            {isManager && (
               <button className="pm-button primary" onClick={() => openMemoryEditor()}>
                 ＋ 新建记忆
               </button>
@@ -609,7 +701,7 @@ export function ProjectManagementPage() {
                   <small>
                     更新于 {formatTime(memory.updated_at)} · {memory.updated_by}
                   </small>
-                  {canWrite && (
+                  {isManager && (
                     <footer>
                       <button onClick={() => openMemoryEditor(memory)}>编辑</button>
                       <button onClick={() => void toggleMemory(memory)}>{memory.is_active ? '停用' : '启用'}</button>
@@ -633,7 +725,7 @@ export function ProjectManagementPage() {
               <p>当前仅支持添加系统内已启用用户，不会发送外部邀请。</p>
             </div>
           </header>
-          {isOwner && (
+          {isManager && (
             <form className="pm-member-form" onSubmit={saveMember}>
               <label>
                 <span>用户名</span>
@@ -645,16 +737,7 @@ export function ProjectManagementPage() {
                   onChange={(event) => setMemberUsername(event.target.value)}
                 />
               </label>
-              <label>
-                <span>角色</span>
-                <select
-                  value={memberRole}
-                  onChange={(event) => setMemberRole(event.target.value as 'editor' | 'viewer')}
-                >
-                  <option value="viewer">查看者</option>
-                  <option value="editor">编辑者</option>
-                </select>
-              </label>
+              <span className="pm-badge">编辑者</span>
               <button className="pm-button primary" disabled={saving || !memberUsername.trim()}>
                 {saving ? '保存中…' : '添加或更新成员'}
               </button>
@@ -671,19 +754,8 @@ export function ProjectManagementPage() {
                     {member.is_active ? '' : ' · 账号已停用'}
                   </span>
                 </div>
-                {isOwner && member.role !== 'owner' ? (
-                  <select
-                    aria-label={`${member.display_name} 的角色`}
-                    value={member.role}
-                    onChange={(event) => void changeMemberRole(member, event.target.value as 'editor' | 'viewer')}
-                  >
-                    <option value="editor">编辑者</option>
-                    <option value="viewer">查看者</option>
-                  </select>
-                ) : (
-                  <span className="pm-badge">{ROLE_LABELS[member.role]}</span>
-                )}
-                {isOwner && member.role !== 'owner' && (
+                <span className="pm-badge">{ROLE_LABELS[member.role]}</span>
+                {isManager && member.role !== 'manager' && member.role !== 'owner' && (
                   <button className="pm-link danger" onClick={() => void removeMember(member)}>
                     移除
                   </button>
@@ -694,14 +766,12 @@ export function ProjectManagementPage() {
           <div className="pm-permissions">
             <h3>权限说明</h3>
             <div>
-              <strong>所有者</strong>
-              <span>项目设置、记忆、成员、会话与删除</span>
+              <strong>管理者</strong>
+              <span>项目设置、记忆、成员和项目生命周期；可只读查看全部成员会话</span>
               <strong>编辑者</strong>
-              <span>项目设置、记忆与项目会话</span>
-              <strong>查看者</strong>
-              <span>只读项目、记忆、成员与会话</span>
+              <span>查看项目记忆和成员；只能创建、查看和管理自己的会话</span>
             </div>
-            <p>当前版本不提供所有权转移或外部邀请。</p>
+            <p>当前版本每个项目只有一名管理者，不提供管理权转移或外部邀请。</p>
           </div>
         </section>
       )}

@@ -9,6 +9,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from backend.auth.auth import normalize_role, verify_jwt_token
+from backend.common.database import get_db_connection
 from backend.config.config import API_PREFIX, AUTH_ENABLED
 
 # 公开路径：仅放行登录/健康检查/文档。写操作一律不在此放行；
@@ -31,6 +32,27 @@ INTERNAL_TOKEN = os.environ.get("SENTIMENT_INTERNAL_API_TOKEN")
 
 # 只读方法：匿名访客仅放行这些方法（数据可浏览），写操作/管理接口仍需登录
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _load_current_identity(username: str) -> dict[str, object] | None:
+    """读取账号的当前状态，避免把 JWT 中的历史状态当作实时权限。"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT is_active, COALESCE(is_admin, 0),
+                          COALESCE(NULLIF(role, ''), 'user')
+                   FROM users WHERE username = %s""",
+                (username,),
+            )
+            row = cursor.fetchone()
+    if not row:
+        return None
+    is_admin = bool(row[1])
+    return {
+        "is_active": bool(row[0]),
+        "is_admin": is_admin,
+        "role": "admin" if is_admin else normalize_role(row[2]),
+    }
 
 
 def extract_bearer_token(request: Request) -> str | None:
@@ -109,7 +131,14 @@ async def auth_middleware(request: Request, call_next):
             status_code=401, content={"detail": "登录已过期，请重新登录"}
         )
 
+    identity = _load_current_identity(username)
+    if not identity or not identity["is_active"]:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "账户不存在或已停用，请重新登录"},
+        )
+
     request.state.username = username
-    request.state.is_admin = bool(payload.get("is_admin", False))
-    request.state.role = normalize_role(payload.get("role"))
+    request.state.is_admin = identity["is_admin"]
+    request.state.role = identity["role"]
     return await call_next(request)

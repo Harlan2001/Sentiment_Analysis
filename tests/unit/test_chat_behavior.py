@@ -56,12 +56,14 @@ def test_authenticated_user_sends_message_through_own_identity(chat_client):
         "id": "assistant-msg-001", "role": "assistant", "content": "测试回复",
         "status": "completed", "created_at": "2026-01-01T00:00:00",
     }
+    repository.get_message_retry.return_value = None
 
     async def mock_stream(*args, **kwargs):
         yield "测试回复"
 
     skill_repository = MagicMock()
     skill_repository.list_chat_skills.return_value = []
+    skill_repository.get_attachment_context.return_value = ""
     with patch("backend.routers.workbench_conversations.agent_chat_stream", mock_stream), \
          patch("backend.routers.workbench_conversations.SkillRepository.from_environment", return_value=skill_repository):
         response = client.post(
@@ -78,6 +80,7 @@ def test_authenticated_user_sends_message_through_own_identity(chat_client):
     repository.get_agent_history.assert_called_once()
     assert repository.get_agent_history.call_args.args[0] == "user1"
     assert repository.get_conversation.call_args.args[:2] == ("user1", "conv-001")
+    skill_repository.get_attachment_context.assert_called_once_with("user1", [], "测试消息")
 
 
 @pytest.mark.parametrize(

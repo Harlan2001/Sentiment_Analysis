@@ -4596,6 +4596,32 @@
               "default": false,
               "title": "Archived"
             }
+          },
+          {
+            "name": "conversation_owner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Owner"
+            }
+          },
+          {
+            "name": "include_all_members",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include All Members"
+            }
           }
         ],
         "responses": {
@@ -5974,6 +6000,25 @@
         }
       }
     },
+    "/sapi/skills/chat-options": {
+      "get": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "List Chat Options",
+        "operationId": "list_chat_options_sapi_skills_chat_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/skills/{skill_id}": {
       "get": {
         "tags": [
@@ -6067,6 +6112,86 @@
         ],
         "summary": "Delete Skill",
         "operationId": "delete_skill_sapi_skills__skill_id__delete",
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/skills/{skill_id}/enable": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Enable System Skill",
+        "operationId": "enable_system_skill_sapi_skills__skill_id__enable_post",
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/skills/{skill_id}/disable": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Disable System Skill",
+        "operationId": "disable_system_skill_sapi_skills__skill_id__disable_post",
         "parameters": [
           {
             "name": "skill_id",
@@ -6760,12 +6885,9 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "editor",
-              "viewer"
-            ],
+            "const": "editor",
             "title": "Role",
-            "default": "viewer"
+            "default": "editor"
           }
         },
         "type": "object",
@@ -6917,7 +7039,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 3,
             "title": "Skill Ids"
           }
         },
@@ -7117,10 +7239,7 @@
         "properties": {
           "role": {
             "type": "string",
-            "enum": [
-              "editor",
-              "viewer"
-            ],
+            "const": "editor",
             "title": "Role"
           }
         },
@@ -7350,7 +7469,7 @@
           },
           "instructions": {
             "type": "string",
-            "maxLength": 12000,
+            "maxLength": 4000,
             "minLength": 1,
             "title": "Instructions"
           },

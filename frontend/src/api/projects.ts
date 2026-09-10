@@ -2,7 +2,7 @@ import { request } from './client'
 import type { DailyNewsSummaryTask } from './newsSummary'
 import type { StrategyConversation } from './strategy'
 
-export type ProjectRole = 'owner' | 'editor' | 'viewer'
+export type ProjectRole = 'manager' | 'editor' | 'owner' | 'viewer'
 export type MemoryCategory = 'background' | 'goal' | 'constraint' | 'preference' | 'conclusion' | 'other'
 
 /**
@@ -22,6 +22,7 @@ export type Project = {
 
 export type Conversation = {
   id: string
+  owner_username: string
   project_id: string | null
   title: string
   module_type?: string
@@ -65,7 +66,7 @@ export type InitialProjectMemory = {
 
 export type InitialProjectMember = {
   username: string
-  role: 'editor' | 'viewer'
+  role: 'editor'
 }
 
 // ── 项目 CRUD ────────────────────────────────────────────
@@ -110,9 +111,14 @@ export function permanentlyDeleteProject(projectId: string) {
 
 // ── 项目会话 ─────────────────────────────────────────────
 
-export function getProjectConversations(projectId: string, options: { limit?: number; archived?: boolean } = {}) {
+export function getProjectConversations(
+  projectId: string,
+  options: { limit?: number; archived?: boolean; conversationOwner?: string; includeAllMembers?: boolean } = {},
+) {
   const query: string[] = [`limit=${options.limit ?? 50}`]
   if (options.archived !== undefined) query.push(`archived=${options.archived}`)
+  if (options.conversationOwner) query.push(`conversation_owner=${encodeURIComponent(options.conversationOwner)}`)
+  if (options.includeAllMembers) query.push('include_all_members=true')
   return request<ListData<Conversation>>(`/sapi/workbench/projects/${projectId}/conversations?${query.join('&')}`)
 }
 
@@ -214,7 +220,7 @@ export function listProjectMembers(projectId: string) {
   return request<ProjectMember[]>(`/sapi/workbench/projects/${projectId}/members`)
 }
 
-export function upsertProjectMember(projectId: string, username: string, role: 'editor' | 'viewer') {
+export function upsertProjectMember(projectId: string, username: string, role: 'editor' = 'editor') {
   return request<ProjectMember>(
     `/sapi/workbench/projects/${projectId}/members/${encodeURIComponent(username)}`,
     {

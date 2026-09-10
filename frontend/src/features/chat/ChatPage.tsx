@@ -1,9 +1,10 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Conversation, Message, createConversation, getConversation, sendMessage, sendVisitorMessage } from '@/api/chat'
-import { getSkills, Skill } from '@/api/skills'
+import { getChatSkills, Skill } from '@/api/skills'
 import { uuid } from '@/utils/helpers'
 import { WatchlistAction } from '@/features/market/components/WatchlistAction'
 import { useAuth } from '@/contexts/AuthContext'
@@ -39,6 +40,7 @@ const markdownComponents: Components = {
 }
 
 function AuthenticatedChatPage() {
+  const { username } = useAuth()
   const navigate = useNavigate()
   const { conversationId = 'new' } = useParams()
   const [searchParams] = useSearchParams()
@@ -49,6 +51,9 @@ function AuthenticatedChatPage() {
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
   const [usedSkillNames, setUsedSkillNames] = useState<Record<string, string[]>>({})
   const [skillPickerOpen, setSkillPickerOpen] = useState(false)
+  const [skillSourceFilter, setSkillSourceFilter] = useState<'all' | 'system' | 'mine'>('all')
+  const [skillError, setSkillError] = useState('')
+  const [skillLoadError, setSkillLoadError] = useState('')
   const [isReplying, setIsReplying] = useState(false)
   const [error, setError] = useState('')
   const creationStarted = useRef(false)
@@ -56,10 +61,14 @@ function AuthenticatedChatPage() {
   const formRef = useRef<HTMLFormElement>(null)
   const activeConversationId = useRef<string | null>(null)
 
+  function loadChatSkillOptions() {
+    getChatSkills()
+      .then(({ items }) => { setAvailableSkills(items); setSkillLoadError('') })
+      .catch((requestError: Error) => { setAvailableSkills([]); setSkillLoadError(requestError.message || 'Skills 加载失败') })
+  }
+
   useEffect(() => {
-    getSkills('', 'mine')
-      .then(({ items }) => setAvailableSkills(items.filter(skill => skill.status === 'published')))
-      .catch(() => setAvailableSkills([]))
+    loadChatSkillOptions()
   }, [])
 
   useEffect(() => {
@@ -121,13 +130,43 @@ function AuthenticatedChatPage() {
   }, [conversation, conversationId, navigate, searchParams])
 
   const selectedSkills = useMemo(() => availableSkills.filter(skill => selectedSkillIds.includes(skill.id)), [availableSkills, selectedSkillIds])
+  const visibleSkills = useMemo(() => availableSkills.filter(skill => (
+    skillSourceFilter === 'all' || (skillSourceFilter === 'system' ? skill.owner_type === 'system' : skill.owner_type === 'user')
+  )), [availableSkills, skillSourceFilter])
+  const isReadOnlyProjectConversation = Boolean(
+    conversation?.project_id && username && conversation.owner_username !== username
+  )
 
   function toggleSkill(skillId: string) {
-    setSelectedSkillIds(current => current.includes(skillId) ? current.filter(id => id !== skillId) : [...current, skillId].slice(0, 5))
+    setSelectedSkillIds(current => {
+      if (current.includes(skillId)) {
+        setSkillError('')
+        return current.filter(id => id !== skillId)
+      }
+      const candidate = availableSkills.find(skill => skill.id === skillId)
+      const selectedFormats = new Set(availableSkills.filter(skill => current.includes(skill.id)).map(skill => skill.output_format))
+      if (candidate && selectedFormats.size && !selectedFormats.has(candidate.output_format)) {
+        setSkillError('Markdown 与纯文本 Skill 不能在同一条消息中混用。')
+        return current
+      }
+      if (current.length >= 3) {
+        setSkillError('单条消息最多选择 3 个 Skill。')
+        return current
+      }
+      const instructionChars = availableSkills
+        .filter(skill => current.includes(skill.id) || skill.id === skillId)
+        .reduce((total, skill) => total + skill.instructions.length, 0)
+      if (instructionChars > 8000) {
+        setSkillError('所选 Skill 的分析指令合计不能超过 8000 个字符。')
+        return current
+      }
+      setSkillError('')
+      return [...current, skillId]
+    })
   }
 
   async function submitMessage(content: string, skillIds = selectedSkillIds) {
-    if (!conversation || isReplying) return
+    if (!conversation || isReplying || isReadOnlyProjectConversation) return
     const targetConversationId = conversation.id
     const isCurrentConversation = () => activeConversationId.current === targetConversationId
     setError('')
@@ -188,11 +227,23 @@ function AuthenticatedChatPage() {
       </article>)}
     </div>
     {error && <p className="chat-error">{error}</p>}
-    <form className="chat-composer" onSubmit={submit} ref={formRef}>
+    {isReadOnlyProjectConversation && <p className="chat-error">这是其他成员的项目会话，管理者仅可查看，不能继续发送或修改。</p>}
+    {!isReadOnlyProjectConversation && <form className="chat-composer" onSubmit={submit} ref={formRef}>
       {selectedSkills.length > 0 && <div className="chat-selected-skills">{selectedSkills.map(skill => <button key={skill.id} type="button" onClick={() => toggleSkill(skill.id)}>{skill.name}<span>×</span></button>)}</div>}
       <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); formRef.current?.requestSubmit() } }} placeholder="输入你的债券分析问题…" rows={2} />
-      <div className="chat-composer-actions"><span className="composer-status">BondSense · Agent 对话</span><div className="chat-skill-control"><button type="button" className="chat-skill-trigger" onClick={() => setSkillPickerOpen(open => !open)} aria-expanded={skillPickerOpen}>Skills{selectedSkills.length ? ` · ${selectedSkills.length}` : ''}</button>{skillPickerOpen && <div className="chat-skill-picker"><strong>选择本次对话使用的 Skills</strong><small>仅显示已添加到“我的 Skills”的已发布能力，最多选择 5 个。</small>{availableSkills.length ? <div>{availableSkills.map(skill => <label key={skill.id}><input type="checkbox" checked={selectedSkillIds.includes(skill.id)} onChange={() => toggleSkill(skill.id)} disabled={!selectedSkillIds.includes(skill.id) && selectedSkillIds.length >= 5} /><span><b>{skill.name}</b><em>{skill.description}</em></span></label>)}</div> : <p>还没有可用 Skill。请先在系统 Skills 中添加，或新建自己的 Skill。</p>}</div>}</div><button type="submit" disabled={!draft.trim() || isReplying} aria-label="发送消息">→</button></div>
-    </form>
+      <div className="chat-composer-actions"><span className="composer-status">BondSense · Agent 对话</span><div className="chat-skill-control"><button type="button" className="chat-skill-trigger" onClick={() => setSkillPickerOpen(open => { if (!open) setSkillSourceFilter('all'); return !open })} aria-expanded={skillPickerOpen}>Skills{selectedSkills.length ? ` · ${selectedSkills.length}` : ''}</button></div><button type="submit" disabled={!draft.trim() || isReplying} aria-label="发送消息">→</button></div>
+    </form>}
+    {skillPickerOpen && createPortal(<div className="chat-skill-modal-layer">
+      <button type="button" className="chat-skill-modal-backdrop" aria-label="关闭 Skills 选择器" onClick={() => setSkillPickerOpen(false)} />
+      <aside className="chat-skill-picker" role="dialog" aria-label="选择本次对话使用的 Skills">
+        <header><strong>选择本次对话使用的 Skills</strong><button type="button" className="chat-skill-close" aria-label="关闭 Skills" onClick={() => setSkillPickerOpen(false)}>×</button></header>
+        <small>仅显示当前账号已启用的系统 Skill 和个人 Skill，最多选择 3 个，指令合计不超过 8000 字符。</small>
+        <nav className="chat-skill-source-filter" aria-label="Skill 来源筛选">{([['all', '全部'], ['system', '系统 Skill'], ['mine', '我的 Skill']] as const).map(([key, label]) => <button key={key} type="button" className={skillSourceFilter === key ? 'active' : ''} aria-pressed={skillSourceFilter === key} onClick={() => setSkillSourceFilter(key)}>{label}</button>)}</nav>
+        {skillLoadError && <p className="chat-error">{skillLoadError}<button type="button" onClick={loadChatSkillOptions}>重试</button></p>}
+        {skillError && <p className="chat-error">{skillError}</p>}
+        {visibleSkills.length ? <div className="chat-skill-list">{visibleSkills.map(skill => <label key={skill.id}><input type="checkbox" checked={selectedSkillIds.includes(skill.id)} onChange={() => toggleSkill(skill.id)} disabled={!selectedSkillIds.includes(skill.id) && selectedSkillIds.length >= 3} /><span><b>{skill.name}</b><em>{skill.owner_type === 'system' ? '系统 Skill' : '个人 Skill'} · {skill.description}</em></span></label>)}</div> : !skillLoadError && <p>{availableSkills.length ? '当前来源下没有可用 Skill。' : '还没有可用 Skill。请先启用系统 Skill，或新建并启用个人 Skill。'}</p>}
+      </aside>
+    </div>, document.body)}
   </section>
 }
 

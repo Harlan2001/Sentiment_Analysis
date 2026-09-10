@@ -64,7 +64,7 @@ class ConversationUpdateRequest(BaseModel):
 class MessageCreateRequest(BaseModel):
     content: str = Field(min_length=1)
     client_message_id: str = Field(min_length=1, max_length=191)
-    skill_ids: list[str] = Field(default_factory=list, max_length=5)
+    skill_ids: list[str] = Field(default_factory=list, max_length=3)
 
     @field_validator("content")
     @classmethod
@@ -171,8 +171,19 @@ def update_conversation(request: Request, conversation_id: str, body: Conversati
 async def create_message(request: Request, conversation_id: str, body: MessageCreateRequest):
     repository: MessageRepository = request.app.state.repository
     try:
-        selected_skills = SkillRepository.from_environment().list_chat_skills(request.state.username, body.skill_ids)
-        prepared = repository.prepare_message(request.state.username, conversation_id, body.content, body.client_message_id, selected_skills)
+        prepared = repository.get_message_retry(
+            request.state.username,
+            conversation_id,
+            body.content,
+            body.client_message_id,
+        )
+        selected_skills = []
+        attachment_context = ""
+        if prepared is None:
+            skill_repository = SkillRepository.from_environment()
+            selected_skills = skill_repository.list_chat_skills(request.state.username, body.skill_ids)
+            attachment_context = skill_repository.get_attachment_context(request.state.username, selected_skills, body.content)
+            prepared = repository.prepare_message(request.state.username, conversation_id, body.content, body.client_message_id, selected_skills)
     except Exception as exc:
         raise_repository_error(exc)
 
@@ -193,7 +204,7 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
         yield _sse("assistant.started", {"message_id": assistant_message["id"]})
         parts: list[str] = []
         try:
-            if AI_EXPANSION_DEMO_TRIGGER in body.content:
+            if not selected_skills and AI_EXPANSION_DEMO_TRIGGER in body.content:
                 demo_reply = AI_EXPANSION_DEMO_REPLY
                 await asyncio.sleep(1.0)
                 for i in range(0, len(demo_reply), 4):
@@ -201,7 +212,7 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
                     parts.append(chunk)
                     yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": chunk})
                     await asyncio.sleep(0.022)
-            elif DEMO_REPLY_TRIGGER in body.content:
+            elif not selected_skills and DEMO_REPLY_TRIGGER in body.content:
                 # 演示：流式输出写死回复，不调用模型，仍正常持久化进历史
                 demo_reply = DEMO_REPLY
                 await asyncio.sleep(1.0)  # 先弹 1 秒省略号（前端 pending 态），更像在思考
@@ -219,7 +230,13 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
                         request.state.username,
                         conversation["project_id"],
                     )
-                async for delta in agent_chat_stream(history, request.state.username, project_context, selected_skills):
+                async for delta in agent_chat_stream(
+                    history,
+                    request.state.username,
+                    project_context,
+                    selected_skills,
+                    attachment_context,
+                ):
                     parts.append(delta)
                     yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
             completed = repository.finish_assistant_message(assistant_message["id"], "".join(parts), "completed")

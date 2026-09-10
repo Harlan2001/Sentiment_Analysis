@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/ui/Modal'
+import { DemoNotice } from '@/components/ui/DemoNotice'
 import './mcp.css'
 
 type Connector = {
@@ -142,6 +143,10 @@ export function McpPage() {
 
   return <section className="custom-page mcp-page">
     <div className="custom-tabs"><button className="active">MCP</button><button onClick={() => navigate('/custom/skills')}>Skills</button><button onClick={() => navigate('/custom/memory')}>记忆</button></div>
+    <DemoNotice
+      title="MCP 连接为演示版本"
+      description="当前连接状态、账号和权限范围均为演示数据，不会连接或授权任何真实外部服务；实际功能尚在开发中。"
+    />
     <header className="skills-head"><div><h1>MCP 连接</h1><p>将已授权的数据源接入研究工作流。</p></div><div className="skills-actions"><label><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务或厂商" /></label></div></header>
     <div className="mcp-toolbar"><div className="skills-filter-tabs">{([['all', '全部'], ['connected', '已连接'], ['available', '可连接']] as const).map(([key, label]) => <button className={filter === key ? 'active' : ''} onClick={() => setFilter(key)} key={key}>{label}</button>)}</div><span className={'mcp-summary ' + (connectedCount ? 'active' : '')}><i />已连接 {connectedCount}/{CONNECTORS.length}</span></div>
     <div className="mcp-grid">{visible.map((connector) => {

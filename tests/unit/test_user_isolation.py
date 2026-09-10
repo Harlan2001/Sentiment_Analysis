@@ -215,7 +215,7 @@ class TestProjectConversationIsolation:
             "updated_at": "2026-01-01T00:00:00",
             "last_message_at": "2026-01-01T01:00:00",
             "deleted_at": None,
-            "project_role": "owner",
+            "project_role": "manager",
         }
         cursor = _make_cursor(fetchone_result=project_conv)
         _mock_repo_connection(cursor, monkeypatch)

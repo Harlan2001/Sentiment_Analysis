@@ -92,11 +92,15 @@ DROP TABLE IF EXISTS `workbench_project_memories`;
 
 DROP TABLE IF EXISTS `workbench_projects`;
 
+DROP TABLE IF EXISTS `workbench_skill_attachment_chunks`;
+
 DROP TABLE IF EXISTS `workbench_skill_attachments`;
 
 DROP TABLE IF EXISTS `workbench_skill_versions`;
 
 DROP TABLE IF EXISTS `workbench_skills`;
+
+DROP TABLE IF EXISTS `workbench_user_system_skills`;
 
 DROP TABLE IF EXISTS `workbench_users`;
 
@@ -864,7 +868,7 @@ CREATE TABLE `workbench_messages` (
 CREATE TABLE `workbench_project_members` (
   `project_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('owner','editor','viewer') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` enum('manager','editor') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`project_id`,`username`),
@@ -910,6 +914,10 @@ CREATE TABLE `workbench_skill_attachments` (
   `stored_filename` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `content_type` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `size_bytes` bigint(20) unsigned NOT NULL,
+  `parse_status` enum('stored','pending','parsing','ready','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'stored',
+  `parse_error` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `page_count` int(10) unsigned DEFAULT NULL,
+  `parsed_at` datetime(6) DEFAULT NULL,
   `created_by` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
@@ -951,6 +959,31 @@ CREATE TABLE `workbench_skills` (
   PRIMARY KEY (`id`),
   KEY `idx_workbench_skills_owner_updated` (`owner_username`,`status`,`updated_at`,`id`),
   KEY `idx_workbench_skills_system_updated` (`owner_type`,`status`,`updated_at`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_skill_attachment_chunks` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `attachment_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `skill_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `chunk_index` int(10) unsigned NOT NULL,
+  `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_workbench_skill_attachment_chunk` (`attachment_id`,`chunk_index`),
+  KEY `idx_workbench_skill_attachment_chunks_skill` (`skill_id`,`attachment_id`),
+  CONSTRAINT `fk_workbench_skill_attachment_chunks_attachment` FOREIGN KEY (`attachment_id`) REFERENCES `workbench_skill_attachments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_workbench_skill_attachment_chunks_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_user_system_skills` (
+  `username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `skill_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `enabled_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`username`,`skill_id`),
+  KEY `idx_workbench_user_system_skills_skill` (`skill_id`,`username`),
+  CONSTRAINT `fk_workbench_user_system_skills_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_users` (
