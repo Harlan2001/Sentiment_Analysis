@@ -8,12 +8,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.agent.chat_service import AgentGenerationError, agent_chat_stream
-from backend.agent.demo_reply import (
-    AI_EXPANSION_DEMO_REPLY,
-    AI_EXPANSION_DEMO_TRIGGER,
-    DEMO_REPLY,
-    DEMO_REPLY_TRIGGER,
-)
 from backend.config.config import API_PREFIX, CONVERSATION_HISTORY_LIMIT
 from backend.repositories.message_repository import MessageRepository
 from backend.repositories.skill_repository import SkillRepository
@@ -204,41 +198,23 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
         yield _sse("assistant.started", {"message_id": assistant_message["id"]})
         parts: list[str] = []
         try:
-            if not selected_skills and AI_EXPANSION_DEMO_TRIGGER in body.content:
-                demo_reply = AI_EXPANSION_DEMO_REPLY
-                await asyncio.sleep(1.0)
-                for i in range(0, len(demo_reply), 4):
-                    chunk = demo_reply[i : i + 4]
-                    parts.append(chunk)
-                    yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": chunk})
-                    await asyncio.sleep(0.022)
-            elif not selected_skills and DEMO_REPLY_TRIGGER in body.content:
-                # 演示：流式输出写死回复，不调用模型，仍正常持久化进历史
-                demo_reply = DEMO_REPLY
-                await asyncio.sleep(1.0)  # 先弹 1 秒省略号（前端 pending 态），更像在思考
-                for i in range(0, len(demo_reply), 4):
-                    chunk = demo_reply[i : i + 4]
-                    parts.append(chunk)
-                    yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": chunk})
-                    await asyncio.sleep(0.022)
-            else:
-                history = repository.get_agent_history(request.state.username, conversation_id, CONVERSATION_HISTORY_LIMIT)
-                conversation = repository.get_conversation(request.state.username, conversation_id)
-                project_context = None
-                if conversation.get("project_id") and hasattr(repository, "get_project_memory_context"):
-                    project_context = repository.get_project_memory_context(
-                        request.state.username,
-                        conversation["project_id"],
-                    )
-                async for delta in agent_chat_stream(
-                    history,
+            history = repository.get_agent_history(request.state.username, conversation_id, CONVERSATION_HISTORY_LIMIT)
+            conversation = repository.get_conversation(request.state.username, conversation_id)
+            project_context = None
+            if conversation.get("project_id") and hasattr(repository, "get_project_memory_context"):
+                project_context = repository.get_project_memory_context(
                     request.state.username,
-                    project_context,
-                    selected_skills,
-                    attachment_context,
-                ):
-                    parts.append(delta)
-                    yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
+                    conversation["project_id"],
+                )
+            async for delta in agent_chat_stream(
+                history,
+                request.state.username,
+                project_context,
+                selected_skills,
+                attachment_context,
+            ):
+                parts.append(delta)
+                yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
             completed = repository.finish_assistant_message(assistant_message["id"], "".join(parts), "completed")
             yield _sse("assistant.completed", {"message": completed})
         except asyncio.CancelledError:
