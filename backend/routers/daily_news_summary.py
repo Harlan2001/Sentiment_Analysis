@@ -11,10 +11,6 @@ from pydantic import BaseModel, Field, model_validator
 from backend.common.api_response import ok
 from backend.common.pagination import limit_param
 from backend.config.config import API_PREFIX, NEWS_SOURCES
-from backend.news_summary.demo_content import (
-    POLICY_DEMO_SUMMARY_ID,
-    policy_demo_summary,
-)
 from backend.news_summary.service import generate_daily_news_summary
 from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 from backend.routers.workbench_helpers import raise_repository_error
@@ -73,8 +69,6 @@ def list_summaries(request: Request, limit: int = limit_param()):
 @router.get("/{task_id}")
 def get_summary(request: Request, task_id: int):
     owner_username = _owner(request)
-    if task_id == POLICY_DEMO_SUMMARY_ID:
-        return ok(policy_demo_summary(owner_username))
     task = _repository().get_task(owner_username, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="新闻总结任务不存在")

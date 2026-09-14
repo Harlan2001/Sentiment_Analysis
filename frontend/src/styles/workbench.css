@@ -623,8 +623,6 @@ select:focus,
 /* 卡片文字按上、中、下层次排布，避免标题和说明之间出现大块留白。 */
 .workflow-module-card-body p{align-self:center;margin-top:1px}
 
-.workflow-demo-note{margin:0 0 14px;color:#858585;font-size:11px;line-height:1.55}.workflow-demo-page .computer-attention{margin-bottom:18px}
-
 .workflow-module-card.available{cursor:pointer}.workflow-module-card.available:focus-visible{outline:2px solid #cfcfcf;outline-offset:2px}
 
 /* Keep long Markdown replies inside the chat column instead of growing the workspace grid. */

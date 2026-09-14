@@ -44,8 +44,7 @@
   line-height: 1.55;
 }
 
-.demo-notice-badge,
-.workflow-module-demo-badge {
+.demo-notice-badge {
   border: 1px solid #765b29;
   border-radius: 6px;
   background: #332611;
@@ -58,22 +57,6 @@
   flex: none;
   padding: 4px 7px;
   letter-spacing: 0.12em;
-}
-
-.workflow-main > .demo-notice {
-  max-width: 1120px;
-  margin: 0 auto 18px;
-}
-
-.workflow-module-demo-badge {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  padding: 3px 6px;
-}
-
-.workflow-module-card.demo {
-  border-color: #4b402c;
 }
 
 .custom-page > .demo-notice {
@@ -91,9 +74,5 @@
 
   .demo-notice-badge {
     display: none;
-  }
-
-  .workflow-main > .demo-notice {
-    margin-bottom: 16px;
   }
 }

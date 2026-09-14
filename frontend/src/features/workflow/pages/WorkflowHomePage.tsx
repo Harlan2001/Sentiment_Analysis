@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WorkflowTask, getWorkflowTasks } from '@/api/tasks'
 import { WorkflowDatePicker } from '../components/WorkflowDatePicker'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 
 type WorkflowModule = {
   id: string
@@ -17,19 +16,6 @@ const WORKFLOW_MODULES: WorkflowModule[] = [
   { id: 'reports', title: '研报分析', description: '上传、解析并提炼研报核心观点', category: '研究分析', to: '/computer/reports', taskTypes: ['report_generation'] },
   { id: 'strategy', title: '策略生成', description: '从投资观点生成策略草案与代码', category: '策略与决策', to: '/computer/strategies', taskTypes: ['strategy'] },
   { id: 'news', title: '新闻总结', description: '聚合市场新闻与重要事件', category: '信息处理', to: '/computer/news', taskTypes: ['daily_news'] },
-  { id: 'financials', title: '财报解读', description: '提取财务变化、经营指标与风险点', category: '研究分析', to: '/computer/demo/financials' },
-  { id: 'macro', title: '宏观数据解读', description: '跟踪宏观数据发布及市场影响', category: '研究分析', to: '/computer/demo/macro' },
-  { id: 'valuation', title: '债券估值跟踪', description: '观察收益率、利差与估值变化', category: '研究分析', to: '/computer/demo/valuation' },
-  { id: 'credit', title: '信用风险扫描', description: '识别发行人和债券的风险信号', category: '风险管理', to: '/computer/demo/credit' },
-  { id: 'issuer', title: '发行人画像', description: '汇总主体基本面与信用信息', category: '风险管理', to: '/computer/demo/issuer' },
-  { id: 'industry', title: '行业比较', description: '横向比较行业景气度与信用表现', category: '研究分析', to: '/computer/demo/industry' },
-  { id: 'rates', title: '利率情景推演', description: '评估利率路径下的市场情景', category: '策略与决策', to: '/computer/demo/rates' },
-  { id: 'portfolio', title: '组合诊断', description: '检查组合风险、久期与暴露', category: '策略与决策', to: '/computer/demo/portfolio' },
-  { id: 'backtest', title: '回测分析', description: '验证策略表现及关键归因', category: '策略与决策', to: '/computer/demo/backtest' },
-  { id: 'announcements', title: '公告解读', description: '自动归纳公告要点与影响', category: '信息处理', to: '/computer/demo/announcements' },
-  { id: 'sentiment', title: '舆情监控', description: '追踪主体与行业相关的舆情变化', category: '风险管理', to: '/computer/demo/sentiment' },
-  { id: 'briefing', title: '每日简报', description: '汇总每日市场变化与待关注事项', category: '信息处理', to: '/computer/demo/briefing' },
-  { id: 'automation', title: '工作流编排', description: '组合多个能力并按计划自动执行', category: '自动化', to: '/computer/demo/automation' },
 ]
 
 const MODULES_PER_PAGE = 8
@@ -136,28 +122,21 @@ export function WorkflowHomePage() {
             <span className="workflow-module-count">{WORKFLOW_MODULES.length} 个能力</span>
           </header>
 
-          <DemoNotice
-            title="部分工作流为演示功能"
-            description="研报分析、新闻总结和策略生成已接入真实服务；其余工作流当前使用演示数据，实际功能尚在开发中。"
-          />
-
           <div className="workflow-module-grid" aria-label="工作流能力">
-            {visibleModules.map((module) => {
-              const isDemo = module.to?.startsWith('/computer/demo/') === true
-              return <article className={`workflow-module-card${module.to ? ' available' : ''}${isDemo ? ' demo' : ''}`} key={module.id} role={module.to ? 'button' : undefined} tabIndex={module.to ? 0 : undefined} onClick={() => module.to && navigate(module.to)} onKeyDown={(event) => {
+            {visibleModules.map((module) => (
+              <article className={`workflow-module-card${module.to ? ' available' : ''}`} key={module.id} role={module.to ? 'button' : undefined} tabIndex={module.to ? 0 : undefined} onClick={() => module.to && navigate(module.to)} onKeyDown={(event) => {
                 if (module.to && (event.key === 'Enter' || event.key === ' ')) {
                   event.preventDefault()
                   navigate(module.to)
                 }
               }}>
-                {isDemo && <span className="workflow-module-demo-badge">演示</span>}
                 <div className="workflow-module-card-body">
                   <small>{module.category}</small>
                   <h2>{module.title}</h2>
                   <p>{module.description}</p>
                 </div>
               </article>
-            })}
+            ))}
           </div>
           {modulePageCount > 1 && <nav className="workflow-module-pagination" aria-label="工作流模块分页">
             <button type="button" onClick={() => setModulePage((current) => Math.max(0, current - 1))} disabled={modulePage === 0}>← 上一页</button>

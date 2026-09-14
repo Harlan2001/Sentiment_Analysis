@@ -13,7 +13,6 @@ import { StrategyPage } from '@/features/workflow/pages/StrategyPage'
 import { NewsSummaryPage } from '@/features/workflow/pages/NewsSummaryPage'
 import { NewsSummaryDetailPage } from '@/features/workflow/pages/NewsSummaryDetailPage'
 import { StrategyPromptPage } from '@/features/workflow/pages/StrategyPromptPage'
-import { WorkflowDemoPage } from '@/features/workflow/pages/WorkflowDemoPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
 import { MemoryPage } from '@/features/custom/MemoryPage'
@@ -55,7 +54,6 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/computer/strategies/prompt': <StrategyPromptPage />,
   '/computer/news': <NewsSummaryPage />,
   '/computer/news/:taskId': <NewsSummaryDetailPage />,
-  '/computer/demo/:workflowId': <WorkflowDemoPage />,
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
   '/custom/memory': <MemoryPage />,
@@ -83,7 +81,6 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/computer/strategies/prompt',
   '/computer/news',
   '/computer/news/:taskId',
-  '/computer/demo/:workflowId',
   '/custom/mcp',
   '/custom/skills',
   '/custom/memory',
