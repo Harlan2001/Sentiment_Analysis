@@ -56,6 +56,7 @@ function AuthenticatedChatPage() {
   const [skillLoadError, setSkillLoadError] = useState('')
   const [isReplying, setIsReplying] = useState(false)
   const [error, setError] = useState('')
+  const [memoryNotice, setMemoryNotice] = useState('')
   const creationStarted = useRef(false)
   const submittedDraft = useRef('')
   const formRef = useRef<HTMLFormElement>(null)
@@ -91,6 +92,7 @@ function AuthenticatedChatPage() {
 
   useEffect(() => {
     setError('')
+    setMemoryNotice('')
     setConversation(null)
     setMessages([])
     setDraft('')
@@ -189,6 +191,9 @@ function AuthenticatedChatPage() {
         if (streamEvent.event === 'assistant.completed' || streamEvent.event === 'assistant.failed') {
           setMessages((current) => current.map((message) => message.id === streamEvent.data.message.id ? streamEvent.data.message : message))
         }
+        if (streamEvent.event === 'memory.saved') setMemoryNotice(`已记住：${streamEvent.data.memory.title}`)
+        if (streamEvent.event === 'memory.candidate') setMemoryNotice(`发现一条待确认的个人记忆：${streamEvent.data.memory.title}`)
+        if (streamEvent.event === 'memory.removed') setMemoryNotice(streamEvent.data.deleted ? `已忘记与“${streamEvent.data.query}”相关的个人记忆` : '没有找到匹配的个人记忆')
       }, skillIds)
       const refreshed = await getConversation(conversation.id)
       if (!isCurrentConversation()) return
@@ -227,6 +232,7 @@ function AuthenticatedChatPage() {
       </article>)}
     </div>
     {error && <p className="chat-error">{error}</p>}
+    {memoryNotice && <p className="chat-memory-notice">{memoryNotice} <Link to="/custom/memory">查看记忆</Link><button type="button" aria-label="关闭记忆提示" onClick={() => setMemoryNotice('')}>×</button></p>}
     {isReadOnlyProjectConversation && <p className="chat-error">这是其他成员的项目会话，管理者仅可查看，不能继续发送或修改。</p>}
     {!isReadOnlyProjectConversation && <form className="chat-composer" onSubmit={submit} ref={formRef}>
       {selectedSkills.length > 0 && <div className="chat-selected-skills">{selectedSkills.map(skill => <button key={skill.id} type="button" onClick={() => toggleSkill(skill.id)}>{skill.name}<span>×</span></button>)}</div>}
