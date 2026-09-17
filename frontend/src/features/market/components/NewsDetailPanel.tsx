@@ -10,10 +10,6 @@ import { WatchlistAction } from './WatchlistAction'
 
 interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void; closeLabel?: string }
 
-const POLICY_DEMO_NEWS_IDS = new Set([18157, 18174, 18176, 18197, 18224, 18225, 18313, 18340, 18349])
-const POLICY_DEMO_START = '2026-09-03'
-const POLICY_DEMO_END = '2026-09-09'
-
 function formatDateTime(value?: string) {
   if (!value) return '时间未知'
   const parsed = new Date(value)
@@ -57,9 +53,7 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
     detail?.direction === 'negative' ? '利空债市' : '中性'
   const dirColor = detail?.direction === 'positive' ? 'text-[#ef4444]' :
     detail?.direction === 'negative' ? 'text-[#22c55e]' : 'text-[#6b7280]'
-  const visibleYieldData = (yieldData?.data ?? [])
-    .filter((point: any) => !POLICY_DEMO_NEWS_IDS.has(newsId) || (point.date >= POLICY_DEMO_START && point.date <= POLICY_DEMO_END))
-    .slice(0, 10)
+  const visibleYieldData = (yieldData?.data ?? []).slice(0, 10)
 
   return (
     <div className="absolute inset-0 z-30 bg-[#0d0d0d] overflow-y-auto">

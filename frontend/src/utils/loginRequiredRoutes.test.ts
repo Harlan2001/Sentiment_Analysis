@@ -21,7 +21,6 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/computer/strategies/prompt',
   '/computer/news',
   '/computer/news/:taskId',
-  '/computer/demo/:workflowId',
   '/custom/mcp',
   '/custom/skills',
   '/custom/memory',
@@ -64,7 +63,6 @@ describe('LOGIN_REQUIRED_ROUTES', () => {
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/strategies/prompt')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/news')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/news/:taskId')).toBe(true)
-    expect(LOGIN_REQUIRED_ROUTES.has('/computer/demo/:workflowId')).toBe(true)
   })
 
   it('should require login for all custom/* routes (Skills/MCP/Memory)', () => {
@@ -88,7 +86,7 @@ describe('LOGIN_REQUIRED_ROUTES', () => {
     }
   })
 
-  it('should have exactly 17 login-required routes', () => {
-    expect(LOGIN_REQUIRED_ROUTES.size).toBe(17)
+  it('should have exactly 16 login-required routes', () => {
+    expect(LOGIN_REQUIRED_ROUTES.size).toBe(16)
   })
 })

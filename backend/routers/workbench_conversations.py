@@ -201,22 +201,40 @@ async def create_message(request: Request, conversation_id: str, body: MessageCr
             history = repository.get_agent_history(request.state.username, conversation_id, CONVERSATION_HISTORY_LIMIT)
             conversation = repository.get_conversation(request.state.username, conversation_id)
             project_context = None
+            personal_context = None
+            personal_memory_repository = getattr(request.app.state, "user_memory_repository", None)
             if conversation.get("project_id") and hasattr(repository, "get_project_memory_context"):
                 project_context = repository.get_project_memory_context(
                     request.state.username,
                     conversation["project_id"],
                 )
+            elif personal_memory_repository is not None:
+                candidate_context = personal_memory_repository.get_user_memory_context(request.state.username)
+                personal_context = candidate_context if isinstance(candidate_context, str) else None
             async for delta in agent_chat_stream(
                 history,
                 request.state.username,
                 project_context,
                 selected_skills,
                 attachment_context,
+                personal_context,
             ):
                 parts.append(delta)
                 yield _sse("assistant.delta", {"message_id": assistant_message["id"], "delta": delta})
             completed = repository.finish_assistant_message(assistant_message["id"], "".join(parts), "completed")
             yield _sse("assistant.completed", {"message": completed})
+            if not conversation.get("project_id") and personal_memory_repository is not None:
+                try:
+                    memory_events = personal_memory_repository.process_user_memory_message(
+                        request.state.username,
+                        conversation_id,
+                        user_message["id"],
+                        body.content,
+                    )
+                    for memory_event in memory_events if isinstance(memory_events, list) else []:
+                        yield _sse(memory_event["event"], memory_event["data"])
+                except Exception:
+                    logger.exception("个人记忆提取失败: %s", conversation_id)
         except asyncio.CancelledError:
             # 客户端断开时也保留已输出的内容，供刷新页面后恢复。
             repository.finish_assistant_message(assistant_message["id"], "".join(parts), "interrupted", "CLIENT_DISCONNECTED")

@@ -100,6 +100,7 @@ async def agent_chat_stream(
     project_context: str | None = None,
     skills: list[dict] | None = None,
     attachment_context: str | None = None,
+    personal_context: str | None = None,
 ) -> AsyncIterator[str]:
     """运行 Agent 循环，逐段产出最终回复的 content 增量（不含 SSE 包装）。
 
@@ -118,12 +119,18 @@ async def agent_chat_stream(
         )
         for skill in selected_skills
     )
-    system_prompt = (
-        f"{CHAT_SYSTEM_PROMPT}\n\n{project_context}\n\n"
-        "项目记忆可能过时；回答时应以实时工具数据为准，并在冲突时明确指出。"
-        if project_context
-        else CHAT_SYSTEM_PROMPT
-    )
+    system_sections = [CHAT_SYSTEM_PROMPT]
+    if project_context:
+        system_sections.extend([
+            project_context,
+            "项目记忆可能过时；回答时应以实时工具数据为准，并在冲突时明确指出。",
+        ])
+    if personal_context:
+        system_sections.extend([
+            personal_context,
+            "个人记忆可能过时；用户当前消息与个人记忆冲突时，以当前消息为准。",
+        ])
+    system_prompt = "\n\n".join(system_sections)
     runtime_messages = [dict(message) for message in messages]
     runtime_additions: list[str] = []
     if skill_context:

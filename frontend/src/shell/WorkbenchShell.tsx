@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/features/auth/LoginModal'
 import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
 import { HomeChatDock } from '@/features/market/components/HomeChatDock'
-import { DEMO_WORKFLOWS } from '@/features/workflow/pages/WorkflowDemoPage'
 
 // 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
 const MonitorDashboardPanel = lazy(() => import('@/features/monitor/MonitorDashboardPanel'))
@@ -58,8 +57,7 @@ export function WorkbenchShell() {
   const hideWorkflowDetailTopbar = location.pathname === '/computer/strategies/prompt'
     || location.pathname.startsWith('/computer/reports/')
     || /^\/computer\/news\/[^/]+$/.test(location.pathname)
-  const demoWorkflowId = location.pathname.match(/^\/computer\/demo\/([^/]+)$/)?.[1]
-  const workflowChildTitle = (demoWorkflowId && DEMO_WORKFLOWS[demoWorkflowId]?.title) || topbarTitle.replace(/^工作流 · /, '')
+  const workflowChildTitle = topbarTitle.replace(/^工作流 · /, '')
 
   useEffect(() => {
     setMonitorPanelOpen(false)

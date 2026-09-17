@@ -17,6 +17,7 @@ from backend.integrations.feishu.repository import FeishuConnectionRepository
 from backend.repositories.ai_strategy_history_repository import AiStrategyHistoryRepository
 from backend.repositories.project_management_repository import ProjectManagementRepository
 from backend.repositories.report_generation_repository import ReportGenerationRepository
+from backend.repositories.user_memory_repository import UserMemoryRepository
 from backend.routers.ai_strategy_generation import (
     router as ai_strategy_generation_router,
 )
@@ -42,6 +43,8 @@ from backend.routers.strategy import router as strategy_router
 from backend.routers.watchlist import router as watchlist_router
 from backend.routers.workbench_computer import router as workbench_computer_router
 from backend.routers.workbench_conversations import router as workbench_conversations_router
+from backend.routers.workbench_memories import router as workbench_memories_router
+from backend.routers.workbench_memories import settings_router as workbench_memory_settings_router
 from backend.routers.workbench_project_management import (
     router as workbench_project_management_router,
 )
@@ -97,6 +100,8 @@ app.include_router(daily_news_summary_router)
 app.include_router(workbench_sidebar_router)
 app.include_router(workbench_projects_router)
 app.include_router(workbench_conversations_router)
+app.include_router(workbench_memories_router)
+app.include_router(workbench_memory_settings_router)
 app.include_router(workbench_project_management_router)
 app.include_router(workbench_computer_router)
 app.include_router(watchlist_router)
@@ -126,6 +131,7 @@ def startup_event():
 def startup_workbench():
     """工作台仓储映射迁移：启动时确保 workbench_* 表存在并清理遗留 streaming 状态。"""
     app.state.repository = ProjectManagementRepository.from_environment()
+    app.state.user_memory_repository = UserMemoryRepository.from_environment()
     app.state.repository.ensure_tables()
     AiStrategyHistoryRepository.from_environment().ensure_recycle_bin_schema()
     app.state.feishu_mcp_repository = FeishuConnectionRepository()

@@ -4,13 +4,20 @@
 .memory-head h1 { margin: 6px 0 0; color: #f1f1f1; font-size: 25px; }
 .memory-head p { max-width: 580px; margin: 8px 0 0; color: #919191; font-size: 13px; line-height: 1.6; }
 .memory-head-actions { display: flex; align-items: center; gap: 12px; }
+.memory-settings { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
 .memory-add { height: 36px; padding: 0 13px; border: 1px solid #717171; border-radius: 8px; background: #e7e7e7; color: #171717; font-size: 12px; cursor: pointer; }
 .memory-add:hover { background: #fff; }
+.memory-clear { height: 36px; padding: 0 12px; border: 1px solid #4a3b3b; border-radius: 8px; background: #201919; color: #caa; font-size: 11px; cursor: pointer; }
+.memory-clear:disabled { cursor: not-allowed; opacity: .45; }
 .memory-switch { display: flex; align-items: center; gap: 10px; min-width: 192px; padding: 7px 10px; border: 1px solid #3d3d3d; border-radius: 9px; background: #181818; }
 .memory-switch span { display: grid; gap: 2px; }
 .memory-switch strong { color: #dedede; font-size: 11px; font-weight: 500; }
 .memory-switch small { color: #838383; font-size: 10px; }
-.memory-switch input { width: 30px; height: 17px; margin-left: auto; accent-color: #ddd; cursor: pointer; }
+.memory-switch input { position: relative; flex: none; width: 30px; height: 17px; margin-left: auto; border: 0; border-radius: 999px; appearance: none; background: #474747; cursor: pointer; transition: background .16s ease; }
+.memory-switch input::after { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #bbb; content: ''; transition: transform .16s ease, background .16s ease; }
+.memory-switch input:checked { background: #e1e1e1; }
+.memory-switch input:checked::after { transform: translateX(13px); background: #222; }
+.memory-switch input:disabled { cursor: not-allowed; opacity: .45; }
 .memory-toolbar { display: grid; grid-template-columns: 230px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid #353535; border-bottom: 1px solid #353535; }
 .memory-search { display: flex; align-items: center; gap: 7px; height: 33px; padding: 0 10px; border: 1px solid #414141; border-radius: 7px; background: #191919; color: #858585; }
 .memory-search input { width: 100%; border: 0; outline: 0; background: transparent; color: #e6e6e6; font-size: 11px; }
@@ -18,22 +25,36 @@
 .memory-filters button { height: 29px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #929292; font-size: 11px; cursor: pointer; }
 .memory-filters button:hover, .memory-filters button.active { border-color: #454545; background: #2b2b2b; color: #f1f1f1; }
 .memory-toolbar > small { color: #7e7e7e; font-size: 10px; white-space: nowrap; }
+.memory-status-filters { display: flex; gap: 6px; padding-top: 10px; }
+.memory-status-filters button { padding: 5px 9px; border: 1px solid #343434; border-radius: 6px; background: transparent; color: #858585; font-size: 10px; cursor: pointer; }
+.memory-status-filters button.active { border-color: #5a5a5a; background: #292929; color: #eee; }
 .memory-paused { margin-top: 14px; padding: 10px 12px; border: 1px solid #4a4141; border-radius: 8px; background: #201d1d; color: #bab0b0; font-size: 11px; }
+.memory-error { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 10px 12px; border: 1px solid #5a3939; border-radius: 8px; background: #251b1b; color: #d2a5a5; font-size: 11px; }
+.memory-error button { border: 0; background: transparent; color: #eee; text-decoration: underline; cursor: pointer; }
 .memory-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
 .memory-card { min-height: 150px; padding: 15px; border: 1px solid #393939; border-radius: 11px; background: #181818; }
 .memory-card.pinned { border-color: #626262; background: linear-gradient(135deg, #1d1d1d, #191919); }
+.memory-card.pending { border-color: #675a3c; background: linear-gradient(135deg, #211e17, #191919); }
 .memory-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .memory-card-top > div { display: flex; gap: 2px; }
 .memory-card-top button { padding: 3px 5px; border: 0; border-radius: 5px; background: transparent; color: #929292; font-size: 10px; cursor: pointer; }
 .memory-card-top button:hover, .memory-card-top button.active { background: #303030; color: #ededed; }
 .memory-card-top .memory-delete:hover { background: #352626; color: #dfabab; }
 .memory-scope { padding: 3px 6px; border: 1px solid #434343; border-radius: 999px; color: #aeaeae; font-size: 10px; }
-.memory-scope.项目 { border-color: #555; color: #cecece; }
-.memory-scope.研究 { border-color: #4a4a4a; color: #c3c3c3; }
+.memory-status { margin-left: auto; color: #898989; font-size: 10px; }
+.memory-status.pending { color: #d2b978; }
+.memory-status.active { color: #9fc3a5; }
 .memory-card h2 { margin: 12px 0 0; color: #ededed; font-size: 14px; }
 .memory-card p { margin: 7px 0 0; color: #9d9d9d; font-size: 11px; line-height: 1.6; }
 .memory-card footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; color: #777; font-size: 10px; }
 .memory-card time { white-space: nowrap; }
+.memory-source-link { display: inline-block; margin-top: 8px; color: #aaa; font-size: 10px; text-decoration: underline; }
+.memory-card-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #303030; }
+.memory-card-actions button { padding: 5px 8px; border: 1px solid #3e3e3e; border-radius: 6px; background: #222; color: #aaa; font-size: 10px; cursor: pointer; }
+.memory-card-actions button:hover, .memory-card-actions button.active { border-color: #666; color: #eee; }
+.memory-card-actions button.primary { border-color: #ddd; background: #e5e5e5; color: #171717; }
+.memory-card-actions button.memory-delete { margin-left: auto; color: #c79b9b; }
+.memory-card-actions button:disabled { cursor: not-allowed; opacity: .45; }
 .memory-empty { display: grid; place-items: center; gap: 7px; min-height: 170px; margin-top: 18px; border: 1px dashed #484848; border-radius: 11px; color: #939393; font-size: 11px; }
 .memory-empty strong { color: #d1d1d1; font-size: 13px; }
 .memory-note { margin: 13px 0 0; color: #777; font-size: 10px; }
