@@ -1,0 +1,31 @@
+# 从会回答到能工作：2026 年 AI 与智能体的新方向和热点
+
+截至 2026 年 9 月，AI 行业最值得关注的变化，并不是聊天机器人又增加了几个功能，也不是某一个 Agent 框架突然成为标准，而是 AI 产品的责任边界正在改变。过去，模型主要负责生成答案，资料搜索、软件操作、结果核对和最终落地仍由用户完成；现在，越来越多产品开始直接接收任务，在后台持续运行，调用工具和环境，最后交付文档、代码、表格、网站或真实业务动作。AI 正从一个“给建议的模型”变成一个“能够承担工作并接受验收的系统”。
+
+这一变化首先体现在产品形态上。OpenAI 的 ChatGPT Work、Microsoft Copilot Cowork、腾讯 WorkBuddy、美团 CatPaw，都不再只围绕一轮对话设计，而是把 Task、Workspace、Session、权限和 Artifact 变成产品对象。（[OpenAI：ChatGPT Work](https://openai.com/index/chatgpt-for-your-most-ambitious-work/)）（[Microsoft：Copilot Cowork](https://www.microsoft.com/en-us/copilot/blog/2026/06/16/copilot-cowork-is-now-generally-available/)）（[腾讯云：WorkBuddy Enterprise](https://cloud.tencent.com/product/workbuddy-enterprise)）（[美团技术团队：CatPaw](https://tech.meituan.com/2026/07/28/CatPaw-LongCat.html)）这里的 Artifact 不再是一段聊天回答，而是可以继续编辑、运行、审查和交付的成果物。Chat 并没有消失，但正在从产品本体变成表达目标、处理歧义和查看进度的控制界面。
+
+Coding Agent 是这轮变化中最成熟的先行场景。Cursor 3 把多个本地和云端 Agent、多仓库任务、运行结果和验证材料放进统一工作空间；TRAE 从 Coding Tool 扩展为同时包含 Code Mode 和 Work Mode 的平台；OpenAI 则把 Codex 的 Agent Harness 通过 CLI、SDK 和 app-server 开放给其他工程系统。（[Cursor：Cursor 3](https://cursor.com/blog/cursor-3)）（[TRAE：TRAE Work](https://www.trae.ai/blog/trae_work_0609)）（[OpenAI：Codex as a platform](https://developers.openai.com/blog/codex-as-a-platform)）这意味着软件开发正在从“开发者使用 AI 补全代码”，转向“开发者定义任务、限制权限、检查测试并验收多个 Agent 的工作”。新的瓶颈也随之出现：AI 写代码的速度可能超过人类审查速度，大型仓库的 Context 难以管理，多 Agent 会产生重复劳动和修改冲突，而不完整的测试又可能让错误代码看起来已经成功。
+
+为了支撑更长、更复杂的任务，Agent 架构也在发生变化。早期的 Agent 常被简化为“模型加 Prompt 和工具调用”，但生产任务还需要持久 Session、Checkpoint、工作队列、Sandbox、人工审批和故障恢复。OpenAI Agents API、Anthropic Managed Agents 和腾讯 WorkBuddy Managed Agents 都在将这些能力平台化。（[OpenAI：Agents API](https://openai.com/index/introducing-the-agents-api/)）（[Anthropic：Managed Agents](https://www.anthropic.com/engineering/managed-agents)）（[腾讯云：WorkBuddy Managed Agents](https://cloud.tencent.com/document/product/1831/134407)）LangGraph、Google ADK、Microsoft Agent Framework、Eino 和 AgentScope 的意义，也不在于它们又增加了几个 Agent 类，而在于这些独立框架都开始建设 State、Workflow、Checkpoint、Human-in-the-Loop、后台任务和多 Session 服务。Agent 框架正在从开发库升级为运行系统。
+
+在这一过程中，行业对模型能力的理解也发生了变化。一个更强的模型并不会自动产生更可靠的 Agent。模型外部的 Harness——包括 Context 选择、工具暴露、循环策略、Subagent 委派、错误处理和停止条件——会显著影响最终表现。由此形成的新理念是 Model–Harness Co-design：模型与 Harness 必须共同设计，并通过真实任务评价，而不是假设一种固定编排可以适用于所有模型和场景。腾讯 WorkBuddy 将这种思路概括为从模型能力走向 Harness Engineering；Anthropic 的实践也显示，为旧模型设计的 Context 策略可能在新模型上变成额外负担。（[腾讯 WorkBuddy：从模型到 Harness](https://developer.cloud.tencent.com/news/4229944)）（[Anthropic：Managed Agents](https://www.anthropic.com/engineering/managed-agents)）
+
+Context Engineering 也因此成为新的热点。过去的重点是写好 Prompt，现在的问题变成：在完整任务状态、历史消息、企业文档、工具定义和长期记忆中，本轮究竟应该让模型看到什么。Cursor 提出的 Dynamic Context Discovery 强调不在任务开始时塞入所有资料，而是让 Agent 根据当前步骤动态搜索代码、Skills 和工具，并在长轨迹中压缩上下文。（[Cursor：Dynamic Context Discovery](https://cursor.com/blog/dynamic-context-discovery)）它反映出一个重要转变：Context 正像计算资源一样被搜索、过滤、压缩、隔离和分配。长上下文仍然有价值，但并不能消除注意力稀释、权限泄漏、旧事实冲突和 Token 成本。
+
+MCP、Skills、RAG 和 Multi-Agent 并不是最近半年才出现的概念，但它们正在进入新的阶段。MCP 的关注点正从“能否连接工具”转向 Tool Registry、动态搜索、企业身份、Workspace 权限、调用审计和供应链安全；Skills 正从一段提示词或操作说明，变成同时包含指令、脚本、模板、样例、资源和评价的可版本化能力包；RAG 正从问答检索层变成 Agent 每一步行动所需的动态证据层；Multi-Agent 则从多个角色自由讨论，转向具有明确任务、权限、预算和交付接口的受控 Subagent。真正的新方向不是让 Agent 拥有无限多的工具和同伴，而是让能力能够像软件包一样被发现、授权、组合、评价和升级。（[MCP：2026-07-28 规范更新](https://blog.modelcontextprotocol.io/posts/2026-07-28/)）（[Anthropic Skills](https://github.com/anthropics/skills)）
+
+另一个明显热点是 Sandbox、Browser 和 Computer Use。模型开始读取文件、运行 Shell、访问数据库、操作网页和 GUI，这使 AI 从信息生成器变成数字环境执行者。与此同时，错误也从错误文字升级为真实副作用：Agent 可能删除数据、泄漏凭证、重复发信，或者受到网页中隐藏指令的诱导。E2B、OpenSandbox、字节 AIO Sandbox 等项目正在把文件、代码、浏览器、网络和凭证放进统一隔离环境；Cursor 则使用动态沙箱策略，让 Agent 在受控范围内自动运行，只在越界时请求审批。（[OpenSandbox](https://github.com/opensandbox-group/OpenSandbox)）（[字节技术团队：AIO Sandbox](https://developer.volcengine.com/articles/7599494081655668799)）（[Cursor：Agent Sandboxing](https://prod.cursor.com/blog/agent-sandboxing)）这比每条命令都让人确认更可行，因为过多审批会产生审批疲劳，最终削弱安全机制本身。
+
+Agent 获得行动能力后，Evaluation 也必须重新定义。传统 Benchmark 往往只检查最终答案；生产 Agent 还要检查执行轨迹、工具参数、外部状态、权限、安全、稳定性和成本。一个 Agent 即使给出了正确总结，也可能使用了越权数据；一次浏览器点击即使没有报错，也不代表业务状态已经改变。因此，结果验证开始依赖测试、数据库或 API 回读、文件 Diff、截图证据和独立 Verifier。Promptfoo、Phoenix 和 Langfuse 分别体现 CI Eval/Red Team、Trace/Dataset/Experiment/Replay 和生产可观测闭环。（[Promptfoo](https://github.com/promptfoo/promptfoo)）（[Phoenix](https://github.com/Arize-ai/phoenix)）（[Langfuse](https://github.com/langfuse/langfuse)）新的方法是把线上失败轨迹加入 Dataset，修复系统后运行 Experiment 和 Replay，再通过 CI Eval 防止同类问题重新出现。
+
+安全问题也从内容安全转向行动安全。当前更值得关注的不是模型是否输出了一段不合适的文字，而是不可信网页、邮件或文件是否能够影响模型，并进一步驱动发送邮件、读取密钥、付款或修改权限等敏感动作。Source–Sink Policy、最小权限、短时凭证、Sandbox Boundary、风险分级审批、幂等操作和补偿事务，正在成为 Agent Security 的主要方法。（[OpenAI：Prompt Injection 防护](https://openai.com/index/designing-agents-to-resist-prompt-injection/)）（[Invariant](https://github.com/invariantlabs-ai/invariant)）安全、可靠性和可观测性开始合并为同一个控制面：Trace 用来说明发生了什么，Eval 判断是否合格，Recovery 处理失败，Policy 决定哪些动作根本不允许发生。
+
+成本同样从采购问题变成架构问题。Agent 的真实成本不仅包括模型 Token，还包括检索、外部 API、浏览器、Sandbox、Trace、评价、失败重试和人工审查。因此更有意义的指标不是每百万 Token 价格，而是每个成功任务的端到端成本。动态模型路由、Context 压缩、Tool Search、Subagent 并发限制、Checkpoint 局部恢复和 Sandbox 暂停恢复，都在尝试降低这个成本。低价模型如果带来更多错误、重试和人工返工，最终反而可能更贵。
+
+这进一步推动了 Agentic Inference。传统推理平台优化一次模型请求的吞吐和延迟，而 Agent 负载包含长会话、重复前缀、工具等待、Subagent 突发并发、任务暂停恢复和长期 KV Cache。vLLM、Mooncake、llm-d 和 Dynamo 正在探索高吞吐 Serving、Prefill/Decode 解耦、分布式 KV Cache、路由和动态调度。（[vLLM](https://github.com/vllm-project/vllm)）（[Mooncake](https://github.com/kvcache-ai/Mooncake)）（[llm-d](https://github.com/llm-d/llm-d)）（[Dynamo](https://github.com/ai-dynamo/dynamo)）其共同方向是让推理系统从理解一次 Request，发展为理解完整 Task、Session、缓存位置、等待状态和剩余预算。
+
+在这些已经形成热度的方向之外，还有一组足够新但尚未成熟的前沿信号。Ambient Agent 试图让 AI 长期监听事件并主动工作；跨组织 A2A 试图让不同公司和权限域的 Agent 互相发现并委派任务；Agent-native Identity 为 Agent 建立独立身份、预算、权限和审计；可审计自演进则希望 Agent 根据 Trace 和失败案例修改自己的 Prompt、Skill 或策略，同时保留版本、评价和回滚能力。Agent Swarm 和泛化 GUI Agent 也在扩大任务规模和行动范围，但协调成本、环境漂移、误动作和责任问题仍然突出。这些方向值得研究，因为它们揭示未来可能出现什么，却还不足以被描述为成熟行业标准。
+
+综合来看，当前最热的方向是 Agent Workspace、Coding Agent、Managed Runtime、Context Engineering、MCP 工具治理、Sandbox、轨迹级 Evaluation 和 Agent Security；正在快速形成的是 Skills 能力包、Data Agent、Research Agent、长期 Memory、AgentOps 和 Agentic Inference；更前沿的方向则包括 Ambient Agent、跨组织 A2A、Agent-native Identity、可审计自演进、Agent Swarm 和泛化 GUI Agent。
+
+这些变化最终指向同一个方向：AI 的竞争正在从“谁能生成更好的下一段文字”，转向“谁能让智能在真实环境中长期运行，动态获得能力，安全采取行动，以可接受的成本交付结果，并提供足够证据证明任务确实完成”。这并不意味着完全自治已经成熟。现有证据更支持一种受控自治模式：Agent 可以承担更长、更完整的任务，但必须运行在持久状态、隔离环境、明确权限、持续评价和人类责任边界之内。

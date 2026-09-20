@@ -171,13 +171,15 @@ async def create_prompt_draft(
         )
     except Exception as exc:
         raise_repository_error(exc)
-    return ok({
-        "user_message_id": turn["user_message_id"],
-        "assistant_message_id": turn["assistant_message_id"],
-        "status": "pending_confirmation",
-        "system_draft_prompt": context["prompt"],
-        "context": snapshot,
-    })
+    return ok(
+        {
+            "user_message_id": turn["user_message_id"],
+            "assistant_message_id": turn["assistant_message_id"],
+            "status": "pending_confirmation",
+            "system_draft_prompt": context["prompt"],
+            "context": snapshot,
+        }
+    )
 
 
 async def _run_generation(
@@ -299,11 +301,13 @@ async def confirm_prompt_draft(
     task.add_done_callback(_background_generation_tasks.discard)
     _background_generation_tasks.add(task)
 
-    return ok({
-        "conversation_id": conversation_id,
-        "assistant_message_id": assistant_message_id,
-        "status": "running",
-    })
+    return ok(
+        {
+            "conversation_id": conversation_id,
+            "assistant_message_id": assistant_message_id,
+            "status": "running",
+        }
+    )
 
 
 @router.patch("/conversations/{conversation_id}/archive")
@@ -323,7 +327,11 @@ def archive_conversation(request: Request, conversation_id: int):
 def delete_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return ok(_history_repository().soft_delete_conversation(owner_username, conversation_id))
+        return ok(
+            _history_repository().soft_delete_conversation(
+                owner_username, conversation_id
+            )
+        )
     except Exception as exc:
         raise_repository_error(exc)
 
@@ -332,7 +340,9 @@ def delete_conversation(request: Request, conversation_id: int):
 def restore_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return ok(_history_repository().restore_conversation(owner_username, conversation_id))
+        return ok(
+            _history_repository().restore_conversation(owner_username, conversation_id)
+        )
     except Exception as exc:
         raise_repository_error(exc)
 
@@ -341,6 +351,10 @@ def restore_conversation(request: Request, conversation_id: int):
 def permanently_delete_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
     try:
-        return ok(_history_repository().permanently_delete_conversation(owner_username, conversation_id))
+        return ok(
+            _history_repository().permanently_delete_conversation(
+                owner_username, conversation_id
+            )
+        )
     except Exception as exc:
         raise_repository_error(exc)
