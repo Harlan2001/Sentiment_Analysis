@@ -1,4 +1,4 @@
-"""Explicit, read-only MCP facade over selected Sentiment REST endpoints."""
+"""Explicit MCP facade over selected Sentiment REST endpoints."""
 
 from __future__ import annotations
 
@@ -128,10 +128,11 @@ def create_server(
     server = MCPServer(
         name="sentiment-market-intelligence",
         title="Sentiment Market Intelligence",
-        description="Read-only bond-market news, factor, yield, macro and research tools.",
+        description="Bond-market data tools and business-level analysis workflows.",
         instructions=(
             "Use these tools to retrieve evidence from the Sentiment platform. "
-            "All tools are read-only and results should be cited with their returned IDs or URLs."
+            "The original data tools are read-only; business tools may run analysis or generate reports. "
+            "Results should be cited with their returned IDs, dates or URLs."
         ),
         token_verifier=verifier,
         auth=auth,
@@ -349,6 +350,131 @@ def create_server(
             status=_clean_optional(status),
             page=max(page, 1),
             page_size=_bounded(page_size, minimum=1, maximum=50),
+        )
+
+    # Group C: business-level capabilities.  These compose the stable atomic
+    # tools above behind an explicit FastAPI contract; the original 23 tools
+    # remain unchanged for backwards compatibility.
+    @server.tool(
+        name="analyze_bond_sentiment",
+        description=(
+            "Analyze one stored bond-market news item, reusing an existing analysis "
+            "unless it is missing or force_refresh is true."
+        ),
+    )
+    def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> Any:
+        if news_id <= 0:
+            raise ValueError("news_id must be positive")
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/analyze-bond-sentiment",
+            {"news_id": news_id, "force_refresh": force_refresh},
+        )
+
+    @server.tool(
+        name="analyze_bond_market_sentiment",
+        description=(
+            "Summarize bullish, bearish and neutral bond-market sentiment for a date range or topic."
+        ),
+    )
+    def analyze_bond_market_sentiment(
+        start_date: str,
+        end_date: str,
+        keyword: str | None = None,
+        source: str | None = None,
+        limit: int = 100,
+    ) -> Any:
+        _validate_date_range(start_date, end_date, max_days=31)
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/analyze-market-sentiment",
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "keyword": _clean_optional(keyword),
+                "source": _clean_optional(source),
+                "limit": _bounded(limit, minimum=1, maximum=200),
+            },
+        )
+
+    @server.tool(
+        name="explain_bond_market_move",
+        description=(
+            "Explain one day's bond-yield move using same-day analyzed news and active factors."
+        ),
+    )
+    def explain_bond_market_move(trade_date: str, maturity: str = "10Y") -> Any:
+        date.fromisoformat(trade_date)
+        cleaned_maturity = maturity.strip()
+        if not cleaned_maturity:
+            raise ValueError("maturity must not be empty")
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/explain-market-move",
+            {"trade_date": trade_date, "maturity": cleaned_maturity},
+        )
+
+    @server.tool(
+        name="analyze_similar_event_impact",
+        description=(
+            "Compare one news event with semantically similar historical events and their yield moves."
+        ),
+    )
+    def analyze_similar_event_impact(
+        news_id: int,
+        top_k: int = 5,
+        maturity: str = "10年",
+        window_before: int = 5,
+        window_after: int = 5,
+    ) -> Any:
+        if news_id <= 0:
+            raise ValueError("news_id must be positive")
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/analyze-similar-event-impact",
+            {
+                "news_id": news_id,
+                "top_k": _bounded(top_k, minimum=1, maximum=10),
+                "maturity": maturity.strip() or "10年",
+                "window_before": _bounded(window_before, minimum=0, maximum=30),
+                "window_after": _bounded(window_after, minimum=0, maximum=30),
+            },
+        )
+
+    @server.tool(
+        name="generate_bond_market_forecast",
+        description=(
+            "Generate or retrieve a date-specific bond-market forecast with scenarios and risks."
+        ),
+    )
+    def generate_bond_market_forecast(
+        report_date: str, force_refresh: bool = False
+    ) -> Any:
+        date.fromisoformat(report_date)
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/generate-market-forecast",
+            {"report_date": report_date, "force_refresh": force_refresh},
+        )
+
+    @server.tool(
+        name="generate_news_digest",
+        description=(
+            "Generate a structured pre-market, post-market or topic news digest for a bounded date range."
+        ),
+    )
+    def generate_news_digest(
+        start_date: str,
+        end_date: str,
+        focus: str | None = None,
+        source: str | None = None,
+        limit: int = 100,
+    ) -> Any:
+        _validate_date_range(start_date, end_date, max_days=31)
+        return backend.post(
+            f"{_API_PREFIX}/mcp-business/generate-news-digest",
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "focus": _clean_optional(focus),
+                "source": _clean_optional(source),
+                "limit": _bounded(limit, minimum=1, maximum=200),
+            },
         )
 
     return server

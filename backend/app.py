@@ -32,6 +32,7 @@ from backend.routers.forecast import router as forecast_router
 from backend.routers.graph_augment import router as graph_augment_router
 from backend.routers.macro import router as macro_router
 from backend.routers.macro_data import router as macro_data_router
+from backend.routers.mcp_business import router as mcp_business_router
 from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.report import router as report_router
@@ -94,6 +95,7 @@ app.include_router(research_router)
 app.include_router(change_router)
 app.include_router(dashboard_router)
 app.include_router(macro_data_router)
+app.include_router(mcp_business_router)
 app.include_router(discover_router)
 app.include_router(returns_router)
 app.include_router(daily_news_summary_router)
