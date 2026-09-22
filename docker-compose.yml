@@ -52,6 +52,34 @@ services:
       retries: 3
       start_period: 40s
 
+  mcp:
+    image: sentiment-backend:latest
+    container_name: sentiment-mcp
+    command: ["python", "-m", "backend.mcp_server.server"]
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    environment:
+      # MCP 与后端分别运行在不同容器内，必须通过 Compose 服务名访问后端。
+      - SENTIMENT_INTERNAL_API_URL=http://backend:8000
+      - NO_PROXY=frontend,backend,localhost,127.0.0.1,.local
+      - no_proxy=frontend,backend,localhost,127.0.0.1,.local
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./backend:/app/backend:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sentiment-network
+    restart: unless-stopped
+    # 后端镜像自带的健康检查访问 8000；MCP 容器只监听 8002，因此禁用继承检查。
+    healthcheck:
+      disable: true
+
   frontend:
     build:
       context: ./frontend
