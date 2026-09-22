@@ -114,7 +114,7 @@ REMOTE_EOF
     "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  重启容器..."
-docker compose up -d backend
+docker compose up -d backend mcp
 echo ""
 echo "  容器状态:"
 docker compose ps
