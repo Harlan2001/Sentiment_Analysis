@@ -1,13 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# 完整镜像部署脚本（在构建机上执行）
-# 构建前后端镜像 → 导出 → 传输 → 服务器 load 并重启
+# 后端镜像部署脚本（在构建机上执行）
+# 构建后端镜像 → 导出 → 传输 → 服务器 load 并重启后端
 # 同时传输 docker-compose + 环境变量 + 定时任务脚本
 #
 # 用法：
-#   ./scripts/deploy-image.sh bigfrontend  # 部署到大前台
-#   ./scripts/deploy-image.sh saas         # 部署到 Saas（京东云，需跳板机）
-#   ./scripts/deploy-image.sh both         # 同时部署两个服务器
+#   ./scripts/deploy-backend-image.sh bigfrontend  # 部署到大前台
+#   ./scripts/deploy-backend-image.sh saas         # 部署到 Saas（京东云，需跳板机）
+#   ./scripts/deploy-backend-image.sh both         # 同时部署两个服务器
 # =============================================================================
 set -e
 
@@ -33,7 +33,6 @@ SERVER_PATH[saas]="/data/sentiment"
 IS_SAAS[saas]="true"
 
 BE_TAR="sentiment-backend.tar.gz"
-FE_TAR="sentiment-frontend.tar.gz"
 
 # ======================== 部署函数 ========================
 deploy_images_to() {
@@ -84,16 +83,16 @@ deploy_images_to() {
 
     echo "  ✓ 配置文件包构建完成"
 
-    # --- 传输镜像 + 配置文件 ---
+    # --- 传输后端镜像 + 配置文件 ---
     echo ""
-    echo "  [2/5] 传输镜像和配置文件..."
+    echo "  [2/5] 传输后端镜像和配置文件..."
 
-    "${SCP_CMD[@]}" "$BE_TAR" "$FE_TAR" "$CONFIG_TAR" \
+    "${SCP_CMD[@]}" "$BE_TAR" "$CONFIG_TAR" \
         "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/"
 
     rm -f "$CONFIG_TAR"
 
-    echo "  ✓ 传输完成 (后端: $(du -h $BE_TAR | cut -f1), 前端: $(du -h $FE_TAR | cut -f1))"
+    echo "  ✓ 传输完成 (后端: $(du -h "$BE_TAR" | cut -f1))"
 
     # --- 加载镜像 + 解包配置 ---
     echo ""
@@ -103,9 +102,7 @@ deploy_images_to() {
 cd ${SERVER_PATH}
 echo "  加载后端镜像..."
 gunzip -c ${BE_TAR} | docker load
-echo "  加载前端镜像..."
-gunzip -c ${FE_TAR} | docker load
-rm -f ${BE_TAR} ${FE_TAR}
+rm -f ${BE_TAR}
 REMOTE_EOF
 
     echo "  ✓ 镜像加载完成"
@@ -131,7 +128,7 @@ REMOTE_EOF
 
     "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
-docker compose up -d --force-recreate
+docker compose up -d --no-deps --force-recreate backend
 echo ""
 echo "  容器状态:"
 docker compose ps
@@ -144,23 +141,21 @@ REMOTE_EOF
 TARGET="${1:-bigfrontend}"
 
 echo "========================================"
-echo "  完整镜像部署"
+echo "  后端镜像部署"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================"
 
-# 1. 构建镜像（用 --build-arg 破坏源码层缓存，保留 npm ci 层缓存）
+# 1. 构建后端镜像（用 --build-arg 破坏源码层缓存）
 echo ""
-echo "=== [构建] 构建镜像 ==="
-docker compose build --build-arg CACHEBUST="$(date +%s)" --progress=plain
+echo "=== [构建] 构建后端镜像 ==="
+docker compose build --build-arg CACHEBUST="$(date +%s)" --progress=plain backend
 
 # 2. 导出镜像
 echo ""
 echo "=== [导出] 导出镜像 ==="
 docker save sentiment-backend:latest | gzip > "$BE_TAR"
-docker save sentiment-frontend:latest | gzip > "$FE_TAR"
 
 echo "  后端镜像: $(du -h $BE_TAR | cut -f1)"
-echo "  前端镜像: $(du -h $FE_TAR | cut -f1)"
 
 # 3. 部署到目标服务器
 echo ""
@@ -184,9 +179,9 @@ case "$TARGET" in
 esac
 
 # 清理本地镜像文件
-rm -f "$BE_TAR" "$FE_TAR"
+rm -f "$BE_TAR"
 
 echo ""
 echo "========================================"
-echo "  镜像部署完成"
+echo "  后端镜像部署完成"
 echo "========================================"

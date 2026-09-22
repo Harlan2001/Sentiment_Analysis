@@ -4,9 +4,9 @@
 # 传输后端代码 + docker-compose + 环境变量 + 定时任务脚本，然后重启容器
 #
 # 用法：
-#   ./scripts/deploy_backend.sh bigfrontend   # 部署到大前台
-#   ./scripts/deploy_backend.sh saas          # 部署到 Saas（京东云，需跳板机）
-#   ./scripts/deploy_backend.sh both          # 同时部署两个服务器
+#   ./scripts/deploy_backend_code.sh bigfrontend   # 部署到大前台
+#   ./scripts/deploy_backend_code.sh saas          # 部署到 Saas（京东云，需跳板机）
+#   ./scripts/deploy_backend_code.sh both          # 同时部署两个服务器
 # =============================================================================
 set -e
 
