@@ -186,7 +186,7 @@ jobs:
           cache-dependency-glob: uv.lock
       - run: |
           uv export --format requirements-txt --no-dev > backend-reqs.txt
-          uvx pip-audit --requirement backend-reqs.txt
+          uvx pip-audit --requirement backend-reqs.txt --no-deps
       - name: 前端依赖漏洞(npm audit)
         uses: actions/setup-node@v4
         with:
