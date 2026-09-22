@@ -1,6 +1,6 @@
 # Docker 部署指南
 
-> 前端 Nginx + 后端 FastAPI 双容器部署。后端代码通过 volume 挂载，日常更新只传文件不重打镜像。
+> 前端 Nginx + 后端 FastAPI 双容器部署。后端代码通过 volume 挂载，日常更新只传文件不重打镜像；依赖或运行环境变化时，在构建机生成后端镜像并上传到服务器。服务器无需访问镜像仓库或互联网。
 
 ## 1. 部署架构
 
@@ -89,19 +89,19 @@ PYTHONUNBUFFERED=1
 
 ```bash
 # 大前台
-./scripts/deploy_backend.sh bigfrontend
+./scripts/deploy_backend_code.sh bigfrontend
 
 # Saas
-./scripts/deploy_backend.sh saas
+./scripts/deploy_backend_code.sh saas
 
 # 双服务器
-./scripts/deploy_backend.sh both
+./scripts/deploy_backend_code.sh both
 ```
 
 脚本做的事：
 1. 打包 `main.py` + `backend/` + `docker-compose.yml` + `release/{target}.env` + 定时任务脚本
 2. scp 到服务器并解包
-3. `docker compose restart backend`
+3. 执行 `docker compose up -d backend`。该命令不强制重建容器；若服务未自动重载代码，需额外执行 `docker compose restart backend`
 
 ### 模式 B：前端更新（构建机 build → 传镜像 → 服务器 load）
 
@@ -125,26 +125,30 @@ PYTHONUNBUFFERED=1
 
 > **注意**：前端镜像构建必须加 `--no-cache`。Docker 层缓存有时检测不到 `COPY . .` 的文件变化（尤其在 WSL / 跨文件系统场景），导致构建出的 JS bundle 仍是旧代码。
 
-### 模式 C：完整镜像重建（依赖变更 / 大版本）
+### 模式 C：后端镜像发布（依赖或运行环境变更）
 
-`pyproject.toml` / `uv.lock` 或前端依赖变更时，重打两个镜像：
+`pyproject.toml`、`uv.lock`、`Dockerfile` 或系统运行依赖变更时，在**构建机**重建后端镜像，再发布到服务器。前端镜像和前端容器不会被操作：
 
 ```bash
 # 大前台
-./scripts/deploy-image.sh bigfrontend
+./scripts/deploy-backend-image.sh bigfrontend
 
 # Saas
-./scripts/deploy-image.sh saas
+./scripts/deploy-backend-image.sh saas
 
-# 双服务器1
-./scripts/deploy-image.sh both
+# 双服务器
+./scripts/deploy-backend-image.sh both
 ```
 
 脚本做的事：
-1. 本地 `docker compose build`（前后端镜像）
-2. `docker save` → gzip → scp 到服务器
+1. 构建机执行 `docker compose build backend`
+2. 构建机执行 `docker save sentiment-backend:latest | gzip`，再通过 `scp` 上传镜像包
 3. 传输 `release/{target}.env` + `docker-compose.yml` + 定时任务脚本
-4. 服务器 `gunzip -c | docker load` → `docker compose up -d --force-recreate`
+4. 服务器执行 `gunzip -c | docker load`，随后执行 `docker compose up -d --no-deps --force-recreate backend`
+
+服务器端不会执行 `docker build`、`docker pull` 或前端构建；只需能通过 SSH/SCP 接收文件，并已安装 Docker 和 Docker Compose。
+
+> **代码挂载说明**：当前 compose 将服务器的 `main.py` 和 `backend/` 挂载进容器。因此 Python 业务代码通常应使用模式 A 发布；模式 C 用于更新镜像中的依赖和运行环境。镜像中的同名代码会被这两个挂载覆盖。
 
 
 ## 7. 首次部署
