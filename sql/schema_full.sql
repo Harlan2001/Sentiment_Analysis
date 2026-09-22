@@ -90,6 +90,10 @@ DROP TABLE IF EXISTS `workbench_project_members`;
 
 DROP TABLE IF EXISTS `workbench_project_memories`;
 
+DROP TABLE IF EXISTS `workbench_user_memory_settings`;
+
+DROP TABLE IF EXISTS `workbench_user_memories`;
+
 DROP TABLE IF EXISTS `workbench_projects`;
 
 DROP TABLE IF EXISTS `workbench_skill_attachment_chunks`;
@@ -974,6 +978,38 @@ CREATE TABLE `workbench_skill_attachment_chunks` (
   KEY `idx_workbench_skill_attachment_chunks_skill` (`skill_id`,`attachment_id`),
   CONSTRAINT `fk_workbench_skill_attachment_chunks_attachment` FOREIGN KEY (`attachment_id`) REFERENCES `workbench_skill_attachments` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_workbench_skill_attachment_chunks_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_user_memories` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` enum('response_preference','user_background','long_term_interest','personal_constraint') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'response_preference',
+  `normalized_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_type` enum('manual','explicit_chat','inferred_chat') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'manual',
+  `source_conversation_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source_message_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('pending','active','disabled','deleted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `confidence` decimal(4,3) DEFAULT NULL,
+  `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `last_used_at` datetime(6) DEFAULT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_workbench_user_memory_source` (`owner_username`,`source_message_id`,`normalized_key`),
+  KEY `idx_workbench_user_memories_list` (`owner_username`,`status`,`is_pinned`,`updated_at`,`id`),
+  KEY `idx_workbench_user_memories_key` (`owner_username`,`normalized_key`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_user_memory_settings` (
+  `owner_username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `memory_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `auto_extract_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`owner_username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_user_system_skills` (

@@ -13,6 +13,7 @@ dependencies = [
     "httpx>=0.28.1",
     "jieba>=0.42.1",
     "jinja2>=3.1.6",
+    "mcp>=2.2.0",
     "numpy>=2.4.6",
     "openai>=2.52.0",
     "openpyxl>=3.1.5",
@@ -31,6 +32,9 @@ dependencies = [
     "uvicorn>=0.52.1",
     "websocket-client>=1.9.0",
 ]
+
+[project.scripts]
+sentiment-mcp = "backend.mcp_server.server:main"
 
 [tool.uv.sources]
 torch = [

@@ -24,6 +24,9 @@ type StreamEvent =
   | { event: 'assistant.delta'; data: { message_id: string; delta: string } }
   | { event: 'assistant.completed'; data: { message: Message } }
   | { event: 'assistant.failed'; data: { message: Message; error: { code: string; message: string } } }
+  | { event: 'memory.saved'; data: { memory: { id: string; title: string } } }
+  | { event: 'memory.candidate'; data: { memory: { id: string; title: string } } }
+  | { event: 'memory.removed'; data: { query: string; deleted: number } }
   | { event: 'stream.done'; data: { conversation_id: string } }
 
 /** 侧边栏数据：项目树（含最近会话）+ 最近会话 */
