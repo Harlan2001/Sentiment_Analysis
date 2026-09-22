@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 import pymysql
 
 # 添加在文件最开头，所有导入之前
@@ -23,8 +24,6 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-
-def liuxiaoyu()
 
 # 全局常量：项目根路径（消除重复路径计算）
 PROJECT_ROOT = Path(__file__).parent.parent.parent
