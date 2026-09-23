@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from backend.agent.chat_service import agent_chat_stream
 from backend.analysis.analyzer import process_single_news_analysis
 from backend.routers.forecast import get_forecast_report
 from backend.routers.news import get_news, get_news_detail, get_news_yield_data, similar_news
@@ -31,6 +32,19 @@ def _direction(value: Any) -> str:
     if normalized in {"negative", "bearish", "利空", "跌"}:
         return "利空"
     return "中性"
+
+
+async def ask_sentiment(question: str) -> dict[str, str]:
+    """调用现有 Agent 生成完整回复，并将流式分片聚合为 Markdown。"""
+    parts: list[str] = []
+    messages = [{"role": "user", "content": question}]
+    async for delta in agent_chat_stream(messages, "anonymous"):
+        parts.append(delta)
+
+    markdown = "".join(parts).strip()
+    if not markdown:
+        raise RuntimeError("Sentiment 未生成有效回复")
+    return {"markdown": markdown}
 
 
 def _market_sentiment_payload(
@@ -110,6 +124,8 @@ async def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> d
         "title": current.get("title"),
         "publish_time": current.get("publish_time"),
         "source": current.get("source"),
+        "source_url": current.get("source_url"),
+        "content": current.get("content"),
         "direction": _direction(current.get("direction")),
         "horizon": current.get("horizon"),
         "reason": current.get("reason"),

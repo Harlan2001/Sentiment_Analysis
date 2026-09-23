@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
+from mcp.types import CallToolResult, TextContent
 
 from backend.mcp_server.gateway import SentimentBackendGateway
 
@@ -356,10 +357,41 @@ def create_server(
     # tools above behind an explicit FastAPI contract; the original 23 tools
     # remain unchanged for backwards compatibility.
     @server.tool(
+        name="ask_sentiment",
+        description=(
+            "Ask Sentiment a bond-market question and return its complete Markdown answer. "
+            "Preserve the Markdown when displaying it or using it as context for further analysis."
+        ),
+    )
+    def ask_sentiment(question: str) -> CallToolResult:
+        """返回可直接展示、也可继续组装提示词的完整 Markdown。"""
+        cleaned_question = question.strip()
+        if not cleaned_question:
+            raise ValueError("question must not be empty")
+        if len(cleaned_question) > 4000:
+            raise ValueError("question must not exceed 4000 characters")
+
+        payload = backend.post(
+            f"{_API_PREFIX}/mcp-business/ask-sentiment",
+            {"question": cleaned_question},
+        )
+        markdown = payload.get("markdown") if isinstance(payload, dict) else None
+        if not isinstance(markdown, str) or not markdown.strip():
+            raise RuntimeError("Sentiment API returned an empty Markdown answer")
+
+        return CallToolResult(
+            content=[TextContent(type="text", text=markdown)],
+            structuredContent={"markdown": markdown},
+        )
+
+    @server.tool(
         name="analyze_bond_sentiment",
         description=(
             "Analyze one stored bond-market news item, reusing an existing analysis "
-            "unless it is missing or force_refresh is true."
+            "unless it is missing or force_refresh is true. "
+            "Returns the full news content (article body), source_url, AI sentiment "
+            "direction, analysis reason and related factors — use this to let the user "
+            "read the article in-place instead of jumping to the external web page."
         ),
     )
     def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> Any:

@@ -3722,6 +3722,280 @@
         }
       }
     },
+    "/sapi/mcp-business/ask-sentiment": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Ask Sentiment",
+        "description": "生成一次无状态的 Sentiment 分析，供外部 MCP 客户端展示或继续分析。",
+        "operationId": "ask_sentiment_sapi_mcp_business_ask_sentiment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskSentimentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/analyze-bond-sentiment": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Analyze Bond Sentiment",
+        "operationId": "analyze_bond_sentiment_sapi_mcp_business_analyze_bond_sentiment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SentimentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/analyze-market-sentiment": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Analyze Market Sentiment",
+        "operationId": "analyze_market_sentiment_sapi_mcp_business_analyze_market_sentiment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DateRangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/explain-market-move": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Explain Market Move",
+        "operationId": "explain_market_move_sapi_mcp_business_explain_market_move_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketMoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/analyze-similar-event-impact": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Analyze Similar Event Impact",
+        "operationId": "analyze_similar_event_impact_sapi_mcp_business_analyze_similar_event_impact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimilarEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/generate-market-forecast": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Generate Market Forecast",
+        "operationId": "generate_market_forecast_sapi_mcp_business_generate_market_forecast_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForecastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/mcp-business/generate-news-digest": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Generate News Digest",
+        "operationId": "generate_news_digest_sapi_mcp_business_generate_news_digest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DigestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/discover/news": {
       "get": {
         "tags": [
@@ -6967,6 +7241,21 @@
         ],
         "title": "AnalysisTriggerRequest"
       },
+      "AskSentimentRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskSentimentRequest"
+      },
       "BehaviorBatchRequest": {
         "properties": {
           "events": {
@@ -7163,6 +7452,127 @@
         ],
         "title": "DailyNewsSummaryCreateRequest"
       },
+      "DateRangeRequest": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 100
+          },
+          "keyword": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyword"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "title": "DateRangeRequest"
+      },
+      "DigestRequest": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 100
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "title": "DigestRequest"
+      },
+      "ForecastRequest": {
+        "properties": {
+          "report_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Report Date"
+          },
+          "force_refresh": {
+            "type": "boolean",
+            "title": "Force Refresh",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "report_date"
+        ],
+        "title": "ForecastRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -7321,6 +7731,27 @@
           "success"
         ],
         "title": "LoginResponse"
+      },
+      "MarketMoveRequest": {
+        "properties": {
+          "trade_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Trade Date"
+          },
+          "maturity": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 1,
+            "title": "Maturity",
+            "default": "10Y"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trade_date"
+        ],
+        "title": "MarketMoveRequest"
       },
       "MemoryCreateRequest": {
         "properties": {
@@ -7895,6 +8326,67 @@
           "report_ids"
         ],
         "title": "ReportGenerationCreateRequest"
+      },
+      "SentimentRequest": {
+        "properties": {
+          "news_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "News Id"
+          },
+          "force_refresh": {
+            "type": "boolean",
+            "title": "Force Refresh",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "news_id"
+        ],
+        "title": "SentimentRequest"
+      },
+      "SimilarEventRequest": {
+        "properties": {
+          "news_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "News Id"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 5
+          },
+          "maturity": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 1,
+            "title": "Maturity",
+            "default": "10年"
+          },
+          "window_before": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 0.0,
+            "title": "Window Before",
+            "default": 5
+          },
+          "window_after": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 0.0,
+            "title": "Window After",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "news_id"
+        ],
+        "title": "SimilarEventRequest"
       },
       "SkillPayload": {
         "properties": {

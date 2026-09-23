@@ -16,16 +16,20 @@ class FakeGateway:
         self.calls.append((path, query))
         return {"path": path, "query": query}
 
+    def post(self, path: str, body: Any = None, **query: Any) -> dict[str, Any]:
+        self.calls.append((path, {"body": body, **query}))
+        return {"path": path, "body": body, "query": query}
+
 
 @pytest.mark.asyncio
-async def test_server_exposes_only_the_explicit_read_only_tools():
+async def test_server_keeps_atomic_tools_and_adds_seven_business_tools():
     server = create_server(FakeGateway())
 
     async with Client(server) as client:
         result = await client.list_tools()
 
     names = {tool.name for tool in result.tools}
-    assert len(names) == 23
+    assert len(names) == 30
     assert {
         "search_news",
         "semantic_search_news",
@@ -33,7 +37,105 @@ async def test_server_exposes_only_the_explicit_read_only_tools():
         "get_market_overview",
         "search_research_reports",
     } <= names
+    assert {
+        "ask_sentiment",
+        "analyze_bond_sentiment",
+        "analyze_bond_market_sentiment",
+        "explain_bond_market_move",
+        "analyze_similar_event_impact",
+        "generate_bond_market_forecast",
+        "generate_news_digest",
+    } <= names
     assert not any("delete" in name or "upload" in name for name in names)
+
+
+@pytest.mark.asyncio
+async def test_ask_sentiment_returns_markdown_as_text_and_structured_content():
+    class AskSentimentGateway(FakeGateway):
+        def post(self, path: str, body: Any = None, **query: Any) -> dict[str, Any]:
+            self.calls.append((path, {"body": body, **query}))
+            return {
+                "markdown": "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+            }
+
+    gateway = AskSentimentGateway()
+    server = create_server(gateway)
+
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "ask_sentiment",
+            {"question": "  政策驱动对下半年债市的影响  "},
+        )
+
+    assert not result.is_error
+    assert result.content[0].text == "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+    assert result.structured_content == {
+        "markdown": "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+    }
+    assert gateway.calls == [
+        (
+            "/sapi/mcp-business/ask-sentiment",
+            {"body": {"question": "政策驱动对下半年债市的影响"}},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_business_sentiment_tool_posts_to_explicit_backend_contract():
+    gateway = FakeGateway()
+    server = create_server(gateway)
+
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "analyze_bond_sentiment",
+            {"news_id": 42, "force_refresh": True},
+        )
+
+    assert not result.is_error
+    assert gateway.calls == [
+        (
+            "/sapi/mcp-business/analyze-bond-sentiment",
+            {"body": {"news_id": 42, "force_refresh": True}},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_business_date_range_is_validated_before_backend_call():
+    gateway = FakeGateway()
+    server = create_server(gateway)
+
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "analyze_bond_market_sentiment",
+            {"start_date": "2026-01-01", "end_date": "2026-03-01"},
+        )
+
+    assert result.is_error
+    assert gateway.calls == []
+
+
+@pytest.mark.asyncio
+async def test_similar_event_tool_bounds_external_parameters():
+    gateway = FakeGateway()
+    server = create_server(gateway)
+
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "analyze_similar_event_impact",
+            {
+                "news_id": 7,
+                "top_k": 999,
+                "window_before": 999,
+                "window_after": -2,
+            },
+        )
+
+    assert not result.is_error
+    body = gateway.calls[0][1]["body"]
+    assert body["top_k"] == 10
+    assert body["window_before"] == 30
+    assert body["window_after"] == 0
 
 
 @pytest.mark.asyncio
