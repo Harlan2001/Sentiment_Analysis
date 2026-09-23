@@ -7,6 +7,42 @@ from mcp import Client
 
 from backend.mcp_server.server import StaticTokenVerifier, create_server
 
+# This is the public, read-only MCP surface.  Keep the contract explicit: a
+# tool addition/removal is a compatibility and security review, not a silent
+# consequence of adding a decorator in the server implementation.
+EXPECTED_READ_ONLY_TOOLS = {
+    "ask_sentiment",
+    "analyze_bond_market_sentiment",
+    "analyze_bond_sentiment",
+    "analyze_similar_event_impact",
+    "explain_bond_market_move",
+    "find_similar_news",
+    "generate_bond_market_forecast",
+    "generate_news_digest",
+    "get_factor_detail",
+    "get_forecast_history",
+    "get_latest_forecast",
+    "get_latest_news_date",
+    "get_macro_data",
+    "get_macro_signal",
+    "get_market_overview",
+    "get_news_detail",
+    "get_news_yield_impact",
+    "get_research_summary",
+    "get_returns_calendar",
+    "get_yield_detail",
+    "get_yield_series",
+    "list_change_snapshots",
+    "list_factors",
+    "list_factors_by_category",
+    "list_factors_paged",
+    "list_macro_indicators",
+    "list_news_sources",
+    "search_news",
+    "search_research_reports",
+    "semantic_search_news",
+}
+
 
 class FakeGateway:
     def __init__(self) -> None:
@@ -22,30 +58,14 @@ class FakeGateway:
 
 
 @pytest.mark.asyncio
-async def test_server_keeps_atomic_tools_and_adds_seven_business_tools():
+async def test_server_exposes_expected_tools():
     server = create_server(FakeGateway())
 
     async with Client(server) as client:
         result = await client.list_tools()
 
     names = {tool.name for tool in result.tools}
-    assert len(names) == 30
-    assert {
-        "search_news",
-        "semantic_search_news",
-        "get_macro_signal",
-        "get_market_overview",
-        "search_research_reports",
-    } <= names
-    assert {
-        "ask_sentiment",
-        "analyze_bond_sentiment",
-        "analyze_bond_market_sentiment",
-        "explain_bond_market_move",
-        "analyze_similar_event_impact",
-        "generate_bond_market_forecast",
-        "generate_news_digest",
-    } <= names
+    assert names == EXPECTED_READ_ONLY_TOOLS
     assert not any("delete" in name or "upload" in name for name in names)
 
 

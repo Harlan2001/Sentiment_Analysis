@@ -22,7 +22,11 @@ def chat_client():
     previous_repository = getattr(app.state, "repository", None)
     app.state.repository = repository
     with patch("backend.auth.dependencies.AUTH_ENABLED", True), \
-         patch("backend.auth.auth.JWT_SECRET_KEY", TEST_JWT_SECRET):
+         patch("backend.auth.auth.JWT_SECRET_KEY", TEST_JWT_SECRET), \
+         patch(
+             "backend.auth.dependencies._load_current_identity",
+             return_value={"is_active": True, "is_admin": False, "role": "member"},
+         ):
         yield TestClient(app), repository
     if previous_repository is None:
         del app.state.repository

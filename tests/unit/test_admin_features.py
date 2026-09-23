@@ -39,8 +39,21 @@ def admin_app():
     def market_data(request: Request):
         return {"data": "public"}
 
+    def load_test_identity(username: str) -> dict[str, object]:
+        """模拟认证中间件的实时用户状态查询，避免单测连接数据库。"""
+        is_admin = username == "admin"
+        return {
+            "is_active": True,
+            "is_admin": is_admin,
+            "role": "admin" if is_admin else "member",
+        }
+
     with patch("backend.auth.dependencies.AUTH_ENABLED", True), \
-         patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET):
+         patch("backend.auth.auth.JWT_SECRET_KEY", TEST_ADMIN_SECRET), \
+         patch(
+             "backend.auth.dependencies._load_current_identity",
+             side_effect=load_test_identity,
+         ):
         yield app
 
 
