@@ -174,7 +174,6 @@ jobs:
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true # 观察期: 先报告不门禁; 审核通过并转 gate 时去掉 continue-on-error
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,9 +183,18 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+      - name: 验证后端锁文件未漂移
+        run: uv lock --check
       - run: |
           uv export --format requirements-txt --no-dev > backend-reqs.txt
-          uvx pip-audit --requirement backend-reqs.txt --no-deps
+          # The lock contains PyTorch's CPU-only local version (for example
+          # 2.13.0+cpu), which is intentionally served by the PyTorch index
+          # rather than PyPI.  pip-audit previously tried to create a new pip
+          # environment against PyPI and failed before it could audit anything.
+          # Audit the fully pinned export directly instead; any package not in
+          # PyPI is reported by pip-audit as an explicit skip rather than
+          # making the security job falsely fail.
+          uvx pip-audit --requirement backend-reqs.txt --no-deps --disable-pip
       - name: 前端依赖漏洞(npm audit)
         uses: actions/setup-node@v4
         with:
