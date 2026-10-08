@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from mcp import Client
+from mcp.types import ResourceLink
 
 from backend.mcp_server.server import StaticTokenVerifier, create_server
 
@@ -67,6 +68,24 @@ async def test_server_exposes_expected_tools():
     names = {tool.name for tool in result.tools}
     assert names == EXPECTED_READ_ONLY_TOOLS
     assert not any("delete" in name or "upload" in name for name in names)
+    ask_tool = next(tool for tool in result.tools if tool.name == "ask_sentiment")
+    assert ask_tool.meta == {"ui": {"resourceUri": "ui://sentiment/answer"}}
+
+
+@pytest.mark.asyncio
+async def test_server_exposes_sentiment_answer_mcp_app():
+    server = create_server(FakeGateway())
+
+    async with Client(server) as client:
+        resources = await client.list_resources()
+        result = await client.read_resource("ui://sentiment/answer")
+
+    app_resource = next(item for item in resources.resources if item.uri == "ui://sentiment/answer")
+    assert app_resource.mime_type == "text/html;profile=mcp-app"
+    html = result.contents[0].text
+    assert "app.ontoolresult" in html
+    assert "app.readServerResource" in html
+    assert "sentiment://news/${newsId}" in html
 
 
 @pytest.mark.asyncio
@@ -75,7 +94,8 @@ async def test_ask_sentiment_returns_markdown_as_text_and_structured_content():
         def post(self, path: str, body: Any = None, **query: Any) -> dict[str, Any]:
             self.calls.append((path, {"body": body, **query}))
             return {
-                "markdown": "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+                "markdown": "## 新闻依据\n\n政策新闻（新闻ID：1）",
+                "references": [{"index": 1, "news_id": 1, "title": "政策新闻"}],
             }
 
     gateway = AskSentimentGateway()
@@ -88,15 +108,62 @@ async def test_ask_sentiment_returns_markdown_as_text_and_structured_content():
         )
 
     assert not result.is_error
-    assert result.content[0].text == "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+    assert result.content[0].text == "## 新闻依据\n\n政策新闻（新闻ID：1）"
+    assert isinstance(result.content[1], ResourceLink)
+    assert result.content[1].title == "新闻ID：1｜政策新闻"
+    assert result.content[1].uri == "sentiment://news/1"
+    assert result.meta["ui"] == {"resourceUri": "ui://sentiment/answer"}
     assert result.structured_content == {
-        "markdown": "## 结论\n\n[查看新闻原文](https://example.test/news/1)"
+        "markdown": "## 新闻依据\n\n政策新闻（新闻ID：1）",
+        "references": [{"index": 1, "news_id": 1, "title": "政策新闻"}],
     }
     assert gateway.calls == [
         (
             "/sapi/mcp-business/ask-sentiment",
             {"body": {"question": "政策驱动对下半年债市的影响"}},
         )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_news_resource_renders_analysis_before_article_content():
+    class NewsResourceGateway(FakeGateway):
+        def get(self, path: str, **query: Any) -> dict[str, Any]:
+            self.calls.append((path, query))
+            return {
+                "id": 42,
+                "title": "政策新闻",
+                "publish_time": "2026-09-24T09:00:00",
+                "source": "测试来源",
+                "source_url": "https://example.test/news/42",
+                "direction": "利多",
+                "horizon": "短期",
+                "reason": "流动性改善。",
+                "factors": [{"name": "流动性", "category": "LIQUIDITY", "direction": "positive", "driver": "资金面转松"}],
+                "content": "这是新闻正文。",
+                "content_blocks": [
+                    {"block_type": "heading", "block_order": "1", "heading_level": "h2", "content": "正文标题"},
+                    {"block_type": "paragraph", "block_order": "2", "content": "这是新闻正文。"},
+                ],
+            }
+
+    gateway = NewsResourceGateway()
+    server = create_server(gateway)
+
+    async with Client(server) as client:
+        templates = await client.list_resource_templates()
+        result = await client.read_resource("sentiment://news/42")
+
+    assert any(item.uri_template == "sentiment://news/{news_id}" for item in templates.resource_templates)
+    text = result.contents[0].text
+    assert text.index("## AI 分析") < text.index("## 新闻内容")
+    assert "流动性改善。" in text
+    assert "## 正文标题" in text
+    assert "这是新闻正文。" in text
+    assert "查看新闻原文" not in text
+    assert "https://example.test/news/42" not in text
+    assert gateway.calls == [
+        ("/sapi/news/42", {"include_all_models": False})
     ]
 
 
