@@ -60,10 +60,30 @@ class DigestRequest(_BoundedDateRangeRequest):
     focus: str | None = Field(default=None, max_length=200)
 
 
+class AskSentimentRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def normalize_question(self):
+        self.question = self.question.strip()
+        if not self.question:
+            raise ValueError("问题不能为空")
+        return self
+
+
 def _raise_failure(exc: Exception) -> None:
     if isinstance(exc, HTTPException):
         raise exc
     raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/ask-sentiment")
+async def ask_sentiment(body: AskSentimentRequest):
+    """生成一次无状态的 Sentiment 分析，供外部 MCP 客户端展示或继续分析。"""
+    try:
+        return ok(await service.ask_sentiment(body.question))
+    except Exception as exc:
+        _raise_failure(exc)
 
 
 @router.post("/analyze-bond-sentiment")
