@@ -27,6 +27,8 @@ export type ReportGenerationTask = {
   date_end: string | null
   report_ids_json: number[]
   source_snapshot_json: ReportSourceSnapshot[]
+  version_no: number
+  parent_task_id: string | null
   status: ReportGenerationStatus
   model_name: string | null
   result_markdown?: string | null
@@ -77,8 +79,21 @@ export function createReportGenerationTask(input: {
   report_ids: number[]
   date_start?: string
   date_end?: string
+  model?: string
 }) {
   return request<ReportGenerationTask>('/sapi/report-generation/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+/** 基于历史任务改需求/来源再生成（新版本号，原任务保留）（P1-7） */
+export function regenerateReportGenerationTask(
+  taskId: string,
+  input: { requirement: string; report_ids?: number[]; model?: string },
+) {
+  return request<ReportGenerationTask>(`/sapi/report-generation/tasks/${taskId}/regenerate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -143,6 +158,8 @@ export function getResearchList(params: {
   market_view?: string
   status?: string
   keyword?: string
+  date_start?: string
+  date_end?: string
 }) {
   return request<{
     items: ResearchListItem[]
@@ -159,5 +176,39 @@ export function getResearchList(params: {
     market_view: params.market_view,
     status: params.status,
     keyword: params.keyword,
+    date_start: params.date_start,
+    date_end: params.date_end,
   })}`)
+}
+
+// ── 重新分析（P0-3） ─────────────────────────────────────
+
+/** 对单篇研报（重新）触发 AI 分析；已分析研报必须显式 force=true。 */
+export function reanalyzeReport(reportId: number, model = 'glm') {
+  return request<{ report_id: number; status: string; message?: string }>(
+    `/sapi/research/${reportId}/analyze?model=${encodeURIComponent(model)}&force=true`,
+    { method: 'POST' },
+  )
+}
+
+export type BatchReanalyzeFilters = {
+  institution?: string
+  industry?: string
+  market_view?: string
+  keyword?: string
+  date_start?: string
+  date_end?: string
+  model?: string
+}
+
+/** 按筛选条件批量重跑已分析研报，返回触发/跳过计数。 */
+export function batchReanalyzeReports(filters: BatchReanalyzeFilters) {
+  return request<{ triggered: number; skipped: number; report_ids: number[] }>(
+    '/sapi/research/reanalyze/batch',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(filters),
+    },
+  )
 }

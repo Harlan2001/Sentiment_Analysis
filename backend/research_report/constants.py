@@ -3,6 +3,15 @@
 从 research_parser.py 抽取，集中管理便于维护
 """
 
+from __future__ import annotations
+
+from backend.config.config import BASE_DIR
+
+# 研报数据目录：PDF 原件与抽取图表
+DATA_ROOT = BASE_DIR / "data"
+FIGURE_ROOT = DATA_ROOT / "pdf" / "research"
+PDF_ROOT = FIGURE_ROOT / "original"
+
 # 已知机构列表
 KNOWN_INSTITUTIONS = [
     "中信建投证券",
@@ -118,8 +127,11 @@ INDUSTRY_KEYWORDS = {
 # 图片提取：最小字节数（小于此值视为装饰图）
 FIGURE_MIN_BYTES = 10000
 
-# 图片提取：最大附带张数
-FIGURE_MAX_PER_REPORT = 20
+# 图片提取：最大附带张数（前端已不再展示图表，仅保留少量图表辅助模型读数）
+FIGURE_MAX_PER_REPORT = 6
 
 # AI 分析：正文截断长度
 LLM_MAX_TEXT_CHARS = 8000  # 增加正文长度以获得更详细分析
+
+# AI 分析：全局最大并发（批量重跑时排队执行，避免触发模型限流导致空响应/超时）
+ANALYSIS_MAX_CONCURRENCY = 2

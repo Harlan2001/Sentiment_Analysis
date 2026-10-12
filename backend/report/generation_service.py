@@ -7,6 +7,7 @@ import threading
 
 from backend.common.llm_logger import log_llm_usage
 from backend.repositories.report_generation_repository import ReportGenerationRepository
+from backend.research_report.llm import resolve_provider_model
 from backend.research_report.synthesis import generate_research_synthesis
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 CALL_SOURCE = "report_generation"
 
 
-def _run_report_generation(task_id: str) -> None:
+def _run_report_generation(task_id: str, model: str | None = None) -> None:
     repository = ReportGenerationRepository.from_environment()
     task = repository.claim_task(task_id)
     if not task:
@@ -28,6 +29,7 @@ def _run_report_generation(task_id: str) -> None:
             sources=sources,
             date_start=task.get("date_start"),
             date_end=task.get("date_end"),
+            model=resolve_provider_model(model) if model else None,
         )
         log_llm_usage(
             call_source=CALL_SOURCE,
@@ -56,10 +58,11 @@ def _run_report_generation(task_id: str) -> None:
         repository.finish_task_failed(task_id, f"生成失败：{exc}")
 
 
-def start_report_generation(task_id: str) -> None:
+def start_report_generation(task_id: str, model: str | None = None) -> None:
+    """后台启动综合研报生成。``model`` 为模型短名（None 用默认模型）。"""
     thread = threading.Thread(
         target=_run_report_generation,
-        args=(task_id,),
+        args=(task_id, model),
         name=f"report-generation-{task_id[:8]}",
         daemon=True,
     )

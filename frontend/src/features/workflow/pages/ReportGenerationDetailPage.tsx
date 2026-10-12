@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ReportGenerationTask, getReportGenerationTask, retryReportGenerationTask } from '@/api/reportGeneration'
+import {
+  ReportGenerationTask,
+  getReportGenerationTask,
+  regenerateReportGenerationTask,
+  retryReportGenerationTask,
+} from '@/api/reportGeneration'
 import { ReportExportButtons } from '../components/ReportExportButtons'
 import { ReportSourceDetailPanel } from '../components/ReportSourceDetailPanel'
 
@@ -15,6 +20,9 @@ export function ReportGenerationDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retrying, setRetrying] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenerateOpen, setRegenerateOpen] = useState(false)
+  const [newRequirement, setNewRequirement] = useState('')
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null)
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -34,6 +42,19 @@ export function ReportGenerationDetailPage() {
     catch (reason) { setError(reason instanceof Error ? reason.message : '重试失败') }
     finally { setRetrying(false) }
   }
+  async function regenerate() {
+    const requirement = newRequirement.trim()
+    if (!requirement) { setError('请填写新的分析重点'); return }
+    setRegenerating(true)
+    try {
+      // 来源/日期默认沿用原任务；原任务保留，返回新版本任务后跳转
+      const next = await regenerateReportGenerationTask(taskId, { requirement })
+      navigate(`/computer/reports/${next.id}`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '再生成失败')
+      setRegenerating(false)
+    }
+  }
   return <section className="computer-page report-detail-page">
     <div className="computer-tabs"><button onClick={() => navigate('/computer/reports')}>← 返回研报分析</button><span className="computer-spacer" /><button className="computer-button" onClick={() => void load()}>刷新状态</button></div>
     {loading ? <div className="report-detail-state">正在读取任务详情…</div>
@@ -46,12 +67,27 @@ export function ReportGenerationDetailPage() {
             <p>{task.requirement}</p>
           </div>
           <div className="report-detail-actions">
+            {(task.status === 'completed' || task.status === 'failed') && (
+              <button className="computer-button" onClick={() => { setRegenerateOpen((v) => !v); setNewRequirement(task.requirement) }}>
+                {regenerateOpen ? '收起再生成' : '改需求再生成'}
+              </button>
+            )}
             {task.status === 'failed' && <button className="computer-button primary" disabled={retrying} onClick={() => void retry()}>{retrying ? '正在重试…' : '重试生成'}</button>}
           </div>
         </header>
+        {regenerateOpen && (task.status === 'completed' || task.status === 'failed') && (
+          <div className="report-detail-regenerate">
+            <strong>基于第 {task.version_no} 版再生成</strong>
+            <small>将沿用原标题、{task.source_snapshot_json.length} 份来源与日期范围，创建版本号 +1 的新任务，原报告保留。</small>
+            <textarea rows={3} value={newRequirement} onChange={(event) => setNewRequirement(event.target.value)} placeholder="新的分析重点…" />
+            <button className="computer-button primary" disabled={regenerating} onClick={() => void regenerate()}>
+              {regenerating ? '提交中…' : '生成新版本'}
+            </button>
+          </div>
+        )}
         {error && <p className="chat-error">{error}</p>}
         <ReportExportButtons task={task} onError={setError} />
-        <div className="report-detail-meta"><span>来源 {task.source_snapshot_json.length} 份</span><span>范围 {task.date_start || '未限定'} 至 {task.date_end || '未限定'}</span><span>模型 {task.model_name || '等待分配'}</span><span>重试 {task.retry_count} 次</span></div>
+        <div className="report-detail-meta"><span>来源 {task.source_snapshot_json.length} 份</span><span>范围 {task.date_start || '未限定'} 至 {task.date_end || '未限定'}</span><span>模型 {task.model_name || '等待分配'}</span><span>版本 v{task.version_no}</span><span>重试 {task.retry_count} 次</span></div>
         {(task.status === 'queued' || task.status === 'running') && <div className="report-detail-state running"><span className="report-spinner" /><strong>{task.status === 'queued' ? '任务正在排队' : '模型正在综合研报'}</strong><p>页面会自动刷新；关闭或刷新页面不会丢失任务。</p></div>}
         {task.status === 'failed' && <div className="report-detail-state error"><strong>本次生成未完成</strong><p>{task.error_message || '生成服务返回未知错误，请重试。'}</p></div>}
         {task.status === 'completed' && task.result_markdown && <article className="report-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{task.result_markdown}</ReactMarkdown></article>}
