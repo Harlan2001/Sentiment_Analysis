@@ -3966,6 +3966,46 @@
         }
       }
     },
+    "/sapi/mcp-business/ask-sentiment": {
+      "post": {
+        "tags": [
+          "mcp-business"
+        ],
+        "summary": "Ask Sentiment",
+        "description": "生成一次无状态的 Sentiment 分析，供外部 MCP 客户端展示或继续分析。",
+        "operationId": "ask_sentiment_sapi_mcp_business_ask_sentiment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskSentimentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/mcp-business/analyze-bond-sentiment": {
       "post": {
         "tags": [
@@ -7444,6 +7484,21 @@
           "idempotency_key"
         ],
         "title": "AnalysisTriggerRequest"
+      },
+      "AskSentimentRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskSentimentRequest"
       },
       "BatchReanalyzeRequest": {
         "properties": {

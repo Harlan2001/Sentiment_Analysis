@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>视界债市分析</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#101010; --panel:#171717; --line:#303030; --text:#ececec; --muted:#9a9a9a; --gold:#e6b84a; --red:#ff6262; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.75 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+    main { max-width:960px; margin:auto; padding:18px; }
+    header { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    header h1 { margin:0; font-size:15px; }
+    .badge { border:1px solid #6d5520; border-radius:999px; color:var(--gold); padding:2px 9px; font-size:11px; }
+    .card { border:1px solid var(--line); border-radius:14px; background:var(--panel); padding:18px 20px; }
+    .hidden { display:none; }
+    .back { border:1px solid var(--line); border-radius:8px; background:#202020; color:var(--text); padding:6px 11px; cursor:pointer; }
+    .back:hover { border-color:var(--gold); }
+    h1,h2,h3,h4 { line-height:1.4; margin:1.1em 0 .55em; }
+    h2 { border-left:3px solid var(--gold); padding-left:10px; font-size:17px; }
+    h3 { font-size:15px; color:#ddd; }
+    p { margin:.55em 0; }
+    ul,ol { padding-left:1.4em; }
+    table { width:100%; border-collapse:collapse; margin:12px 0; font-size:13px; }
+    th,td { border:1px solid var(--line); padding:8px 10px; vertical-align:top; text-align:left; }
+    th { background:#202020; color:#ddd; }
+    a { color:#5db9ff; }
+    .news-id { display:inline-flex; border:1px solid #7b5c18; border-radius:6px; background:#2a2110; color:#ffd36b; padding:1px 7px; font:inherit; font-weight:650; cursor:pointer; }
+    .news-id:hover { background:#3a2c12; border-color:var(--gold); }
+    .loading,.error { padding:24px; text-align:center; color:var(--muted); }
+    .error { color:var(--red); }
+    .meta { color:var(--muted); font-size:12px; }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#faf8f3; --panel:#fff; --line:#ded9ce; --text:#25221c; --muted:#746f65; }
+      .back,th { background:#f3efe6; }
+      .news-id { background:#fff5d8; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="answer-view">
+      <header><span class="badge">视界</span><h1>债券市场分析</h1></header>
+      <article id="answer" class="card"><div class="loading">正在接收分析结果…</div></article>
+    </section>
+    <section id="detail-view" class="hidden">
+      <header><button id="back" class="back" type="button">← 返回分析</button><span id="detail-label" class="meta"></span></header>
+      <article id="detail" class="card"></article>
+    </section>
+  </main>
+  <script type="module">
+    import { App } from "https://esm.sh/@modelcontextprotocol/ext-apps";
+
+    const answerView = document.getElementById("answer-view");
+    const detailView = document.getElementById("detail-view");
+    const answerNode = document.getElementById("answer");
+    const detailNode = document.getElementById("detail");
+    const detailLabel = document.getElementById("detail-label");
+    const references = new Map();
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    }
+
+    function inline(value, clickableIds = true) {
+      let text = escapeHtml(value);
+      text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+      if (clickableIds) {
+        text = text.replace(/新闻\s*ID\s*[：:]\s*(\d+)/gi, (_, id) => `<button type="button" class="news-id" data-news-id="${id}">新闻ID：${id}</button>`);
+      }
+      return text;
+    }
+
+    function markdown(value, clickableIds = true) {
+      const lines = String(value ?? "").replace(/\r/g, "").split("\n");
+      const out = [];
+      let list = null;
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const next = lines[index + 1] || "";
+        if (/^\s*\|/.test(line) && /^\s*\|?\s*:?-{3,}/.test(next)) {
+          const rows = [];
+          const split = row => row.trim().replace(/^\||\|$/g, "").split("|").map(cell => cell.trim());
+          const headers = split(line); index += 1;
+          while (index + 1 < lines.length && /^\s*\|/.test(lines[index + 1])) rows.push(split(lines[++index]));
+          out.push(`<table><thead><tr>${headers.map(cell => `<th>${inline(cell, clickableIds)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${inline(cell, clickableIds)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+          continue;
+        }
+        const heading = line.match(/^(#{1,4})\s+(.+)$/);
+        const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+        const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+        if (heading) { if (list) { out.push(`</${list}>`); list=null; } const level=heading[1].length; out.push(`<h${level}>${inline(heading[2], clickableIds)}</h${level}>`); continue; }
+        if (bullet || ordered) { const wanted=bullet ? "ul" : "ol"; if (list !== wanted) { if (list) out.push(`</${list}>`); out.push(`<${wanted}>`); list=wanted; } out.push(`<li>${inline((bullet || ordered)[1], clickableIds)}</li>`); continue; }
+        if (list) { out.push(`</${list}>`); list=null; }
+        if (!line.trim()) continue;
+        out.push(`<p>${inline(line, clickableIds)}</p>`);
+      }
+      if (list) out.push(`</${list}>`);
+      return out.join("");
+    }
+
+    function renderAnswer(data) {
+      references.clear();
+      for (const item of Array.isArray(data?.references) ? data.references : []) references.set(String(item.news_id), item);
+      answerNode.innerHTML = markdown(data?.markdown || "未收到有效回答。");
+    }
+
+    async function openNews(newsId) {
+      answerView.classList.add("hidden");
+      detailView.classList.remove("hidden");
+      detailLabel.textContent = references.get(String(newsId))?.title || `新闻ID：${newsId}`;
+      detailNode.innerHTML = '<div class="loading">正在读取新闻分析与正文…</div>';
+      try {
+        const result = await app.readServerResource({ uri: `sentiment://news/${newsId}` });
+        const content = result?.contents?.find(item => typeof item.text === "string")?.text;
+        if (!content) throw new Error("新闻资源没有返回文本内容");
+        detailNode.innerHTML = markdown(content, false);
+      } catch (error) {
+        detailNode.innerHTML = `<div class="error">读取失败：${escapeHtml(error?.message || error)}</div>`;
+      }
+    }
+
+    document.addEventListener("click", event => {
+      const button = event.target.closest?.("[data-news-id]");
+      if (button) openNews(button.dataset.newsId);
+    });
+    document.getElementById("back").addEventListener("click", () => {
+      detailView.classList.add("hidden");
+      answerView.classList.remove("hidden");
+    });
+
+    const app = new App({ name: "SentimentAnswer", version: "1.0.0" }, {}, { autoResize: true });
+    app.ontoolresult = result => renderAnswer(result?.structuredContent || {});
+    app.onhostcontextchanged = context => {
+      document.documentElement.dataset.theme = context?.theme || "";
+    };
+    await app.connect();
+  </script>
+</body>
+</html>
