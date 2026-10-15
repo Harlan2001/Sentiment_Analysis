@@ -12,5 +12,6 @@
                 "& 'D:\\Project\\Sentiment_Analysis\\.venv\\Scripts\\activate.ps1'"
             ]
         }
-    }
+    },
+    "python.terminal.useEnvFile": true
 }
