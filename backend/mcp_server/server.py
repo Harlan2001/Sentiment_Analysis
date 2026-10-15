@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hmac
 import os
+import re
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -12,12 +14,99 @@ from dotenv import load_dotenv
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
+from mcp.types import CallToolResult, ResourceLink, TextContent
 
 from backend.mcp_server.gateway import SentimentBackendGateway
 
 load_dotenv()
 
 _API_PREFIX = os.environ.get("API_PREFIX", "/sapi").rstrip("/")
+_NEWS_RESOURCE_TEMPLATE = "sentiment://news/{news_id}"
+_ANSWER_APP_URI = "ui://sentiment/answer"
+_ANSWER_APP_PATH = Path(__file__).with_name("apps") / "sentiment_answer.html"
+
+
+def _display_value(value: Any, fallback: str = "暂无") -> str:
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text or fallback
+
+
+def _format_factor(factor: Any) -> str:
+    if not isinstance(factor, dict):
+        return f"- {_display_value(factor)}"
+    name = _display_value(factor.get("name") or factor.get("code"), "未命名因子")
+    category = _display_value(factor.get("category"), "OTHER")
+    direction = _display_value(factor.get("direction"), "中性")
+    driver = str(factor.get("driver") or "").strip()
+    suffix = f"：{driver}" if driver else ""
+    return f"- **{name}**（{category}，{direction}）{suffix}"
+
+
+def _safe_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        match = re.search(r"-?\d+", str(value or ""))
+        return int(match.group()) if match else default
+
+
+def _format_content_blocks(blocks: Any) -> str:
+    if not isinstance(blocks, list):
+        return ""
+    rendered: list[str] = []
+    valid_blocks = [item for item in blocks if isinstance(item, dict)]
+    for block in sorted(
+        valid_blocks,
+        key=lambda item: _safe_int(item.get("block_order"), 0),
+    ):
+        block_type = str(block.get("block_type") or "").lower()
+        content = str(block.get("content") or "").strip()
+        if block_type == "heading" and content:
+            level = min(max(_safe_int(block.get("heading_level"), 2), 2), 6)
+            rendered.append(f"{'#' * level} {content}")
+        elif block_type == "image" and block.get("image_url"):
+            alt = _display_value(block.get("image_alt"), "新闻图片")
+            rendered.append(f"![{alt}]({block['image_url']})")
+        elif content:
+            rendered.append(content)
+    return "\n\n".join(rendered)
+
+
+def _format_news_resource(news: Any, news_id: int) -> str:
+    if not isinstance(news, dict):
+        raise RuntimeError("Sentiment API returned an invalid news detail")
+    title = _display_value(news.get("title"), f"新闻 {news_id}")
+    factors = news.get("factors") if isinstance(news.get("factors"), list) else []
+    article = _format_content_blocks(news.get("content_blocks"))
+    if not article:
+        article = _display_value(news.get("content"), "暂无新闻正文")
+
+    lines = [
+        f"# {title}",
+        "",
+        f"- **新闻 ID**：{news_id}",
+        f"- **来源**：{_display_value(news.get('source'))}",
+        f"- **发布时间**：{_display_value(news.get('publish_time'))}",
+        "",
+        "## AI 分析",
+        "",
+        "- **判断对象**：中国国债价格与收益率",
+        f"- **影响方向**：{_display_value(news.get('direction'), '中性')}",
+        f"- **主要期限**：{_display_value(news.get('horizon'), '短期')}",
+        "",
+        _display_value(news.get("reason"), "暂无 AI 分析"),
+        "",
+        "### 因子传导明细",
+        "",
+        *(list(map(_format_factor, factors)) or ["- 暂无关联因子"]),
+        "",
+        "## 新闻内容",
+        "",
+        article,
+    ]
+    return "\n".join(lines).strip()
 
 
 class StaticTokenVerifier:
@@ -132,11 +221,51 @@ def create_server(
         instructions=(
             "Use these tools to retrieve evidence from the Sentiment platform. "
             "The original data tools are read-only; business tools may run analysis or generate reports. "
-            "Results should be cited with their returned IDs, dates or URLs."
+            "Display ask_sentiment text verbatim. Render every returned news ResourceLink as a clickable "
+            "internal news ID; read that resource to show AI analysis above the full article."
         ),
         token_verifier=verifier,
         auth=auth,
     )
+
+    @server.resource(
+        _ANSWER_APP_URI,
+        name="sentiment-answer-app",
+        title="视界债市分析",
+        description="原样展示视界回答，并在会话内打开新闻分析和正文。",
+        mime_type="text/html;profile=mcp-app",
+        meta={
+            "ui": {
+                "csp": {
+                    "resourceDomains": ["https://esm.sh"],
+                    "connectDomains": ["https://esm.sh"],
+                },
+                "prefersBorder": True,
+            }
+        },
+    )
+    def read_sentiment_answer_app() -> str:
+        return _ANSWER_APP_PATH.read_text(encoding="utf-8")
+
+    @server.resource(
+        _NEWS_RESOURCE_TEMPLATE,
+        name="sentiment-news-detail",
+        title="视界新闻详情",
+        description="新闻详情资源：先展示债市 AI 分析，再展示新闻正文。",
+        mime_type="text/markdown",
+    )
+    def read_news_resource(news_id: str) -> str:
+        try:
+            normalized_id = int(news_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("news_id must be a positive integer") from exc
+        if normalized_id <= 0:
+            raise ValueError("news_id must be a positive integer")
+        detail = backend.get(
+            f"{_API_PREFIX}/news/{normalized_id}",
+            include_all_models=False,
+        )
+        return _format_news_resource(detail, normalized_id)
 
     # Group A: existing, stable read-only endpoints.
     @server.tool(name="search_news", description="Filter bond-market news by date, source and keyword.")
@@ -356,10 +485,68 @@ def create_server(
     # tools above behind an explicit FastAPI contract; the original 23 tools
     # remain unchanged for backwards compatibility.
     @server.tool(
+        name="ask_sentiment",
+        description=(
+            "Ask Sentiment a bond-market question and return its complete Markdown answer. "
+            "Display the Markdown verbatim. News citations are accompanied by clickable MCP "
+            "ResourceLinks named with their internal news IDs; render those links instead of "
+            "turning news titles into web-search links."
+        ),
+        meta={"ui": {"resourceUri": _ANSWER_APP_URI}},
+    )
+    def ask_sentiment(question: str) -> CallToolResult:
+        """返回可直接展示、也可继续组装提示词的完整 Markdown。"""
+        cleaned_question = question.strip()
+        if not cleaned_question:
+            raise ValueError("question must not be empty")
+        if len(cleaned_question) > 4000:
+            raise ValueError("question must not exceed 4000 characters")
+
+        payload = backend.post(
+            f"{_API_PREFIX}/mcp-business/ask-sentiment",
+            {"question": cleaned_question},
+        )
+        markdown = payload.get("markdown") if isinstance(payload, dict) else None
+        if not isinstance(markdown, str) or not markdown.strip():
+            raise RuntimeError("Sentiment API returned an empty Markdown answer")
+
+        references = payload.get("references", []) if isinstance(payload, dict) else []
+        if not isinstance(references, list):
+            references = []
+        content: list[Any] = [TextContent(type="text", text=markdown)]
+        for reference in references:
+            if not isinstance(reference, dict):
+                continue
+            try:
+                news_id = int(reference.get("news_id"))
+            except (TypeError, ValueError):
+                continue
+            if news_id <= 0:
+                continue
+            title = _display_value(reference.get("title"), f"新闻 {news_id}")
+            content.append(
+                ResourceLink(
+                    name=f"news-{news_id}",
+                    title=f"新闻ID：{news_id}｜{title}",
+                    uri=f"sentiment://news/{news_id}",
+                    description="点击查看视界 AI 分析与新闻正文",
+                    mimeType="text/markdown",
+                )
+            )
+        return CallToolResult(
+            content=content,
+            structuredContent={"markdown": markdown, "references": references},
+            _meta={"ui": {"resourceUri": _ANSWER_APP_URI}},
+        )
+
+    @server.tool(
         name="analyze_bond_sentiment",
         description=(
             "Analyze one stored bond-market news item, reusing an existing analysis "
-            "unless it is missing or force_refresh is true."
+            "unless it is missing or force_refresh is true. "
+            "Returns the full news content (article body), source_url, AI sentiment "
+            "direction, analysis reason and related factors — use this to let the user "
+            "read the article in-place instead of jumping to the external web page."
         ),
     )
     def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> Any:

@@ -10,6 +10,7 @@ import json
 from typing import AsyncIterator
 
 from backend.agent.agent_loop import run_agent_loop
+from backend.agent.references import extract_news_references, merge_news_references
 from backend.common.database import execute_query
 from backend.common.llm_call import get_async_llm_client
 from backend.config.config import (
@@ -73,10 +74,14 @@ def _build_system_prompt() -> str:
 回复要求：
 1. **必须先调用工具**获取真实数据，再回答用户问题——不要凭空编造数据
 2. 使用 Markdown 格式回复（标题、列表、表格、**加粗**等）
-3. 提供总结归纳，而非逐条复述原始数据
-4. 使用 "→" 符号展示因果逻辑链
-5. 保持客观中立，不做具体投资建议
-6. 如果工具返回空结果或无数据，如实告知用户"""
+3. 除非用户明确指定其他格式，回答必须依次使用以下一级模块：`## 核心结论`、`## 新闻依据`、`## 传导逻辑`、`## 风险与限制`；没有内容的模块也要如实说明
+4. `新闻依据`优先使用表格，列顺序固定为：日期、新闻、影响方向、主要依据；新闻按发布时间从新到旧排列
+5. 引用新闻时，必须写成 `新闻标题（新闻ID：123）`；新闻标题和 ID 必须来自工具返回，不得编造。不要把新闻标题或新闻 ID 做成外部网页链接
+6. source_url 只用于数据溯源，允许工具获取和详情资源保留；不要用它替代内部新闻 ID
+7. 提供总结归纳而非逐条复述，使用 "→" 展示因果逻辑链
+8. 保持客观中立，不做具体投资建议
+9. 如果工具返回空结果或无数据，如实告知用户
+10. 对相同问题和相同工具数据，保持模块名称、模块顺序、新闻筛选口径、新闻排序及结论口径一致"""
 
 
 CHAT_SYSTEM_PROMPT = _build_system_prompt()
@@ -101,6 +106,7 @@ async def agent_chat_stream(
     skills: list[dict] | None = None,
     attachment_context: str | None = None,
     personal_context: str | None = None,
+    reference_collector: list[dict] | None = None,
 ) -> AsyncIterator[str]:
     """运行 Agent 循环，逐段产出最终回复的 content 增量（不含 SSE 包装）。
 
@@ -181,6 +187,13 @@ async def agent_chat_stream(
                 continue
             if data.get("type") == "content" and data.get("content"):
                 yield str(data["content"])
+            elif data.get("type") == "tool_result" and reference_collector is not None:
+                extracted = extract_news_references(
+                    str(data.get("tool_name") or ""), data.get("result")
+                )
+                reference_collector[:] = merge_news_references(
+                    reference_collector, extracted
+                )
             elif data.get("type") == "error":
                 raise AgentGenerationError(
                     str(data.get("message") or "Agent 生成失败")

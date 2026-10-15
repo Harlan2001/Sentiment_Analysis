@@ -12,10 +12,34 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from backend.analysis.analyzer import process_single_news_analysis
+from backend.agent.chat_service import agent_chat_stream
+from backend.agent.references import cited_news_references
 from backend.routers.forecast import get_forecast_report
-from backend.routers.news import get_news, get_news_detail, get_news_yield_data, similar_news
 from backend.routers.returns import returns_calendar
+
+
+def get_news(*args, **kwargs):
+    from backend.routers.news import get_news as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def get_news_detail(*args, **kwargs):
+    from backend.routers.news import get_news_detail as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def get_news_yield_data(*args, **kwargs):
+    from backend.routers.news import get_news_yield_data as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def similar_news(*args, **kwargs):
+    from backend.routers.news import similar_news as implementation
+
+    return implementation(*args, **kwargs)
 
 
 def _data(response: Any) -> Any:
@@ -31,6 +55,25 @@ def _direction(value: Any) -> str:
     if normalized in {"negative", "bearish", "利空", "跌"}:
         return "利空"
     return "中性"
+
+
+async def ask_sentiment(question: str) -> dict[str, Any]:
+    """调用现有 Agent 生成完整回复，并将流式分片聚合为 Markdown。"""
+    parts: list[str] = []
+    collected_references: list[dict[str, Any]] = []
+    messages = [{"role": "user", "content": question}]
+    async for delta in agent_chat_stream(
+        messages, "anonymous", reference_collector=collected_references
+    ):
+        parts.append(delta)
+
+    markdown = "".join(parts).strip()
+    if not markdown:
+        raise RuntimeError("Sentiment 未生成有效回复")
+    return {
+        "markdown": markdown,
+        "references": cited_news_references(markdown, collected_references),
+    }
 
 
 def _market_sentiment_payload(
@@ -101,6 +144,8 @@ async def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> d
     needs_analysis = str(current.get("reason") or "").strip() in {"", "待分析"}
     refreshed = force_refresh or needs_analysis
     if refreshed:
+        from backend.analysis.analyzer import process_single_news_analysis
+
         result = await process_single_news_analysis(news_id)
         if not result.get("success"):
             raise RuntimeError(result.get("message") or "新闻舆情分析失败")
@@ -110,6 +155,8 @@ async def analyze_bond_sentiment(news_id: int, force_refresh: bool = False) -> d
         "title": current.get("title"),
         "publish_time": current.get("publish_time"),
         "source": current.get("source"),
+        "source_url": current.get("source_url"),
+        "content": current.get("content"),
         "direction": _direction(current.get("direction")),
         "horizon": current.get("horizon"),
         "reason": current.get("reason"),
