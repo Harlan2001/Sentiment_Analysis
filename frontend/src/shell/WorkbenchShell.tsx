@@ -28,6 +28,8 @@ const HOME_CHAT_PLACEHOLDERS: Record<string, string> = {
   '/forecast': '\u8be2\u95ee\u9884\u6d4b\u7ed3\u8bba\u3001\u60c5\u666f\u5047\u8bbe\u6216\u98ce\u9669\u63d0\u793a\u2026',
   '/watchlist': '\u8be2\u95ee\u5173\u6ce8\u6807\u7684\u3001\u5f02\u52a8\u63d0\u9192\u6216\u8ddf\u8e2a\u5efa\u8bae\u2026',
   '/portfolio': '\u8be2\u95ee\u8d44\u4ea7\u914d\u7f6e\u3001\u7ec4\u5408\u98ce\u9669\u6216\u8c03\u4ed3\u601d\u8def\u2026',
+  '/futures': '\u8be2\u95ee\u671f\u8d27\u6301\u4ed3\u3001\u591a\u7a7a\u6bd4\u6216\u4f1a\u5458\u52a8\u5411\u2026',
+  '/credit-spread': '\u8be2\u95ee\u4fe1\u7528\u5229\u5dee\u3001\u671f\u9650\u7ed3\u6784\u6216\u5386\u53f2\u5206\u4f4d\u2026',
 }
 export function WorkbenchShell() {
   const location = useLocation()
@@ -53,7 +55,7 @@ export function WorkbenchShell() {
   const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
   const isWorkflowChild = location.pathname.startsWith('/computer/')
-  const showWorkflowBack = new Set(['/computer/reports', '/computer/strategies', '/computer/news']).has(location.pathname)
+  const showWorkflowBack = new Set(['/computer/reports', '/computer/strategies', '/computer/news', '/computer/policy']).has(location.pathname)
   const hideWorkflowDetailTopbar = location.pathname === '/computer/strategies/prompt'
     || location.pathname.startsWith('/computer/reports/')
     || /^\/computer\/news\/[^/]+$/.test(location.pathname)

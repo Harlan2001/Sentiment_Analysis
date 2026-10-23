@@ -207,6 +207,54 @@ export interface ForecastHistoryResponse {
   history: ForecastHistoryItem[]
 }
 
+// ========== 预测诊断（准确度诊断） ==========
+
+/** 三档结论标签：直接回答"这个预测能不能用"。 */
+export type ForecastQuality = 'effective' | 'noise' | 'risk'
+
+/** 按置信度分档的实际表现；sufficient=false 表示样本不足，前端应隐藏统计量。 */
+export interface ForecastConfidenceBucket {
+  label: string
+  sample_size: number
+  sufficient: boolean
+  hit_rate: number | null
+  majority_base: number | null
+  avg_abs_error_bp: number | null
+}
+
+/** 校准度月度序列：预测看涨占比 vs 实际上涨占比，两者背离即为方向偏置。 */
+export interface ForecastCalibrationPoint {
+  month: string
+  sample_size: number
+  predicted_up_share: number | null
+  actual_up_share: number | null
+}
+
+export interface ForecastHorizonDiagnosis {
+  horizon: string
+  holding_days: number
+  sample_size: number
+  hit_count: number
+  hit_rate: number | null
+  /** 多数类基准：事后无脑猜多数方向的命中率。方向预测的正确对照线，不是 50%。 */
+  majority_base: number | null
+  delta: number | null
+  avg_abs_error_bp: number | null
+  predicted_up_share: number | null
+  actual_up_share: number | null
+  confidence_interval: [number, number] | null
+  quality: ForecastQuality
+  confidence_buckets: ForecastConfidenceBucket[]
+  calibration: ForecastCalibrationPoint[]
+}
+
+export interface ForecastDiagnosisResponse {
+  period: string
+  report_count: number
+  horizons: ForecastHorizonDiagnosis[]
+  generated_at: string
+}
+
 // Tool-related types
 export interface NewsCard {
   id: number
@@ -1411,4 +1459,178 @@ export interface ReturnsCalendarResponse {
   news_by_date: Record<string, CalendarNewsItem[]>;
   macro_by_month: Record<string, MacroDataSnapshot[]>;
   query: { start: string; end: string };
+}
+
+// ========== 国债期货持仓（中金所） ==========
+
+export interface FuturesVariety {
+  variety: string
+  label: string
+}
+
+export interface FuturesContract {
+  contract: string
+  variety: string
+  label: string
+}
+
+export interface FuturesComparisonItem {
+  variety: string
+  label: string
+  long_total: number
+  short_total: number
+  ratio: number | null
+}
+
+export interface FuturesOverviewResponse {
+  trade_date: string | null
+  varieties: FuturesVariety[]
+  contracts: FuturesContract[]
+  comparison: FuturesComparisonItem[]
+}
+
+export interface FuturesRankingRow {
+  rank_no: number
+  volume_trader: string | null
+  volume: number | null
+  volume_change: number | null
+  long_trader: string | null
+  long_position: number | null
+  long_change: number | null
+  short_trader: string | null
+  short_position: number | null
+  short_change: number | null
+}
+
+export interface FuturesRankingResponse {
+  trade_date: string
+  contract: string
+  rows: FuturesRankingRow[]
+  summary: {
+    long_total: number
+    short_total: number
+    /** 前 20 名多头合计 / 空头合计 */
+    long_short_ratio: number | null
+    long_change_total: number
+    short_change_total: number
+  }
+}
+
+export interface FuturesTrendPoint {
+  date: string
+  long_total: number
+  short_total: number
+  ratio: number | null
+}
+
+export interface FuturesTrendResponse {
+  variety: string
+  label: string
+  series: FuturesTrendPoint[]
+}
+
+export interface FuturesSyncResult {
+  trade_date: string
+  fetched: number
+  inserted: number
+  updated: number
+}
+
+// ========== 政策文件分析（工作流内） ==========
+
+export type PolicyDocStatus = 'uploaded' | 'analyzing' | 'completed' | 'failed'
+
+/** 对债市影响方向；neutral 表示中性或信息不足无法判断。 */
+export type PolicyImpactDirection = 'bullish' | 'bearish' | 'neutral'
+
+export interface PolicyEvidence {
+  /** 原文摘录（逐字来自文件） */
+  text: string
+  /** 由该段得出的判断 */
+  inference: string
+}
+
+export interface PolicyAnalysis {
+  summary: string | null
+  domains: string[] | null
+  impact_direction: PolicyImpactDirection | null
+  impact_reason: string | null
+  evidence: PolicyEvidence[] | null
+  key_points: string[] | null
+  model_name: string | null
+  created_at: string
+}
+
+export interface PolicyDocumentItem {
+  id: number
+  title: string
+  original_filename: string | null
+  issuer: string | null
+  document_no: string | null
+  publish_date: string | null
+  page_count: number | null
+  status: PolicyDocStatus
+  error_message: string | null
+  model_name: string | null
+  created_at: string
+  impact_direction: PolicyImpactDirection | null
+}
+
+export interface PolicyDocumentDetail extends Omit<PolicyDocumentItem, 'impact_direction'> {
+  /** 正文预览（前 2000 字） */
+  text_preview: string
+  analysis: PolicyAnalysis | null
+}
+
+export interface PolicyDocumentListResponse {
+  items: PolicyDocumentItem[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+// ========== 信用利差 ==========
+
+export interface CreditSpreadPoint {
+  date: string
+  /** 信用债收益率(%) */
+  credit: number
+  /** 同期限国债收益率(%) */
+  gov: number
+  /** 利差(bp) */
+  spread_bp: number
+}
+
+export interface CreditTermStructureItem {
+  term: string
+  credit: number
+  gov: number
+  spread_bp: number
+}
+
+export interface CreditSpreadOverview {
+  term: string
+  /** 最新一条；无数据时为 null */
+  latest: CreditSpreadPoint | null
+  /** 当前利差在历史序列中的分位（0-100） */
+  percentile?: number
+  min_bp?: number
+  max_bp?: number
+  avg_bp?: number
+  sample_size?: number
+  available_terms: string[]
+  series: CreditSpreadPoint[]
+  term_structure: CreditTermStructureItem[]
+}
+
+export interface CreditSpreadTerms {
+  terms: string[]
+  all_terms: string[]
+}
+
+export interface CreditSpreadSyncResult {
+  fetched: number
+  inserted: number
+  updated: number
 }

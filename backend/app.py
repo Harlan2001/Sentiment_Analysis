@@ -23,18 +23,21 @@ from backend.routers.ai_strategy_generation import (
 )
 from backend.routers.auth import router as auth_router
 from backend.routers.change import router as change_router
+from backend.routers.credit_spread import router as credit_spread_router
 from backend.routers.daily_news_summary import router as daily_news_summary_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.discover import router as discover_router
 from backend.routers.factors import router as factors_router
 from backend.routers.feishu_mcp import router as feishu_mcp_router
 from backend.routers.forecast import router as forecast_router
+from backend.routers.futures import router as futures_router
 from backend.routers.graph_augment import router as graph_augment_router
 from backend.routers.macro import router as macro_router
 from backend.routers.macro_data import router as macro_data_router
 from backend.routers.mcp_business import router as mcp_business_router
 from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
+from backend.routers.policy_documents import router as policy_documents_router
 from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
 from backend.routers.research import router as research_router
@@ -87,12 +90,15 @@ app.include_router(macro_router)
 app.include_router(factors_router)
 app.include_router(news_router)
 app.include_router(pipeline_router)
+app.include_router(policy_documents_router)
 app.include_router(forecast_router)
+app.include_router(futures_router)
 app.include_router(graph_augment_router)
 app.include_router(report_router)
 app.include_router(report_generation_router)
 app.include_router(research_router)
 app.include_router(change_router)
+app.include_router(credit_spread_router)
 app.include_router(dashboard_router)
 app.include_router(macro_data_router)
 app.include_router(mcp_business_router)

@@ -4,7 +4,7 @@ import { request } from './client'
 export type WorkflowTask = {
   task_id: string
   task_type: 'report_generation' | 'strategy' | 'daily_news'
-  module: '研报分析' | '策略开发' | '每日新闻总结'
+  module: '研报分析' | '策略生成' | '每日新闻总结'
   title: string
   description: string
   source: string

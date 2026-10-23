@@ -26,7 +26,7 @@ function asEntries(data: DeletedItemsData): DeletedEntry[] {
   return [
     ...(data.deleted_projects ?? []).map((item) => ({ id: item.id, kind: '项目' as const, title: item.name, deletedAt: item.deleted_at, detail: '项目及其会话' })),
     ...(data.deleted_conversations ?? []).map((item) => ({ id: item.id, kind: '会话' as const, title: item.title || '新建对话', deletedAt: item.deleted_at, detail: '普通会话' })),
-    ...(data.deleted_strategies ?? []).map((item) => ({ id: String(item.id), kind: '策略' as const, title: item.title || '新策略对话', deletedAt: item.deleted_at, detail: '策略开发' })),
+    ...(data.deleted_strategies ?? []).map((item) => ({ id: String(item.id), kind: '策略' as const, title: item.title || '新策略对话', deletedAt: item.deleted_at, detail: '策略生成' })),
     ...(data.deleted_reports ?? []).map((item) => ({ id: item.id, kind: '研报' as const, title: item.title || '未命名研报', deletedAt: item.deleted_at, detail: '生成研报' })),
     ...(data.deleted_news_summaries ?? []).map((item) => ({ id: String(item.id), kind: '新闻总结' as const, title: item.start_date === item.end_date ? `${item.start_date} 新闻总结` : `${item.start_date} 至 ${item.end_date} 新闻总结`, deletedAt: item.deleted_at, detail: '每日新闻总结' })),
   ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
