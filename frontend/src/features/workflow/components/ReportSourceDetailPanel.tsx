@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
-import { request } from '@/api/client'
-
-interface Evidence {
-  text: string
-  inference: string
-}
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { request, API_PREFIX, authHeaders } from '@/api/client'
 
 interface SymbolItem {
-  symbol: string
-  direction?: string
+  code?: string
+  name?: string
+  polarity?: string
 }
 
 interface ResearchDetail {
@@ -28,7 +26,7 @@ interface ResearchDetail {
   ai_market_view: string | null
   ai_view_strength: number | null
   ai_time_horizon: string | null
-  ai_evidence: unknown
+  ai_deep_markdown: string | null
   ai_model: string | null
   ai_analyzed_at: string | null
   full_text: string
@@ -48,20 +46,36 @@ function parseList(value: unknown): string[] {
 }
 
 function parseSymbols(value: unknown): SymbolItem[] {
-  if (Array.isArray(value)) return value.filter((item): item is SymbolItem => typeof item === 'object' && item !== null && 'symbol' in item)
+  if (Array.isArray(value)) {
+    return value.filter(
+      (item): item is SymbolItem => typeof item === 'object' && item !== null && ('code' in item || 'name' in item),
+    )
+  }
   if (typeof value !== 'string') return []
   try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
 }
 
-function parseEvidence(value: unknown): Evidence[] {
-  if (Array.isArray(value)) return value.filter((item): item is Evidence => typeof item === 'object' && item !== null && 'text' in item && 'inference' in item)
-  if (typeof value !== 'string') return []
-  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+async function downloadExport(reportId: number, format: 'pdf' | 'docx'): Promise<void> {
+  const response = await fetch(`${API_PREFIX}/research/${reportId}/export?format=${format}`, {
+    headers: authHeaders(),
+  })
+  if (!response.ok) throw new Error(format === 'pdf' ? 'PDF 导出失败' : 'DOCX 导出失败')
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const match = /filename\*=UTF-8''(.+)$/.exec(disposition)
+  const filename = match ? decodeURIComponent(match[1]) : `research-${reportId}.${format}`
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: number; onClose: () => void }) {
   const [detail, setDetail] = useState<ResearchDetail | null>(null)
   const [error, setError] = useState('')
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -75,10 +89,17 @@ export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: numbe
 
   const keyPoints = detail ? parseList(detail.ai_key_points) : []
   const symbols = detail ? parseSymbols(detail.ai_symbols) : []
-  const evidence = detail ? parseEvidence(detail.ai_evidence) : []
-  const excerpt = detail?.full_text?.split(/\n\n+/).filter((item) => item.trim().length > 20).slice(0, 5) ?? []
 
   const dirIcon = (d?: string) => d === 'bullish' ? '↑' : d === 'bearish' ? '↓' : '－'
+
+  const handleExport = async (format: 'pdf' | 'docx') => {
+    setExportError('')
+    try {
+      await downloadExport(reportId, format)
+    } catch (reason) {
+      setExportError(reason instanceof Error ? reason.message : '导出失败')
+    }
+  }
 
   return <section className="report-source-detail" aria-live="polite">
     <div className="report-source-detail-head">
@@ -137,32 +158,26 @@ export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: numbe
           <strong>关联标的</strong>
           <div className="report-source-symbols">
             {symbols.map((item, i) => (
-              <span key={i} className={`report-source-symbol ${item.direction || ''}`}>{dirIcon(item.direction)} {item.symbol}</span>
+              <span key={i} className={`report-source-symbol ${item.polarity || ''}`}>{dirIcon(item.polarity)} {item.name || item.code}</span>
             ))}
           </div>
         </div>
       )}
 
-      {/* AI 分析追溯 */}
-      {evidence.length > 0 && (
-        <div className="report-source-points">
-          <strong>AI 分析追溯</strong>
-          {evidence.map((ev, i) => (
-            <div key={i} className="report-source-evidence-item">
-              <p className="report-source-evidence-text">"{ev.text}"</p>
-              <p className="report-source-evidence-inference">→ {ev.inference}</p>
-            </div>
-          ))}
+      {/* 深度拆解（板块一：七节固定骨架，作者观点 / AI 解读分区） */}
+      {detail.ai_deep_markdown
+        ? <article className="report-markdown report-deep-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{detail.ai_deep_markdown}</ReactMarkdown>
+          </article>
+        : <div className="report-source-detail-state">该研报尚未生成深度拆解。</div>}
+
+      {/* 单篇导出（P1-5） */}
+      {detail.ai_deep_markdown && (
+        <div className="report-source-export">
+          <button className="computer-button" onClick={() => handleExport('pdf')}>导出 PDF</button>
+          <button className="computer-button" onClick={() => handleExport('docx')}>导出 DOCX</button>
+          {exportError && <span className="error">{exportError}</span>}
         </div>
-      )}
-
-      {/* 原文摘录 */}
-      {excerpt.length > 0 && (
-        <div className="report-source-excerpt"><strong>原文摘录</strong>{excerpt.map((paragraph, index) => <p key={index}>{paragraph.trim()}</p>)}</div>
-      )}
-
-      {!detail.ai_summary && keyPoints.length === 0 && excerpt.length === 0 && (
-        <div className="report-source-detail-state">该研报暂无可展示的分析内容。</div>
       )}
     </>}
   </section>

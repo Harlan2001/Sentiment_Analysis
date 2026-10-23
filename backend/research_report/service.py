@@ -6,6 +6,7 @@
 """
 
 import hashlib
+import json
 import logging
 import threading
 import time
@@ -13,9 +14,14 @@ import traceback
 from datetime import datetime
 
 from backend.common.llm_logger import log_llm_usage
-from backend.config.config import BASE_DIR
 from backend.repositories.research_report_repository import ResearchReportRepository
-from backend.research_report.constants import FIGURE_MAX_PER_REPORT
+from backend.research_report.constants import (
+    ANALYSIS_MAX_CONCURRENCY,
+    DATA_ROOT,
+    FIGURE_MAX_PER_REPORT,
+    FIGURE_ROOT,
+    PDF_ROOT,
+)
 from backend.research_report.llm import (
     analyze_report,
     get_research_model_name,
@@ -24,10 +30,6 @@ from backend.research_report.llm import (
 from backend.research_report.parser import ParseResult, parse_pdf
 
 logger = logging.getLogger(__name__)
-
-DATA_ROOT = BASE_DIR / "data"
-FIGURE_ROOT = DATA_ROOT / "pdf" / "research"
-PDF_ROOT = DATA_ROOT / "pdf" / "research" / "original"
 
 
 # ========================================================================
@@ -189,6 +191,11 @@ def ingest_uploaded_pdf(
 # ========================================================================
 
 
+# 批量重跑会为每份研报起一个线程；用信号量把同时进行的 LLM 分析限制在
+# ANALYSIS_MAX_CONCURRENCY 个，排队中的任务保持 parsed/failed 状态等待空位。
+_ANALYSIS_SLOTS = threading.BoundedSemaphore(ANALYSIS_MAX_CONCURRENCY)
+
+
 def run_analysis_async(report_id: int, model: str | None = None):
     """
     在后台线程中启动 AI 分析，立即返回。
@@ -200,7 +207,8 @@ def run_analysis_async(report_id: int, model: str | None = None):
     model = model or resolve_provider_model()
 
     def _run():
-        _analyze_report_sync(report_id, model)
+        with _ANALYSIS_SLOTS:
+            _analyze_report_sync(report_id, model)
 
     t = threading.Thread(
         target=_run,
@@ -238,22 +246,24 @@ def _analyze_report_sync(report_id: int, model: str):
             if fp.exists():
                 figure_paths.append(fp)
 
-        # 3. LLM 分析
-        parsed, raw, usage = analyze_report(
+        # 3. LLM 深度拆解（结构不达标会抛 RuntimeError，进入失败分支）
+        deep_markdown, meta, usage = analyze_report(
             full_text,
             figure_paths=figure_paths if figure_paths else None,
             model=model,
         )
         elapsed = time.time() - t_start
 
-        if "error" in parsed:
-            logger.warning(
-                "LLM 解析警告 report_id=%d: %s", report_id, parsed["error"][:100]
-            )
-
-        # 4. 写入分析结果
+        # 4. 写入分析结果（深度拆解与观点元数据同事务覆盖）
+        raw_envelope = json.dumps(
+            {"markdown": deep_markdown, **meta}, ensure_ascii=False
+        )
         repository.finish_analysis(
-            report_id, model_name=model_short, parsed=parsed, raw=raw
+            report_id,
+            model_name=model_short,
+            parsed=meta,
+            raw=raw_envelope,
+            deep_markdown=deep_markdown,
         )
 
         # 5. 记录 LLM 用量
@@ -271,7 +281,7 @@ def _analyze_report_sync(report_id: int, model: str):
             "分析完成 report_id=%d [%s] view=%s tokens=%d elapsed=%.1fs",
             report_id,
             title[:40],
-            parsed.get("market_view", "?"),
+            meta.get("market_view", "?"),
             usage.get("total_tokens", 0),
             elapsed,
         )

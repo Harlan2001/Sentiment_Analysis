@@ -10,7 +10,13 @@ import json
 from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository
+from backend.repositories.base import BaseRepository, RepositoryError
+
+
+class ResearchReportConflictError(RepositoryError):
+    """研报当前状态不允许执行该操作。"""
+
+    status_code = 409
 
 
 class ResearchReportRepository(BaseRepository):
@@ -248,6 +254,26 @@ class ResearchReportRepository(BaseRepository):
             conn.commit()
         return claimed
 
+    def reset_for_reanalysis(self, report_id: int) -> None:
+        """把已分析（analyzed）研报重置为 parsed，使其可被 claim_for_analysis 抢占。
+
+        仅 analyzed 可重置；parsed/processing/failed 走原有触发流程或直接重试，
+        非 analyzed 重置视为冲突。已有 ai_* 结果保留，直到新分析成功才覆盖
+        （失败不得覆盖旧结果）。
+        """
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE research_report SET status='parsed' WHERE id=%s AND status='analyzed'",
+                    (report_id,),
+                )
+                reset = cursor.rowcount == 1
+            conn.commit()
+        if not reset:
+            raise ResearchReportConflictError(
+                f"研报 {report_id} 当前状态不允许重新分析（仅已分析的研报可重置）"
+            )
+
     def get_analysis_input(
         self, report_id: int, *, figure_limit: int
     ) -> tuple[str, str, list[str]] | None:
@@ -282,8 +308,13 @@ class ResearchReportRepository(BaseRepository):
         model_name: str,
         parsed: dict[str, Any],
         raw: str,
+        deep_markdown: str | None = None,
     ) -> None:
-        """写入 AI 分析结果，状态转 analyzed。"""
+        """写入 AI 分析结果，状态转 analyzed。
+
+        ``deep_markdown`` 为板块一深度拆解全文，写入 ai_deep_markdown；
+        仅在新分析成功时随本事务一起覆盖旧结果。
+        """
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -291,7 +322,8 @@ class ResearchReportRepository(BaseRepository):
                     UPDATE research_report SET
                         ai_summary=%s, ai_key_points=%s, ai_symbols=%s, ai_industries=%s,
                         ai_market_view=%s, ai_view_strength=%s, ai_time_horizon=%s,
-                        ai_evidence=%s, ai_analyzed_at=NOW(), ai_model=%s, ai_raw_response=%s,
+                        ai_evidence=%s, ai_deep_markdown=%s,
+                        ai_analyzed_at=NOW(), ai_model=%s, ai_raw_response=%s,
                         status='analyzed', parse_error=NULL
                     WHERE id=%s
                     """,
@@ -301,9 +333,10 @@ class ResearchReportRepository(BaseRepository):
                         json.dumps(parsed.get("symbols", []), ensure_ascii=False),
                         json.dumps(parsed.get("industries", []), ensure_ascii=False),
                         parsed.get("market_view", "neutral"),
-                        float(parsed.get("view_strength", 0.5)),
+                        float(parsed.get("view_strength", 0.5) or 0.5),
                         parsed.get("time_horizon", "medium"),
                         json.dumps(parsed.get("evidence", []), ensure_ascii=False),
+                        deep_markdown,
                         model_name,
                         json.dumps(raw, ensure_ascii=False)
                         if isinstance(raw, str)

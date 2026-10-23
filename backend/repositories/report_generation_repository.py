@@ -23,6 +23,8 @@ _TASK_COLUMNS = (
     "date_end",
     "report_ids_json",
     "source_snapshot_json",
+    "version_no",
+    "parent_task_id",
     "status",
     "model_name",
     "error_message",
@@ -159,6 +161,8 @@ class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
         date_start: date | None,
         date_end: date | None,
         sources: list[dict[str, Any]],
+        version_no: int = 1,
+        parent_task_id: str | None = None,
     ) -> dict[str, Any]:
         task_id = str(uuid.uuid4())
         report_ids = [int(source["id"]) for source in sources]
@@ -179,8 +183,9 @@ class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
                 cursor.execute(
                     """INSERT INTO report_generation_tasks (
                            id, owner_username, title, requirement, date_start, date_end,
-                           report_ids_json, source_snapshot_json, status
-                       ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'queued')""",
+                           report_ids_json, source_snapshot_json,
+                           version_no, parent_task_id, status
+                       ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'queued')""",
                     (
                         task_id,
                         owner_username,
@@ -190,6 +195,8 @@ class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
                         date_end,
                         json.dumps(report_ids, ensure_ascii=False),
                         json.dumps(snapshot, ensure_ascii=False),
+                        version_no,
+                        parent_task_id,
                     ),
                 )
             conn.commit()
