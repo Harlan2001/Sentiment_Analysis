@@ -182,7 +182,7 @@ export function StrategyPage() {
         {pendingItems.length === 0 ? (
           <div className="computer-attention-row">
             <span className="attention-dot" />
-            <div><strong>当前无待处理的策略开发</strong><small>新建策略后将在此展示待确认项</small></div>
+            <div><strong>当前无待处理的策略生成</strong><small>新建策略后将在此展示待确认项</small></div>
             <span className="computer-spacer" />
           </div>
         ) : (
@@ -244,7 +244,7 @@ export function StrategyPage() {
 
       <form className="report-composer" onSubmit={createStrategy}>
         <textarea value={request} onChange={(event) => setRequest(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="描述策略目标、市场范围和回测要求…" rows={2} />
-        <div><button type="button" className="computer-button">＋ 添加文件</button><span className="computer-badge">⌁ 策略开发</span><button className="report-send" type="submit" disabled={!request.trim()} aria-label="创建策略">↑</button></div>
+        <div><button type="button" className="computer-button">＋ 添加文件</button><span className="computer-badge">⌁ 策略生成</span><button className="report-send" type="submit" disabled={!request.trim()} aria-label="创建策略">↑</button></div>
         {error && <p className="chat-error">{error}</p>}
       </form>
     </section>

@@ -36,7 +36,10 @@ export default function ForecastPage() {
   const report = useMemo<FullForecastReport | null>(() => { const value = data?.latestReport?.prediction; if (!value) return null; try { return typeof value === 'string' ? JSON.parse(value) : value as FullForecastReport } catch { return null } }, [data])
   const noReport = !isLoading && !isError && !!data && (!data.reports || data.reports.length === 0)
 
-  return <div className="home-section-page" style={{ gridTemplateRows: 'minmax(0, 1fr)' }}>
+  // 注意：不覆盖 .home-section-page 的 grid-template-rows。
+  // 该类定义为两行（auto 标题行 + minmax(0,1fr) 内容行），
+  // 内联覆盖成单行会把标题与内容挤在同一行，内容被压扁到剩余高度以内。
+  return <div className="home-section-page">
     <div className="home-section-grid">
     <main className="home-section-main space-y-4">
       <div className="pt-2">

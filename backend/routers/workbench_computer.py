@@ -1,4 +1,4 @@
-"""Computer 工作台总览 — 聚合研报生成、策略开发、每日新闻总结任务。"""
+"""Computer 工作台总览 — 聚合研报生成、策略生成、每日新闻总结任务。"""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def _normalize_strategy(conv: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": f"strategy:{conv['id']}",
         "task_type": "strategy",
-        "module": "策略开发",
+        "module": "策略生成",
         "title": str(conv.get("title") or "新策略对话"),
         "description": "策略已生成并完成回测"
         if has_version
@@ -146,7 +146,7 @@ def list_computer_tasks(request: Request):
     except Exception as exc:
         logger.warning("computer: 新闻总结任务拉取失败: %s", exc)
 
-    # ── 策略开发 ──
+    # ── 策略生成 ──
     strategy_convs: list[dict[str, Any]] = []
     try:
         strategy_repo = AiStrategyHistoryRepository.from_environment()

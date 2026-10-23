@@ -13,6 +13,7 @@ import type {
   MarketPanelResponse,
   FactorDetailData,
   ReturnsCalendarResponse,
+  ForecastDiagnosisResponse,
 } from '@/types'
 import { API_PREFIX as BASE, request } from './client'
 
@@ -88,6 +89,11 @@ export function fetchForecastReport(date?: string): Promise<ForecastResponse> {
 
 export function fetchForecastHistory(limit: number = 30): Promise<ForecastHistoryResponse> {
   return request<ForecastHistoryResponse>(`${BASE}/forecast/history?limit=${limit}`)
+}
+
+/** 预测诊断：历史预测与事后实际收益率对账（只读，不建表）。 */
+export function fetchForecastDiagnosis(): Promise<ForecastDiagnosisResponse> {
+  return request<ForecastDiagnosisResponse>(`${BASE}/forecast/diagnosis`)
 }
 
 // ========== Macro Data API ==========

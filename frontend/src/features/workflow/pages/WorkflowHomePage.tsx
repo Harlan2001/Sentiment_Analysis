@@ -16,6 +16,7 @@ const WORKFLOW_MODULES: WorkflowModule[] = [
   { id: 'reports', title: '研报分析', description: '上传、解析并提炼研报核心观点', category: '研究分析', to: '/computer/reports', taskTypes: ['report_generation'] },
   { id: 'strategy', title: '策略生成', description: '从投资观点生成策略草案与代码', category: '策略与决策', to: '/computer/strategies', taskTypes: ['strategy'] },
   { id: 'news', title: '新闻总结', description: '聚合市场新闻与重要事件', category: '信息处理', to: '/computer/news', taskTypes: ['daily_news'] },
+  { id: 'policy', title: '政策文件分析', description: '上传政策文件，AI 解读要点与债市影响', category: '研究分析', to: '/computer/policy' },
 ]
 
 const MODULES_PER_PAGE = 8

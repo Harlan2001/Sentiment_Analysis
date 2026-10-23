@@ -1589,6 +1589,222 @@
         }
       }
     },
+    "/sapi/policy-documents": {
+      "get": {
+        "tags": [
+          "policy-documents"
+        ],
+        "summary": "List Documents",
+        "description": "政策文件列表（含分析状态）。",
+        "operationId": "list_documents_sapi_policy_documents_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/policy-documents/{document_id}": {
+      "get": {
+        "tags": [
+          "policy-documents"
+        ],
+        "summary": "Get Document",
+        "description": "文件详情与 AI 解读结果。",
+        "operationId": "get_document_sapi_policy_documents__document_id__get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "policy-documents"
+        ],
+        "summary": "Delete Document",
+        "description": "删除文件及其分析结果。",
+        "operationId": "delete_document_sapi_policy_documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/policy-documents/upload": {
+      "post": {
+        "tags": [
+          "policy-documents"
+        ],
+        "summary": "Upload Policy Pdf",
+        "description": "上传政策文件 PDF，自动解析并**立即触发 AI 解读**。\n\n与研报不同：政策文件通常只有一份，上传后直接分析更顺手，无需二次触发。",
+        "operationId": "upload_policy_pdf_sapi_policy_documents_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_policy_pdf_sapi_policy_documents_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/policy-documents/{document_id}/analyze": {
+      "post": {
+        "tags": [
+          "policy-documents"
+        ],
+        "summary": "Reanalyze",
+        "description": "重新分析（用于失败重试或换模型复跑）。",
+        "operationId": "reanalyze_sapi_policy_documents__document_id__analyze_post",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/forecast": {
       "get": {
         "tags": [
@@ -1656,6 +1872,213 @@
               "default": 30,
               "title": "Limit"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/forecast/diagnosis": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Get Forecast Diagnosis",
+        "description": "预测诊断：历史预测与事后实际收益率对账（只读，不建表）。\n\n返回三周期的命中率、**多数类基准**、差值、平均基点误差、样本数、\n置信区间、三档结论标签，以及校准度序列与置信度分档。\n\n注意：方向预测的正确对照线是多数类基准（无脑猜多数方向），不是 50%。",
+        "operationId": "get_forecast_diagnosis_sapi_forecast_diagnosis_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/futures/overview": {
+      "get": {
+        "tags": [
+          "futures"
+        ],
+        "summary": "Get Overview",
+        "description": "最新交易日的品种列表与四品种多空比对比。",
+        "operationId": "get_overview_sapi_futures_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/futures/ranking": {
+      "get": {
+        "tags": [
+          "futures"
+        ],
+        "summary": "Get Ranking",
+        "description": "指定合约的持仓排名（前 20 会员）+ 多空合计与多空比。",
+        "operationId": "get_ranking_sapi_futures_ranking_get",
+        "parameters": [
+          {
+            "name": "contract",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "合约代码，如 T2612",
+              "title": "Contract"
+            },
+            "description": "合约代码，如 T2612"
+          },
+          {
+            "name": "trade_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "交易日 YYYY-MM-DD，缺省取最新",
+              "title": "Trade Date"
+            },
+            "description": "交易日 YYYY-MM-DD，缺省取最新"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/futures/trend": {
+      "get": {
+        "tags": [
+          "futures"
+        ],
+        "summary": "Get Trend",
+        "description": "某品种的多空比走势（近 limit 个交易日）。",
+        "operationId": "get_trend_sapi_futures_trend_get",
+        "parameters": [
+          {
+            "name": "variety",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "品种 T/TF/TS/TL",
+              "default": "T",
+              "title": "Variety"
+            },
+            "description": "品种 T/TF/TS/TL"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 250,
+              "minimum": 5,
+              "default": 60,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/futures/sync": {
+      "post": {
+        "tags": [
+          "futures"
+        ],
+        "summary": "Sync Positions",
+        "description": "抓取指定交易日（缺省今天）四个国债期货品种的持仓排名并入库（幂等）。",
+        "operationId": "sync_positions_sapi_futures_sync_post",
+        "parameters": [
+          {
+            "name": "trade_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "交易日 YYYY-MM-DD，缺省为今天",
+              "title": "Trade Date"
+            },
+            "description": "交易日 YYYY-MM-DD，缺省为今天"
           }
         ],
         "responses": {
@@ -2914,6 +3337,114 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/overview": {
+      "get": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Get Overview",
+        "description": "某期限的信用利差概览：当前值、历史分位、区间。",
+        "operationId": "get_overview_sapi_credit_spread_overview_get",
+        "parameters": [
+          {
+            "name": "term",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "期限码，如 10Y",
+              "default": "10Y",
+              "title": "Term"
+            },
+            "description": "期限码，如 10Y"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/terms": {
+      "get": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Get Terms",
+        "description": "可用的期限列表。",
+        "operationId": "get_terms_sapi_credit_spread_terms_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/sync": {
+      "post": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Sync Credit Curve",
+        "description": "从下载并导入中债信用债曲线（幂等）。",
+        "operationId": "sync_credit_curve_sapi_credit_spread_sync_post",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 30,
+              "default": 365,
+              "title": "Days"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7608,6 +8139,20 @@
           "file"
         ],
         "title": "Body_upload_attachment_sapi_skills__skill_id__attachments_post"
+      },
+      "Body_upload_policy_pdf_sapi_policy_documents_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_policy_pdf_sapi_policy_documents_upload_post"
       },
       "Body_upload_research_pdf_sapi_research_upload_post": {
         "properties": {

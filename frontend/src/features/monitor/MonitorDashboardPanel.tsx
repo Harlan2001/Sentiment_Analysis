@@ -12,9 +12,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { SystemOverviewPanel } from './components/SystemOverviewPanel'
 import { UserUsagePanel } from './components/UserUsagePanel'
 import { MyUsagePanel } from './components/MyUsagePanel'
+import ForecastDiagnosis from '@/features/market/components/ForecastDiagnosis'
 import './monitor.css'
 
-type TopTab = 'system' | 'user' | 'traffic'
+type TopTab = 'system' | 'user' | 'forecast' | 'traffic'
 
 export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { isAdmin } = useAuth()
@@ -24,6 +25,9 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
       [
         { key: 'system' as TopTab, label: '系统概览', visible: isAdmin },
         { key: 'user' as TopTab, label: '用户与使用', visible: isAdmin },
+        // 预测诊断属**内部质量信息**（会显示"预测跑输无脑基准"等结论），
+        // 仅 admin 可见，故置于监控看板而非面向客户的预测页。
+        { key: 'forecast' as TopTab, label: '预测诊断', visible: isAdmin },
         { key: 'traffic' as TopTab, label: '我的使用', visible: true },
       ]
     ).filter((t) => t.visible)
@@ -74,6 +78,11 @@ export function MonitorDashboardPanel({ open, onClose }: { open: boolean; onClos
         <div className="monitor-drawer-body">
           {tab === 'system' && <SystemOverviewPanel />}
           {tab === 'user' && <UserUsagePanel />}
+          {tab === 'forecast' && (
+            <div className="monitor-forecast-panel">
+              <ForecastDiagnosis />
+            </div>
+          )}
           {tab === 'traffic' && <MyUsagePanel />}
         </div>
       </section>

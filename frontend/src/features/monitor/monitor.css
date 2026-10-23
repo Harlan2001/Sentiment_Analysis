@@ -159,3 +159,7 @@
     left: 0;
   }
 }
+
+/* 预测诊断 tab：复用诊断组件，监控抽屉内自成一套宽度与间距 */
+.monitor-forecast-panel{display:grid;gap:14px;padding:2px 2px 16px;min-width:0}
+.monitor-forecast-panel .diag-toolbar{position:static}

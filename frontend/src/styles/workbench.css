@@ -574,7 +574,7 @@ select:focus,
 .login-required-page{display:grid;min-height:calc(100vh - 124px);place-items:center;padding:36px 20px}.login-required-card{width:min(100%,440px);padding:30px;border:1px solid #3d3d3d;border-radius:14px;background:#181818;text-align:center}.login-required-mark{display:grid;place-items:center;width:34px;height:34px;margin:0 auto 16px;border-radius:9px;background:linear-gradient(135deg,#4a90d9 0%,#5b6cf0 28%,#7c4dff 56%,#4488e0 100%);box-shadow:0 0 0 1px rgba(90,130,240,.35),0 5px 20px rgba(90,110,235,.3);color:#f0f4ff;font-size:17px;font-weight:800}.login-required-kicker{margin:0;color:#858585;font-size:12px}.login-required-card h1{margin:8px 0 10px;color:#ededed;font-size:20px}.login-required-card>p:not(.login-required-kicker){margin:0;color:#969696;font-size:13px;line-height:1.7}.login-required-card button{height:38px;margin-top:20px;padding:0 18px;border:0;border-radius:8px;background:#f2f2f2;color:#161616;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.login-required-card button:hover{background:#fff}.login-required-card small{display:block;margin-top:14px;color:#747474;font-size:11px;line-height:1.6}
 
 /* 详情深链页（/news/:id /yield/:period /factor/:id /strategy）：去掉 workspace-content 的 padding，
-   让 absolute inset-0 详情面板满幅渲染，样式与策略开发页策略一致 */
+   让 absolute inset-0 详情面板满幅渲染，样式与策略生成页策略一致 */
 .workspace-content:has(.detail-route-page){padding:0;overflow:hidden}
 .detail-route-page{position:relative;height:100%;min-height:0}
 .mcp-page .skills-head{padding:26px 0 14px}.mcp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px}.mcp-toolbar .skills-filter-tabs{margin:0}.mcp-summary{display:flex;align-items:center;color:#898989;font-size:11px}.mcp-summary i{width:7px;height:7px;margin-right:6px;border-radius:50%;background:#606060}.mcp-summary.active i{background:#d6d6d6}.mcp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.mcp-card{display:flex;min-height:142px;flex-direction:column;padding:14px;border:1px solid #3b3b3b;border-radius:12px;background:#191919}.mcp-card:hover{border-color:#626262}.mcp-state{align-self:flex-start;padding:3px 7px;border:1px solid #464646;border-radius:999px;background:#202020;color:#898989;font-size:10px}.mcp-state.on{border-color:#777;background:#303030;color:#f1f1f1}.mcp-card-body{margin-top:8px}.mcp-card-body small{display:block;color:#888;font-size:10px}.mcp-card-body h2{margin:4px 0 0;color:#eee;font-size:15px}.mcp-card-body p{display:-webkit-box;overflow:hidden;margin:5px 0 0;color:#9d9d9d;font-size:11px;line-height:1.4;-webkit-line-clamp:2;-webkit-box-orient:vertical}.mcp-card footer{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-top:auto;padding-top:7px;color:#7e7e7e;font-size:10px}.mcp-card footer span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mcp-card footer button{padding:0;border:0;background:none;color:#c7c7c7;font-size:11px;cursor:pointer}.mcp-card footer button:disabled{cursor:default;color:#666}.mcp-footnote{margin:14px 0 0;color:#747474;font-size:11px}@media(max-width:900px){.mcp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.mcp-toolbar{align-items:flex-start;flex-direction:column}.mcp-grid{grid-template-columns:1fr}}
@@ -717,3 +717,147 @@ select:focus,
 .daily-news-markdown tr:last-child td{border-bottom:0}
 @media(max-width:640px){.daily-news-direction-stats{grid-template-columns:1fr}}
 .skill-attachments li>span{display:grid;min-width:0;gap:2px}.skill-attachments li>span>small{overflow-wrap:anywhere;color:#858585}
+
+/* ===== 预测诊断（准确度诊断）=====
+   复现全站视觉语言：#111111 卡片 / #2a2a2e 边框 / 灰阶文字 / 涨红跌绿。
+   注意：不引入新的配色体系，仅用既有 token。 */
+.diag-note{margin:0;border:1px solid #3a3222;border-radius:10px;background:#1a1710;padding:10px 12px;color:#a8a08a;font-size:12px;line-height:1.6}
+.diag-note b{color:#d8cfa8;font-weight:600}
+.diag-caption{margin:0 0 4px;color:#777;font-size:11px;line-height:1.6}
+.diag-footnote{margin:0;color:#5f5f5f;font-size:11px;line-height:1.6}
+.diag-card{display:flex;flex-direction:column;gap:12px;border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:16px}
+.diag-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.diag-horizon{color:#a7a7a7;font-size:12px}
+.diag-badge{border:1px solid;border-radius:4px;padding:2px 7px;font-size:10px;line-height:1.4;white-space:nowrap}
+.diag-badge.effective{border-color:#2f5f45;background:#12211a;color:#6ee7a8}
+.diag-badge.noise{border-color:#3a3a3a;background:#191919;color:#9a9a9a}
+.diag-badge.risk{border-color:#6b3030;background:#211313;color:#f0a0a0}
+.diag-metrics{display:grid;gap:10px;margin:0}
+.diag-metrics>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.diag-metrics dt{color:#777;font-size:11px}
+.diag-metrics dd{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#c9c9c9}
+.diag-value.primary{font-size:20px;font-weight:600;color:#f1f1f1}
+.diag-delta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.diag-delta.up{color:#f87171}
+.diag-delta.down{color:#4ade80}
+.diag-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #232327;padding-top:10px;color:#6f6f6f;font-size:11px}
+.diag-ci{margin:0;color:#5f5f5f;font-size:10px;line-height:1.5}
+
+/* ===== 准确度诊断：周期切换布局 =====
+   复现全站视觉语言，仅用既有 token（#111111 / #2a2a2e / 涨红跌绿）。 */
+.diag-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.diag-horizon-tabs{top:0}
+.diag-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:16px 18px}
+.diag-summary-main{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.diag-summary-label{color:#777;font-size:12px}
+.diag-summary-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:30px;font-weight:600;line-height:1;color:#f1f1f1}
+.diag-summary-bench{color:#8b8b8b;font-size:12px}
+.diag-summary-bench b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;color:#c9c9c9;font-weight:600}
+.diag-summary-facts{display:flex;gap:26px;margin:0;flex-wrap:wrap}
+.diag-summary-facts>div{display:grid;gap:5px}
+.diag-summary-facts dt{color:#777;font-size:11px}
+.diag-summary-facts dd{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#c9c9c9}
+.diag-others{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.diag-others-label{color:#6f6f6f;font-size:11px}
+.diag-other-item{display:inline-flex;align-items:center;gap:10px;border:1px solid #2a2a2e;border-radius:10px;background:#111111;padding:8px 12px;cursor:pointer;transition:background .15s,border-color .15s}
+.diag-other-item:hover{border-color:#3a3a3e;background:#161616}
+.diag-other-name{color:#a7a7a7;font-size:12px}
+.diag-other-rate{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#e6e6e6}
+.diag-other-delta{color:#6f6f6f;font-size:11px}
+/* 诊断视图的右栏为三行结构（结论 / 其它周期 / 口径），与报告页的 6fr:5fr 不同 */
+.forecast-history-sidebar.diag-sidebar{grid-template-rows:auto auto minmax(0,1fr)}
+/* 诊断右栏卡片（复用 #111111 / #2a2a2e 视觉语言） */
+.diag-aside-card{border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:14px}
+.diag-aside-card h2{margin:0 0 10px;color:#a7a7a7;font-size:13px;font-weight:500}
+.diag-aside-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.diag-aside-head h2{margin:0}
+.diag-aside-lead{margin:0;color:#d4d4d4;font-size:12px;line-height:1.7}
+.diag-aside-sub{margin:8px 0 0;color:#8b8b8b;font-size:11px;line-height:1.6}
+.diag-aside-warn{margin:10px 0 0;border:1px solid #3a3222;border-radius:8px;background:#1a1710;padding:8px 10px;color:#c4b88f;font-size:11px;line-height:1.6}
+.diag-aside-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.diag-aside-list button{display:flex;align-items:center;gap:8px;width:100%;border:1px solid transparent;border-radius:8px;background:#161616;padding:8px 10px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s}
+.diag-aside-list button:hover{background:#1b1b1b}
+.diag-aside-list button.active{border-color:#3a3a3e;background:#1e1e1e}
+.diag-aside-name{color:#a7a7a7;font-size:12px}
+.diag-aside-rate{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#e6e6e6}
+.diag-aside-notes{display:grid;gap:7px;margin:0;padding:0;list-style:none;color:#858585;font-size:11px;line-height:1.65}
+.diag-aside-notes b{color:#c0c0c0;font-weight:600}
+.diag-aside-meta{margin:12px 0 0;border-top:1px solid #232327;padding-top:9px;color:#5f5f5f;font-size:10px;line-height:1.6}
+/* 债券档案 / 政策法规：右栏延伸到底部聊天框之上（与其它页面同为 +112px 口径） */
+.home-chat-workspace:has(.bonds-sidebar) .bonds-sidebar{height:calc(100% + 112px);overflow-y:auto}
+.home-chat-workspace:has(.policy-sidebar) .policy-sidebar{height:calc(100% + 112px);overflow-y:auto}
+
+/* 债券档案筛选栏：内部强制横向排列（标签与取值不换行、不堆叠） */
+.bonds-sidebar,.home-section-main .factor-library-toolbar{--bond-toolbar:1}
+.home-section-main .factor-library-toolbar .factor-filter-dropdown>button{flex-wrap:nowrap;white-space:nowrap}
+.home-section-main .factor-library-toolbar .factor-filter-dropdown>button>span,
+.home-section-main .factor-library-toolbar .factor-filter-dropdown>button>b{white-space:nowrap}
+/* 存续/已到期 分段切换（横向） */
+.bond-status-tabs{display:inline-flex;flex:none;align-items:center;gap:2px;padding:2px;border:1px solid #2a2a2e;border-radius:8px;background:#0d0d0d}
+.bond-status-tabs .factor-filter-tab{height:28px;padding:0 10px;border-bottom:0;border-radius:6px;white-space:nowrap}
+.bond-status-tabs .factor-filter-tab.active{background:#29292d;color:#f1f1f1}
+
+/* ===== 准确度诊断：核心指标区（紧凑版，不用大字号）===== */
+.diag-hero{display:grid;gap:13px;border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:15px 18px}
+.diag-hero-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.diag-hero-title{display:inline-flex;align-items:baseline;gap:8px;color:#8b8b8b;font-size:12px}
+.diag-hero-title b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;font-weight:600;color:#f1f1f1}
+.diag-hero-title i{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-style:normal;padding:2px 6px;border-radius:5px}
+.diag-hero-title i.up{background:rgba(248,113,113,.12);color:#f87171}
+.diag-hero-title i.down{background:rgba(74,222,128,.12);color:#4ade80}
+.diag-hero-facts{display:inline-flex;align-items:center;gap:16px;color:#6f6f6f;font-size:11px;flex-wrap:wrap}
+.diag-hero-facts b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;color:#b9b9b9}
+.diag-hero-bars{display:grid;gap:7px}
+.diag-bar-row{display:grid;grid-template-columns:34px minmax(0,1fr) 46px;align-items:center;gap:10px}
+.diag-bar-name{color:#7a7a7a;font-size:11px;white-space:nowrap}
+.diag-bar-track{height:7px;border-radius:999px;background:#252529;overflow:hidden}
+.diag-bar-fill{display:block;height:100%;border-radius:999px;transition:width .25s ease}
+.diag-bar-fill.model{background:#6f8cff}
+.diag-bar-fill.bench{background:#55555a}
+.diag-bar-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#a9a9a9;text-align:right}
+/* 期货持仓：右栏延伸到底部聊天框之上 + 指标区 */
+.home-chat-workspace:has(.fut-sidebar) .fut-sidebar{height:calc(100% + 112px);overflow-y:auto}
+.fut-hero{display:grid;gap:14px;border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:15px 18px}
+.fut-hero-main{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.fut-hero-label{color:#8b8b8b;font-size:12px;white-space:nowrap}
+.fut-hero-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;color:#f1f1f1;line-height:1;padding:3px 8px;border-radius:6px;background:#1b1b1f;border:1px solid #2f2f34}
+.fut-hero-sub{margin-left:auto;color:#6f6f6f;font-size:11px;white-space:nowrap}
+.fut-compare{display:flex;gap:8px;flex-wrap:wrap}
+.fut-compare-item{display:inline-flex;align-items:baseline;gap:8px;border:1px solid #2a2a2e;border-radius:9px;background:#161616;padding:7px 11px;cursor:pointer;transition:border-color .15s,background .15s}
+.fut-compare-item:hover{background:#1b1b1b}
+.fut-compare-item.active{border-color:#3a3a3e;background:#1e1e1e}
+.fut-compare-name{color:#a7a7a7;font-size:11px;white-space:nowrap}
+.fut-compare-ratio{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600}
+
+/* ===== 信用利差 ===== */
+.cs-sidebar{align-self:start}
+.home-chat-workspace:has(.cs-sidebar) .cs-sidebar{height:calc(100% + 112px);overflow-y:auto}
+.cs-hero{display:grid;gap:13px;border:1px solid #2a2a2e;border-radius:12px;background:#111111;padding:15px 18px}
+.cs-hero-main{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.cs-hero-label{color:#8b8b8b;font-size:12px;white-space:nowrap}
+.cs-hero-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;color:#f1f1f1;line-height:1;padding:3px 8px;border-radius:6px;background:#1b1b1f;border:1px solid #2f2f34}
+.cs-percentile{border-radius:5px;padding:2px 7px;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.cs-percentile.low{border:1px solid #6b3030;background:#211313;color:#f0a0a0}
+.cs-percentile.high{border:1px solid #2f5f45;background:#12211a;color:#6ee7a8}
+.cs-percentile.mid{border:1px solid #3a3a3a;background:#191919;color:#9a9a9a}
+.cs-hero-sub{margin-left:auto;color:#6f6f6f;font-size:11px;white-space:nowrap}
+.cs-hero-bars{display:grid;gap:7px}
+.cs-bar-row{display:grid;grid-template-columns:34px minmax(0,1fr) 52px;align-items:center;gap:10px}
+.cs-bar-name{color:#7a7a7a;font-size:11px}
+.cs-bar-track{height:7px;border-radius:999px;background:#252529;overflow:hidden}
+.cs-bar-fill{display:block;height:100%;border-radius:999px;transition:width .25s ease}
+.cs-bar-fill.current{background:#6f8cff}
+.cs-bar-fill.avg{background:#55555a}
+.cs-bar-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#a9a9a9;text-align:right}
+.cs-hero-facts{display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid #232327;padding-top:11px;color:#6f6f6f;font-size:11px}
+.cs-hint{color:#a8a08a}
+.cs-term-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.cs-term-list li{display:grid;grid-template-columns:40px minmax(0,1fr) 56px 92px;align-items:center;gap:10px}
+.cs-term-list li.active .cs-term-name{color:#f1f1f1;font-weight:600}
+.cs-term-name{color:#a7a7a7;font-size:11px}
+.cs-term-track{height:7px;border-radius:999px;background:#252529;overflow:hidden}
+.cs-term-track i{display:block;height:100%;border-radius:999px;background:#6f8cff}
+.cs-term-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#c9c9c9;text-align:right}
+.cs-term-detail{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#5f5f5f;text-align:right}
+.cs-aside-notes{display:grid;gap:8px;margin:0;padding:0;list-style:none;color:#858585;font-size:11px;line-height:1.65}
+.cs-aside-notes b{color:#c0c0c0;font-weight:600}

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchForecastReport, fetchForecastHistory } from '@/api/market'
+import { fetchForecastReport, fetchForecastHistory, fetchForecastDiagnosis } from '@/api/market'
 import type { ForecastResponse } from '@/types'
 
 // 导出API函数供外部使用
-export { fetchForecastReport, fetchForecastHistory }
+export { fetchForecastReport, fetchForecastHistory, fetchForecastDiagnosis }
 
 // 获取预测报告
 export const useForecastReport = (date?: string) => {
@@ -40,5 +40,14 @@ export const useForecastHistory = (limit: number = 30) => {
     queryKey: ['forecast', 'history', limit],
     queryFn: () => fetchForecastHistory(limit),
     staleTime: 10 * 60 * 1000, // 10分钟
+  })
+}
+
+// 获取预测诊断（准确度诊断）：历史预测与事后实际收益率对账
+export const useForecastDiagnosis = () => {
+  return useQuery({
+    queryKey: ['forecast', 'diagnosis'],
+    queryFn: fetchForecastDiagnosis,
+    staleTime: 10 * 60 * 1000, // 诊断结论不常变，缓存久一些
   })
 }

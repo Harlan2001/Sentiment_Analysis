@@ -13,6 +13,8 @@ import { StrategyPage } from '@/features/workflow/pages/StrategyPage'
 import { NewsSummaryPage } from '@/features/workflow/pages/NewsSummaryPage'
 import { NewsSummaryDetailPage } from '@/features/workflow/pages/NewsSummaryDetailPage'
 import { StrategyPromptPage } from '@/features/workflow/pages/StrategyPromptPage'
+import PolicyDocumentsPage from '@/features/workflow/pages/PolicyDocumentsPage'
+import PolicyDocumentDetailPage from '@/features/workflow/pages/PolicyDocumentDetailPage'
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
 import { MemoryPage } from '@/features/custom/MemoryPage'
@@ -26,6 +28,8 @@ import {
   WatchlistPage,
   PortfolioPage,
 } from '@/features/market'
+import FuturesPage from '@/features/market/pages/FuturesPage'
+import CreditSpreadPage from '@/features/market/pages/CreditSpreadPage'
 import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
 import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
 import FactorDetailPage from '@/features/market/pages/FactorDetailPage'
@@ -43,6 +47,8 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/forecast': <ForecastPage />,
   '/watchlist': <WatchlistPage />,
   '/portfolio': <PortfolioPage />,
+  '/futures': <FuturesPage />,
+  '/credit-spread': <CreditSpreadPage />,
   '/workflow': <WorkflowHomePage />,
   '/home': <HomePage />,
   '/chat': <ChatPage />,
@@ -54,6 +60,8 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/computer/strategies/prompt': <StrategyPromptPage />,
   '/computer/news': <NewsSummaryPage />,
   '/computer/news/:taskId': <NewsSummaryDetailPage />,
+  '/computer/policy': <PolicyDocumentsPage />,
+  '/computer/policy/:documentId': <PolicyDocumentDetailPage />,
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
   '/custom/memory': <MemoryPage />,
