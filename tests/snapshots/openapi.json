@@ -2788,6 +2788,57 @@
         }
       }
     },
+    "/sapi/report-generation/tasks/{task_id}/regenerate": {
+      "post": {
+        "tags": [
+          "report-generation"
+        ],
+        "summary": "Regenerate Report Generation Task",
+        "description": "基于历史任务再生成：沿用标题/日期/来源（来源可覆盖），版本号 +1。",
+        "operationId": "regenerate_report_generation_task_sapi_report_generation_tasks__task_id__regenerate_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportGenerationRegenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/report-generation/tasks/{task_id}": {
       "get": {
         "tags": [
@@ -3132,10 +3183,10 @@
                   "type": "null"
                 }
               ],
-              "description": "标题/机构/行业关键词搜索",
+              "description": "标题/机构/行业/正文/AI 观点关键词搜索",
               "title": "Keyword"
             },
-            "description": "标题/机构/行业关键词搜索"
+            "description": "标题/机构/行业/正文/AI 观点关键词搜索"
           },
           {
             "name": "status",
@@ -3154,6 +3205,44 @@
               "title": "Status"
             },
             "description": "分析状态筛选"
+          },
+          {
+            "name": "date_start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "发布日期起（含）",
+              "title": "Date Start"
+            },
+            "description": "发布日期起（含）"
+          },
+          {
+            "name": "date_end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "发布日期止（含）",
+              "title": "Date End"
+            },
+            "description": "发布日期止（含）"
           },
           {
             "name": "page",
@@ -3282,13 +3371,53 @@
         }
       }
     },
+    "/sapi/research/reanalyze/batch": {
+      "post": {
+        "tags": [
+          "research"
+        ],
+        "summary": "Reanalyze Batch",
+        "description": "按机构/行业/观点/关键词/发布日期筛选，批量重跑已分析研报（P0-3）。\n\n只重跑 status='analyzed' 的研报；逐份重置后排队，正在分析中的计入 skipped。",
+        "operationId": "reanalyze_batch_sapi_research_reanalyze_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchReanalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/research/{report_id}/analyze": {
       "post": {
         "tags": [
           "research"
         ],
         "summary": "Trigger Analysis",
-        "description": "触发单份研报的 AI 分析（后台异步执行）。",
+        "description": "触发单份研报的 AI 分析（后台异步执行）。\n\nforce=true 时允许对 analyzed 研报重新分析（旧结果保留至新分析成功才覆盖）。",
         "operationId": "trigger_analysis_sapi_research__report_id__analyze_post",
         "parameters": [
           {
@@ -3311,6 +3440,121 @@
               "title": "Model"
             },
             "description": "模型短名: glm / deepseek / qwen / kimi"
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "对已分析研报强制重新分析",
+              "default": false,
+              "title": "Force"
+            },
+            "description": "对已分析研报强制重新分析"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/research/{report_id}/export": {
+      "get": {
+        "tags": [
+          "research"
+        ],
+        "summary": "Export Report",
+        "description": "导出单份研报的深度拆解 Markdown 为 PDF/DOCX。",
+        "operationId": "export_report_sapi_research__report_id__export_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "pdf / docx",
+              "default": "pdf",
+              "title": "Format"
+            },
+            "description": "pdf / docx"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/research/{report_id}/figures/{figure_id}/image": {
+      "get": {
+        "tags": [
+          "research"
+        ],
+        "summary": "Get Figure Image",
+        "description": "提供研报图表图片（P1-4 原文对照），禁止路径越界。",
+        "operationId": "get_figure_image_sapi_research__report_id__figures__figure_id__image_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "figure_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Figure Id"
+            }
           }
         ],
         "responses": {
@@ -8025,6 +8269,85 @@
         ],
         "title": "AskSentimentRequest"
       },
+      "BatchReanalyzeRequest": {
+        "properties": {
+          "institution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "market_view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market View"
+          },
+          "keyword": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyword"
+          },
+          "date_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Start"
+          },
+          "date_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date End"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "glm"
+          }
+        },
+        "type": "object",
+        "title": "BatchReanalyzeRequest"
+      },
       "BehaviorBatchRequest": {
         "properties": {
           "events": {
@@ -9239,6 +9562,12 @@
               }
             ],
             "title": "Date End"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Model",
+            "default": "glm"
           }
         },
         "type": "object",
@@ -9248,6 +9577,44 @@
           "report_ids"
         ],
         "title": "ReportGenerationCreateRequest"
+      },
+      "ReportGenerationRegenerateRequest": {
+        "properties": {
+          "requirement": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Requirement"
+          },
+          "report_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array",
+                "maxItems": 12,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ids"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Model",
+            "default": "glm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirement"
+        ],
+        "title": "ReportGenerationRegenerateRequest",
+        "description": "基于历史任务改需求/来源再生成：标题与日期默认沿用原任务。"
       },
       "SentimentRequest": {
         "properties": {

@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.common.pagination import limit_param
-from backend.config.config import API_PREFIX
+from backend.config.config import ANALYSIS_MODEL_REGISTRY, API_PREFIX
 from backend.report.export_service import export_filename, generate_docx, generate_pdf
 from backend.report.generation_service import start_report_generation
 from backend.repositories.report_generation_repository import ReportGenerationRepository
@@ -21,12 +21,28 @@ router = APIRouter(prefix=f"{API_PREFIX}/report-generation", tags=["report-gener
 ALLOWED_STATUSES = {"queued", "running", "completed", "failed"}
 
 
+def _validate_model_short_name(model: str) -> str:
+    if model not in ANALYSIS_MODEL_REGISTRY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的模型: {model}，可选: {', '.join(ANALYSIS_MODEL_REGISTRY)}",
+        )
+    return model
+
+
+def _dedupe_positive_ids(value: list[int]) -> list[int]:
+    if any(item <= 0 for item in value):
+        raise ValueError("研报 ID 必须为正整数")
+    return list(dict.fromkeys(value))
+
+
 class ReportGenerationCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     requirement: str = Field(min_length=1, max_length=4000)
     report_ids: list[int] = Field(min_length=1, max_length=12)
     date_start: Optional[date] = None
     date_end: Optional[date] = None
+    model: str = Field(default="glm", max_length=50)
 
     @field_validator("title", "requirement")
     @classmethod
@@ -36,9 +52,7 @@ class ReportGenerationCreateRequest(BaseModel):
     @field_validator("report_ids")
     @classmethod
     def validate_report_ids(cls, value: list[int]) -> list[int]:
-        if any(item <= 0 for item in value):
-            raise ValueError("研报 ID 必须为正整数")
-        return list(dict.fromkeys(value))
+        return _dedupe_positive_ids(value)
 
     @model_validator(mode="after")
     def validate_date_range(self):
@@ -47,8 +61,37 @@ class ReportGenerationCreateRequest(BaseModel):
         return self
 
 
+class ReportGenerationRegenerateRequest(BaseModel):
+    """基于历史任务改需求/来源再生成：标题与日期默认沿用原任务。"""
+
+    requirement: str = Field(min_length=1, max_length=4000)
+    report_ids: Optional[list[int]] = Field(default=None, min_length=1, max_length=12)
+    model: str = Field(default="glm", max_length=50)
+
+    @field_validator("requirement")
+    @classmethod
+    def clean_requirement(cls, value: str) -> str:
+        return strip_to_required(value)
+
+    @field_validator("report_ids")
+    @classmethod
+    def validate_report_ids(cls, value: Optional[list[int]]) -> Optional[list[int]]:
+        if value is None:
+            return None
+        return _dedupe_positive_ids(value)
+
+
 def _repository() -> ReportGenerationRepository:
     return ReportGenerationRepository.from_environment()
+
+
+def _coerce_date(value: Optional[str]) -> Optional[date]:
+    """序列化后的日期是 ISO 字符串，再生成时转回 date 入参。"""
+    if not value:
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
 
 
 def _validate_date_range(date_start: Optional[date], date_end: Optional[date]) -> None:
@@ -103,6 +146,7 @@ def list_report_generation_tasks(
 def create_report_generation_task(
     request: Request, body: ReportGenerationCreateRequest
 ):
+    _validate_model_short_name(body.model)
     repository = _repository()
     try:
         sources = repository.load_sources(body.report_ids)
@@ -116,7 +160,41 @@ def create_report_generation_task(
         )
     except Exception as exc:
         raise_repository_error(exc)
-    start_report_generation(task["id"])
+    start_report_generation(task["id"], model=body.model)
+    return {"data": task}
+
+
+@router.post("/tasks/{task_id}/regenerate", status_code=201)
+def regenerate_report_generation_task(
+    request: Request, task_id: str, body: ReportGenerationRegenerateRequest
+):
+    """基于历史任务再生成：沿用标题/日期/来源（来源可覆盖），版本号 +1。"""
+    _validate_model_short_name(body.model)
+    repository = _repository()
+    old_task = repository.get_task(request.state.username, task_id)
+    if not old_task:
+        raise HTTPException(status_code=404, detail="Report generation task not found")
+
+    report_ids = (
+        body.report_ids
+        if body.report_ids is not None
+        else [int(item) for item in old_task["report_ids_json"]]
+    )
+    try:
+        sources = repository.load_sources(report_ids)
+        task = repository.create_task(
+            owner_username=request.state.username,
+            title=old_task["title"],
+            requirement=body.requirement,
+            date_start=_coerce_date(old_task.get("date_start")),
+            date_end=_coerce_date(old_task.get("date_end")),
+            sources=sources,
+            version_no=int(old_task.get("version_no") or 1) + 1,
+            parent_task_id=old_task["id"],
+        )
+    except Exception as exc:
+        raise_repository_error(exc)
+    start_report_generation(task["id"], model=body.model)
     return {"data": task}
 
 

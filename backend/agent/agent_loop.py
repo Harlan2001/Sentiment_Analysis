@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 5
 MODEL_REQUEST_TIMEOUT_SECONDS = 45.0
+AGENT_TEMPERATURE = 0.2
 
 
 async def _request_stream(client: AsyncOpenAI, **kwargs) -> AsyncGenerator:
@@ -141,6 +142,30 @@ def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _assistant_tool_call_message(acc: dict, entries: list[dict]) -> dict:
+    """Build a provider-compatible assistant tool-call message.
+
+    Some OpenAI-compatible providers reject an empty string as message content.
+    The protocol allows ``null`` when the assistant message contains tool calls.
+    """
+    content = "".join(acc["content_parts"])
+    return {
+        "role": "assistant",
+        "content": content or None,
+        "tool_calls": [
+            {
+                "id": entry["id"],
+                "type": "function",
+                "function": {
+                    "name": entry["name"],
+                    "arguments": entry["arguments"],
+                },
+            }
+            for entry in entries
+        ],
+    }
+
+
 async def run_agent_loop(
     messages: list[dict],
     system_prompt: str,
@@ -203,7 +228,7 @@ async def run_agent_loop(
                 messages=full_messages,
                 tools=TOOL_DEFINITIONS,
                 tool_choice="auto",
-                temperature=0.7,
+                temperature=AGENT_TEMPERATURE,
             ):
                 content_sse = _process_chunk(chunk, acc)
                 if content_sse:
@@ -232,23 +257,7 @@ async def run_agent_loop(
                 yield _sse({"type": "tool_call", "tool_calls": tc_list})
 
                 # 把 assistant 的 tool_call 消息加入历史（arguments 保留原始字符串）
-                full_messages.append(
-                    {
-                        "role": "assistant",
-                        "content": "".join(acc["content_parts"]),
-                        "tool_calls": [
-                            {
-                                "id": e["id"],
-                                "type": "function",
-                                "function": {
-                                    "name": e["name"],
-                                    "arguments": e["arguments"],
-                                },
-                            }
-                            for e in entries
-                        ],
-                    }
-                )
+                full_messages.append(_assistant_tool_call_message(acc, entries))
 
                 # 执行每个工具
                 for e in entries:
@@ -331,7 +340,7 @@ async def run_agent_loop(
             client,
             model=model,
             messages=full_messages,
-            temperature=0.7,
+            temperature=AGENT_TEMPERATURE,
         ):
             content_sse = _process_chunk(chunk, acc)
             if content_sse:

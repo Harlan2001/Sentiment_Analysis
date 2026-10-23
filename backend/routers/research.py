@@ -7,23 +7,54 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 
 from backend.common.api_response import ok
 from backend.common.database import get_db_connection
 from backend.common.pagination import paginated_payload
 from backend.config.config import ANALYSIS_MODEL_REGISTRY, API_PREFIX
-from backend.repositories.research_report_repository import ResearchReportRepository
+from backend.report import export_service
+from backend.repositories.research_report_repository import (
+    ResearchReportConflictError,
+    ResearchReportRepository,
+)
+from backend.research_report.constants import FIGURE_ROOT
 from backend.research_report.llm import resolve_provider_model
 from backend.research_report.parser import clean_display_text
 from backend.research_report.service import ingest_uploaded_pdf, run_analysis_async
 
 router = APIRouter(prefix=f"{API_PREFIX}/research", tags=["research"])
 
-# /list 浏览器：关键词命中标题/机构/行业；筛选面不带 status 约束
-_BROWSE_KEYWORD_COLUMNS = ("title", "institution", "industry")
+# /list 浏览器：关键词命中标题/机构/行业/正文/AI 摘要与要点（P2-10 检索增强）
+_BROWSE_KEYWORD_COLUMNS = (
+    "title",
+    "institution",
+    "industry",
+    "ai_summary",
+    "ai_key_points",
+    "full_text",
+)
+
+
+def _validate_date_range(date_start: Optional[date], date_end: Optional[date]) -> None:
+    if date_start and date_end and date_start > date_end:
+        raise HTTPException(status_code=400, detail="开始日期不能晚于结束日期")
+
+
+class BatchReanalyzeRequest(BaseModel):
+    institution: Optional[str] = None
+    industry: Optional[str] = None
+    market_view: Optional[str] = None
+    keyword: Optional[str] = None
+    date_start: Optional[date] = None
+    date_end: Optional[date] = None
+    model: str = "glm"
 _RESEARCH_LIST_COLUMNS = (
     "id",
     "title",
@@ -116,13 +147,16 @@ def get_research_list(
         None, description="情感筛选：bullish/bearish/neutral"
     ),
     keyword: Optional[str] = Query(
-        None, description="标题/机构/行业关键词搜索"
+        None, description="标题/机构/行业/正文/AI 观点关键词搜索"
     ),
     status: Optional[str] = Query(None, description="分析状态筛选"),
+    date_start: Optional[date] = Query(None, description="发布日期起（含）"),
+    date_end: Optional[date] = Query(None, description="发布日期止（含）"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
     """研报列表，支持筛选 + 分页"""
+    _validate_date_range(date_start, date_end)
     repository = ResearchReportRepository.from_environment()
     total = repository.count_reports(
         keyword=keyword,
@@ -131,6 +165,8 @@ def get_research_list(
         industry=industry,
         market_view=market_view,
         status=status,
+        date_start=date_start,
+        date_end=date_end,
     )
     rows = repository.query_reports(
         columns=_RESEARCH_LIST_COLUMNS,
@@ -140,6 +176,8 @@ def get_research_list(
         industry=industry,
         market_view=market_view,
         status=status,
+        date_start=date_start,
+        date_end=date_end,
         limit=page_size,
         offset=(page - 1) * page_size,
         order_by="publish_date DESC, created_at DESC",
@@ -162,7 +200,8 @@ def get_research_detail(report_id: int):
                        symbols, report_type, file_path, file_hash, file_size_kb,
                        page_count, full_text, ai_summary, ai_key_points, ai_symbols,
                        ai_industries, ai_market_view, ai_view_strength,
-                       ai_time_horizon, ai_evidence, ai_analyzed_at, ai_model, ai_raw_response,
+                       ai_time_horizon, ai_evidence, ai_deep_markdown,
+                       ai_analyzed_at, ai_model, ai_raw_response,
                        status, source, created_at
                 FROM research_report WHERE id = %s
             """,
@@ -219,12 +258,13 @@ def get_research_detail(report_id: int):
             "ai_view_strength": float(row[18]) if row[18] else None,
             "ai_time_horizon": row[19],
             "ai_evidence": row[20],
-            "ai_analyzed_at": str(row[21]) if row[21] else None,
-            "ai_model": row[22],
-            "ai_raw_response": row[23],
-            "status": row[24],
-            "source": row[25],
-            "created_at": str(row[26]) if row[26] else None,
+            "ai_deep_markdown": row[21],
+            "ai_analyzed_at": str(row[22]) if row[22] else None,
+            "ai_model": row[23],
+            "ai_raw_response": row[24],
+            "status": row[25],
+            "source": row[26],
+            "created_at": str(row[27]) if row[27] else None,
             "figures": figures,
         })
 
@@ -278,14 +318,69 @@ async def upload_research_pdf(
     })
 
 
+def _start_analysis(report_id: int, model: str) -> None:
+    """校验模型短名并启动后台分析线程。"""
+    if model not in ANALYSIS_MODEL_REGISTRY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的模型: {model}，可选: {', '.join(ANALYSIS_MODEL_REGISTRY)}",
+        )
+    run_analysis_async(report_id, resolve_provider_model(model))
+
+
+@router.post("/reanalyze/batch")
+def reanalyze_batch(payload: BatchReanalyzeRequest):
+    """按机构/行业/观点/关键词/发布日期筛选，批量重跑已分析研报（P0-3）。
+
+    只重跑 status='analyzed' 的研报；逐份重置后排队，正在分析中的计入 skipped。
+    """
+    _validate_date_range(payload.date_start, payload.date_end)
+    repository = ResearchReportRepository.from_environment()
+    rows = repository.query_reports(
+        columns=("id", "status"),
+        status="analyzed",
+        institution=payload.institution,
+        industry=payload.industry,
+        market_view=payload.market_view,
+        keyword=payload.keyword,
+        keyword_columns=_BROWSE_KEYWORD_COLUMNS,
+        date_start=payload.date_start,
+        date_end=payload.date_end,
+        limit=500,
+        order_by="publish_date DESC, id DESC",
+    )
+
+    triggered: list[int] = []
+    skipped: list[int] = []
+    for row in rows:
+        report_id = int(row["id"])
+        try:
+            repository.reset_for_reanalysis(report_id)
+        except ResearchReportConflictError:
+            skipped.append(report_id)
+            continue
+        _start_analysis(report_id, payload.model)
+        triggered.append(report_id)
+
+    return ok({
+        "triggered": len(triggered),
+        "skipped": len(skipped),
+        "report_ids": triggered,
+    })
+
+
 @router.post("/{report_id}/analyze")
 def trigger_analysis(
     report_id: int,
     model: str = Query(
         "glm", description="模型短名: glm / deepseek / qwen / kimi"
     ),
+    force: bool = Query(False, description="对已分析研报强制重新分析"),
 ):
-    """触发单份研报的 AI 分析（后台异步执行）。"""
+    """触发单份研报的 AI 分析（后台异步执行）。
+
+    force=true 时允许对 analyzed 研报重新分析（旧结果保留至新分析成功才覆盖）。
+    """
     # 校验报告存在
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -300,36 +395,101 @@ def trigger_analysis(
 
     current_status = row[1]
     if current_status == "analyzed":
-        return ok({
-            "report_id": report_id,
-            "status": "analyzed",
-            "message": "已完成分析，无需重复触发",
-        })
-    if current_status == "processing":
+        if not force:
+            return ok({
+                "report_id": report_id,
+                "status": "analyzed",
+                "message": "已完成分析，无需重复触发（force=true 可重新分析）",
+            })
+        try:
+            ResearchReportRepository.from_environment().reset_for_reanalysis(report_id)
+        except ResearchReportConflictError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    elif current_status == "processing":
         return ok({
             "report_id": report_id,
             "status": "processing",
             "message": "正在分析中，请稍候",
         })
-
-    if current_status not in ("parsed", "failed"):
+    elif current_status not in ("parsed", "failed"):
         raise HTTPException(
             status_code=400,
             detail=f"当前状态 '{current_status}' 不支持触发分析",
         )
 
-    # 验证模型名
-    if model not in ANALYSIS_MODEL_REGISTRY:
-        raise HTTPException(
-            status_code=400,
-            detail=f"不支持的模型: {model}，可选: {', '.join(ANALYSIS_MODEL_REGISTRY)}",
-        )
-
-    # 启动后台分析
-    run_analysis_async(report_id, resolve_provider_model(model))
+    _start_analysis(report_id, model)
 
     return ok({
         "report_id": report_id,
         "status": "processing",
         "message": "分析任务已提交",
     })
+
+
+# ── 单篇深度拆解导出（P1-5） ─────────────────────────────────────────────
+
+_EXPORT_MEDIA_TYPES = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+@router.get("/{report_id}/export")
+def export_report(report_id: int, format: str = Query("pdf", description="pdf / docx")):
+    """导出单份研报的深度拆解 Markdown 为 PDF/DOCX。"""
+    fmt = format.lower()
+    if fmt not in _EXPORT_MEDIA_TYPES:
+        raise HTTPException(status_code=400, detail="仅支持导出 pdf 或 docx 格式")
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT title, status, ai_deep_markdown FROM research_report WHERE id=%s",
+                (report_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="研报不存在")
+    title, status, markdown = row
+    if status != "analyzed" or not markdown:
+        raise HTTPException(status_code=409, detail="该研报尚未生成深度拆解，无法导出")
+
+    if fmt == "pdf":
+        content = export_service.generate_pdf(title, markdown, [])
+    else:
+        content = export_service.generate_docx(title, markdown, [])
+
+    filename = export_service.export_filename(title, fmt)
+    return Response(
+        content=content,
+        media_type=_EXPORT_MEDIA_TYPES[fmt],
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename*=UTF-8''{quote(filename)}"
+            )
+        },
+    )
+
+
+@router.get("/{report_id}/figures/{figure_id}/image")
+def get_figure_image(report_id: int, figure_id: int):
+    """提供研报图表图片（P1-4 原文对照），禁止路径越界。"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT image_path FROM report_figure WHERE id=%s AND report_id=%s",
+                (figure_id, report_id),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="图表不存在")
+
+    image_path = (row[0] or "").replace("\\", "/")
+    target = (FIGURE_ROOT / image_path).resolve()
+    root = FIGURE_ROOT.resolve()
+    if root not in target.parents or not target.is_file():
+        raise HTTPException(status_code=404, detail="图表文件不存在")
+
+    return FileResponse(target)
