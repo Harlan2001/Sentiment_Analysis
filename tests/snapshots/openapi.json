@@ -125,352 +125,6 @@
         }
       }
     },
-    "/sapi/bonds": {
-      "get": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "List Bonds",
-        "description": "按条件分页查询债券档案。默认只返回存续券。",
-        "operationId": "list_bonds_sapi_bonds_get",
-        "parameters": [
-          {
-            "name": "keyword",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Keyword"
-            }
-          },
-          {
-            "name": "category",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Category"
-            }
-          },
-          {
-            "name": "rating",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Rating"
-            }
-          },
-          {
-            "name": "tenor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "1年内|1-3年|3-5年|5-10年|10年以上",
-              "title": "Tenor"
-            },
-            "description": "1年内|1-3年|3-5年|5-10年|10年以上"
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "live（默认，仅存续）| matured | all",
-              "title": "Status"
-            },
-            "description": "live（默认，仅存续）| matured | all"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1,
-              "title": "Page"
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Page Size"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Create Bond",
-        "description": "新建债券档案。",
-        "operationId": "create_bond_sapi_bonds_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BondPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sapi/bonds/distribution": {
-      "get": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Get Distribution",
-        "description": "档案分布统计（评级 / 市场 / 剩余期限分档），供右侧图表。",
-        "operationId": "get_distribution_sapi_bonds_distribution_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sapi/bonds/{bond_code}": {
-      "get": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Get Bond",
-        "description": "单只债券档案。",
-        "operationId": "get_bond_sapi_bonds__bond_code__get",
-        "parameters": [
-          {
-            "name": "bond_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Bond Code"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Update Bond",
-        "description": "更新债券档案。",
-        "operationId": "update_bond_sapi_bonds__bond_code__put",
-        "parameters": [
-          {
-            "name": "bond_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Bond Code"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BondPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Delete Bond",
-        "description": "软删债券档案。",
-        "operationId": "delete_bond_sapi_bonds__bond_code__delete",
-        "parameters": [
-          {
-            "name": "bond_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Bond Code"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sapi/bonds/sync": {
-      "post": {
-        "tags": [
-          "bonds"
-        ],
-        "summary": "Sync Bonds",
-        "description": "从东方财富同步可转换债券要素（幂等：按代码更新或插入）。\n\n注意：该源只覆盖交易所可转债，不含银行间国债/政金债/中票短融。",
-        "operationId": "sync_bonds_sapi_bonds_sync_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/sapi/ai-strategy-generation/conversations": {
       "post": {
         "tags": [
@@ -3683,6 +3337,114 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/overview": {
+      "get": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Get Overview",
+        "description": "某期限的信用利差概览：当前值、历史分位、区间。",
+        "operationId": "get_overview_sapi_credit_spread_overview_get",
+        "parameters": [
+          {
+            "name": "term",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "期限码，如 10Y",
+              "default": "10Y",
+              "title": "Term"
+            },
+            "description": "期限码，如 10Y"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/terms": {
+      "get": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Get Terms",
+        "description": "可用的期限列表。",
+        "operationId": "get_terms_sapi_credit_spread_terms_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/credit-spread/sync": {
+      "post": {
+        "tags": [
+          "credit-spread"
+        ],
+        "summary": "Sync Credit Curve",
+        "description": "从下载并导入中债信用债曲线（幂等）。",
+        "operationId": "sync_credit_curve_sapi_credit_spread_sync_post",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 30,
+              "default": 365,
+              "title": "Days"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8410,145 +8172,6 @@
           "file"
         ],
         "title": "Body_upload_research_pdf_sapi_research_upload_post"
-      },
-      "BondPayload": {
-        "properties": {
-          "bond_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bond Code"
-          },
-          "bond_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bond Name"
-          },
-          "bond_category": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bond Category"
-          },
-          "bond_market": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bond Market"
-          },
-          "issuer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Issuer"
-          },
-          "rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rating"
-          },
-          "maturity_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Maturity Date"
-          },
-          "coupon_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Coupon Rate"
-          },
-          "issue_year": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Issue Year"
-          },
-          "issue_scale": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Issue Scale"
-          },
-          "industry": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Industry"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
-          }
-        },
-        "type": "object",
-        "title": "BondPayload",
-        "description": "新建/更新档案的请求体（字段均可选，由仓储侧做白名单过滤）。"
       },
       "CompareRequest": {
         "properties": {
