@@ -235,12 +235,15 @@ PERIOD_LIST = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"]
 PAGE_TITLES = {
     # 新版工作台板块
     "/market": "市场",
+    "/info": "信息",
+    "/backtest": "回测仿真",
     "/returns": "收益",
     "/forecast": "预测",
     "/watchlist": "关注列表",
     "/portfolio": "投资组合",
     "/futures": "期货持仓",
     "/credit-spread": "信用利差",
+    "/treasury-spread": "中美利差",
     "/workflow": "工作流",
     "/computer/strategies": "策略生成",
     "/computer/reports": "研报分析",
@@ -270,12 +273,15 @@ PAGE_TITLES = {
 # 看板页面分布图表中应展示的完整路由列表（含未访问页面的零值补全）
 ALL_PAGE_ROUTES = [
     "/market",
+    "/info",
+    "/backtest",
     "/returns",
     "/forecast",
     "/watchlist",
     "/portfolio",
     "/futures",
     "/credit-spread",
+    "/treasury-spread",
     "/workflow",
     "/computer",
     "/computer/strategies",

@@ -31,14 +31,17 @@ export const ROUTES: RouteMeta[] = [
 
   // ── 工作台 7 个板块 tab ──
   { path: '/market', title: '市场', tabLabel: '市场', brandTitle: true, group: '市场板块', track: true },
+  { path: '/info', title: '信息', tabLabel: '信息', brandTitle: true, group: '市场板块', track: true },
   { path: '/factors', title: '因子', tabLabel: '因子', brandTitle: true, group: '市场板块', track: true },
   { path: '/returns', title: '收益', tabLabel: '收益', brandTitle: true, group: '市场板块', track: true },
   { path: '/forecast', title: '预测', tabLabel: '预测', brandTitle: true, group: '市场板块', track: true },
   { path: '/watchlist', title: '关注列表', tabLabel: '关注列表', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio', title: '投资组合', tabLabel: '投资组合', brandTitle: true, group: '市场板块', track: true },
+  { path: '/backtest', title: '回测仿真', tabLabel: '回测仿真', brandTitle: true, group: '市场板块', track: true },
   // ── FICC 扩展（追加于末尾，不打乱既有标签顺序） ──
-  { path: '/futures', title: '期货持仓', tabLabel: '期货持仓', brandTitle: true, group: '市场板块', track: true },
-  { path: '/credit-spread', title: '信用利差', tabLabel: '信用利差', brandTitle: true, group: '市场板块', track: true },
+  { path: '/futures', title: '期货持仓', shellTitle: '期货持仓' },
+  { path: '/credit-spread', title: '信用利差', shellTitle: '信用利差' },
+  { path: '/treasury-spread', title: '中美利差', shellTitle: '中美利差' },
 
   // ── 首页 ──
   { path: '/home', title: '首页', brandTitle: true, group: '首页', track: true },
