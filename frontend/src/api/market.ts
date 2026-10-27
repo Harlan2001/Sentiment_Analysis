@@ -14,6 +14,8 @@ import type {
   FactorDetailData,
   ReturnsCalendarResponse,
   ForecastDiagnosisResponse,
+  FactorPerformanceResponse,
+  BacktestOverviewResponse,
 } from '@/types'
 import { API_PREFIX as BASE, request } from './client'
 
@@ -149,4 +151,20 @@ export function fetchReturnsCalendar(params: {
   sp.set('end', params.end);
   if (params.selected) sp.set('selected', params.selected);
   return request<ReturnsCalendarResponse>(`${BASE}/returns/calendar?${sp.toString()}`);
+}
+/** 因子历史表现（事件研究结果，按因子代码查询）。 */
+export function fetchFactorPerformance(factorCode: string): Promise<FactorPerformanceResponse> {
+  return request<FactorPerformanceResponse>(
+    `${BASE}/factors/${encodeURIComponent(factorCode)}/performance`,
+  )
+}
+
+/** 回测仿真总览：各因子历史表现 + 整体分布。 */
+export function fetchBacktestOverview(
+  holdingDays = 5,
+  minSamples = 20,
+): Promise<BacktestOverviewResponse> {
+  return request<BacktestOverviewResponse>(
+    `${BASE}/factors/backtest-overview?holding_days=${holdingDays}&min_samples=${minSamples}`,
+  )
 }

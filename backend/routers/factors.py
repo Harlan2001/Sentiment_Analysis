@@ -57,3 +57,39 @@ def get_factors_by_category(category: str):
         raise HTTPException(status_code=404, detail=f"类别 {category} 下没有因子")
 
     return ok({"factors": factors})
+
+@router.get("/factors/{factor_code}/performance")
+def get_factor_performance(factor_code: str):
+    """因子历史表现（事件研究结果）。
+
+    用 news_factor 做事件研究：某因子出现后 T+1/T+5/T+20 的 10Y 收益率变动。
+    同时给出**多数类基准**作对照 —— 方向命中率的正确参照不是 50%，
+    而是"无后猜多数方向"的命中率，两者同屏由用户自行判断。
+    """
+    from backend.repositories.factor_event_study_repository import (
+        FactorEventStudyRepository,
+    )
+
+    return ok(
+        FactorEventStudyRepository.from_environment().get_factor_performance(factor_code)
+    )
+
+
+@router.get("/factors/backtest-overview")
+def get_backtest_overview(
+    holding_days: int = Query(5, ge=1, le=60),
+    min_samples: int = Query(20, ge=1, le=1000),
+):
+    """回测仿真总览：各因子的历史表现 + 整体分布。
+
+    用于回测仿真页一屏查看多个因子。与因子详情页的单因子视角互补。
+    """
+    from backend.repositories.factor_event_study_repository import (
+        FactorEventStudyRepository,
+    )
+
+    return ok(
+        FactorEventStudyRepository.from_environment().list_overview(
+            holding_days=holding_days, min_samples=min_samples
+        )
+    )

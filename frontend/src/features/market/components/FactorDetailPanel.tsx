@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import FactorPerformance from './FactorPerformance'
 import { Loading } from '@/components/ui'
 import { fetchFactorDetail } from '@/api/market'
 import type { FactorDetailData } from '@/types'
@@ -164,6 +165,12 @@ const FactorDetailPanel: React.FC<Props> = ({ factorId, onClose, onNewsClick, on
             <DirectionDonut counts={periodCounts} />
           </article>
         </section>
+
+        {/* 历史表现（事件研究）：展示数据与多数类基准，不对因子下有效性结论 */}
+        <section className="factor-detail-visual-grid">
+          <FactorPerformance factorCode={data.code} />
+        </section>
+
 
         <section className="factor-detail-bottom-grid">
           <article className="factor-detail-card factor-news-panel">

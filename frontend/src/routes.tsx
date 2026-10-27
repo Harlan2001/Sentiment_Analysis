@@ -30,6 +30,9 @@ import {
 } from '@/features/market'
 import FuturesPage from '@/features/market/pages/FuturesPage'
 import CreditSpreadPage from '@/features/market/pages/CreditSpreadPage'
+import TreasurySpreadPage from '@/features/market/pages/TreasurySpreadPage'
+import InfoPage from '@/features/market/pages/InfoPage'
+import BacktestPage from '@/features/market/pages/BacktestPage'
 import NewsDetailPage from '@/features/market/pages/NewsDetailPage'
 import YieldDetailPage from '@/features/market/pages/YieldDetailPage'
 import FactorDetailPage from '@/features/market/pages/FactorDetailPage'
@@ -42,6 +45,8 @@ import { LoginRequiredPage } from '@/features/auth/LoginRequiredPage'
  */
 const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/market': <MarketPage />,
+  '/info': <InfoPage />,
+  '/backtest': <BacktestPage />,
   '/factors': <FactorsPage />,
   '/returns': <ReturnsPage />,
   '/forecast': <ForecastPage />,
@@ -49,6 +54,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/portfolio': <PortfolioPage />,
   '/futures': <FuturesPage />,
   '/credit-spread': <CreditSpreadPage />,
+  '/treasury-spread': <TreasurySpreadPage />,
   '/workflow': <WorkflowHomePage />,
   '/home': <HomePage />,
   '/chat': <ChatPage />,

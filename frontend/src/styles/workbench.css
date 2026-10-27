@@ -861,3 +861,150 @@ select:focus,
 .cs-term-detail{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#5f5f5f;text-align:right}
 .cs-aside-notes{display:grid;gap:8px;margin:0;padding:0;list-style:none;color:#858585;font-size:11px;line-height:1.65}
 .cs-aside-notes b{color:#c0c0c0;font-weight:600}
+
+/* ===== 因子历史表现（事件研究） ===== */
+.factor-performance-panel{grid-column:1 / -1}
+.factor-performance-panel header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.factor-performance-table{width:100%;margin-top:12px;border-collapse:collapse;font-size:12px}
+.factor-performance-table th{color:#777;font-size:11px;font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid #2a2a2e}
+.factor-performance-table td{padding:8px;border-bottom:1px solid #1e1e1e;color:#c9c9c9}
+.factor-performance-table td.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-align:right}
+.factor-performance-table td.strong{color:#f1f1f1;font-weight:600}
+.factor-performance-note{margin:10px 0 0;border:1px solid #3a3222;border-radius:8px;background:#1a1710;padding:8px 10px;color:#a8a08a;font-size:11px;line-height:1.6}
+.factor-performance-subhead{margin-top:16px}
+.factor-performance-foot{margin:12px 0 0;border-top:1px solid #232327;padding-top:9px;color:#5f5f5f;font-size:10px;line-height:1.6}
+
+/* ===== 信息页：二级标签导航 ===== */
+/* home-chat-scroll reserves 112px for the dock; extend only the right rail by that amount. */
+.info-shell{display:flex;flex-direction:column;height:100%;min-height:0}
+.info-tabs{display:flex;gap:6px;flex:none;padding:0 16px;border-bottom:1px solid #2a2a2e}
+.info-tab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:7px 14px 8px;border:1px solid transparent;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;background:transparent;cursor:pointer;transition:background .15s,border-color .15s}
+.info-tab:hover{background:#161616}
+.info-tab.active{border-color:#2a2a2e;border-bottom-color:#f1f1f1;background:#111111}
+.info-tab-label{color:#858585;font-size:13px;transition:color .15s}
+.info-tab.active .info-tab-label{color:#f1f1f1;font-weight:600}
+.info-tab-hint{color:#5a5a5a;font-size:10px}
+.info-tab.active .info-tab-hint{color:#7a7a7a}
+.info-body{flex:1;min-height:0;overflow:visible;animation:infoFade .18s ease}
+@keyframes infoFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* Keep the rail edge level with the dock; scroll its contents when cards need more room. */
+.info-body .home-section-page{display:block;height:100%;min-height:0}
+.info-body .home-section-sidebar{
+  display:flex;
+  flex-direction:column;
+  height:calc(100% + 112px) !important;
+  min-height:0;
+  overflow:hidden !important;
+}
+/* 包裹层：占满右栏高度，卡片按 flex 分配空间填满（不留大片空白）；
+   若卡片总高超出则内部滚动。 */
+.info-body .home-section-sidebar > div{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#4e4e4e transparent;
+  padding-right:2px;
+}
+/* Tailwind space-y adds margins as well as the flex gap; use one consistent gap. */
+.info-body .home-section-sidebar > div > :not([hidden]) ~ :not([hidden]){margin-top:0}
+/* Cards may grow to fill the rail, but keep enough room for their chart and title. */
+.info-body .home-section-sidebar > div > section{
+  box-sizing:border-box;
+  flex:1 0 auto;
+  min-height:188px;
+  display:flex;
+  flex-direction:column;
+}
+/* 图表容器（含 echarts 根节点）占满卡片可用高度 */
+.info-body .home-section-sidebar > div > section > .echarts-for-react,
+.info-body .home-section-sidebar > div > section > div:last-child{
+  flex:1 1 auto;
+  min-height:0;
+}
+.info-body .home-section-sidebar > div > section > .echarts-for-react{min-height:120px}
+.info-body .home-section-sidebar .echarts-for-react svg{height:100% !important}
+@media(max-width:900px){
+  .info-shell{height:auto;min-height:100%}
+  .info-body{flex:initial;overflow:visible}
+  .info-body .home-section-page{height:auto}
+  .info-body .home-section-sidebar{height:auto!important;overflow:visible!important}
+  .info-body .home-section-sidebar > div{flex:initial;overflow:visible;padding-right:0}
+  .info-body .home-section-sidebar > div > section{flex:initial}
+}
+
+/* ===== 回测仿真 ===== */
+/* 作为一级标签页：右栏同样做成"固定模块"——高度固定、底边与聊天框持平、
+   内容超出时模块内滚动（与信息页保持一致的观感）。 */
+.home-chat-workspace:has(.bt-sidebar) .bt-sidebar{
+  display:flex;
+  flex-direction:column;
+  height:calc(100% + 112px);
+  min-height:0;
+  overflow:hidden;
+}
+.home-chat-workspace:has(.bt-sidebar) .bt-sidebar > div{
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#4e4e4e transparent;
+  padding-right:2px;
+}
+.bt-stat-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media(max-width:900px){.bt-stat-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bt-stat-card{display:flex;flex-direction:column;gap:6px;border:1px solid #2a2a2e;border-radius:10px;background:#111111;padding:12px 14px;transition:border-color .2s,transform .2s}
+.bt-stat-card:hover{border-color:#3a3a42;transform:translateY(-1px)}
+.bt-stat-card small{color:#777;font-size:11px}
+.bt-stat-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px;font-weight:600;color:#f1f1f1;line-height:1;animation:btCountIn .45s ease both}
+.bt-stat-card.muted .bt-stat-value{color:#a9a9a9}
+@keyframes btCountIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.bt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:1200px){.bt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){.bt-grid{grid-template-columns:1fr}}
+.bt-card{display:grid;gap:8px;border:1px solid #2a2a2e;border-radius:10px;background:#0f0f10;padding:12px;text-align:left;cursor:pointer;transition:border-color .2s,background .2s,transform .2s;animation:btCardIn .35s ease both}
+.bt-card:hover{border-color:#3f3f47;background:#151517;transform:translateY(-2px)}
+@keyframes btCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.bt-card-name{color:#e2e2e2;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-card-code{color:#5a5a5a;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-card-bars{display:grid;gap:5px}
+.bt-bar-row{display:grid;grid-template-columns:30px minmax(0,1fr) 56px;align-items:center;gap:8px}
+.bt-bar-name{color:#6f6f6f;font-size:10px}
+.bt-bar-track{height:6px;border-radius:999px;background:#232327;overflow:hidden}
+.bt-bar-fill{display:block;height:100%;border-radius:999px;width:0;animation:btGrow .55s ease forwards}
+.bt-bar-fill.hit{background:linear-gradient(90deg,#4f6ae0,#6f8cff)}
+.bt-bar-fill.base{background:#55555a}
+@keyframes btGrow{to{width:var(--w)}}
+.bt-bar-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#a9a9a9;text-align:right}
+.bt-card-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #1e1e20;padding-top:7px;color:#5f5f5f;font-size:10px}
+.bt-delta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 5px;border-radius:4px}
+.bt-delta.up{background:rgba(248,113,113,.14);color:#f87171}
+.bt-delta.down{background:rgba(74,222,128,.14);color:#4ade80}
+
+/* ===== 中美利差右栏：历史位置 gauge + 曲线形态 ===== */
+.ts-gauge{display:grid;gap:10px;padding:6px 0}
+.ts-gauge-track{position:relative;height:8px;border-radius:999px;background:linear-gradient(90deg,#3a2a2a,#2a2a3a);overflow:visible}
+.ts-gauge-avg{position:absolute;top:-3px;width:2px;height:14px;background:#8b8b8b;border-radius:1px;transform:translateX(-1px)}
+.ts-gauge-marker{position:absolute;top:-4px;width:10px;height:16px;border-radius:3px;background:#6f8cff;box-shadow:0 0 8px rgba(111,140,255,.6);transform:translateX(-5px);transition:left .4s ease}
+.ts-gauge-labels{display:flex;align-items:center;justify-content:space-between;color:#6f6f6f;font-size:10px}
+.ts-gauge-current{color:#a9a9a9;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.ts-shape{display:grid;gap:9px;padding:4px 0}
+.ts-shape-row{display:flex;align-items:baseline;justify-content:space-between;color:#8b8b8b;font-size:12px}
+.ts-shape-row b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
+.ts-shape-row b.up{color:#f0a0a0}
+.ts-shape-row b.down{color:#6ee7a8}
+.ts-shape-note{margin:4px 0 0;color:#858585;font-size:11px;line-height:1.6}
+.ts-shape-note b{color:#c9c9c9}
+
+/* ===== 回测仿真右栏：持有期分档 ===== */
+.bt-holding-compare{display:grid;gap:8px}
+.bt-holding-row{display:grid;grid-template-columns:48px minmax(0,1fr) 28px;align-items:center;gap:8px}
+.bt-holding-label{color:#8b8b8b;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.bt-holding-track{height:8px;border-radius:999px;background:#232327;overflow:hidden}
+.bt-holding-track i{display:block;height:100%;border-radius:999px;width:0;animation:btGrow .5s ease forwards}
+.bt-holding-num{color:#a9a9a9;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-align:right}

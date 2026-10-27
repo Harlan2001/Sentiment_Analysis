@@ -1634,3 +1634,107 @@ export interface CreditSpreadSyncResult {
   inserted: number
   updated: number
 }
+
+// ========== 因子事件研究（回测仿真） ==========
+
+export interface FactorPerformanceHolding {
+  holding_days: number
+  sample_size: number
+  hit_count: number
+  /** 方向命中率 */
+  hit_rate: number | null
+  /** 多数类基准：无脑猜多数方向的命中率（方向命中率的正确对照组） */
+  majority_base: number | null
+  avg_move_bp: number | null
+  median_move_bp: number | null
+  period_start: string | null
+  period_end: string | null
+  computed_at?: string
+}
+
+export interface FactorPerformanceYear {
+  period_label: string
+  holding_days: number
+  sample_size: number
+  hit_rate: number | null
+  majority_base: number | null
+  avg_move_bp: number | null
+}
+
+export interface FactorPerformanceResponse {
+  factor_code: string
+  holding: FactorPerformanceHolding[]
+  yearly: FactorPerformanceYear[]
+  computed_at: string | null
+  min_samples: number
+}
+
+// ========== 中美利差 ==========
+
+export interface TreasurySpreadPoint {
+  date: string
+  /** 中债收益率(%) */
+  cn: number
+  /** 美债收益率(%) */
+  us: number
+  /** 利差(bp) = 中债 − 美债 */
+  spread_bp: number
+}
+
+export interface TreasuryCurvePoint {
+  term: string
+  value: number
+}
+
+export interface TreasurySpreadOverview {
+  term: string
+  latest: TreasurySpreadPoint | null
+  percentile?: number
+  min_bp?: number
+  max_bp?: number
+  avg_bp?: number
+  sample_size?: number
+  available_terms: string[]
+  series: TreasurySpreadPoint[]
+  /** 最新日期的美债曲线 */
+  curve: TreasuryCurvePoint[]
+}
+
+export interface TreasurySyncResult {
+  year: number
+  fetched: number
+  inserted: number
+  updated: number
+}
+
+// ========== 回测仿真总览 ==========
+
+export interface BacktestOverviewItem {
+  factor_code: string
+  /** 因子主键 id（用于跳转因子详情页；详情路由按 id 取数） */
+  factor_id: number | null
+  factor_name: string | null
+  sample_size: number
+  hit_rate: number | null
+  majority_base: number | null
+  avg_move_bp: number | null
+  median_move_bp: number | null
+  /** 样本是否达到阈值 */
+  sufficient: boolean
+  /** 命中率 − 基准（pt） */
+  delta: number | null
+}
+
+export interface BacktestOverviewResponse {
+  holding_days: number
+  min_samples: number
+  summary: {
+    factors: number
+    total_samples: number
+    avg_hit_rate: number | null
+    avg_base: number | null
+    sufficient: number
+    above_base: number
+  }
+  items: BacktestOverviewItem[]
+}
