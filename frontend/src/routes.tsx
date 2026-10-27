@@ -18,6 +18,7 @@ import PolicyDocumentDetailPage from '@/features/workflow/pages/PolicyDocumentDe
 import { SkillsPage } from '@/features/custom/SkillsPage'
 import { McpPage } from '@/features/custom/McpPage'
 import { MemoryPage } from '@/features/custom/MemoryPage'
+import { FileLibraryPage } from '@/features/file-library/FileLibraryPage'
 import { ProjectManagementPage } from '@/features/project/ProjectManagementPage'
 import { ProjectCreatePage } from '@/features/project/ProjectCreatePage'
 import {
@@ -71,6 +72,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/custom/mcp': <McpPage />,
   '/custom/skills': <SkillsPage />,
   '/custom/memory': <MemoryPage />,
+  '/file-library': <FileLibraryPage />,
   '/projects/new': <ProjectCreatePage />,
   '/projects/:projectId': <ProjectManagementPage />,
   '/news/:newsId': <NewsDetailPage />,
@@ -98,6 +100,7 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/custom/mcp',
   '/custom/skills',
   '/custom/memory',
+  '/file-library',
   '/projects/new',
   '/projects/:projectId',
   '/settings',

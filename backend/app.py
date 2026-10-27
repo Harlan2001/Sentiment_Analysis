@@ -29,6 +29,7 @@ from backend.routers.dashboard import router as dashboard_router
 from backend.routers.discover import router as discover_router
 from backend.routers.factors import router as factors_router
 from backend.routers.feishu_mcp import router as feishu_mcp_router
+from backend.routers.file_library import router as file_library_router
 from backend.routers.forecast import router as forecast_router
 from backend.routers.futures import router as futures_router
 from backend.routers.graph_augment import router as graph_augment_router
@@ -115,6 +116,7 @@ app.include_router(workbench_project_management_router)
 app.include_router(workbench_computer_router)
 app.include_router(watchlist_router)
 app.include_router(feishu_mcp_router)
+app.include_router(file_library_router)
 app.include_router(skills_router)
 app.include_router(strategy_router)
 app.include_router(treasury_router)

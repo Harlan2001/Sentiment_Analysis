@@ -73,6 +73,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/custom/mcp', title: 'MCP连接', shellTitle: '自定义 · MCP 连接', group: '自定义', track: true },
   { path: '/custom/skills', title: 'Skills', shellTitle: '自定义 · Skills', group: '自定义', track: true },
   { path: '/custom/memory', title: '记忆', shellTitle: '自定义 · 记忆', group: '自定义', track: true },
+  { path: '/file-library', title: '文件库', shellTitle: '文件库', navLabel: '文件库', navIcon: '▤', group: '工作台', track: true },
 
   // ── 项目 ──
   { path: '/projects', title: '项目', shellTitle: '项目空间', group: '项目与对话', track: true },
