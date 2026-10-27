@@ -11,7 +11,7 @@ from datetime import date
 from typing import Any, Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
@@ -271,8 +271,8 @@ def get_research_detail(report_id: int):
 
 @router.post("/upload")
 async def upload_research_pdf(
+    request: Request,
     file: UploadFile = File(...),
-    uploaded_by: str = Form("web"),
 ):
     """上传研报 PDF，自动解析入库。
 
@@ -303,7 +303,7 @@ async def upload_research_pdf(
         result = ingest_uploaded_pdf(
             pdf_bytes=pdf_bytes,
             original_filename=file.filename or "unknown.pdf",
-            uploaded_by=uploaded_by,
+            uploaded_by=getattr(request.state, "username", None) or "admin",
         )
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
