@@ -900,6 +900,103 @@
         }
       }
     },
+    "/sapi/factors/{factor_code}/performance": {
+      "get": {
+        "tags": [
+          "factors"
+        ],
+        "summary": "Get Factor Performance",
+        "description": "因子历史表现（事件研究结果）。\n\n用 news_factor 做事件研究：某因子出现后 T+1/T+5/T+20 的 10Y 收益率变动。\n同时给出**多数类基准**作对照 —— 方向命中率的正确参照不是 50%，\n而是\"无后猜多数方向\"的命中率，两者同屏由用户自行判断。",
+        "operationId": "get_factor_performance_sapi_factors__factor_code__performance_get",
+        "parameters": [
+          {
+            "name": "factor_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Factor Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/factors/backtest-overview": {
+      "get": {
+        "tags": [
+          "factors"
+        ],
+        "summary": "Get Backtest Overview",
+        "description": "回测仿真总览：各因子的历史表现 + 整体分布。\n\n用于回测仿真页一屏查看多个因子。与因子详情页的单因子视角互补。",
+        "operationId": "get_backtest_overview_sapi_factors_backtest_overview_get",
+        "parameters": [
+          {
+            "name": "holding_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 5,
+              "title": "Holding Days"
+            }
+          },
+          {
+            "name": "min_samples",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 20,
+              "title": "Min Samples"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/yields": {
       "get": {
         "tags": [
@@ -7236,6 +7333,193 @@
         }
       }
     },
+    "/sapi/file-library": {
+      "get": {
+        "tags": [
+          "file-library"
+        ],
+        "summary": "List File Library",
+        "operationId": "list_file_library_sapi_file_library_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
+            }
+          },
+          {
+            "name": "date_start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date Start"
+            }
+          },
+          {
+            "name": "date_end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date End"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/file-library/download": {
+      "get": {
+        "tags": [
+          "file-library"
+        ],
+        "summary": "Download File",
+        "description": "下载已有个人文件；所有路径都先从当前用户拥有的记录解析。",
+        "operationId": "download_file_sapi_file_library_download_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Record Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(pdf|docx)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/skills": {
       "get": {
         "tags": [
@@ -7794,6 +8078,100 @@
         }
       }
     },
+    "/sapi/treasury/overview": {
+      "get": {
+        "tags": [
+          "treasury"
+        ],
+        "summary": "Get Overview",
+        "description": "中美利差概览：当前值、历史分位、区间、序列。",
+        "operationId": "get_overview_sapi_treasury_overview_get",
+        "parameters": [
+          {
+            "name": "term",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "期限码：2Y/10Y/30Y",
+              "default": "10Y",
+              "title": "Term"
+            },
+            "description": "期限码：2Y/10Y/30Y"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/treasury/sync": {
+      "post": {
+        "tags": [
+          "treasury"
+        ],
+        "summary": "Sync Treasury",
+        "description": "抓取美国财政部美债收益率并入库（幂等）。",
+        "operationId": "sync_treasury_sapi_treasury_sync_post",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "年份，缺省取今年",
+              "title": "Year"
+            },
+            "description": "年份，缺省取今年"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/workbench/users": {
       "get": {
         "tags": [
@@ -8160,11 +8538,6 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
-          },
-          "uploaded_by": {
-            "type": "string",
-            "title": "Uploaded By",
-            "default": "web"
           }
         },
         "type": "object",
