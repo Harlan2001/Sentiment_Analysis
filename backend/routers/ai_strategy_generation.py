@@ -22,11 +22,11 @@ from backend.routers.workbench_helpers import raise_repository_error
 from backend.strategy.dream_strategy_prompt import (
     DEFAULT_INSTRUMENT,
     WHITELISTED_INSTRUMENTS,
-    resolve_instrument,
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
     build_dream_strategy_first_prompt,
     build_dream_strategy_prompt,
+    resolve_instrument,
 )
 
 logger = logging.getLogger(__name__)

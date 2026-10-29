@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -10,7 +9,6 @@ from backend.strategy.sentiment_context import (
     SHORT_HORIZON,
     MarketContextScope,
     build_sentiment_strategy_context,
-    format_factor_names,
     format_yield_curve,
     sentiment_dominance,
 )
