@@ -14,7 +14,7 @@ export default function NewsDetailPage() {
       <NewsDetailPanel
         newsId={Number(newsId)}
         closeLabel={fromStrategy ? '返回策略生成' : undefined}
-        onClose={() => navigate(fromStrategy ? `/computer/strategies/prompt?id=${strategyId}&view=strategy-news` : '/market')}
+        onClose={() => navigate(fromStrategy ? `/strategy/prompt?id=${strategyId}&view=strategy-news` : '/market')}
         onNewsClick={(id) => navigate(`/news/${id}${newsSearch}`)}
       />
     </div>

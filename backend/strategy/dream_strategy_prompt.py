@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -12,6 +13,11 @@ from backend.strategy.sentiment_context import (
     format_factor_names,
     format_yield_curve,
     sentiment_dominance,
+)
+from backend.strategy.signal_panel import (
+    DEFAULT_HOLDING_DAYS,
+    build_factor_signal_panel,
+    format_signal_panel,
 )
 
 TEMPLATE_PATH = (
@@ -27,6 +33,91 @@ EDITABLE_SECTION_START = "[USER_EDITABLE_REQUIREMENT]"
 EDITABLE_SECTION_END = "[/USER_EDITABLE_REQUIREMENT]"
 TRADING_PARAMETERS_START = "[TRADING_PARAMETERS]"
 TRADING_PARAMETERS_END = "[/TRADING_PARAMETERS]"
+INSTRUMENT_START = "[INSTRUMENT]"
+INSTRUMENT_END = "[/INSTRUMENT]"
+
+
+# ---------------------------------------------------------------------------
+# 交易标的白名单
+# ---------------------------------------------------------------------------
+# 只允许这些标的，理由见需求文档 §5.1：
+# - 全是利率债口径，我们的因子方向（positive = 收益率下行）可直接沿用；
+# - FCT_AU_MAIN（黄金）被显式排除——因子方向是债市口径，黄金需另行做方向映射。
+# 另外两个实测事实决定了默认值：
+# - 唯一被实证跑出成交的是 FCT_T_MAIN（25 个历史模板里 4 个有成交的全部用它）；
+# - 对端模型侧不做任何标的合法性校验，写错会一路跑到回测才崩，所以校验必须在这里做。
+DEFAULT_INSTRUMENT = "FCT_T_MAIN"
+
+WHITELISTED_INSTRUMENTS: dict[str, str] = {
+    "FCT_T_MAIN": "中金所10年期国债期货",
+    "100040": "中金所10年期国债期货（别名，同 FCT_T_MAIN）",
+    "FCT_TS_MAIN": "中金所2年期国债期货",
+    "FCT_TL_MAIN": "中金所30年期国债期货",
+    "IBK_G10Y_ACTV": "银行间10Y国债活跃券",
+    "IBK_CDB10_ACTV": "银行间10Y国开活跃券",
+}
+
+# 副本：一是给前端下拉用，二是把"需要资产方向映射、本期不做"的标的显式记录下来。
+EXCLUDED_INSTRUMENTS: dict[str, str] = {
+    "FCT_AU_MAIN": "上期所黄金期货（债市口径因子不适用，需另行做方向映射）",
+}
+
+DEFAULT_BACKTEST_MODE = "bar"
+DEFAULT_CANDLE_INTERVAL = "1d"
+BACKTEST_START = "2024-01-01"
+
+
+def _default_trading_parameters() -> str:
+    return "\n".join(f"- {name}：{value}" for name, value in DEFAULT_TRADING_PARAMETERS)
+
+
+# News retrieval only needs a market *category* (gold vs bond), never a specific
+# instrument. Hard-coding a three-instrument whitelist here produced prompts whose
+# declared instrument contradicted the user's own words; the actual tradeable
+# instrument is Dream AI's decision, guided by the user's verbatim requirement.
+GOLD_SCOPE = MarketContextScope(
+    label="黄金市场",
+    news_keywords=("黄金", "金价", "贵金属", "现货金"),
+    directional_trade_guidance=False,
+    include_yield_curve=False,
+)
+BOND_SCOPE = MarketContextScope(
+    label="债券市场",
+    news_keywords=("国债", "债券", "收益率", "货币政策"),
+    directional_trade_guidance=True,
+    include_yield_curve=True,
+)
+DEFAULT_SCOPE = BOND_SCOPE
+
+# Words that mark a gold mention as excluded ("除...黄金外") rather than requested.
+_NEGATION_MARKERS = ("除", "除了", "除外", "排除", "不要", "剔除")
+
+
+def resolve_instrument(
+    requirement: str, requested: Optional[str] = None
+) -> tuple[str, str]:
+    """解析并校验交易标的，返回 ``(code, label)``。
+
+    显式传入的 ``requested`` 必须命中白名单，否则抛 ``ValueError``——这是标的
+    合法性的唯一防线（对端模型侧不做校验）。未指定时从需求文本里找，找不到
+    就用默认标的。
+    """
+    if requested:
+        code = requested.strip()
+        if code in EXCLUDED_INSTRUMENTS:
+            raise ValueError(
+                f"标的 {code} 本期不支持：{EXCLUDED_INSTRUMENTS[code]}"
+            )
+        if code not in WHITELISTED_INSTRUMENTS:
+            allowed = "、".join(WHITELISTED_INSTRUMENTS)
+            raise ValueError(f"标的 {code} 不在白名单内，可选：{allowed}")
+        return code, WHITELISTED_INSTRUMENTS[code]
+
+    for code, label in WHITELISTED_INSTRUMENTS.items():
+        if code in requirement:
+            return code, label
+    return DEFAULT_INSTRUMENT, WHITELISTED_INSTRUMENTS[DEFAULT_INSTRUMENT]
+
 
 # Defaults keep even a broad request runnable on its first attempt.
 # They remain in the user-editable section and are rendered as form fields.
@@ -214,33 +305,55 @@ def build_dream_strategy_prompt(
     requirement: str,
     lookback_days: int = 7,
     model_name: Optional[str] = None,
+    instrument_code: Optional[str] = None,
+    backtest_mode: str = DEFAULT_BACKTEST_MODE,
+    candle_interval: str = DEFAULT_CANDLE_INTERVAL,
 ) -> dict[str, Any]:
     """Build the real DreamStrategy prompt without calling the external service."""
 
     normalized_requirement = " ".join(requirement.split())
     if not normalized_requirement:
         raise ValueError("策略需求不能为空")
-    scope = _resolve_market_scope(normalized_requirement)
-    context = build_sentiment_strategy_context(
-        lookback_days, model_name, scope
+
+    instrument_code, instrument_label = resolve_instrument(
+        normalized_requirement, instrument_code
     )
+    scope = _resolve_market_scope(normalized_requirement)
+    context = build_sentiment_strategy_context(lookback_days, model_name, scope)
     counts = context["news_sentiment"]["counts"]
     conclusion, action = _sentiment_guidance(counts, scope)
+
+    # 因子信号面板：与新闻上下文共用同一锚点，避免两块情报落在不同时点。
+    signal_panel = build_factor_signal_panel(
+        reference_time=context["reference_time"],
+        model_name=context["model_name"],
+        holding_days=DEFAULT_HOLDING_DAYS,
+    )
+
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     values = {
         "USER_REQUIREMENT": (
             f"{EDITABLE_SECTION_START}\n{TRADING_PARAMETERS_START}\n"
             f"{_default_trading_parameters()}\n{TRADING_PARAMETERS_END}\n\n"
+            f"{INSTRUMENT_START}\n"
+            f"- 交易标的：{instrument_code}（{instrument_label}）\n"
+            f"- 回测模式：{backtest_mode}\n"
+            f"- K线周期：{candle_interval}\n"
+            f"{INSTRUMENT_END}\n\n"
             f"[STRATEGY_REQUIREMENT]\n{normalized_requirement}\n"
             f"[/STRATEGY_REQUIREMENT]\n{EDITABLE_SECTION_END}"
         ),
+        "INSTRUMENT_CODE": instrument_code,
+        "INSTRUMENT_LABEL": instrument_label,
+        "BACKTEST_MODE": backtest_mode,
+        "CANDLE_INTERVAL": candle_interval,
+        "BACKTEST_START": BACKTEST_START,
+        "BACKTEST_END": context["reference_time"].strftime("%Y-%m-%d"),
         "MARKET_AS_OF": context["reference_time"].strftime("%Y-%m-%d %H:%M"),
         "FREQUENCY": DEFAULT_FREQUENCY,
         "MARKET_SCOPE": scope.label,
         "MARKET_TECHNICAL_STATE": TECHNICAL_STATE,
-        "YIELD_CURVE_SUMMARY": _format_yields(
-            context["yield_curve"], scope
-        ),
+        "YIELD_CURVE_SUMMARY": _format_yields(context["yield_curve"], scope),
         "REPORT_GENERATED_AT": context["generated_at"],
         "WINDOW_START": context["window_start"].strftime("%Y-%m-%d %H:%M"),
         "WINDOW_END": context["reference_time"].strftime("%Y-%m-%d %H:%M"),
@@ -253,24 +366,71 @@ def build_dream_strategy_prompt(
             context["news_sentiment"]["horizons"].get(SHORT_HORIZON, 0)
         ),
         "REPRESENTATIVE_EVENTS": _format_events(context["events"]),
-        "POSITIVE_FACTORS": format_factor_names(context["factors"]["positive"]),
-        "NEGATIVE_FACTORS": format_factor_names(context["factors"]["negative"]),
-        "YIELD_CURVE_DETAIL": _format_yields(
-            context["yield_curve"], scope
-        ),
+        "FACTOR_SIGNAL_PANEL": format_signal_panel(signal_panel),
+        "YIELD_CURVE_DETAIL": _format_yields(context["yield_curve"], scope),
         "SENTIMENT_CONCLUSION": conclusion,
         "SENTIMENT_STRATEGY_ACTION": action,
     }
     prompt = template
     for key, value in values.items():
         prompt = prompt.replace(f"{{{{{key}}}}}", value)
+
+    token_used = estimate_message_tokens(prompt)
+    if token_used > PROMPT_TOKEN_BUDGET:
+        # 超限对端会直接报错且无截断，这里提前暴露问题而不是等远端拒绝。
+        raise ValueError(
+            f"策略提示词超出预算：{token_used}/{PROMPT_TOKEN_BUDGET} token，"
+            "请缩短需求或减少回测区间描述"
+        )
+
     context.update(
         {
             "user_requirement": normalized_requirement,
             "prompt": prompt,
-            "prompt_version": "sentiment-strategy-chat-v2-instrument-scoped",
-            "instrument": scope.label,
+            "prompt_version": "sentiment-intel-pack-v1",
+            "instrument": instrument_label,
+            "instrument_code": instrument_code,
+            "backtest_mode": backtest_mode,
+            "candle_interval": candle_interval,
             "frequency": DEFAULT_FREQUENCY,
+            "factor_panel": signal_panel,
+            "token_used": token_used,
+            "token_budget": PROMPT_TOKEN_BUDGET,
         }
     )
     return context
+
+
+# 提示词预算：对端上限 10,000 token（中文约 6,666 字，超限直接报错、无截断），
+# 留出系统提示词与模型输出的余量后取 6,000 token（约 4,000 汉字）。
+PROMPT_TOKEN_BUDGET = 6000
+
+
+def estimate_message_tokens(text: str) -> int:
+    """与对端 ``EstimateTokenCount`` 一致的 token 估算。
+
+    ASCII 每字符记 1、三字节汉字每字记 6，最后整体除以 4，因此
+    1 个汉字 ≈ 1.5 token。这里复刻同一算法，确保我方预算判断与对端一致。
+    """
+
+    raw = text.encode("utf-8")
+    total = 0
+    index = 0
+    length = len(raw)
+    while index < length:
+        byte = raw[index]
+        if byte & 0x80 == 0:
+            total += 1
+            index += 1
+        elif byte & 0xE0 == 0xC0:
+            total += 4
+            index += 2
+        elif byte & 0xF0 == 0xE0:
+            total += 6
+            index += 3
+        elif byte & 0xF8 == 0xF0:
+            total += 8
+            index += 4
+        else:
+            index += 1
+    return total // 4

@@ -35,6 +35,8 @@ function getMonthDays(year: number, month: number): (number | null)[] {
 
 export function StrategyPage() {
   const navigate = useNavigate()
+  // 策略生成只保留首页导航入口
+  const promptBase = '/strategy/prompt'
   const [conversations, setConversations] = useState<StrategyConversation[]>([])
   const [request, setRequest] = useState('')
   const [loading, setLoading] = useState(true)
@@ -90,7 +92,7 @@ export function StrategyPage() {
     setError('')
     try {
       const created = await createStrategyConversation(req || '新策略对话')
-      navigate(`/computer/strategies/prompt?id=${created.id}`)
+      navigate(`${promptBase}?id=${created.id}`)
     } catch (e) { setError(e instanceof Error ? e.message : '创建策略失败') }
   }
 
@@ -192,7 +194,7 @@ export function StrategyPage() {
                 <span className="attention-dot running" />
                 <div><strong>{item.title || '新策略对话'}</strong><small>{timeLabel(item.last_message_at)}</small></div>
                 <span className="computer-badge warning">等待确认</span>
-                <button className="computer-button primary" onClick={() => navigate(`/computer/strategies/prompt?id=${item.id}`)}>查看并确认</button>
+                <button className="computer-button primary" onClick={() => navigate(`${promptBase}?id=${item.id}`)}>查看并确认</button>
                 <time>{timeLabel(item.updated_at)}</time>
               </div>
             ))}
@@ -221,7 +223,7 @@ export function StrategyPage() {
             : historyItems.length === 0 ? <tr><td colSpan={6} style={{textAlign:'center',padding:'24px',color:'#809188'}}>暂无策略会话</td></tr>
             : displayHistory.map((conv) => {
                 return (
-                  <tr key={conv.id} onClick={() => navigate(`/computer/strategies/prompt?id=${conv.id}`)} style={{cursor:'pointer'}}>
+                  <tr key={conv.id} onClick={() => navigate(`${promptBase}?id=${conv.id}`)} style={{cursor:'pointer'}}>
                     <td><span className={'computer-status ' + (conv.current_local_version_no > 0 ? 'done' : 'waiting')}>{conv.current_local_version_no > 0 ? '✓' : '●'}</span></td>
                     <td><strong>{conv.title || '新策略对话'}</strong><small>{timeLabel(conv.last_message_at)}</small></td>
                     <td>用户生成</td>

@@ -38,6 +38,8 @@ export const ROUTES: RouteMeta[] = [
   { path: '/watchlist', title: '关注列表', tabLabel: '关注列表', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio', title: '投资组合', tabLabel: '投资组合', brandTitle: true, group: '市场板块', track: true },
   { path: '/backtest', title: '回测仿真', tabLabel: '回测仿真', brandTitle: true, group: '市场板块', track: true },
+  { path: '/strategy', title: '策略生成', tabLabel: '策略生成', brandTitle: true, group: '市场板块', track: true },
+  { path: '/strategy/prompt', title: '策略生成', shellTitle: '策略生成' },
   // ── FICC 扩展（追加于末尾，不打乱既有标签顺序） ──
   { path: '/futures', title: '期货持仓', shellTitle: '期货持仓' },
   { path: '/credit-spread', title: '信用利差', shellTitle: '信用利差' },
@@ -61,8 +63,6 @@ export const ROUTES: RouteMeta[] = [
   { path: '/computer/reports', title: '研报分析', shellTitle: '工作流 · 研报分析', group: '工作台', track: true },
   { path: '/computer/reports/library', title: '研报库', shellTitle: '工作流 · 研报库' },
   { path: '/computer/reports/:taskId', title: '研报分析', shellTitle: '工作流 · 研报分析' },
-  { path: '/computer/strategies', title: '策略生成', shellTitle: '工作流 · 策略生成', group: '工作台', track: true },
-  { path: '/computer/strategies/prompt', title: '策略生成', shellTitle: '工作流 · 策略生成' },
   { path: '/computer/news', title: '新闻总结', shellTitle: '工作流 · 新闻总结', group: '工作台', track: true },
   { path: '/computer/news/:taskId', title: '新闻总结详情', shellTitle: '工作流 · 新闻总结详情' },
   { path: '/computer/policy', title: '政策文件分析', shellTitle: '工作流 · 政策文件分析', group: '工作台', track: true },

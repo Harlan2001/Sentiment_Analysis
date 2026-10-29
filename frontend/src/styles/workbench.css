@@ -1008,3 +1008,506 @@ select:focus,
 .bt-holding-track{height:8px;border-radius:999px;background:#232327;overflow:hidden}
 .bt-holding-track i{display:block;height:100%;border-radius:999px;width:0;animation:btGrow .5s ease forwards}
 .bt-holding-num{color:#a9a9a9;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-align:right}
+
+/* ============================================================
+   策略生成页 · 新增组件样式（sf-* 前缀）
+   只描述组件自身外观，不改动既有的布局规则。
+   ============================================================ */
+
+/* --- 因子信号表格 --- */
+.sf-signal-panel{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #373737;border-radius:12px;background:#181818}
+.sf-signal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sf-signal-head h4{margin:0;font-size:13px;color:#ececec}
+.sf-signal-head p{margin:4px 0 0;color:#8e8e8e;font-size:11px;line-height:1.6}
+.sf-signal-caliber{padding:3px 8px;border:1px solid #414141;border-radius:999px;color:#a9a9a9;font-size:10px;white-space:nowrap}
+.sf-signal-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.sf-signal-table th{padding:7px 8px;border-bottom:1px solid #3a3a3a;color:#8b8b8b;font-size:11px;font-weight:500;text-align:left;white-space:nowrap}
+.sf-signal-table th:nth-child(3),.sf-signal-table th:nth-child(4),.sf-signal-table th:nth-child(5){text-align:right}
+.sf-signal-row{cursor:pointer;transition:background .14s ease}
+.sf-signal-row:hover{background:#1f1f1f}
+.sf-signal-row td{padding:8px;border-bottom:1px solid #2c2c2c;color:#d2d2d2;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+.sf-signal-name{display:block;color:#ececec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sf-signal-row td small{display:block;margin-top:2px;color:#7d7d7d;font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sf-signal-num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.sf-signal-num small{display:inline!important;color:#7d7d7d}
+.sf-signal-time{color:#9a9a9a;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.sf-signal-badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #414141;font-size:11px;line-height:1.4}
+.sf-signal-badge--long{border-color:#2f5f47;background:#16241d;color:#58d39b}
+.sf-signal-badge--short{border-color:#633434;background:#241616;color:#ff8487}
+.sf-signal-badge--neutral{color:#a0a0a0}
+.sf-signal-detail-row td{padding:0;border-bottom:1px solid #2c2c2c;background:#141414}
+.sf-signal-detail{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sf-signal-detail dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:0}
+.sf-signal-detail dl>div{padding:7px 9px;border:1px solid #2f2f2f;border-radius:7px;background:#1b1b1b}
+.sf-signal-detail dt{color:#8b8b8b;font-size:10px}
+.sf-signal-detail dd{margin:3px 0 0;color:#e2e2e2;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-signal-caveat{margin:0;padding:8px 10px;border-left:2px solid #454545;color:#9c9c9c;font-size:11px;line-height:1.7}
+.sf-signal-caveat strong{color:#c8c8c8}
+.sf-signal-footnote{margin:0;color:#8a8a8a;font-size:11px;line-height:1.7}
+.sf-signal-empty{padding:16px;border:1px dashed #3d3d3d;border-radius:12px;background:#181818}
+.sf-signal-empty strong{display:block;color:#d8d8d8;font-size:13px}
+.sf-signal-empty p{margin:6px 0 0;color:#909090;font-size:12px;line-height:1.7}
+
+/* --- 验收结论 --- */
+.sf-verify{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #373737;border-radius:12px;background:#181818}
+.sf-verify--passed{border-color:#2f5f47}
+.sf-verify--rejected{border-color:#6b5a2a}
+.sf-verify--failed{border-color:#633434}
+.sf-verify--legacy{border-color:#3d3d3d}
+.sf-verify>header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sf-verify-badge{padding:4px 11px;border-radius:999px;border:1px solid #414141;font-size:12px}
+.sf-verify-badge--passed{border-color:#2f5f47;background:#16241d;color:#58d39b}
+.sf-verify-badge--rejected{border-color:#6b5a2a;background:#241f12;color:#e5c26a}
+.sf-verify-badge--failed{border-color:#633434;background:#241616;color:#ff8487}
+.sf-verify-badge--legacy{color:#a0a0a0}
+.sf-verify-trades{color:#d8d8d8;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-verify-steps{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.sf-verify-steps li{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12px;color:#cfcfcf}
+.sf-verify-step-mark{width:14px;flex:none;text-align:center}
+.sf-verify-steps li.ok .sf-verify-step-mark{color:#58d39b}
+.sf-verify-steps li.bad .sf-verify-step-mark{color:#ff8487}
+.sf-verify-step-label{color:#dcdcdc}
+.sf-verify-steps li small{color:#8b8b8b;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-verify-reason{margin:0;padding:8px 10px;border-left:2px solid #454545;color:#a8a8a8;font-size:11px;line-height:1.7}
+.sf-verify--legacy p{margin:0;color:#909090;font-size:11px;line-height:1.7}
+
+/* --- 交易标的下拉：与既有输入框同尺寸同字体 --- */
+.strategy-parameter-grid select{appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:29px;padding:0 24px 0 8px;border:1px solid #424242;border-radius:6px;outline:0;background:#202020;color:#e5e5e5;font-size:11px;font-family:inherit;line-height:27px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,#8a8a8a 50%),linear-gradient(135deg,#8a8a8a 50%,transparent 50%);background-position:calc(100% - 13px) 12px,calc(100% - 8px) 12px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.strategy-parameter-grid select:focus{border-color:#5f5f5f}
+.strategy-parameter-grid select:disabled{color:#7e7e7e;cursor:not-allowed}
+.strategy-parameter-grid select option{background:#202020;color:#e5e5e5}
+.strategy-instrument-note{margin:0;color:#8a8a8a;font-size:11px;line-height:1.7}
+
+/* --- 菜单 5 列 --- */
+.strategy-module-nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+
+
+
+/* ===================================================================
+   策略生成页 · 模块固定高度 + 模块内滚动
+   页面外壳（.strategy-prompt-page / .strategy-prompt-scroll / composer）
+   完全沿用原设计，此处只约束各模块内部的高度与滚动。
+   =================================================================== */
+
+/* 模块面板沿用原 grid：auto / minmax(0,1fr) / auto，中间即滚动区 */
+.strategy-module-panel{overflow:hidden}
+
+/* ---------- 策略与新闻：两个固定高度的并列面板 ---------- */
+.strategy-news-module .strategy-news-layout{
+  grid-template-columns:minmax(280px,2fr) minmax(420px,3fr);
+  grid-template-rows:minmax(0,1fr);
+  min-height:420px;
+  overflow:hidden;
+}
+.strategy-news-module .strategy-news-card-list,
+.strategy-news-module .strategy-summary-card{
+  min-height:0;
+  height:100%;
+  overflow:hidden;
+}
+.strategy-news-module .strategy-news-card-list>div{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding-right:4px;
+}
+.strategy-news-module .strategy-summary-output{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding-right:4px;
+  line-height:1.8;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+/* ---------- 指标与日志：验收 / 指标 / 日志 三段 ---------- */
+/* 验收结论一行，指标与日志各占剩余空间的一半；日志不再被 grid-column 挤到第四行 */
+/* 指标与日志：按"可见行数"定高度，而不是整块翻倍。
+   指标卡在 1080p 宽度下约 5 列、行高 86px + 间距 9px，两行半 ≈ 285px；
+   日志 11px/1.6 行高 ≈ 17.6px，10 行 + 内边距 ≈ 200px。
+   两区内容超出时各自内部滚动。 */
+.strategy-metrics-logs-module .strategy-metrics-logs-layout{
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto 285px 200px;
+  grid-auto-rows:min-content;
+  gap:12px;
+  min-height:0;
+  height:auto;
+  overflow:visible;
+}
+.strategy-metrics-logs-module .strategy-log-panel{grid-column:auto}
+.strategy-metrics-logs-module .sf-verify{grid-column:1/-1;flex:none}
+.strategy-metrics-logs-module .strategy-module-subpanel{
+  min-height:0;
+  height:100%;
+  overflow:hidden;
+}
+.strategy-metrics-logs-module .strategy-metrics-grid{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  grid-auto-rows:min-content;
+  gap:9px;
+  padding-right:4px;
+}
+.strategy-metrics-logs-module .metric-card{min-height:64px;padding:11px;justify-content:center}
+.strategy-metrics-logs-module .strategy-log-panel{min-height:0;height:100%}
+.strategy-metrics-logs-module .strategy-backtest-log{
+  flex:1;
+  min-height:0;
+  max-height:none;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+/* ---------- 因子与逻辑：链条与因子表各自滚动 ---------- */
+/* 链条按内容自然高度（超高时自身滚动），因子表占剩余空间 */
+.strategy-factors-module .strategy-module-scroll{
+  display:grid;
+  grid-template-rows:auto minmax(260px,1fr);
+  gap:13px;
+  min-height:0;
+  overflow:hidden;
+}
+.strategy-factors-module .sf-chain{
+  min-height:0;
+  max-height:none;
+  overflow:visible;
+}
+.strategy-factors-module .sf-signal-panel{
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.strategy-factors-module .sf-signal-table{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+@media(max-width:1080px){
+  .strategy-news-module .strategy-news-layout{
+    grid-template-columns:1fr;
+    grid-template-rows:minmax(280px,1fr) minmax(240px,1fr);
+    min-height:560px;
+  }
+  .strategy-metrics-logs-module .strategy-metrics-logs-layout{
+    grid-template-rows:auto minmax(180px,1fr) minmax(200px,1fr);
+  }
+}
+
+/* ===== 页头：标题可收缩、按钮不换行 ===== */
+.strategy-detail-head>.computer-button{flex:none;white-space:nowrap}
+.strategy-detail-head>div{flex:1;min-width:0}
+.strategy-detail-head h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 因子与逻辑：内容比其它模块长，允许面板跟随内容长高，由外层滚动承载 */
+.strategy-factors-module{
+  grid-template-rows:auto auto;
+  height:auto;
+  overflow:visible;
+}
+.strategy-factors-module .strategy-module-scroll{overflow:visible}
+.strategy-factors-module .sf-signal-panel{overflow:visible}
+.strategy-factors-module .sf-signal-table{overflow:visible;display:table}
+/* --- 逻辑链条 --- */
+.sf-chain{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid #373737;border-radius:12px;background:#181818}
+
+/* 标题行：左标题、右多空统计 */
+.sf-chain-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:13px;border-bottom:1px solid #2e2e2e}
+.sf-chain-heading h3{margin:0;font-size:13px;color:#eeeeee}
+.sf-chain-heading p{margin:4px 0 0;color:#8e8e8e;font-size:11px;line-height:1.7}
+.sf-chain-summary{display:flex;align-items:center;gap:8px;flex:none}
+.sf-chain-summary-item{display:flex;align-items:baseline;gap:3px;padding:5px 10px;border:1px solid #3a3a3a;border-radius:8px;background:#1d1d1d;color:#a8a8a8;font-size:11px}
+.sf-chain-summary-item em{font-size:15px;font-style:normal;font-weight:600;color:#e0e0e0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-chain-summary-item--long em{color:#58d39b}
+.sf-chain-summary-item--short em{color:#ff8487}
+
+.sf-chain-list{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.sf-chain-step{position:relative;display:flex;gap:13px;padding:0 0 18px}
+.sf-chain-step:last-child{padding-bottom:0}
+/* 竖向连接线 */
+.sf-chain-step:not(:last-child)::before{content:"";position:absolute;left:12px;top:26px;bottom:0;width:1px;background:#333}
+.sf-chain-index{flex:none;width:25px;height:25px;border-radius:999px;border:1px solid #3f3f3f;background:#1e1e1e;color:#b9b9b9;font-size:11px;font-weight:600;line-height:23px;text-align:center;z-index:1}
+.sf-chain-step--good .sf-chain-index{border-color:#2f5f47;background:#16241d;color:#58d39b}
+.sf-chain-step--warn .sf-chain-index{border-color:#6b5a2a;background:#241f12;color:#e5c26a}
+.sf-chain-step--bad .sf-chain-index{border-color:#633434;background:#241616;color:#ff8487}
+.sf-chain-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+
+/* 每环标题行：标题 + 右侧状态徽章 */
+.sf-chain-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sf-chain-title{color:#e4e4e4;font-size:12.5px;font-weight:600}
+.sf-chain-badge{padding:2px 8px;border:1px solid #3d3d3d;border-radius:999px;color:#a4a4a4;font-size:10px;line-height:1.6;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-chain-badge--good{border-color:#2f5f47;background:#16241d;color:#58d39b}
+.sf-chain-badge--warn{border-color:#6b5a2a;background:#241f12;color:#e5c26a}
+.sf-chain-badge--bad{border-color:#633434;background:#241616;color:#ff8487}
+.sf-chain-badge--muted{color:#8a8a8a}
+
+.sf-chain-content{display:flex;flex-direction:column;gap:8px}
+.sf-chain-content p{margin:0;color:#c2c2c2;font-size:12px;line-height:1.75;word-break:break-word}
+.sf-chain-content p strong{color:#e0e0e0}
+.sf-chain-content code{display:inline-block;padding:1px 6px;border-radius:4px;background:#242424;color:#d8d8d8;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-chain-meta{color:#8c8c8c!important;font-size:11px!important;line-height:1.7!important}
+.sf-chain-meta strong{color:#c8c8c8!important}
+
+/* 键值对网格：情报装配环节 */
+.sf-chain-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.sf-chain-fact{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid #2f2f2f;border-radius:7px;background:#1b1b1b}
+.sf-chain-fact>span{color:#868686;font-size:10px}
+.sf-chain-fact>strong{color:#e2e2e2;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* token 预算条 */
+.sf-chain-budget{display:flex;flex-direction:column;gap:5px}
+.sf-chain-budget-head{display:flex;align-items:baseline;justify-content:space-between;color:#8a8a8a;font-size:10px}
+.sf-chain-budget-head strong{color:#c8c8c8;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-chain-budget-track{height:5px;border-radius:999px;background:#262626;overflow:hidden}
+.sf-chain-budget-track i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3f6f56,#58d39b);transition:width .3s ease}
+
+/* 成交笔数大数字 */
+.sf-chain-trades{display:flex;align-items:baseline;gap:7px;padding:9px 12px;border:1px solid #333;border-radius:8px;background:#1b1b1b;align-self:flex-start}
+.sf-chain-trades em{font-size:24px;font-style:normal;font-weight:600;line-height:1;color:#e8e8e8;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-chain-trades span{color:#8a8a8a;font-size:11px}
+
+/* 验收三步勾选 */
+.sf-chain-checks{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.sf-chain-checks li{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid #333;border-radius:6px;background:#1b1b1b;color:#b0b0b0;font-size:10.5px}
+.sf-chain-checks li.ok{border-color:#2f5f47;color:#8fd6b0}
+.sf-chain-checks li.bad{border-color:#633434;color:#ff9c9e}
+
+.sf-chain-foot{padding-top:12px;border-top:1px solid #2e2e2e;color:#868686;font-size:11px;line-height:1.8}
+
+@media(max-width:760px){
+  .sf-chain-summary{width:100%}
+}
+
+/* 日志区：容纳更多行，内部滚动 */
+/* 指标区容纳约 2.5 行卡片，日志区容纳约 10 行输出 */
+.strategy-metrics-logs-module .strategy-log-panel{min-height:200px}
+.strategy-metrics-logs-module .strategy-backtest-log{min-height:150px}
+
+/* --- 方向汇总：传导语句 --- */
+.sf-chain-flow{margin:0;color:#c8c8c8;font-size:12px;line-height:1.85}
+.sf-chain-flow strong{color:#f0f0f0;font-size:13px}
+.sf-chain-flow em{font-style:normal;padding:1px 5px;border-radius:4px;font-weight:600}
+.sf-chain-flow em.long{background:rgba(88,211,155,.12);color:#58d39b}
+.sf-chain-flow em.short{background:rgba(255,132,135,.12);color:#ff8487}
+.sf-chain-flow b{color:#e8e8e8;font-weight:600}
+
+/* --- 门控规则：因子 → 策略 的传导流水线 --- */
+.sf-chain-flowline{display:flex;align-items:stretch;gap:0;margin:0;padding:0;list-style:none;flex-wrap:wrap}
+.sf-chain-flowline li{position:relative;flex:1;min-width:112px;display:flex;flex-direction:column;gap:4px;padding:9px 12px 9px 20px;border:1px solid #303030;background:#1b1b1b}
+.sf-chain-flowline li:first-child{border-radius:8px 0 0 8px;padding-left:12px}
+.sf-chain-flowline li:last-child{border-radius:0 8px 8px 0}
+/* 节点之间的箭头 */
+.sf-chain-flowline li:not(:first-child)::before{
+  content:"";position:absolute;left:-5px;top:50%;width:8px;height:8px;
+  border-top:1px solid #4a4a4a;border-right:1px solid #4a4a4a;
+  background:#1b1b1b;transform:translateY(-50%) rotate(45deg);
+}
+.sf-chain-flowline-node{color:#e0e0e0;font-size:11.5px;font-weight:600;white-space:nowrap}
+.sf-chain-flowline small{color:#8f8f8f;font-size:10.5px;line-height:1.55}
+@media(max-width:760px){
+  .sf-chain-flowline{flex-direction:column}
+  .sf-chain-flowline li{border-radius:8px!important;padding-left:12px}
+  .sf-chain-flowline li:not(:first-child)::before{display:none}
+}
+
+/* --- 因子表格：信号强度条 --- */
+.sf-signal-meter{display:flex;align-items:center;gap:7px;justify-content:flex-end}
+.sf-signal-meter-track{position:relative;width:56px;height:5px;border-radius:999px;background:#262626;overflow:hidden;flex:none}
+.sf-signal-meter-fill{display:block;height:100%;border-radius:999px}
+.sf-signal-meter-fill--long{background:linear-gradient(90deg,#2f6a4c,#58d39b)}
+.sf-signal-meter-fill--short{background:linear-gradient(90deg,#7a3a3a,#ff8487)}
+.sf-signal-meter-fill--neutral{background:#5a5a5a}
+.sf-signal-meter b{color:#dcdcdc;font-size:11px;min-width:34px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* --- 因子表格：命中率与基准对比 --- */
+.sf-signal-hit{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.sf-signal-hit b{color:#e2e2e2;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-signal-hit-base{color:#7d7d7d;font-size:9.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-signal-hit-edge{position:relative;display:flex;align-items:center;gap:4px;width:64px}
+.sf-signal-hit-edge i{display:block;height:3px;border-radius:999px;background:linear-gradient(90deg,#3f6f56,#58d39b);min-width:2px}
+.sf-signal-hit-edge em{color:#7f9e8d;font-size:9px;font-style:normal;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+
+/* --- 因子表格：明确列宽，避免 fixed 布局下平均分配导致因子名被截断 --- */
+.sf-signal-table{table-layout:fixed}
+.sf-signal-table col.sf-col-name{width:34%}
+.sf-signal-table col.sf-col-dir{width:9%}
+.sf-signal-table col.sf-col-score{width:16%}
+.sf-signal-table col.sf-col-hit{width:19%}
+.sf-signal-table col.sf-col-n{width:9%}
+.sf-signal-table col.sf-col-time{width:13%}
+/* 表头吸顶，滚动时仍能看到列含义 */
+.sf-signal-table thead th{position:sticky;top:0;z-index:2;background:#1b1b1b}
+/* 表格容器滚动条 */
+.sf-signal-table::-webkit-scrollbar{width:8px}
+.sf-signal-table::-webkit-scrollbar-thumb{border:2px solid #181818;border-radius:999px;background:#4e4e4e}
+/* 数值列右对齐已在 nth-child 处理，这里保证表头同步 */
+.sf-signal-table th:nth-child(6){text-align:left}
+
+/* --- 因子与逻辑页：面板整体节奏 --- */
+.strategy-factors-module .sf-signal-panel{background:#181818}
+.strategy-factors-module .sf-chain+.sf-signal-panel{margin-top:0}
+
+/* 指标与日志页：面板与内容区跟随固定高度撑开，避免被 overflow 裁切 */
+.strategy-metrics-logs-module{
+  grid-template-rows:auto auto;
+  height:auto;
+  overflow:visible;
+}
+.strategy-metrics-logs-module .strategy-module-subpanel{
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+}
+.strategy-metrics-logs-module .strategy-metrics-grid{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.strategy-metrics-logs-module .strategy-backtest-log{
+  flex:1;
+  min-height:0;
+  max-height:none;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+/* 指标卡行高收敛到 76px：285px 高度下正好露出 2.5 行，第三行半截可见提示可滚动 */
+.strategy-metrics-logs-module .strategy-metrics-grid{grid-auto-rows:76px}
+.strategy-metrics-logs-module .metric-card{min-height:0;height:76px}
+
+/* ===================================================================
+   策略生成页 · Markdown 编辑器 / 代码高亮 / 策略概要
+   =================================================================== */
+
+/* ---------- Markdown 编辑器（提示词草稿） ---------- */
+
+/* Markdown 渲染排版：与新闻总结页保持一致的暗色风格 */
+.sf-md-rendered{color:#d2d2d2;font-size:12px;line-height:1.8;word-break:break-word;max-width:100%}
+.sf-md-rendered h1,.sf-md-rendered h2,.sf-md-rendered h3,.sf-md-rendered h4{margin:14px 0 7px;color:#f0f0f0;line-height:1.45}
+.sf-md-rendered h1{font-size:17px}
+.sf-md-rendered h2{font-size:15px}
+.sf-md-rendered h3{font-size:13.5px}
+.sf-md-rendered h4{font-size:12.5px}
+.sf-md-rendered>:first-child{margin-top:0}
+.sf-md-rendered p{margin:0 0 8px}
+.sf-md-rendered ul,.sf-md-rendered ol{margin:0 0 9px;padding-left:20px}
+.sf-md-rendered li{margin:4px 0}
+.sf-md-rendered strong{color:#f0f0f0;font-weight:600}
+.sf-md-rendered em{color:#c0c0c0}
+.sf-md-rendered code{padding:1px 5px;border-radius:4px;background:#242424;color:#d8d8d8;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.sf-md-rendered pre{margin:9px 0;padding:11px;border:1px solid #2f2f2f;border-radius:8px;background:#131313;overflow-x:auto}
+.sf-md-rendered pre code{padding:0;background:transparent;font-size:11px;line-height:1.65}
+.sf-md-rendered blockquote{margin:9px 0;padding:6px 11px;border-left:2px solid #4a4a4a;color:#a8a8a8}
+.sf-md-rendered hr{margin:12px 0;border:0;border-top:1px solid #303030}
+.sf-md-rendered table{width:100%;margin:9px 0;border:1px solid #343434;border-collapse:separate;border-spacing:0;border-radius:8px;overflow:hidden;font-size:11.5px}
+.sf-md-rendered th,.sf-md-rendered td{padding:7px 9px;border-bottom:1px solid #343434;text-align:left}
+.sf-md-rendered th{background:#242424;color:#f0f0f0;font-weight:600}
+.sf-md-rendered tr:last-child td{border-bottom:0}
+
+/* ---------- 代码高亮（回测代码） ---------- */
+.sf-code{display:flex;flex:1;min-height:0;margin:0;border:1px solid #404040;border-radius:9px;background:#131313;overflow:auto}
+.sf-code-pre{margin:0;padding:10px 0;font:12px/1.7 Consolas,"Microsoft YaHei",sans-serif;counter-reset:none;min-width:min-content}
+.sf-code-line{display:flex;align-items:flex-start}
+.sf-code-line:hover{background:#1a1a1a}
+.sf-code-ln{flex:none;width:46px;padding-right:12px;text-align:right;color:#4f4f4f;user-select:none;font-size:11px;line-height:1.7}
+.sf-code-content{flex:1;padding-right:14px;color:#d4d4d4;white-space:pre;font-size:12px;line-height:1.7}
+.sf-tk-comment{color:#6a9955;font-style:italic}
+.sf-tk-string{color:#ce9178}
+.sf-tk-keyword{color:#569cd6}
+.sf-tk-number{color:#b5cea8}
+.sf-tk-decorator{color:#dcdcaa}
+.sf-tk-builtin{color:#4ec9b0}
+
+/* ---------- 策略概要：视图切换 + 结构化 ---------- */
+
+.sf-summary{display:flex;flex-direction:column;gap:14px}
+.sf-summary-section{display:flex;flex-direction:column;gap:6px}
+.sf-summary-section h4{margin:0;padding-bottom:5px;border-bottom:1px solid #2c2c2c;color:#e8e8e8;font-size:12px;font-weight:600}
+.sf-summary-section ul{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:4px}
+.sf-summary-section li{color:#c2c2c2;font-size:12px;line-height:1.75}
+.sf-summary-section p{margin:0;color:#c2c2c2;font-size:12px;line-height:1.75}
+.sf-summary-markdown{color:#d2d2d2;font-size:12px;line-height:1.8}
+/* 概要区滚动 */
+.strategy-summary-output>.sf-summary,
+.strategy-summary-output>.sf-summary-markdown{min-height:0}
+
+@media(max-width:1080px){
+  .sf-md--split .sf-md-body{grid-template-columns:1fr}
+  .sf-md--split .sf-md-pane+.sf-md-pane{border-left:0;border-top:1px solid #2f2f2f}
+}
+
+/* 回测代码模块：CodeHighlight 填满面板第二行并内部滚动 */
+.strategy-code-module>.sf-code{min-height:0;height:auto;max-height:none}
+.strategy-code-module{overflow:hidden}
+
+@media(max-width:1080px){
+  .sf-md--split .sf-md-body{grid-template-columns:1fr}
+  .sf-md--split .sf-md-pane+.sf-md-pane{border-left:0;border-top:1px solid #2f2f2f}
+}
+
+/* 回测代码模块：CodeHighlight 填满面板第二行并内部滚动 */
+.strategy-code-module>.sf-code{min-height:0;height:auto;max-height:none}
+.strategy-code-module{overflow:hidden}
+
+/* ===================================================================
+   提示词结构化视图
+   =================================================================== */
+
+/* 容器：撑满左侧 pane，内部滚动 —— 避免内容被裁掉 */
+
+/* 视图切换按钮（策略概要的结构化/原文切换也在用） */
+.sf-md-tabs{display:flex;gap:2px}
+.sf-md-tab{padding:4px 12px;border:0;border-radius:6px;background:transparent;color:#8f8f8f;font:inherit;font-size:11px;cursor:pointer;transition:background .14s ease,color .14s ease}
+.sf-md-tab:hover{background:#242424;color:#cfcfcf}
+.sf-md-tab.active{background:#2c2c2c;color:#f0f0f0}
+.sf-md-count{color:#777;font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* ---------- 策略概要：结构化键值布局 ---------- */
+.strategy-summary-card>header{align-items:center}
+
+.sf-summary{display:flex;flex-direction:column;gap:13px}
+.sf-summary-section{display:flex;flex-direction:column;gap:7px}
+.sf-summary-section h4{
+  margin:0;padding-bottom:5px;border-bottom:1px solid #2c2c2c;
+  color:#e8e8e8;font-size:12px;font-weight:600;
+}
+
+/* 键值对：标签固定宽度、值自动占满，扫读更快 */
+.sf-summary-kv{display:flex;flex-direction:column;gap:5px;margin:0}
+.sf-summary-kv>div{
+  display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;
+  padding:6px 9px;border:1px solid #2a2a2a;border-radius:6px;background:#181818;
+}
+.sf-summary-kv dt{color:#8f8f8f;font-size:11.5px;line-height:1.7}
+.sf-summary-kv dd{margin:0;color:#d2d2d2;font-size:12px;line-height:1.7;word-break:break-word}
+
+/* 普通条目 */
+.sf-summary-section ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.sf-summary-section li{
+  position:relative;padding:5px 9px 5px 18px;
+  color:#c2c2c2;font-size:12px;line-height:1.72;
+  border-radius:6px;
+}
+.sf-summary-section li::before{
+  content:"";position:absolute;left:6px;top:12px;
+  width:4px;height:4px;border-radius:50%;background:#5a5a5a;
+}
+.sf-summary-section li b{
+  color:#e2e2e2;font-weight:600;margin-right:6px;
+}
+.sf-summary-section li span{color:#c2c2c2}
+.sf-summary-section>p{margin:0;color:#c2c2c2;font-size:12px;line-height:1.75}
+
+@media(max-width:760px){
+  .sf-summary-kv>div{grid-template-columns:1fr;gap:3px}
+}

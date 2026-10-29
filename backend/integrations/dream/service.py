@@ -27,12 +27,33 @@ from backend.integrations.dream.client import (
     DreamClient,
     prepare_protobuf_modules,
 )
+from backend.strategy.backtest_validation import (
+    build_retry_feedback,
+    validate_strategy_result,
+)
 
 logger = logging.getLogger(__name__)
 
 # Dream sends normal chat/planning text and real strategy-result messages on the
 # same stream.  Only the latter is a user-facing generation result.
 _STRATEGY_RESULT_CONTENT_TYPE = 4
+# Terminal error frames. Both must end the wait immediately — otherwise the
+# worker blocks until the 900s total timeout while the remote side has already
+# given up (requirement doc FR-4).
+_ERROR_CONTENT_TYPE = 5
+_STATUS_ERROR = 5
+
+
+class DreamGenerationError(RuntimeError):
+    """Remote side reported a terminal generation error.
+
+    Carries the remote message text so the API layer can surface a concrete
+    reason instead of a generic 900s timeout.
+    """
+
+    def __init__(self, message: str, remote_message: str = "") -> None:
+        super().__init__(message)
+        self.remote_message = remote_message
 
 # A chat stream may finish before the asynchronous backtest has written its
 # result to the strategy template.  Keep this separate from the total request
@@ -167,6 +188,25 @@ def _is_strategy_result_message(message: Any) -> bool:
     except (TypeError, ValueError):
         pass
     return bool(str(getattr(message, "template_version_id", "") or "").strip())
+
+
+def _is_error_message(message: Any) -> bool:
+    """Terminal error signal: content_type=5 or generation status=5.
+
+    The protocol uses two independent channels for errors — a hard error frame
+    and a status transition — and neither is a "done" marker we can poll for
+    afterwards. Both must be treated as immediate failure.
+    """
+
+    try:
+        if int(getattr(message, "content_type", 0)) == _ERROR_CONTENT_TYPE:
+            return True
+    except (TypeError, ValueError):
+        pass
+    try:
+        return int(getattr(message, "strategy_generation_status", 0)) == _STATUS_ERROR
+    except (TypeError, ValueError):
+        return False
 
 
 def _clean_strategy_description(description: str) -> str:
@@ -369,11 +409,18 @@ def generate_strategy(
     settings: DreamStrategySettings | None = None,
     session_id: str | None = None,
     on_session_created: Callable[[str], None] | None = None,
+    validation_context: dict[str, Any] | None = None,
+    max_regenerations: int = 2,
 ) -> dict[str, Any]:
     """提交一次真实 DreamStrategy 生成并取回可展示的公开结果。
 
     此函数会创建远程会话、生成策略版本，并可能触发回测；调用方负责在调用前
     获得业务授权并保存任务状态。不会返回 strategy_generation_trace。
+
+    :param validation_context: 传入时启用我方验收门与带原因重生，例如
+        ``{"expected_instrument": "FCT_T_MAIN", "whitelist": {...}}``。
+    :param max_regenerations: 验收不通过时最多重发几轮修正请求。对端自身还有
+        3 次自动重生，叠加后总耗时仍可控（需求文档定 2 轮）。
     """
 
     if not prompt.strip():
@@ -399,93 +446,159 @@ def generate_strategy(
         )
         _ensure_success("订阅 DreamStrategy 消息", subscribe_response)
 
-        send_response = client.request(
-            EI_SEND_PROMPT,
-            extension_pb2.AddAiStrategyV2TemplateChatMessageRequest(
-                template_id=settings.template_id,
-                session_id=session_id,
-                content=prompt,
-                agent=settings.agent,
-            ),
-            extension_pb2.AddAiStrategyV2TemplateChatMessageResponse,
-        )
-        _ensure_success("发送 DreamStrategy 提示词", send_response)
-
-        final_message: Any | None = None
-        backtest_log = ""
+        attempt = 0
+        current_prompt = prompt
+        regenerations: list[dict[str, Any]] = []
         while True:
-            if time.monotonic() - started_at >= settings.timeout_seconds:
-                raise TimeoutError(
-                    f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒"
+            result = _run_single_generation(
+                client,
+                extension_pb2,
+                settings,
+                session_id,
+                current_prompt,
+                started_at,
+            )
+            if not validation_context:
+                result["regenerations"] = regenerations
+                return result
+
+            validation = validate_strategy_result(
+                result,
+                expected_instrument=validation_context.get("expected_instrument"),
+                whitelist=validation_context.get("whitelist"),
+            )
+            result["validation"] = validation.to_dict()
+            result["regenerations"] = regenerations
+
+            if validation.passed or not validation.retryable:
+                return result
+            if attempt >= max_regenerations:
+                result["summary"] = (
+                    f"{validation.reason}（已重试 {attempt} 轮，仍未通过验收）"
                 )
-            client.set_receive_timeout(
-                max(0.1, settings.timeout_seconds - (time.monotonic() - started_at))
-            )
-            _, command, payload = client.receive()
-            if command != EI_PUSH_MESSAGE:
-                continue
-            push = extension_pb2.PushAiStrategyV2TemplateChatMessage()
-            push.ParseFromString(payload)
-            if (
-                push.template_id != settings.template_id
-                or push.session_id != session_id
-            ):
-                continue
+                return result
 
-            message = push.message
-            is_strategy_result = _is_strategy_result_message(message)
-            # Ordinary assistant chat can finish long before the strategy job.
-            # It is not the completion signal and must never end this loop.
-            if message.role != 2 and not is_strategy_result:
-                continue
-            if message.backtest_log:
-                backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
-            if is_strategy_result and str(message.template_version_id or "").strip():
-                # The subscribed session is exclusive to this serialized local
-                # turn, so this version id belongs to this exact user request.
-                final_message = message
-                break
-
-        if final_message is None:
-            raise RuntimeError("DreamStrategy 未返回完成消息")
-        artifact_deadline = min(
-            started_at + settings.timeout_seconds,
-            time.monotonic() + settings.backtest_wait_seconds,
-        )
-        strategy = _wait_for_strategy_backtest(
-            client,
-            extension_pb2,
-            settings.template_id,
-            final_message.template_version_id,
-            artifact_deadline,
-        )
-        if not strategy or not str(strategy.get("code") or "").strip():
-            raise RuntimeError("DreamStrategy 正式策略结果未包含可执行回测代码。")
-        if not str(strategy.get("description") or "").strip():
-            raise RuntimeError("DreamStrategy 正式策略结果未包含策略概要。")
-        if not _backtest_is_complete(strategy):
-            raise RuntimeError("DreamStrategy 正式策略结果未完成回测，未保存不完整产物。")
-        if strategy.get("backtest_log"):
-            backtest_log = _merge_backtest_log(
-                backtest_log, str(strategy["backtest_log"])
+            attempt += 1
+            feedback = build_retry_feedback(validation, result)
+            regenerations.append(
+                {
+                    "attempt": attempt,
+                    "verdict": validation.verdict,
+                    "reason": validation.reason,
+                }
             )
-        return {
-            "template_id": settings.template_id,
-            "session_id": session_id,
-            "message_id": final_message.open_id,
-            "agent": settings.agent,
-            "summary": "策略版本和回测结果已生成。",
-            "strategy": strategy,
-            "template_version_id": final_message.template_version_id,
-            "template_version_no": final_message.template_version_no,
-            "generation_status": final_message.strategy_generation_status,
-            # Template fields are the durable, per-version backtest result. A
-            # chat message can be emitted before the asynchronous test finishes.
-            "backtest_passed": strategy.get("backtest_passed"),
-            "backtest_exit_code": strategy.get("backtest_exit_code"),
-            "backtest_summary": _summarize_backtest_log(backtest_log),
-            "backtest_metrics": _parse_backtest_metrics(backtest_log),
-            "elapsed_seconds": round(time.monotonic() - started_at, 3),
-        }
+            logger.info(
+                "DreamStrategy regeneration %s/%s: %s",
+                attempt,
+                max_regenerations,
+                validation.reason,
+            )
+            current_prompt = feedback
     finally:
         client.close()
+
+
+def _run_single_generation(
+    client: DreamClient,
+    extension_pb2: Any,
+    settings: DreamStrategySettings,
+    session_id: str,
+    prompt: str,
+    started_at: float,
+) -> dict[str, Any]:
+    """发送一轮提示词并等到终态结果；不含验收与重生逻辑。"""
+
+    send_response = client.request(
+        EI_SEND_PROMPT,
+        extension_pb2.AddAiStrategyV2TemplateChatMessageRequest(
+            template_id=settings.template_id,
+            session_id=session_id,
+            content=prompt,
+            agent=settings.agent,
+        ),
+        extension_pb2.AddAiStrategyV2TemplateChatMessageResponse,
+    )
+    _ensure_success("发送 DreamStrategy 提示词", send_response)
+
+    final_message: Any | None = None
+    backtest_log = ""
+    while True:
+        if time.monotonic() - started_at >= settings.timeout_seconds:
+            raise TimeoutError(
+                f"DreamStrategy 生成超过 {settings.timeout_seconds} 秒"
+            )
+        client.set_receive_timeout(
+            max(0.1, settings.timeout_seconds - (time.monotonic() - started_at))
+        )
+        _, command, payload = client.receive()
+        if command != EI_PUSH_MESSAGE:
+            continue
+        push = extension_pb2.PushAiStrategyV2TemplateChatMessage()
+        push.ParseFromString(payload)
+        if (
+            push.template_id != settings.template_id
+            or push.session_id != session_id
+        ):
+            continue
+
+        message = push.message
+        is_strategy_result = _is_strategy_result_message(message)
+        # 优先判定错误帧：对端一旦报错，继续等下去只会耗到总超时，
+        # 用户端看到的是"生成中"而不是真正的失败原因。
+        if _is_error_message(message):
+            remote_text = str(getattr(message, "content") or "").strip()
+            raise DreamGenerationError(
+                remote_text or "DreamStrategy 生成失败（对端返回错误状态）",
+                remote_message=remote_text,
+            )
+        # Ordinary assistant chat can finish long before the strategy job.
+        # It is not the completion signal and must never end this loop.
+        if message.role != 2 and not is_strategy_result:
+            continue
+        if message.backtest_log:
+            backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
+        if is_strategy_result and str(message.template_version_id or "").strip():
+            # The subscribed session is exclusive to this serialized local
+            # turn, so this version id belongs to this exact user request.
+            final_message = message
+            break
+
+    if final_message is None:
+        raise RuntimeError("DreamStrategy 未返回完成消息")
+    artifact_deadline = min(
+        started_at + settings.timeout_seconds,
+        time.monotonic() + settings.backtest_wait_seconds,
+    )
+    strategy = _wait_for_strategy_backtest(
+        client,
+        extension_pb2,
+        settings.template_id,
+        final_message.template_version_id,
+        artifact_deadline,
+    )
+    if not strategy or not str(strategy.get("code") or "").strip():
+        raise RuntimeError("DreamStrategy 正式策略结果未包含可执行回测代码。")
+    if not str(strategy.get("description") or "").strip():
+        raise RuntimeError("DreamStrategy 正式策略结果未包含策略概要。")
+    if not _backtest_is_complete(strategy):
+        raise RuntimeError("DreamStrategy 正式策略结果未完成回测，未保存不完整产物。")
+    if strategy.get("backtest_log"):
+        backtest_log = _merge_backtest_log(backtest_log, str(strategy["backtest_log"]))
+    return {
+        "template_id": settings.template_id,
+        "session_id": session_id,
+        "message_id": final_message.open_id,
+        "agent": settings.agent,
+        "summary": "策略版本和回测结果已生成。",
+        "strategy": strategy,
+        "template_version_id": final_message.template_version_id,
+        "template_version_no": final_message.template_version_no,
+        "generation_status": final_message.strategy_generation_status,
+        # Template fields are the durable, per-version backtest result. A
+        # chat message can be emitted before the asynchronous test finishes.
+        "backtest_passed": strategy.get("backtest_passed"),
+        "backtest_exit_code": strategy.get("backtest_exit_code"),
+        "backtest_summary": _summarize_backtest_log(backtest_log),
+        "backtest_metrics": _parse_backtest_metrics(backtest_log),
+        "elapsed_seconds": round(time.monotonic() - started_at, 3),
+    }

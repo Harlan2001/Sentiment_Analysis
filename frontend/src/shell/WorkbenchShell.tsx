@@ -58,8 +58,8 @@ export function WorkbenchShell() {
   const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
   const isWorkflowChild = location.pathname.startsWith('/computer/')
-  const showWorkflowBack = new Set(['/computer/reports', '/computer/strategies', '/computer/news', '/computer/policy']).has(location.pathname)
-  const hideWorkflowDetailTopbar = location.pathname === '/computer/strategies/prompt'
+  const showWorkflowBack = new Set(['/computer/reports', '/computer/news', '/computer/policy']).has(location.pathname)
+  const hideWorkflowDetailTopbar = location.pathname === '/strategy/prompt'
     || location.pathname.startsWith('/computer/reports/')
     || /^\/computer\/news\/[^/]+$/.test(location.pathname)
   const workflowChildTitle = topbarTitle.replace(/^工作流 · /, '')
