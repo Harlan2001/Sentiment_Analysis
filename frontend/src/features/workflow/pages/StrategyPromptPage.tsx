@@ -158,6 +158,7 @@ function StrategyNewsCard({ news, onOpen }: { news: StrategyNewsReference; onOpe
 export function StrategyPromptPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const listPath = '/strategy'
   const conversationId = Number(searchParams.get('id'))
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -416,7 +417,7 @@ export function StrategyPromptPage() {
     <section className={`strategy-prompt-page${isConfirmationView ? ' strategy-prompt-page--confirmation' : ''}`}>
       <div className="strategy-prompt-scroll">
       <header className="strategy-detail-head">
-        <button className="computer-button" onClick={() => navigate('/computer/strategies')}>← 返回策略生成</button>
+        <button className="computer-button" onClick={() => navigate(listPath)}>← 返回策略生成</button>
         <div><h1>{detail?.conversation?.title || '新策略对话'}</h1><p>策略会话 #{conversationId}</p></div>
         <span className="computer-spacer" />
         {isDraftReady && <span className="computer-badge warning">待确认</span>}

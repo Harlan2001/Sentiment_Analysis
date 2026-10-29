@@ -17,8 +17,8 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/computer/reports',
   '/computer/reports/library',
   '/computer/reports/:taskId',
-  '/computer/strategies',
-  '/computer/strategies/prompt',
+  '/strategy',
+  '/strategy/prompt',
   '/computer/news',
   '/computer/news/:taskId',
   '/custom/mcp',
@@ -59,8 +59,8 @@ describe('LOGIN_REQUIRED_ROUTES', () => {
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/reports')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/reports/library')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/reports/:taskId')).toBe(true)
-    expect(LOGIN_REQUIRED_ROUTES.has('/computer/strategies')).toBe(true)
-    expect(LOGIN_REQUIRED_ROUTES.has('/computer/strategies/prompt')).toBe(true)
+    expect(LOGIN_REQUIRED_ROUTES.has('/strategy')).toBe(true)
+    expect(LOGIN_REQUIRED_ROUTES.has('/strategy/prompt')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/news')).toBe(true)
     expect(LOGIN_REQUIRED_ROUTES.has('/computer/news/:taskId')).toBe(true)
   })
