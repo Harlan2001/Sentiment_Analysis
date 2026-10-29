@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -13,12 +14,15 @@ from pydantic import BaseModel, Field
 from backend.common.api_response import ok
 from backend.common.pagination import limit_param
 from backend.config.config import API_PREFIX, AUTH_ENABLED
-from backend.integrations.dream.service import generate_strategy
+from backend.integrations.dream.service import DreamGenerationError, generate_strategy
 from backend.repositories.ai_strategy_history_repository import (
     AiStrategyHistoryRepository,
 )
 from backend.routers.workbench_helpers import raise_repository_error
 from backend.strategy.dream_strategy_prompt import (
+    DEFAULT_INSTRUMENT,
+    WHITELISTED_INSTRUMENTS,
+    resolve_instrument,
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
     build_dream_strategy_first_prompt,
@@ -46,6 +50,10 @@ class ConversationDraftRequest(BaseModel):
     requirement: str = Field(min_length=1, max_length=2000)
     lookback_days: int = Field(default=7, ge=1, le=30)
     model_name: Optional[str] = None
+    # 标的必须来自白名单；不传时由后端从需求文本解析，仍不命中则用默认标的。
+    instrument_code: Optional[str] = None
+    backtest_mode: str = Field(default="bar", pattern="^(bar|tick|factor)$")
+    candle_interval: str = Field(default="1d", max_length=16)
 
 
 class PromptDraftConfirmRequest(BaseModel):
@@ -97,6 +105,9 @@ def _draft_context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
     return {
         "references": _serialize_news_references(context),
         "instrument": context.get("instrument"),
+        "instrument_code": context.get("instrument_code"),
+        "backtest_mode": context.get("backtest_mode"),
+        "candle_interval": context.get("candle_interval"),
         "frequency": context.get("frequency"),
         "model_name": context.get("model_name"),
         "lookback_days": context.get("lookback_days"),
@@ -113,6 +124,10 @@ def _draft_context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
         "generated_at": context.get("generated_at"),
         "prompt_version": context.get("prompt_version"),
         "market_scope": context.get("market_scope"),
+        # 因子面板与 token 用量要能还原，缺了就无法解释"当时凭什么这么判"。
+        "factor_panel": context.get("factor_panel"),
+        "token_used": context.get("token_used"),
+        "token_budget": context.get("token_budget"),
     }
 
 
@@ -147,6 +162,13 @@ async def create_prompt_draft(
     body: ConversationDraftRequest,
 ):
     owner_username = _history_owner(request)
+    # 白名单校验前置：必须在任何并发/会话状态检查之前把非法标的拒绝掉。
+    # 否则合法标的也可能撞上"当前有任务在跑"，用户看到的错误原因与事实不符。
+    try:
+        resolve_instrument(body.requirement, body.instrument_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     repository = _history_repository()
     if not repository.get_conversation(owner_username, conversation_id):
         raise HTTPException(status_code=404, detail="History conversation not found")
@@ -157,6 +179,9 @@ async def create_prompt_draft(
             normalized_requirement,
             body.lookback_days,
             body.model_name,
+            body.instrument_code,
+            body.backtest_mode,
+            body.candle_interval,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -182,6 +207,32 @@ async def create_prompt_draft(
     )
 
 
+def _validation_context_from_snapshot(
+    snapshot: Any, prompt: str
+) -> dict[str, Any]:
+    """Build the whitelist context for the acceptance gate.
+
+    The instrument comes from the draft snapshot so that later edits to the
+    requirement text cannot silently widen what counts as an acceptable symbol.
+    """
+    instrument = ""
+    if isinstance(snapshot, dict):
+        instrument = str(snapshot.get("instrument_code") or "").strip()
+    if not instrument:
+        # 快照缺失时退化到从提示词的 [INSTRUMENT] 段读取。
+        matched = re.search(
+            r"\[INSTRUMENT\][\s\S]*?交易标的：([A-Za-z0-9_]+)", prompt or ""
+        )
+        if matched:
+            instrument = matched.group(1)
+    if not instrument:
+        instrument = DEFAULT_INSTRUMENT
+    return {
+        "expected_instrument": instrument,
+        "whitelist": frozenset(WHITELISTED_INSTRUMENTS),
+    }
+
+
 async def _run_generation(
     owner_username: str,
     conversation_id: int,
@@ -189,6 +240,7 @@ async def _run_generation(
     final_sent_prompt: str,
     remote_session_id: str | None,
     on_session_created: Any,
+    validation_context: dict[str, Any] | None = None,
 ) -> None:
     """Run a DreamStrategy generation in a worker thread and persist its outcome.
 
@@ -202,10 +254,20 @@ async def _run_generation(
             final_sent_prompt,
             session_id=remote_session_id,
             on_session_created=on_session_created,
+            validation_context=validation_context,
         )
         repository = _history_repository()
         repository.complete_generation(
             owner_username, conversation_id, assistant_message_id, result
+        )
+    except DreamGenerationError as exc:
+        # 对端明确报错：立刻落库具体原因，不要等到超时把问题糊成"超时"。
+        repository = _history_repository()
+        repository.fail_generation(
+            owner_username,
+            conversation_id,
+            assistant_message_id,
+            exc.remote_message or str(exc),
         )
     except TimeoutError:
         repository = _history_repository()
@@ -288,6 +350,12 @@ async def confirm_prompt_draft(
             session_id,
         )
 
+    # 验收门要用的标的取自草稿快照——那里记录了本轮任务卡实际定下的品种，
+    # 用户后续改需求文本也不该改变本次验收的白名单口径。
+    validation_context = _validation_context_from_snapshot(
+        draft.get("context_json"), user_edited_prompt
+    )
+
     task = asyncio.create_task(
         _run_generation(
             owner_username,
@@ -296,6 +364,7 @@ async def confirm_prompt_draft(
             final_sent_prompt,
             remote_session_id,
             on_session_created if not remote_session_id else None,
+            validation_context,
         )
     )
     task.add_done_callback(_background_generation_tasks.discard)

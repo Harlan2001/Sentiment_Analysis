@@ -1,9 +1,23 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmStrategyDraft, createStrategyDraft, getStrategyConversation, StrategyConversationDetail, StrategyDraft, StrategyVersion } from '@/api/strategy'
+import {
+  confirmStrategyDraft,
+  createStrategyDraft,
+  getStrategyConversation,
+  DraftContext,
+  StrategyConversationDetail,
+  StrategyDraft,
+  StrategyValidation,
+  StrategyVersion,
+} from '@/api/strategy'
+import { CodeHighlight } from '@/features/workflow/components/CodeHighlight'
+import { FactorSignalTable } from '@/features/workflow/components/FactorSignalTable'
+import { LogicChain } from '@/features/workflow/components/LogicChain'
+import { StrategySummary } from '@/features/workflow/components/StrategySummary'
+import { ValidationSummary } from '@/features/workflow/components/ValidationSummary'
 
 type TradingParameter = { key: string; label: string; value: string }
-type StrategyModule = 'prompt' | 'strategy-news' | 'code' | 'metrics-logs'
+type StrategyModule = 'prompt' | 'factors' | 'strategy-news' | 'code' | 'metrics-logs'
 type StrategyNewsReference = {
   news_id?: number
   id?: number
@@ -15,8 +29,37 @@ type StrategyNewsReference = {
   usage?: string
 }
 
+/**
+ * 可交易标的白名单。
+ *
+ * 只列利率债口径的品种——我们的因子方向是"利多债券=收益率下行"，
+ * 黄金（FCT_AU_MAIN）需要另行做方向映射，本期不进白名单。
+ * FCT_T_MAIN 是历史实证里唯一跑出过成交的标的，故设为默认。
+ */
+const INSTRUMENT_OPTIONS = [
+  { code: 'FCT_T_MAIN', label: '中金所10年期国债期货（默认）' },
+  { code: 'FCT_TS_MAIN', label: '中金所2年期国债期货' },
+  { code: 'FCT_TL_MAIN', label: '中金所30年期国债期货' },
+  { code: 'IBK_G10Y_ACTV', label: '银行间10Y国债活跃券' },
+  { code: 'IBK_CDB10_ACTV', label: '银行间10Y国开活跃券' },
+] as const
+
+const BACKTEST_MODE_OPTIONS = [
+  { code: 'bar', label: 'bar（K线）' },
+  { code: 'tick', label: 'tick（逐笔）' },
+] as const
+
+const CANDLE_INTERVAL_OPTIONS = [
+  { code: '1d', label: '1d（日频）' },
+  { code: '1h', label: '1h（小时）' },
+  { code: '30m', label: '30m（30分钟）' },
+  { code: '5m', label: '5m（5分钟）' },
+  { code: '1m', label: '1m（1分钟）' },
+] as const
+
 const STRATEGY_MODULES: Array<{ id: StrategyModule; label: string }> = [
   { id: 'prompt', label: '提示词与确认' },
+  { id: 'factors', label: '因子与逻辑' },
   { id: 'strategy-news', label: '策略与新闻' },
   { id: 'code', label: '回测代码' },
   { id: 'metrics-logs', label: '指标与日志' },
@@ -98,7 +141,7 @@ function StrategyNewsCard({ news, onOpen }: { news: StrategyNewsReference; onOpe
   const newsId = Number(news.news_id || news.id || 0)
   const title = String(news.title || '未命名新闻')
   const meta = [news.source, news.publish_time || news.pub_time].filter(Boolean).join(' · ')
-  const description = String(news.usage || news.reason || '')
+  const description = String(news.reason || '')
 
   return (
     <button type="button" className="strategy-news-card" onClick={() => newsId > 0 && onOpen(newsId)} disabled={!newsId}>
@@ -132,12 +175,23 @@ export function StrategyPromptPage() {
   const requestedModule = searchParams.get('view')
   const activeModule: StrategyModule = isStrategyModule(requestedModule) ? requestedModule : 'prompt'
   const [copiedCode, setCopiedCode] = useState(false)
+  // 标的/模式/周期由用户显式选择；没有这三个输入正是历史上"模型自己选标的"的
+  // 事故来源，所以它们必须出现在表单里而不是藏在提示词里。
+  const [instrumentCode, setInstrumentCode] = useState<string>('FCT_T_MAIN')
+  const [backtestMode, setBacktestMode] = useState<string>('bar')
+  const [candleInterval, setCandleInterval] = useState<string>('1d')
 
   const selectModule = useCallback((module: StrategyModule) => {
     const nextParams = new URLSearchParams(searchParams)
     nextParams.set('view', module)
     setSearchParams(nextParams, { replace: true })
   }, [searchParams, setSearchParams])
+
+  /** 生成草稿时一并提交标的与模式，让后端的白名单校验能生效。 */
+  const draftOptions = useCallback(
+    () => ({ instrumentCode, backtestMode, candleInterval }),
+    [instrumentCode, backtestMode, candleInterval],
+  )
 
   const loadDetail = useCallback(() => {
     if (!conversationId) return
@@ -147,6 +201,13 @@ export function StrategyPromptPage() {
         setDetail(data)
         setError('')
         const lastAssistant = [...data.messages].reverse().find((m) => m.role === 'assistant')
+        // 回填上次选定的标的与模式，避免用户每次重新选、也避免与已存草稿不一致。
+        if (lastAssistant?.context_json) {
+          const snapshot = lastAssistant.context_json as DraftContext
+          if (snapshot.instrument_code) setInstrumentCode(snapshot.instrument_code)
+          if (snapshot.backtest_mode) setBacktestMode(snapshot.backtest_mode)
+          if (snapshot.candle_interval) setCandleInterval(snapshot.candle_interval)
+        }
         if (lastAssistant?.system_draft_prompt) {
           const editableDraft = lastAssistant.user_edited_prompt || lastAssistant.system_draft_prompt
           setDraft(editableDraft)
@@ -157,7 +218,7 @@ export function StrategyPromptPage() {
             assistant_message_id: lastAssistant.id,
             status: lastAssistant.status,
             system_draft_prompt: lastAssistant.system_draft_prompt,
-            context: (lastAssistant.context_json || {}) as Record<string, unknown>,
+            context: (lastAssistant.context_json || {}) as DraftContext,
           })
           const isPersistedAsConfirmed = lastAssistant.status !== 'pending_confirmation' || Boolean(lastAssistant.final_sent_prompt)
           setConfirmedPromptMessageId((current) => {
@@ -181,7 +242,7 @@ export function StrategyPromptPage() {
     if (!title || title === '新策略对话') { setAutoDraftDone(true); return }
     setAutoDraftDone(true)
     setSubmitting(true)
-    createStrategyDraft(conversationId, title)
+    createStrategyDraft(conversationId, title, 7, draftOptions())
       .then((result) => {
         setDraftData(result); setDraft(result.system_draft_prompt); setTradingParameters(extractTradingParameters(result.system_draft_prompt)); setSystemDraft(result.system_draft_prompt)
         setConfirmedPromptMessageId(null)
@@ -227,7 +288,7 @@ export function StrategyPromptPage() {
     const title = detail?.conversation?.title || ''
     setSubmitting(true)
     try {
-      const result = await createStrategyDraft(conversationId, title)
+      const result = await createStrategyDraft(conversationId, title, 7, draftOptions())
       setDraftData(result); setDraft(result.system_draft_prompt); setTradingParameters(extractTradingParameters(result.system_draft_prompt)); setSystemDraft(result.system_draft_prompt)
       setConfirmedPromptMessageId(null)
       selectModule('prompt')
@@ -243,7 +304,7 @@ export function StrategyPromptPage() {
     setChatInput('')
     setSubmitting(true)
     try {
-      const result = await createStrategyDraft(conversationId, msg)
+      const result = await createStrategyDraft(conversationId, msg, 7, draftOptions())
       setDraftData(result); setDraft(result.system_draft_prompt); setTradingParameters(extractTradingParameters(result.system_draft_prompt)); setSystemDraft(result.system_draft_prompt)
       setConfirmedPromptMessageId(null)
       selectModule('prompt')
@@ -267,6 +328,40 @@ export function StrategyPromptPage() {
   }, [lastAssistant])
   const backtestLog = lastVersion?.backtest_summary?.trim() || ''
   const strategySummary = lastVersion?.description ? cleanStrategySummary(lastVersion.description) : ''
+  // 因子面板与验收结论都来自草稿快照 / 消息内容，历史版本没有时组件自身会优雅降级。
+  const factorPanel = useMemo(() => {
+    const snapshot = (lastAssistant?.context_json || {}) as DraftContext
+    return snapshot.factor_panel ?? null
+  }, [lastAssistant])
+  // 逻辑链条要读标的/模式/token 用量，与因子面板同源于草稿快照。
+  const draftContext = useMemo<DraftContext | null>(() => {
+    const snapshot = draftData?.context || (lastAssistant?.context_json as DraftContext | undefined)
+    return snapshot && typeof snapshot === 'object' ? snapshot : null
+  }, [draftData, lastAssistant])
+  const validation = useMemo<StrategyValidation | null>(() => {
+    const raw = lastAssistant?.validation_json
+    return raw && typeof raw === 'object' ? raw : null
+  }, [lastAssistant])
+  // 徽章文案由后端 verdict 决定，前端不自行推断——三步判定逻辑在后端，
+  // 两边各算一套必然漂移。
+  const verdictBadgeText = useMemo(() => {
+    if (!lastVersion) return '待回测'
+    if (validation) {
+      if (validation.verdict === 'passed') return '验收通过'
+      if (validation.verdict === 'no_trade') return '无成交（不合格）'
+      if (validation.verdict === 'backtest_failed') return '回测失败'
+      return '回测异常'
+    }
+    return lastVersion.backtest_passed ? '回测通过（未验收）' : '回测未通过'
+  }, [lastVersion, validation])
+  const verdictBadgeTone = useMemo(() => {
+    if (!lastVersion) return 'file'
+    if (validation) {
+      if (validation.verdict === 'passed') return 'file'
+      return 'warning'
+    }
+    return lastVersion.backtest_passed ? 'file' : 'warning'
+  }, [lastVersion, validation])
   // Reaching any later content stage means the prompt/confirmation stage is complete.
   // Keep this independent of eventual-consistency delays in the message status API.
   const hasReachedPostConfirmationStage = activeModule !== 'prompt'
@@ -349,17 +444,62 @@ export function StrategyPromptPage() {
             <div className="strategy-prompt-editor-pane">
               <h3>提示词草稿</h3>
               {draft || systemDraft || isConfirmationView || isRunning || isDone ? (
-                <textarea className="strategy-draft-textarea" value={draft || systemDraft} placeholder={loading ? '正在读取策略会话…' : '正在生成提示词草稿…'} onChange={(event) => isDraftReady && setDraft(event.target.value)} readOnly={!isDraftReady} />
+                <textarea
+                  className="strategy-draft-textarea"
+                  value={draft || systemDraft}
+                  placeholder={loading ? '正在读取策略会话…' : '正在生成提示词草稿…'}
+                  onChange={(event) => isDraftReady && setDraft(event.target.value)}
+                  readOnly={!isDraftReady}
+                />
               ) : <div className="strategy-module-empty">在下方聊天框输入策略需求以生成提示词草稿。</div>}
             </div>
             <aside className="strategy-parameter-pane">
-              <div><h3>交易参数</h3><p>修改后会同步写入左侧提示词。</p></div>
+              <div><h3>交易参数</h3><p>标的与模式决定任务卡，修改后需重新生成草稿。</p></div>
               <div className="strategy-parameter-grid">
+                <label>
+                  <span>交易标的</span>
+                  <select
+                    value={instrumentCode}
+                    disabled={submitting || isRunning}
+                    onChange={(event) => setInstrumentCode(event.target.value)}
+                  >
+                    {INSTRUMENT_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>策略模式</span>
+                  <select
+                    value={backtestMode}
+                    disabled={submitting || isRunning}
+                    onChange={(event) => setBacktestMode(event.target.value)}
+                  >
+                    {BACKTEST_MODE_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>K线周期</span>
+                  <select
+                    value={candleInterval}
+                    disabled={submitting || isRunning}
+                    onChange={(event) => setCandleInterval(event.target.value)}
+                  >
+                    {CANDLE_INTERVAL_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
                 {tradingParameters.map((parameter) => <label key={parameter.key}>
                   <span>{parameter.label}</span>
                   <input value={parameter.value} disabled={!isDraftReady || submitting} onChange={(event) => updateTradingParameter(parameter.key, event.target.value)} />
                 </label>)}
               </div>
+              <p className="strategy-instrument-note">
+                标的限定为利率债口径品种。黄金等需另做方向映射，本期不支持。
+              </p>
             </aside>
           </div>
           <footer className="strategy-prompt-actions">
@@ -370,35 +510,75 @@ export function StrategyPromptPage() {
           </footer>
         </section>}
 
+        {activeModule === 'factors' && <section className="strategy-module-panel strategy-factors-module">
+          <header>
+            <div><h2>因子与逻辑</h2><p>按「情报 → 因子 → 门控 → 策略 → 验收」逐环核对本策略的依据。</p></div>
+            <span className="computer-badge file">{factorPanel?.count ? `${factorPanel.count} 个因子` : '待生成'}</span>
+          </header>
+          <div className="strategy-module-scroll">
+            <LogicChain
+              context={draftContext}
+              validation={validation}
+              strategySummary={strategySummary}
+              backtestPassed={lastVersion?.backtest_passed}
+              isDone={isDone}
+              isRunning={isRunning}
+            />
+            <FactorSignalTable panel={factorPanel} />
+          </div>
+        </section>}
+
         {activeModule === 'strategy-news' && <section className="strategy-module-panel strategy-news-module">
           <header><div><h2>策略与新闻</h2><p>查看策略概要及本次生成所引用的相关新闻。</p></div><span className="computer-badge file">{isDone ? '已生成' : isRunning ? '生成中' : '待生成'}</span></header>
           <div className="strategy-news-layout">
-            <article className="strategy-news-card-list">
-              <header><h3>相关新闻</h3><span>{newsReferences.length} 条</span></header>
-              {newsReferences.length > 0 ? <div>{newsReferences.map((news, index) => <StrategyNewsCard key={String(news.news_id || news.id || index)} news={news} onOpen={openStrategyNews} />)}</div> : <p className="strategy-empty-state">{isRunning ? '正在整理相关新闻…' : '本次策略未返回可展示的新闻引用。'}</p>}
-            </article>
-            <article className="strategy-summary-card">
-              <h3>策略概要</h3>
-              {isDone && strategySummary ? <div className="strategy-summary-output">{strategySummary}</div> : hasTextOnlyReply ? <p className="strategy-empty-state">{generationFailureMessage}</p> : <div className="strategy-running-state"><span className="computer-progress"><i /></span><small>{isRunning ? '正在生成策略概要…' : '确认提示词后生成策略概要'}</small></div>}
-            </article>
+              <article className="strategy-news-card-list">
+                <header><h3>相关新闻</h3><span>{newsReferences.length} 条</span></header>
+                {newsReferences.length > 0
+                  ? <div>{newsReferences.map((news, index) => <StrategyNewsCard key={String(news.news_id || news.id || index)} news={news} onOpen={openStrategyNews} />)}</div>
+                  : <p className="strategy-empty-state">
+                      {isRunning ? '正在整理相关新闻…' : '本轮情报包未引用新闻。可点「提示词与确认」查看完整情报包原文。'}
+                    </p>}
+              </article>
+              <article className="strategy-summary-card">
+                {/* 卡片保留"策略概要"标题；模型输出里同名的 ## 标题已由组件过滤，不会重复 */}
+                <h3>策略概要</h3>
+                {isDone && strategySummary
+                  ? <div className="strategy-summary-output">
+                      <StrategySummary markdown={strategySummary} />
+                    </div>
+                  : hasTextOnlyReply
+                    ? <p className="strategy-empty-state">{generationFailureMessage}</p>
+                    : <div className="strategy-running-state">
+                        <span className="computer-progress"><i /></span>
+                        <small>{isRunning ? '正在生成策略概要…' : '确认生成后，此处显示模型给出的策略逻辑说明'}</small>
+                      </div>}
+              </article>
           </div>
         </section>}
 
         {activeModule === 'code' && <section className="strategy-module-panel strategy-code-module">
           <header><div><h2>回测代码</h2><p>{lastVersion ? `版本 ${lastVersion.local_version_no} · Python` : '策略生成完成后可查看完整代码'}</p></div><button className="computer-button" onClick={() => void copyCode()} disabled={!lastVersion?.code}>{copiedCode ? '已复制' : '一键复制'}</button></header>
-          {lastVersion?.code ? <textarea className="strategy-code-output" value={lastVersion.code} readOnly spellCheck={false} /> : hasTextOnlyReply ? <p className="strategy-empty-state">{generationFailureMessage}</p> : <div className="strategy-running-state"><span className="computer-progress"><i /></span><small>{isRunning ? '正在生成回测代码…' : '确认提示词后生成回测代码'}</small></div>}
+          {lastVersion?.code ? <CodeHighlight code={lastVersion.code} /> : hasTextOnlyReply ? <p className="strategy-empty-state">{generationFailureMessage}</p> : <div className="strategy-running-state"><span className="computer-progress"><i /></span><small>{isRunning ? '正在生成回测代码…' : '确认提示词后生成回测代码'}</small></div>}
         </section>}
 
         {activeModule === 'metrics-logs' && <section className="strategy-module-panel strategy-metrics-logs-module">
-          <header><div><h2>指标与日志</h2><p>集中查看回测表现、运行状态和完整日志。</p></div><span className="computer-badge file">{lastVersion?.backtest_passed === null || !lastVersion ? '待回测' : lastVersion.backtest_passed ? '回测通过' : '回测未通过'}</span></header>
+          <header>
+            <div><h2>指标与日志</h2><p>验收结论优先于平台回测状态：0 成交一律判为不合格。</p></div>
+            <span className={`computer-badge ${verdictBadgeTone}`}>{verdictBadgeText}</span>
+          </header>
           <div className="strategy-metrics-logs-layout">
+            <ValidationSummary
+              validation={validation}
+              backtestPassed={lastVersion?.backtest_passed}
+              backtestSummary={backtestLog}
+            />
             <article className={`strategy-module-subpanel ${hasBacktestResult ? isBacktestPassed ? 'backtest-result--passed' : 'backtest-result--failed' : ''}`}>
-              <header><h3>回测指标</h3><span>{metrics.length} 项</span></header>
-              {metrics.length > 0 ? <div className="strategy-metrics-grid">{metrics.map((metric, index) => <div className={`metric-card metric-card--${metricTone(metric.label, metric.value)}`} key={`${metric.label}-${index}`}><small>{displayMetricLabel(metric.label)}</small><strong title={metric.value}>{metric.value}</strong></div>)}</div> : <p className="strategy-empty-state">回测完成后将在这里显示指标。</p>}
-            </article>
-            <article className="strategy-module-subpanel strategy-log-panel">
-              <header><h3>回测日志</h3><span>{lastVersion?.backtest_exit_code !== null && lastVersion?.backtest_exit_code !== undefined ? `退出码 ${lastVersion.backtest_exit_code}` : '等待输出'}</span></header>
-              {backtestLog ? <pre className="strategy-backtest-log">{backtestLog}</pre> : <p className="strategy-empty-state">暂无回测日志。</p>}
+                <header><h3>回测指标</h3><span>{metrics.length} 项</span></header>
+                {metrics.length > 0 ? <div className="strategy-metrics-grid">{metrics.map((metric, index) => <div className={`metric-card metric-card--${metricTone(metric.label, metric.value)}`} key={`${metric.label}-${index}`}><small>{displayMetricLabel(metric.label)}</small><strong title={metric.value}>{metric.value}</strong></div>)}</div> : <p className="strategy-empty-state">回测完成后将在这里显示指标。</p>}
+              </article>
+              <article className="strategy-module-subpanel strategy-log-panel">
+                <header><h3>回测日志</h3><span>{lastVersion?.backtest_exit_code !== null && lastVersion?.backtest_exit_code !== undefined ? `退出码 ${lastVersion.backtest_exit_code}` : '等待输出'}</span></header>
+                {backtestLog ? <pre className="strategy-backtest-log">{backtestLog}</pre> : <p className="strategy-empty-state">暂无回测日志。</p>}
             </article>
           </div>
         </section>}
