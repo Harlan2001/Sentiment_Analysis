@@ -8621,6 +8621,29 @@
               }
             ],
             "title": "Model Name"
+          },
+          "instrument_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Code"
+          },
+          "backtest_mode": {
+            "type": "string",
+            "pattern": "^(bar|tick|factor)$",
+            "title": "Backtest Mode",
+            "default": "bar"
+          },
+          "candle_interval": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Candle Interval",
+            "default": "1d"
           }
         },
         "type": "object",

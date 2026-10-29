@@ -360,7 +360,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 if not conversation:
                     raise ConversationNotFoundError("History conversation not found")
                 cursor.execute(
-                    """UPDATE ai_strategy_messages SET content = %s, status = %s, public_error_message = %s, remote_message_id = %s, elapsed_seconds = %s, updated_at = CURRENT_TIMESTAMP
+                    """UPDATE ai_strategy_messages SET content = %s, status = %s, public_error_message = %s, remote_message_id = %s, elapsed_seconds = %s, validation_json = %s, updated_at = CURRENT_TIMESTAMP
                                   WHERE id = %s AND conversation_id = %s AND owner_username = %s""",
                     (
                         result.get("summary", ""),
@@ -368,6 +368,13 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                         public_error,
                         result.get("message_id") or None,
                         result.get("elapsed_seconds"),
+                        # 验收结论单独成列：它和平台口径的 backtest_passed 语义不同，
+                        # 混在一个字段里会让前端无法区分"跑完了"和"真的成交了"。
+                        (
+                            json.dumps(result["validation"], ensure_ascii=False)
+                            if result.get("validation")
+                            else None
+                        ),
                         assistant_message_id,
                         conversation_id,
                         owner_username,
@@ -469,7 +476,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, public_error_message, created_at, updated_at
+                    """SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, validation_json, public_error_message, created_at, updated_at
                                   FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s ORDER BY sequence_no ASC""",
                     (conversation_id, owner_username),
                 )
