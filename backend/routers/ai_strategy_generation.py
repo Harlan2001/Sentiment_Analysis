@@ -21,12 +21,13 @@ from backend.repositories.ai_strategy_history_repository import (
 from backend.routers.workbench_helpers import raise_repository_error
 from backend.strategy.dream_strategy_prompt import (
     DEFAULT_INSTRUMENT,
+    EXCLUDED_INSTRUMENTS,
     WHITELISTED_INSTRUMENTS,
-    resolve_instrument,
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
     build_dream_strategy_first_prompt,
     build_dream_strategy_prompt,
+    resolve_instrument,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,11 @@ router = APIRouter(
 
 # Fire-and-forget handle to running generation tasks so they are not garbage-collected.
 _background_generation_tasks: set[asyncio.Task] = set()
+
+# 对端同一账号同一时间只允许跑一个生成任务（单飞约束）。进程内按 owner 占位：
+# owner -> 正在运行的 conversation_id，用于 409 文案。进程重启后占位自然清空，
+# DB 里遗留的 running 行由 sweep_stale_running 兜底。
+_active_generation_owners: dict[str, int] = {}
 
 
 class ConversationCreateRequest(BaseModel):
@@ -145,6 +151,24 @@ def list_conversations(request: Request, limit: int = limit_param()):
     return ok({"items": repository.list_conversations(owner_username, limit)})
 
 
+@router.get("/instruments")
+def list_supported_instruments():
+    """标的白名单元数据：前端下拉不再硬编码，以后端校验口径为准。"""
+    return ok(
+        {
+            "default": DEFAULT_INSTRUMENT,
+            "instruments": [
+                {"code": code, "label": label}
+                for code, label in WHITELISTED_INSTRUMENTS.items()
+            ],
+            "excluded": [
+                {"code": code, "reason": reason}
+                for code, reason in EXCLUDED_INSTRUMENTS.items()
+            ],
+        }
+    )
+
+
 @router.get("/conversations/{conversation_id}")
 def get_conversation(request: Request, conversation_id: int):
     owner_username = _history_owner(request)
@@ -193,6 +217,7 @@ async def create_prompt_draft(
             normalized_requirement,
             context["prompt"],
             snapshot,
+            instrument_label=str(context.get("instrument") or "") or None,
         )
     except Exception as exc:
         raise_repository_error(exc)
@@ -328,6 +353,17 @@ async def confirm_prompt_draft(
         if remote_session_id
         else build_dream_strategy_first_prompt(user_edited_prompt)
     )
+
+    # 账号级单飞：从这里到 create_task 之间没有 await，check+claim 对事件循环原子。
+    active_conversation_id = _active_generation_owners.get(owner_username)
+    if active_conversation_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"该账号已有一个策略生成任务正在进行（会话 #{active_conversation_id}），"
+                "平台同一时间只允许运行一个；请等当前任务结束后再发送。"
+            ),
+        )
     if not repository.confirm_prompt_draft(
         owner_username,
         conversation_id,
@@ -338,6 +374,7 @@ async def confirm_prompt_draft(
         raise HTTPException(
             status_code=409, detail="This prompt draft can no longer be confirmed"
         )
+    _active_generation_owners[owner_username] = conversation_id
 
     def on_session_created(session_id: str) -> None:
         repository.save_remote_session(
@@ -367,7 +404,14 @@ async def confirm_prompt_draft(
             validation_context,
         )
     )
-    task.add_done_callback(_background_generation_tasks.discard)
+
+    def _release_owner(done_task: asyncio.Task) -> None:
+        _background_generation_tasks.discard(done_task)
+        # 只释放自己的占位，避免任务收尾交错时误删后来者的占位。
+        if _active_generation_owners.get(owner_username) == conversation_id:
+            _active_generation_owners.pop(owner_username, None)
+
+    task.add_done_callback(_release_owner)
     _background_generation_tasks.add(task)
 
     return ok(
@@ -377,6 +421,32 @@ async def confirm_prompt_draft(
             "status": "running",
         }
     )
+
+
+@router.post("/conversations/{conversation_id}/drafts/{assistant_message_id}/abandon")
+def abandon_prompt_draft(
+    request: Request, conversation_id: int, assistant_message_id: int
+):
+    """放弃待确认草稿（纯本地操作；待确认阶段没有任何远端调用）。"""
+    owner_username = _history_owner(request)
+    repository = _history_repository()
+    draft = repository.get_prompt_draft(
+        owner_username, conversation_id, assistant_message_id
+    )
+    if not draft:
+        raise HTTPException(status_code=404, detail="Prompt draft not found")
+    if draft.get("status") != "pending_confirmation":
+        raise HTTPException(
+            status_code=409,
+            detail="This prompt draft has already been confirmed, replaced, or abandoned",
+        )
+    if not repository.abandon_prompt_draft(
+        owner_username, conversation_id, assistant_message_id
+    ):
+        raise HTTPException(
+            status_code=409, detail="This prompt draft can no longer be abandoned"
+        )
+    return ok({"status": "cancelled"})
 
 
 @router.patch("/conversations/{conversation_id}/archive")

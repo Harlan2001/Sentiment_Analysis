@@ -205,6 +205,26 @@
         }
       }
     },
+    "/sapi/ai-strategy-generation/instruments": {
+      "get": {
+        "tags": [
+          "ai-strategy-generation"
+        ],
+        "summary": "List Supported Instruments",
+        "description": "标的白名单元数据：前端下拉不再硬编码，以后端校验口径为准。",
+        "operationId": "list_supported_instruments_sapi_ai_strategy_generation_instruments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/ai-strategy-generation/conversations/{conversation_id}": {
       "get": {
         "tags": [
@@ -370,6 +390,56 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/ai-strategy-generation/conversations/{conversation_id}/drafts/{assistant_message_id}/abandon": {
+      "post": {
+        "tags": [
+          "ai-strategy-generation"
+        ],
+        "summary": "Abandon Prompt Draft",
+        "description": "放弃待确认草稿（纯本地操作；待确认阶段没有任何远端调用）。",
+        "operationId": "abandon_prompt_draft_sapi_ai_strategy_generation_conversations__conversation_id__drafts__assistant_message_id__abandon_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "assistant_message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Assistant Message Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",

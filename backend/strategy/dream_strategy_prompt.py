@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -10,7 +9,6 @@ from backend.strategy.sentiment_context import (
     SHORT_HORIZON,
     MarketContextScope,
     build_sentiment_strategy_context,
-    format_factor_names,
     format_yield_curve,
     sentiment_dominance,
 )
@@ -65,32 +63,6 @@ EXCLUDED_INSTRUMENTS: dict[str, str] = {
 DEFAULT_BACKTEST_MODE = "bar"
 DEFAULT_CANDLE_INTERVAL = "1d"
 BACKTEST_START = "2024-01-01"
-
-
-def _default_trading_parameters() -> str:
-    return "\n".join(f"- {name}：{value}" for name, value in DEFAULT_TRADING_PARAMETERS)
-
-
-# News retrieval only needs a market *category* (gold vs bond), never a specific
-# instrument. Hard-coding a three-instrument whitelist here produced prompts whose
-# declared instrument contradicted the user's own words; the actual tradeable
-# instrument is Dream AI's decision, guided by the user's verbatim requirement.
-GOLD_SCOPE = MarketContextScope(
-    label="黄金市场",
-    news_keywords=("黄金", "金价", "贵金属", "现货金"),
-    directional_trade_guidance=False,
-    include_yield_curve=False,
-)
-BOND_SCOPE = MarketContextScope(
-    label="债券市场",
-    news_keywords=("国债", "债券", "收益率", "货币政策"),
-    directional_trade_guidance=True,
-    include_yield_curve=True,
-)
-DEFAULT_SCOPE = BOND_SCOPE
-
-# Words that mark a gold mention as excluded ("除...黄金外") rather than requested.
-_NEGATION_MARKERS = ("除", "除了", "除外", "排除", "不要", "剔除")
 
 
 def resolve_instrument(
@@ -198,8 +170,25 @@ def _format_yields(yield_curve: list[dict[str, Any]], scope: MarketContextScope)
     return format_yield_curve(yield_curve)
 
 
+def _panel_direction(
+    panel_items: list[dict[str, Any]] | None,
+) -> tuple[str, int, int]:
+    """统计因子面板方向，返回 ("positive"|"negative"|"balanced"|"no_data", 多, 空)。"""
+    pos = sum(1 for item in (panel_items or []) if item.get("direction") == "positive")
+    neg = sum(1 for item in (panel_items or []) if item.get("direction") == "negative")
+    if pos > neg:
+        return "positive", pos, neg
+    if neg > pos:
+        return "negative", pos, neg
+    if pos:
+        return "balanced", pos, neg
+    return "no_data", pos, neg
+
+
 def _sentiment_guidance(
-    counts: dict[str, int], scope: MarketContextScope
+    counts: dict[str, int],
+    scope: MarketContextScope,
+    panel_items: list[dict[str, Any]] | None = None,
 ) -> tuple[str, str]:
     dominance = sentiment_dominance(counts, scope)
     if dominance == "background_only":
@@ -207,14 +196,54 @@ def _sentiment_guidance(
             f"已仅按{scope.label}检索新闻；原有方向标签不直接等同于{scope.label}多空。",
             "新闻仅用于风险提示、信号过滤或提高开仓阈值，不单独决定交易方向。",
         )
+
+    panel_dominance, f_pos, f_neg = _panel_direction(panel_items)
+    news_direction_text = {
+        "positive": f"利多{scope.label}信号占优",
+        "negative": f"利空{scope.label}信号占优",
+        "balanced": f"利多与利空{scope.label}信号均衡",
+        "no_data": f"{scope.label}方向新闻不足",
+    }
+    panel_text = {
+        "positive": f"事件研究因子面板偏多（多{f_pos}/空{f_neg}）",
+        "negative": f"事件研究因子面板偏空（多{f_pos}/空{f_neg}）",
+    }
+
+    # 新闻标签与因子面板严格反向时必须显式标注冲突，否则任务卡自相矛盾
+    # （S0 实测：因子面板 7 个全"多"，结论却写"利空占优、空头确认"）。
+    if (
+        dominance in {"positive", "negative"}
+        and panel_dominance in {"positive", "negative"}
+        and panel_dominance != dominance
+    ):
+        forbidden = {"positive": "做空", "negative": "做多"}[panel_dominance]
+        return (
+            f"信号冲突：新闻标签{news_direction_text[dominance]}，但{panel_text[panel_dominance]}",
+            "两类证据口径不同：新闻方向是模型逐条标注，仅作风险过滤；"
+            f"因子方向来自历史事件统计检验。冲突时不得按新闻情绪单边{forbidden}，"
+            "价格/技术信号是唯一交易触发，因子面板仅作同向门控，"
+            "冲突缓解前降低仓位、提高开仓阈值",
+        )
+
     if dominance == "positive":
-        return f"利多{scope.label}信号占优", "将新闻仅用于方向确认或降低开仓阈值"
+        return news_direction_text["positive"], "将新闻仅用于方向确认或降低开仓阈值"
     if dominance == "negative":
         return (
-            f"利空{scope.label}信号占优",
+            news_direction_text["negative"],
             "将新闻仅用于空头方向确认、提高开仓阈值或风险降级",
         )
-    return f"利多与利空{scope.label}信号均衡或不足", "不以新闻形成方向，必要时暂停交易"
+    if dominance == "balanced":
+        return news_direction_text["balanced"], "不以新闻形成方向，必要时暂停交易"
+    # no_data：新闻无方向时，因子面板可以单独给出门控倾向。
+    if panel_dominance in {"positive", "negative"}:
+        return (
+            f"方向新闻不足；{panel_text[panel_dominance]}",
+            "不以新闻形成交易方向；价格/技术信号触发，因子面板仅作同向门控",
+        )
+    return (
+        news_direction_text["no_data"],
+        "不以新闻形成方向，必要时暂停交易",
+    )
 
 
 # Execution rules that apply to every strategy generation, including the first
@@ -321,7 +350,6 @@ def build_dream_strategy_prompt(
     scope = _resolve_market_scope(normalized_requirement)
     context = build_sentiment_strategy_context(lookback_days, model_name, scope)
     counts = context["news_sentiment"]["counts"]
-    conclusion, action = _sentiment_guidance(counts, scope)
 
     # 因子信号面板：与新闻上下文共用同一锚点，避免两块情报落在不同时点。
     signal_panel = build_factor_signal_panel(
@@ -329,6 +357,8 @@ def build_dream_strategy_prompt(
         model_name=context["model_name"],
         holding_days=DEFAULT_HOLDING_DAYS,
     )
+    # 结论必须同时看新闻与因子面板，方向相反时显式标注冲突（S0 实证的自相矛盾）。
+    conclusion, action = _sentiment_guidance(counts, scope, signal_panel.get("items"))
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     values = {

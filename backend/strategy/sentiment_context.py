@@ -99,22 +99,110 @@ def sentiment_dominance(counts: dict[str, int], scope: MarketContextScope) -> st
     return "balanced"
 
 
-def _build_synthesis(news_counts: dict[str, int], scope: MarketContextScope) -> str:
+def _factor_dominance(
+    positive_factors: list[dict[str, Any]] | None,
+    negative_factors: list[dict[str, Any]] | None,
+) -> str:
+    """因子整合段的整体方向："positive" | "negative" | "balanced" | "no_data"。"""
+    pos = len(positive_factors or [])
+    neg = len(negative_factors or [])
+    if pos > neg:
+        return "positive"
+    if neg > pos:
+        return "negative"
+    if pos:
+        return "balanced"
+    return "no_data"
+
+
+# 新闻方向与因子方向相反时，必须显式标注冲突，不能让两段情报各说各话
+# （S0 实测：7 个因子全"多"，结论却写"利空占优/空头确认"，模型因此自相矛盾）。
+_CONFLICT_DIRECTION_TEXT = {
+    "positive": ("偏多", "做空"),
+    "negative": ("偏空", "做多"),
+}
+
+
+def _build_synthesis(
+    news_counts: dict[str, int],
+    scope: MarketContextScope,
+    positive_factors: list[dict[str, Any]] | None = None,
+    negative_factors: list[dict[str, Any]] | None = None,
+) -> str:
     dominance = sentiment_dominance(news_counts, scope)
     if dominance == "background_only":
         return (
             f"已按{scope.label}过滤新闻。现有分析模型的方向标签以债券语境为主，"
             "只能作为风险背景和信号过滤，不得直接解读为标的多空交易方向。"
         )
+
+    factor_dominance = _factor_dominance(positive_factors, negative_factors)
+    f_pos = len(positive_factors or [])
+    f_neg = len(negative_factors or [])
+    if factor_dominance in {"positive", "negative"}:
+        lean_text = _CONFLICT_DIRECTION_TEXT[factor_dominance][0]
+        factor_summary = (
+            f"通过事件研究检验的因子面板整体{lean_text}"
+            f"（正向因子{f_pos}个、负向因子{f_neg}个）"
+        )
+    else:
+        factor_summary = ""
+    n_pos = news_counts.get("positive", 0)
+    n_neg = news_counts.get("negative", 0)
+    news_summary = (
+        f"窗口内新闻方向标签：利多{scope.label} {n_pos}条、利空{scope.label} {n_neg}条"
+    )
+
     if dominance == "no_data":
+        if factor_dominance in {"positive", "negative"}:
+            return (
+                f"当前范围没有方向明确的新闻；{factor_summary}。"
+                "不以新闻形成交易方向；因子面板只作门控，等待价格和技术信号确认。"
+            )
         return (
             "当前范围没有方向明确的新闻；不以新闻形成交易方向，等待价格和技术信号确认。"
         )
+
+    directional_conflict = (
+        dominance in {"positive", "negative"}
+        and factor_dominance in {"positive", "negative"}
+        and factor_dominance != dominance
+    )
+    if directional_conflict:
+        # 严格反向才标冲突；新闻均衡 + 因子有方向不算冲突，按因子门控处理。
+        lean_text, forbidden_action = _CONFLICT_DIRECTION_TEXT[factor_dominance]
+        return (
+            f"⚠ 情报口径冲突：{news_summary}，但{factor_summary}。"
+            "两类证据口径不同——因子方向来自历史事件统计检验，新闻方向是模型逐条标注；"
+            f"冲突时不得按新闻情绪单边{forbidden_action}。"
+            f"价格/技术信号是唯一交易触发，因子面板只作同向门控；"
+            f"冲突缓解前应降低仓位、提高开仓阈值。"
+        )
+
     if dominance == "positive":
-        return f"利多{scope.label}信号占优；仅在价格确认后考虑使用与趋势一致的仓位。"
-    if dominance == "negative":
-        return f"利空{scope.label}信号占优；仅在价格确认后收缩仓位或提高开仓阈值。"
-    return "正负向信号均衡；保持中性仓位，不用新闻单独触发交易。"
+        base = f"利多{scope.label}信号占优"
+        tail = "仅在价格确认后考虑使用与趋势一致的仓位。"
+    elif dominance == "negative":
+        base = f"利空{scope.label}信号占优"
+        tail = "仅在价格确认后收缩仓位或提高开仓阈值。"
+    else:
+        base = "正负向新闻信号均衡"
+        tail = "保持中性仓位，不用新闻单独触发交易。"
+
+    if factor_dominance in {"positive", "negative"}:
+        lean_text = _CONFLICT_DIRECTION_TEXT[factor_dominance][0]
+        if dominance == "balanced":
+            return (
+                f"新闻方向均衡（利多{scope.label} {n_pos}条、利空{scope.label} {n_neg}条），"
+                f"但{factor_summary}；不按新闻形成方向，以因子面板作同向门控，"
+                "等待价格和技术信号确认。"
+            )
+        return (
+            f"新闻与因子面板同向{lean_text}：{news_summary}，{factor_summary}；{tail}"
+        )
+    if factor_dominance == "balanced":
+        return f"{base}；因子面板多空因子数量均衡（各{f_pos}个），不提供额外方向倾斜。{tail}"
+    return f"{base}；{tail}"
 
 
 def _scope_filter(scope: MarketContextScope) -> tuple[str, tuple[str, ...]]:
@@ -166,7 +254,8 @@ def _build_prompt(
         f"【三、因子整合】正向因子：{format_factor_names(positive_factors)}。"
         f"负向因子：{format_factor_names(negative_factors)}。\n"
         f"【四、市场验证】{yield_text}。\n"
-        f"【五、给策略 AI 的使用方式】{_build_synthesis(news_counts, scope)}"
+        f"【五、给策略 AI 的使用方式】"
+        f"{_build_synthesis(news_counts, scope, positive_factors, negative_factors)}"
         "新闻不代替价格、流动性和回测验证，不得单独作为交易触发。"
     )
 

@@ -53,20 +53,16 @@ export function StrategyPage() {
 
   /* dropdown 状态 */
   const [statusFilter, setStatusFilter] = useState<string>('全部')
-  const [sourceFilter, setSourceFilter] = useState<string>('全部')
   const [statusOpen, setStatusOpen] = useState(false)
-  const [sourceOpen, setSourceOpen] = useState(false)
   const statusRef = useRef<HTMLDivElement>(null)
-  const sourceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function outside(e: MouseEvent) {
       if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false)
-      if (sourceRef.current && !sourceRef.current.contains(e.target as Node)) setSourceOpen(false)
     }
-    if (statusOpen || sourceOpen) document.addEventListener('mousedown', outside)
+    if (statusOpen) document.addEventListener('mousedown', outside)
     return () => document.removeEventListener('mousedown', outside)
-  }, [statusOpen, sourceOpen])
+  }, [statusOpen])
 
   useEffect(() => {
     function outside(e: MouseEvent) { if (calRef.current && !calRef.current.contains(e.target as Node)) setCalOpen(false) }
@@ -111,9 +107,8 @@ export function StrategyPage() {
     if (selectedDate) items = items.filter((c) => matchesDate(c.updated_at, selectedDate))
     if (statusFilter === '待确认') items = items.filter((c) => c.current_local_version_no === 0)
     if (statusFilter === '已完成') items = items.filter((c) => c.current_local_version_no > 0)
-    if (sourceFilter === '用户生成') items = items.filter((c) => !c.instrument)
     return items
-  }, [activeItems, archivedItems, archivedOnly, selectedDate, statusFilter, sourceFilter])
+  }, [activeItems, archivedItems, archivedOnly, selectedDate, statusFilter])
   const pendingItems = visibleItems.filter((c) => c.current_local_version_no === 0)
   const historyItems = visibleItems.filter((c) => c.current_local_version_no > 0)
 
@@ -125,25 +120,13 @@ export function StrategyPage() {
     <section className="computer-page">
       <div className="computer-toolbar">
         <div className="computer-dropdown" ref={statusRef}>
-          <button className={'computer-chip dropdown-chip ' + (statusFilter !== '全部' ? 'selected' : '')} onClick={() => { setStatusOpen((v) => !v); setSourceOpen(false) }}>
+          <button className={'computer-chip dropdown-chip ' + (statusFilter !== '全部' ? 'selected' : '')} onClick={() => { setStatusOpen((v) => !v) }}>
             状态：{statusFilter}<i className="inline-caret" aria-hidden="true" />
           </button>
           {statusOpen && (
             <div className="computer-dropdown-menu">
               {['全部', '待确认', '已完成'].map((opt) => (
                 <button key={opt} className={statusFilter === opt ? 'active' : ''} onClick={() => { setStatusFilter(opt); setStatusOpen(false) }}>{opt}</button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="computer-dropdown" ref={sourceRef}>
-          <button className={'computer-chip dropdown-chip ' + (sourceFilter !== '全部' ? 'selected' : '')} onClick={() => { setSourceOpen((v) => !v); setStatusOpen(false) }}>
-            来源：{sourceFilter}<i className="inline-caret" aria-hidden="true" />
-          </button>
-          {sourceOpen && (
-            <div className="computer-dropdown-menu">
-              {['全部', '用户生成'].map((opt) => (
-                <button key={opt} className={sourceFilter === opt ? 'active' : ''} onClick={() => { setSourceFilter(opt); setSourceOpen(false) }}>{opt}</button>
               ))}
             </div>
           )}

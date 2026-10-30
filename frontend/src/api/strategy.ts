@@ -25,6 +25,9 @@ export type StrategyMessage = {
   /** 我方验收门结论；验收门上线前的历史消息为 null */
   validation_json?: StrategyValidation | null
   public_error_message?: string | null
+  remote_message_id?: string | null
+  /** 本轮生成耗时秒数（含远端自动重生与回测等待） */
+  elapsed_seconds?: number | null
   created_at: string
   updated_at: string
 }
@@ -166,6 +169,24 @@ export function confirmStrategyDraft(conversationId: number, assistantMessageId:
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ edited_prompt: editedPrompt }),
   })
+}
+
+export function abandonStrategyDraft(conversationId: number, assistantMessageId: number) {
+  return request<{ status: string }>(
+    `/sapi/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/abandon`,
+    { method: 'POST' },
+  )
+}
+
+export type SupportedInstrument = { code: string; label: string }
+export type SupportedInstruments = {
+  default: string
+  instruments: SupportedInstrument[]
+  excluded: { code: string; reason: string }[]
+}
+
+export function getSupportedInstruments() {
+  return request<SupportedInstruments>('/sapi/ai-strategy-generation/instruments')
 }
 
 export function archiveStrategyConversation(conversationId: number) {
