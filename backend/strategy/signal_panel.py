@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -21,7 +22,7 @@ from typing import Any, Optional
 from backend.common.database import build_in_placeholders, get_repo_connection
 from backend.config.config import get_default_analysis_model_name
 
-# 面板最多展示的因子数量：受提示词 token 预算约束（见 PANEL_TOKEN_BUDGET）。
+# 面板最多展示的因子数量：面板会整段注入提示词，受 PROMPT_TOKEN_BUDGET=6000 约束。
 DEFAULT_PANEL_SIZE = 8
 # 事件研究的基准持有期，本期固定 T+5（T+1 仅 2 个因子过关、T+20 为 17 个）。
 DEFAULT_HOLDING_DAYS = 5
@@ -186,6 +187,17 @@ def _score_to_direction(score: float) -> str:
     return "neutral"
 
 
+# 面板 60s 短缓存。键含情报锚点 pub_time：新事件一到锚点即变、缓存自动失效，
+# 不会把旧锚点的面板发给新草稿（防前视优先于省查询）。
+_PANEL_CACHE_TTL_SECONDS = 60.0
+_panel_cache: dict[tuple[Any, ...], tuple[float, dict[str, Any]]] = {}
+
+
+def clear_factor_signal_panel_cache() -> None:
+    """供测试与连接重建场景手工清缓存。"""
+    _panel_cache.clear()
+
+
 def build_factor_signal_panel(
     reference_time: Optional[datetime] = None,
     model_name: Optional[str] = None,
@@ -194,12 +206,56 @@ def build_factor_signal_panel(
     min_samples: int = MIN_SAMPLE_SIZE,
     decay_lambda: float = DEFAULT_DECAY_LAMBDA,
 ) -> dict[str, Any]:
-    """构造因子信号面板。
+    """构造因子信号面板（同锚点 60s 内走缓存）。
 
     :param reference_time: 情报锚点；早于它的数据才可用（防未来函数）。
     :param model_name: 固定使用的事件抽取模型，默认取配置中的在线模型。
     :return: ``{"items": [...], "window_days": 7, "model_name": "glm", ...}``
     """
+    selected_model = model_name or get_default_analysis_model_name()
+    cache_key: tuple[Any, ...] | None = None
+    if reference_time is not None:
+        # 锚点由调用方传入时才可安全缓存；None 时锚点在 DB 内解析，
+        # 无法在不查库的前提下区分锚点，宁可不缓存。
+        cache_key = (
+            reference_time,
+            selected_model,
+            panel_size,
+            holding_days,
+            min_samples,
+            decay_lambda,
+        )
+        now = time.monotonic()
+        cached = _panel_cache.get(cache_key)
+        if cached and cached[0] > now:
+            return cached[1]
+
+    panel = _build_factor_signal_panel_uncached(
+        reference_time=reference_time,
+        model_name=selected_model,
+        panel_size=panel_size,
+        holding_days=holding_days,
+        min_samples=min_samples,
+        decay_lambda=decay_lambda,
+    )
+    if cache_key is not None:
+        _panel_cache[cache_key] = (time.monotonic() + _PANEL_CACHE_TTL_SECONDS, panel)
+        if len(_panel_cache) > 64:
+            # 锚点一天只变几次，64 条上限只是防御性回收过期项。
+            expired = [k for k, (expires_at, _) in _panel_cache.items() if expires_at <= time.monotonic()]
+            for key in expired:
+                _panel_cache.pop(key, None)
+    return panel
+
+
+def _build_factor_signal_panel_uncached(
+    reference_time: Optional[datetime] = None,
+    model_name: Optional[str] = None,
+    panel_size: int = DEFAULT_PANEL_SIZE,
+    holding_days: int = DEFAULT_HOLDING_DAYS,
+    min_samples: int = MIN_SAMPLE_SIZE,
+    decay_lambda: float = DEFAULT_DECAY_LAMBDA,
+) -> dict[str, Any]:
     selected_model = model_name or get_default_analysis_model_name()
 
     with get_repo_connection() as conn:

@@ -284,3 +284,83 @@ class TestFormatting:
             "model_name": "glm",
         }
         assert len(sp.format_signal_panel(panel)) < 2000
+
+class TestPanelCache:
+    """同锚点 60s 短缓存；锚点变化必须 miss，防前视。"""
+
+    @pytest.fixture(autouse=True)
+    def _clear(self):
+        sp.clear_factor_signal_panel_cache()
+        yield
+        sp.clear_factor_signal_panel_cache()
+
+    def test_same_anchor_hits_cache(self, monkeypatch):
+        calls = []
+
+        def _fake(**kwargs):
+            calls.append(kwargs["reference_time"])
+            return {"items": [], "reference_time": kwargs["reference_time"].isoformat()}
+
+        monkeypatch.setattr(sp, "_build_factor_signal_panel_uncached", _fake)
+        anchor = datetime(2026, 10, 30, 9, 30)
+
+        first = sp.build_factor_signal_panel(reference_time=anchor, model_name="glm")
+        second = sp.build_factor_signal_panel(reference_time=anchor, model_name="glm")
+        assert first is second
+        assert len(calls) == 1
+
+    def test_new_anchor_misses_cache(self, monkeypatch):
+        calls = []
+
+        def _fake(**kwargs):
+            calls.append(kwargs["reference_time"])
+            return {"items": []}
+
+        monkeypatch.setattr(sp, "_build_factor_signal_panel_uncached", _fake)
+
+        sp.build_factor_signal_panel(
+            reference_time=datetime(2026, 10, 30, 9, 30), model_name="glm"
+        )
+        sp.build_factor_signal_panel(
+            reference_time=datetime(2026, 10, 30, 10, 0), model_name="glm"
+        )
+        assert len(calls) == 2
+
+    def test_model_is_part_of_cache_key(self, monkeypatch):
+        calls = []
+
+        def _fake(**kwargs):
+            calls.append(kwargs["model_name"])
+            return {"items": []}
+
+        monkeypatch.setattr(sp, "_build_factor_signal_panel_uncached", _fake)
+        anchor = datetime(2026, 10, 30)
+        sp.build_factor_signal_panel(reference_time=anchor, model_name="glm")
+        sp.build_factor_signal_panel(reference_time=anchor, model_name="deepseek")
+        assert calls == ["glm", "deepseek"]
+
+    def test_zero_ttl_expires(self, monkeypatch):
+        monkeypatch.setattr(sp, "_PANEL_CACHE_TTL_SECONDS", 0.0)
+        calls = []
+
+        def _fake(**kwargs):
+            calls.append(1)
+            return {"items": []}
+
+        monkeypatch.setattr(sp, "_build_factor_signal_panel_uncached", _fake)
+        anchor = datetime(2026, 10, 30)
+        sp.build_factor_signal_panel(reference_time=anchor)
+        sp.build_factor_signal_panel(reference_time=anchor)
+        assert len(calls) == 2
+
+    def test_none_anchor_is_never_cached(self, monkeypatch):
+        calls = []
+
+        def _fake(**kwargs):
+            calls.append(1)
+            return {"items": []}
+
+        monkeypatch.setattr(sp, "_build_factor_signal_panel_uncached", _fake)
+        sp.build_factor_signal_panel(reference_time=None, model_name="glm")
+        sp.build_factor_signal_panel(reference_time=None, model_name="glm")
+        assert len(calls) == 2
