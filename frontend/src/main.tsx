@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider } from '@/contexts/AuthContext'
 import App from '@/App'
 import './index.css'
+import './styles/tokens.css'
 import './styles/workbench.css'
 import './styles/demo-notice.css'
 
