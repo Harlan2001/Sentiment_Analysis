@@ -86,6 +86,13 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         finally:
             connection.close()
 
+    def warmup(self) -> None:
+        """启动预热：跑通一次 TCP/鉴权，让首个用户请求不付连接税。"""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+
     def ensure_recycle_bin_schema(self) -> None:
         """Apply the small additive migration in the configured history database."""
         with self._connection() as conn:
@@ -159,6 +166,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         requirement: str,
         system_draft_prompt: str,
         context_snapshot: dict[str, Any],
+        instrument_label: str | None = None,
     ) -> dict[str, int]:
         """Save a user request and a non-remote draft awaiting confirmation."""
         with self._connection() as conn:
@@ -214,9 +222,25 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     ),
                 )
                 assistant_message_id = cursor.lastrowid
+                conversation_updates = (
+                    "last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP"
+                )
+                conversation_params: tuple[Any, ...] = (conversation_id, owner_username)
+                if instrument_label:
+                    # 该列历史上恒 NULL；现在记下本轮任务卡实际定下的标的，
+                    # 让会话列表能直接展示交易品种。
+                    conversation_updates = (
+                        "instrument = %s, last_message_at = CURRENT_TIMESTAMP, "
+                        "updated_at = CURRENT_TIMESTAMP"
+                    )
+                    conversation_params = (
+                        instrument_label[:255],
+                        conversation_id,
+                        owner_username,
+                    )
                 cursor.execute(
-                    "UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
-                    (conversation_id, owner_username),
+                    f"UPDATE ai_strategy_conversations SET {conversation_updates} WHERE id = %s AND owner_username = %s",
+                    conversation_params,
                 )
             conn.commit()
         return {
@@ -244,42 +268,33 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 row = cursor.fetchone()
         return serialize_row(row) if row else None
 
-    def replace_prompt_draft(
+    def abandon_prompt_draft(
         self,
         owner_username: str,
         conversation_id: int,
         assistant_message_id: int,
-        system_draft_prompt: str,
-        context_snapshot: dict[str, Any],
     ) -> bool:
+        """放弃待确认草稿：置 cancelled，让会话可以重新 draft。
+
+        协议没有取消命令，但待确认阶段本来就没有任何远端调用，放弃是纯本地操作。
+        """
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """UPDATE ai_strategy_messages
-                                  SET generated_prompt = %s, system_draft_prompt = %s, user_edited_prompt = NULL,
-                                      final_sent_prompt = NULL, references_json = %s, context_json = %s,
-                                      updated_at = CURRENT_TIMESTAMP
+                                  SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
                                   WHERE id = %s AND conversation_id = %s AND owner_username = %s
                                     AND role = 'assistant' AND status = 'pending_confirmation'""",
-                    (
-                        system_draft_prompt,
-                        system_draft_prompt,
-                        json.dumps(
-                            context_snapshot.get("references", []),
-                            ensure_ascii=False,
-                            default=json_default,
-                        ),
-                        json.dumps(
-                            context_snapshot, ensure_ascii=False, default=json_default
-                        ),
-                        assistant_message_id,
-                        conversation_id,
-                        owner_username,
-                    ),
+                    (assistant_message_id, conversation_id, owner_username),
                 )
-                updated = cursor.rowcount == 1
+                abandoned = cursor.rowcount == 1
+                if abandoned:
+                    cursor.execute(
+                        "UPDATE ai_strategy_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
+                        (conversation_id, owner_username),
+                    )
             conn.commit()
-        return updated
+        return abandoned
 
     def confirm_prompt_draft(
         self,
@@ -476,7 +491,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, validation_json, public_error_message, created_at, updated_at
+                    """SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, validation_json, public_error_message, remote_message_id, elapsed_seconds, created_at, updated_at
                                   FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s ORDER BY sequence_no ASC""",
                     (conversation_id, owner_username),
                 )
