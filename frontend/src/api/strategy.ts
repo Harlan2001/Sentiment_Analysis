@@ -44,6 +44,16 @@ export type StrategyMessage = {
   validation_json?: StrategyValidation | null
   public_error_message?: string | null
   remote_message_id?: string | null
+  /**
+   * B1 生成阶段：preparing/generating/backtest_checking/regenerating/
+   * revising/validating，终态与 status 对齐；旧消息为 null。
+   */
+  stage?: string | null
+  stage_updated_at?: string | null
+  /** 确认开跑的时刻；已用时长与 16 分钟轮询上限的锚点（刷新不重置） */
+  run_started_at?: string | null
+  /** 回测日志尾部快照（最近约 28 行），4s 轮询刷新 */
+  log_tail?: string | null
   /** 本轮生成耗时秒数（含远端自动重生与回测等待） */
   elapsed_seconds?: number | null
   created_at: string
@@ -192,6 +202,14 @@ export function confirmStrategyDraft(conversationId: number, assistantMessageId:
 export function abandonStrategyDraft(conversationId: number, assistantMessageId: number) {
   return request<{ status: string }>(
     `/sapi/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/abandon`,
+    { method: 'POST' },
+  )
+}
+
+/** 放弃等待运行中的生成：本地置 cancelled，对端仍会跑完、结果不回收 */
+export function cancelWaitStrategyGeneration(conversationId: number, assistantMessageId: number) {
+  return request<{ status: string; note: string }>(
+    `/sapi/ai-strategy-generation/conversations/${conversationId}/drafts/${assistantMessageId}/cancel-wait`,
     { method: 'POST' },
   )
 }

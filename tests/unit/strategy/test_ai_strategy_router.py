@@ -4,7 +4,8 @@ generate_strategy 是阻塞远端调用，这里整体 mock，只验证编排逻
 - 白名单非法标的在 draft 阶段 400；
 - 账号级单飞：第二个会话的 confirm 拿到友好 409；
 - 后台任务落库成功后释放单飞占位；
-- abandon 只允许放弃待确认草稿；
+- abandon 只允许放弃待确认草稿；cancel-wait 放弃运行中等待（对端仍跑完）；
+- on_progress 回调写库贯通，写库失败不打断生成；放弃等待后的迟到产物被丢弃；
 - /instruments 给出白名单元数据。
 """
 
@@ -247,6 +248,142 @@ class TestAbandonDraft:
             "/sapi/ai-strategy-generation/conversations/1/drafts/99/abandon"
         )
         assert response.status_code == 404
+
+
+class TestCancelWait:
+    def test_cancel_wait_success(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        repo.cancel_waiting_generation.return_value = True
+        response = client.post(
+            "/sapi/ai-strategy-generation/conversations/1/drafts/2/cancel-wait"
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["status"] == "cancelled"
+        assert "对端仍会跑完" in data["note"]
+        repo.cancel_waiting_generation.assert_called_once_with("admin", 1, 2)
+
+    def test_cancel_wait_non_running_is_409(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        repo.cancel_waiting_generation.return_value = False
+        response = client.post(
+            "/sapi/ai-strategy-generation/conversations/1/drafts/2/cancel-wait"
+        )
+        assert response.status_code == 409
+        assert "不在生成中" in response.json()["detail"]
+
+    def test_cancel_wait_unknown_conversation_is_404(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        repo.get_conversation.return_value = None
+        response = client.post(
+            "/sapi/ai-strategy-generation/conversations/99/drafts/2/cancel-wait"
+        )
+        assert response.status_code == 404
+        repo.cancel_waiting_generation.assert_not_called()
+
+
+class TestGenerationProgress:
+    def test_on_progress_is_written_through_to_repository(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        _patch_draft_build(monkeypatch)
+        monkeypatch.setattr(
+            router_module, "apply_user_edited_requirement", lambda draft, edited: draft
+        )
+
+        def _fake_generate(*args, **kwargs):
+            kwargs["on_progress"]("generating", None)
+            kwargs["on_progress"]("backtest_checking", "BT-LOG-TAIL")
+            return {
+                "summary": "ok",
+                "strategy": {
+                    "name": "n",
+                    "description": "d",
+                    "code": "self.MarketOrder('FCT_T_MAIN', 1)",
+                },
+            }
+
+        monkeypatch.setattr(router_module, "generate_strategy", _fake_generate)
+
+        client.post(
+            "/sapi/ai-strategy-generation/conversations/1/draft",
+            json={"requirement": "双均线策略"},
+        )
+        confirm = client.post(
+            "/sapi/ai-strategy-generation/conversations/1/drafts/2/confirm",
+            json={"edited_prompt": "x"},
+        )
+        assert confirm.status_code == 200
+        _wait_for(lambda: repo.complete_generation.called)
+        repo.update_generation_progress.assert_any_call(
+            "admin", 1, 2, "backtest_checking", "BT-LOG-TAIL"
+        )
+
+    def test_progress_write_failure_does_not_kill_generation(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        _patch_draft_build(monkeypatch)
+        monkeypatch.setattr(
+            router_module, "apply_user_edited_requirement", lambda draft, edited: draft
+        )
+        repo.update_generation_progress.side_effect = RuntimeError("db down")
+
+        def _fake_generate(*args, **kwargs):
+            kwargs["on_progress"]("generating", None)
+            return {
+                "summary": "ok",
+                "strategy": {
+                    "name": "n",
+                    "description": "d",
+                    "code": "self.MarketOrder('FCT_T_MAIN', 1)",
+                },
+            }
+
+        monkeypatch.setattr(router_module, "generate_strategy", _fake_generate)
+
+        client.post(
+            "/sapi/ai-strategy-generation/conversations/1/draft",
+            json={"requirement": "双均线策略"},
+        )
+        client.post(
+            "/sapi/ai-strategy-generation/conversations/1/drafts/2/confirm",
+            json={"edited_prompt": "x"},
+        )
+        # 回调写库抛错只记日志：产物仍正常落库、单飞占位仍释放。
+        _wait_for(lambda: repo.complete_generation.called)
+        _wait_for(lambda: "admin" not in router_module._active_generation_owners)
+
+    def test_late_result_after_cancel_wait_is_discarded(self, client, monkeypatch):
+        repo = _mock_repository(monkeypatch)
+        _patch_draft_build(monkeypatch)
+        monkeypatch.setattr(
+            router_module, "apply_user_edited_requirement", lambda draft, edited: draft
+        )
+        # 仓储语义：行已 cancelled 时 complete_generation 返回 None（不插版本）。
+        repo.complete_generation.return_value = None
+
+        def _fake_generate(*args, **kwargs):
+            return {
+                "summary": "ok",
+                "strategy": {
+                    "name": "n",
+                    "description": "d",
+                    "code": "self.MarketOrder('FCT_T_MAIN', 1)",
+                },
+            }
+
+        monkeypatch.setattr(router_module, "generate_strategy", _fake_generate)
+
+        client.post(
+            "/sapi/ai-strategy-generation/conversations/1/draft",
+            json={"requirement": "双均线策略"},
+        )
+        client.post(
+            "/sapi/ai-strategy-generation/conversations/1/drafts/2/confirm",
+            json={"edited_prompt": "x"},
+        )
+        _wait_for(lambda: repo.complete_generation.called)
+        _wait_for(lambda: "admin" not in router_module._active_generation_owners)
+        # 迟到产物被丢弃后不应有任何失败落库调用。
+        repo.fail_generation.assert_not_called()
 
 
 class TestInstruments:

@@ -462,6 +462,56 @@
         }
       }
     },
+    "/sapi/ai-strategy-generation/conversations/{conversation_id}/drafts/{assistant_message_id}/cancel-wait": {
+      "post": {
+        "tags": [
+          "ai-strategy-generation"
+        ],
+        "summary": "Cancel Waiting Generation",
+        "description": "放弃等待：本地置 cancelled。协议没有取消命令，对端仍会跑完、结果不回收。\n\n账号级单飞占位要等后台任务真正结束才释放，避免用户在对端仍繁忙时\n并发第二轮。",
+        "operationId": "cancel_waiting_generation_sapi_ai_strategy_generation_conversations__conversation_id__drafts__assistant_message_id__cancel_wait_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "assistant_message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Assistant Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/ai-strategy-generation/conversations/{conversation_id}/archive": {
       "patch": {
         "tags": [

@@ -7,6 +7,7 @@ vi.mock('@/api/strategy', () => ({
   getSupportedInstruments: vi.fn(),
   createStrategyDraft: vi.fn(),
   confirmStrategyDraft: vi.fn(),
+  cancelWaitStrategyGeneration: vi.fn(),
 }))
 
 import * as api from '@/api/strategy'
@@ -154,11 +155,15 @@ describe('StrategyPromptPage 五步向导（S2-2）', () => {
     expect(await screen.findByRole('heading', { name: '生成与回测' })).toBeTruthy()
   })
 
-  it('生成中：默认落在④，⑤仍锁定，显示进度与计时', async () => {
+  it('生成中：默认落在④，⑤仍锁定，显示阶段/计时/日志尾部', async () => {
     vi.mocked(api.getStrategyConversation).mockResolvedValue(
       makeDetail([makeAssistant({
         status: 'running',
         final_sent_prompt: SYSTEM_DRAFT,
+        stage: 'backtest_checking',
+        stage_updated_at: new Date(Date.now() - 4000).toISOString(),
+        run_started_at: new Date(Date.now() - 42_000).toISOString(),
+        log_tail: 'starting trade\nSTATISTICS:: Total Orders 3',
       })]),
     )
     renderPage()
@@ -166,6 +171,64 @@ describe('StrategyPromptPage 五步向导（S2-2）', () => {
     expect(await screen.findByRole('heading', { name: '生成与回测' })).toBeTruthy()
     expect(screen.getByText(/正在生成策略并运行回测/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /结果报告/ })).toBeDisabled()
+    // B1：真实阶段同时出现在页头徽章与阶段行。
+    expect((await screen.findAllByText(/检查回测中/)).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText(/STATISTICS:: Total Orders 3/)).toBeTruthy()
+    expect(screen.getByText(/上限 16:00/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '放弃等待' })).toBeTruthy()
+  })
+
+  it('放弃等待：二次确认后调 cancel-wait，返回后呈现已放弃面板', async () => {
+    const runningDetail = makeDetail([makeAssistant({
+      status: 'running',
+      final_sent_prompt: SYSTEM_DRAFT,
+      stage: 'generating',
+      run_started_at: new Date(Date.now() - 5000).toISOString(),
+    })])
+    const cancelledDetail = makeDetail([makeAssistant({
+      status: 'cancelled',
+      final_sent_prompt: SYSTEM_DRAFT,
+      stage: 'cancelled',
+      content: '已放弃等待：对端仍会跑完本轮生成，但结果不再回收。',
+      public_error_message: '已放弃等待：对端仍会跑完本轮生成，但结果不再回收。',
+    })])
+    vi.mocked(api.getStrategyConversation)
+      .mockResolvedValueOnce(runningDetail)
+      .mockResolvedValueOnce(cancelledDetail)
+      .mockResolvedValue(cancelledDetail)
+    vi.mocked(api.cancelWaitStrategyGeneration).mockResolvedValue({
+      status: 'cancelled',
+      note: '对端仍会跑完本轮生成，但结果不再回收。',
+    })
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: '放弃等待' }))
+    // 明确告知：协议没有取消命令，对端照样跑完。
+    expect(screen.getByText(/对端仍会跑完本轮生成，但结果不再回收/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '确认放弃' }))
+
+    await waitFor(() =>
+      expect(api.cancelWaitStrategyGeneration).toHaveBeenCalledWith(7, 2),
+    )
+    // 徽章与失败面板标题都会显示「已放弃等待」。
+    expect((await screen.findAllByText('已放弃等待')).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('超过 16 分钟轮询上限：停止自动刷新并显示超时态与手动操作', async () => {
+    vi.mocked(api.getStrategyConversation).mockResolvedValue(
+      makeDetail([makeAssistant({
+        status: 'running',
+        final_sent_prompt: SYSTEM_DRAFT,
+        stage: 'backtest_checking',
+        run_started_at: new Date(Date.now() - 17 * 60_000).toISOString(),
+      })]),
+    )
+    renderPage()
+
+    expect(await screen.findByText(/已等待超过 16 分钟，已停止自动刷新/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '刷新状态' })).toBeTruthy()
+    // 超时态不再显示「放弃等待」入口。
+    expect(screen.queryByRole('button', { name: '放弃等待' })).toBeNull()
   })
 
   it('有版本：默认落在⑤结果报告，显示验收徽章与指标', async () => {

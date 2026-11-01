@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  cancelWaitStrategyGeneration,
   confirmStrategyDraft,
   createStrategyDraft,
   getSupportedInstruments,
@@ -11,6 +12,7 @@ import {
   type StrategyVersion,
   type SupportedInstruments,
 } from '@/api/strategy'
+import { isPollCapReached } from './generationStage'
 import type { StepId } from './stepModel'
 
 export type StrategyNewsReference = {
@@ -25,6 +27,9 @@ export type StrategyNewsReference = {
 }
 
 const LOOKBACK_DAYS = 7
+
+/** 在④内嵌失败面板收尾的消息状态（GenerationStep 同口径）。 */
+const FAILED_TURN_STATUSES = new Set(['failed', 'timed_out', 'cancelled'])
 
 /**
  * 向导详情页的数据编排（S2-2 从 597 行的 StrategyPromptPage 抽出）。
@@ -136,12 +141,62 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
   const lastAssistant = detail ? [...detail.messages].reverse().find((m) => m.role === 'assistant') : null
   const isRunning = lastAssistant?.status === 'running'
 
-  // Dream 量化生成是异步的：生成中持续轮询，直到结果/失败返回。
+  // 「验收修正 · 第 N 轮」的 N：在本次挂载内按阶段转换到 revising 的次数计数，
+  // 跨轮询去重（连续两次轮询都停在 revising 不重复计数）。
+  const revisionTracker = useRef<{ id: number | null; count: number; prevStage: string }>({
+    id: null,
+    count: 0,
+    prevStage: '',
+  })
+  if (lastAssistant?.id !== revisionTracker.current.id) {
+    revisionTracker.current = {
+      id: lastAssistant?.id ?? null,
+      count: 0,
+      prevStage: lastAssistant?.stage || '',
+    }
+  } else if (lastAssistant?.stage && lastAssistant.stage !== revisionTracker.current.prevStage) {
+    if (lastAssistant.stage === 'revising') revisionTracker.current.count += 1
+    revisionTracker.current.prevStage = lastAssistant.stage
+  }
+  const revisionRound = revisionTracker.current.count
+
+  // 16 分钟轮询上限（与后端 sweep_stale_running 同口径，锚点是确认时刻
+  // run_started_at；旧数据无锚点则不本地停轮询，由后端 16 分钟 sweep 兜底）。
+  const [pollCapReached, setPollCapReached] = useState(false)
+  const runningMessageId = isRunning ? (lastAssistant?.id ?? null) : null
+  const runStartedAt = isRunning ? (lastAssistant?.run_started_at ?? null) : null
   useEffect(() => {
-    if (!isRunning) return
-    const timer = window.setInterval(() => void loadDetail(), 4000)
+    setPollCapReached(false)
+  }, [runningMessageId])
+  // 进入运行态（或轮询带回新锚点）时立即判一次，不必等首个 4s tick。
+  useEffect(() => {
+    if (isRunning && isPollCapReached(runStartedAt)) setPollCapReached(true)
+  }, [isRunning, runStartedAt])
+  useEffect(() => {
+    if (!isRunning || pollCapReached) return
+    const timer = window.setInterval(() => {
+      if (isPollCapReached(runStartedAt)) {
+        setPollCapReached(true)
+        return
+      }
+      void loadDetail()
+    }, 4000)
     return () => window.clearInterval(timer)
-  }, [isRunning, loadDetail])
+  }, [isRunning, pollCapReached, runStartedAt, loadDetail])
+
+  const [cancellingWait, setCancellingWait] = useState(false)
+  const cancelWait = useCallback(async () => {
+    if (!lastAssistant || lastAssistant.status !== 'running') return
+    setCancellingWait(true)
+    try {
+      await cancelWaitStrategyGeneration(conversationId, lastAssistant.id)
+      await loadDetail()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '放弃等待失败')
+    } finally {
+      setCancellingWait(false)
+    }
+  }, [conversationId, lastAssistant, loadDetail])
 
   const confirm = useCallback(async () => {
     if (!draftData) return
@@ -200,6 +255,10 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
   const isDone = Boolean(lastVersion)
   const hasTextOnlyReply = !isDraftReady && !isRunning && !isDone && Boolean(lastAssistant?.content)
   const failureMessage = lastAssistant?.public_error_message || lastAssistant?.content || '策略生成失败，请重新生成策略。'
+  // 最近一轮已在④失败收尾（失败/超时/放弃等待/无版本文本回复）；
+  // 默认步骤应停在④让失败面板可见，而不是退回情报步。
+  const isTurnFailed =
+    Boolean(lastAssistant && FAILED_TURN_STATUSES.has(lastAssistant.status)) || hasTextOnlyReply
   const hasDraft = Boolean(systemDraft || draftData)
   const isPromptConfirmed =
     confirmedPromptMessageId === draftData?.assistant_message_id
@@ -257,11 +316,18 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
     hasDraft,
     isPromptConfirmed,
     hasTextOnlyReply,
+    isTurnFailed,
     failureMessage,
     newsReferences,
     factorPanel,
     draftContext,
     validation,
+    // ④ 生成中：阶段/计时/轮询上限/放弃等待
+    revisionRound,
+    pollCapReached,
+    cancelWait,
+    cancellingWait,
+    refreshNow: loadDetail,
     // 动作
     confirm,
     regenerate,

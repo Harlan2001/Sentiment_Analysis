@@ -273,6 +273,24 @@ async def _run_generation(
     task starts; here we only execute the blocking remote call and flip the row to a
     terminal status via the repository.
     """
+
+    def on_progress(stage: str, log_tail: str | None) -> None:
+        # B1：接收循环在 worker 线程内回调；仓储各开短连接，写失败只记日志。
+        try:
+            _history_repository().update_generation_progress(
+                owner_username,
+                conversation_id,
+                assistant_message_id,
+                stage,
+                log_tail,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to write generation progress for conversation %s",
+                conversation_id,
+                exc_info=True,
+            )
+
     try:
         result = await asyncio.to_thread(
             generate_strategy,
@@ -280,11 +298,20 @@ async def _run_generation(
             session_id=remote_session_id,
             on_session_created=on_session_created,
             validation_context=validation_context,
+            on_progress=on_progress,
         )
         repository = _history_repository()
-        repository.complete_generation(
+        version = repository.complete_generation(
             owner_username, conversation_id, assistant_message_id, result
         )
+        if version is None:
+            # 用户已「放弃等待」：行被置 cancelled，迟到的远端产物按承诺丢弃。
+            logger.info(
+                "DreamStrategy result discarded: turn %s in conversation %s "
+                "was cancelled while the remote job kept running",
+                assistant_message_id,
+                conversation_id,
+            )
     except DreamGenerationError as exc:
         # 对端明确报错：立刻落库具体原因，不要等到超时把问题糊成"超时"。
         repository = _history_repository()
@@ -447,6 +474,36 @@ def abandon_prompt_draft(
             status_code=409, detail="This prompt draft can no longer be abandoned"
         )
     return ok({"status": "cancelled"})
+
+
+@router.post(
+    "/conversations/{conversation_id}/drafts/{assistant_message_id}/cancel-wait"
+)
+def cancel_waiting_generation(
+    request: Request, conversation_id: int, assistant_message_id: int
+):
+    """放弃等待：本地置 cancelled。协议没有取消命令，对端仍会跑完、结果不回收。
+
+    账号级单飞占位要等后台任务真正结束才释放，避免用户在对端仍繁忙时
+    并发第二轮。
+    """
+    owner_username = _history_owner(request)
+    repository = _history_repository()
+    if not repository.get_conversation(owner_username, conversation_id):
+        raise HTTPException(status_code=404, detail="History conversation not found")
+    if not repository.cancel_waiting_generation(
+        owner_username, conversation_id, assistant_message_id
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="该消息不在生成中，无法放弃等待；可能已经结束或被放弃",
+        )
+    return ok(
+        {
+            "status": "cancelled",
+            "note": "对端仍会跑完本轮生成，但结果不再回收。",
+        }
+    )
 
 
 @router.patch("/conversations/{conversation_id}/archive")

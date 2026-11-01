@@ -165,6 +165,7 @@ def startup_workbench():
             "AI strategy history DB warmup failed, startup continues", exc_info=True
         )
     history_repository.ensure_recycle_bin_schema()
+    history_repository.ensure_progress_schema()
     app.state.feishu_mcp_repository = FeishuConnectionRepository()
     interrupted_reports = ReportGenerationRepository.from_environment().mark_incomplete_failed()
     if interrupted_reports:

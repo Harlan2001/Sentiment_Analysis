@@ -63,13 +63,25 @@ describe('stepModel 步骤解锁（S2-2）', () => {
     expect(defaultStep(snapshot)).toBe('result')
   })
 
-  it('失败但无版本：④保持激活（内嵌错误面板重试），不跳到⑤', () => {
+  it('失败但无版本：④保持激活（内嵌错误面板重试），默认落④不跳⑤', () => {
     const snapshot: StepSnapshot = {
-      hasDraft: true, pendingConfirmation: false, running: false, confirmed: true, hasVersion: false,
+      hasDraft: true, pendingConfirmation: false, running: false, confirmed: true,
+      hasVersion: false, failedTurn: true,
     }
     const states = statesOf(snapshot)
     expect(states.generation).toBe('active')
     expect(states.result).toBe('locked')
+    expect(defaultStep(snapshot)).toBe('generation')
+  })
+
+  it('新一轮失败但会话里有旧版本：失败优先，默认仍落④', () => {
+    const snapshot: StepSnapshot = {
+      hasDraft: true, pendingConfirmation: false, running: false, confirmed: true,
+      hasVersion: true, failedTurn: true,
+    }
+    // ⑤可回看旧版本，但默认停在④展示失败面板。
+    expect(statesOf(snapshot).result).not.toBe('locked')
+    expect(defaultStep(snapshot)).toBe('generation')
   })
 
   it('旧 ?view= 链接映射到新步骤', () => {

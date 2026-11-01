@@ -36,7 +36,7 @@ export function StrategyPromptPage() {
 
   const wizard = useStrategyWizard(conversationId, go)
   const {
-    detail, loading, error, isDraftReady, isRunning, isDone,
+    detail, loading, error, isDraftReady, isRunning, isDone, isTurnFailed,
     hasDraft, isPromptConfirmed, chatInput, setChatInput, sendChat,
   } = wizard
 
@@ -46,6 +46,7 @@ export function StrategyPromptPage() {
     running: isRunning,
     confirmed: isPromptConfirmed,
     hasVersion: isDone,
+    failedTurn: isTurnFailed,
   }
   const steps = deriveSteps(snapshot)
   const stateById = Object.fromEntries(steps.map((step) => [step.id, step.state]))
@@ -62,9 +63,10 @@ export function StrategyPromptPage() {
   useEffect(() => {
     if (isRunning && (activeStep === 'confirm' || activeStep === 'intel')) go('generation')
   }, [isRunning, activeStep, go])
+  // 最近一轮失败时不自动跳到⑤——④里的失败面板与「重新生成」必须留在视野里。
   useEffect(() => {
-    if (isDone && activeStep === 'generation') go('result')
-  }, [isDone, activeStep, go])
+    if (isDone && !isTurnFailed && activeStep === 'generation') go('result')
+  }, [isDone, isTurnFailed, activeStep, go])
 
   function submitChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
