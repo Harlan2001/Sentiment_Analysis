@@ -1,15 +1,72 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CodeHighlight } from '@/features/workflow/components/CodeHighlight'
 import { StrategySummary } from '@/features/workflow/components/StrategySummary'
 import { ValidationSummary } from '@/features/workflow/components/ValidationSummary'
 import type { StrategyWizardApi } from './useStrategyWizard'
 import { Fold } from './Fold'
-import { backtestCards, cleanStrategySummary, displayMetricLabel, metricTone } from './resultMetrics'
+import {
+  type BacktestMetric,
+  type MetricGroups,
+  anomalousMetrics,
+  cleanStrategySummary,
+  displayMetricLabel,
+  metricTone,
+  metricsFromVersion,
+} from './resultMetrics'
+
+const CORE_HERO_KEYS = [
+  { key: 'total_orders', fallbackLabel: 'Total Orders' },
+  { key: 'compounding_annual_return', fallbackLabel: 'Compounding Annual Return' },
+  { key: 'drawdown', fallbackLabel: 'Drawdown' },
+  { key: 'win_rate', fallbackLabel: 'Win Rate' },
+  { key: 'net_profit', fallbackLabel: 'Net Profit' },
+]
+
+function heroOneLiner(wizard: StrategyWizardApi): string {
+  const { validation, lastVersion } = wizard
+  if (validation) {
+    if (validation.verdict === 'passed') return '已通过我方验收门（有成交），以下为回测表现概览。'
+    if (validation.verdict === 'no_trade') return '验收未通过：回测 0 成交，本版本不合格。'
+    if (validation.verdict === 'backtest_failed') return '验收未通过：平台回测执行失败。'
+    return '验收未通过：回测过程异常，详见验收明细。'
+  }
+  if (lastVersion?.backtest_passed) return '平台回测通过，但尚未经过我方验收门复核。'
+  return '平台回测未通过，详见验收明细。'
+}
+
+function MetricCard({ metric }: { metric: BacktestMetric }) {
+  const tone = metric.anomaly ? 'anomaly' : metricTone(metric.label, metric.value)
+  return (
+    <div
+      className={`sw-metric sw-metric--${tone}`}
+      title={metric.anomaly ? `${metric.label}：${metric.anomaly}` : metric.value}
+    >
+      <small>{displayMetricLabel(metric.label)}</small>
+      <strong>{metric.value || '—'}</strong>
+      {metric.anomaly && <em className="sw-metric-anomaly">⚠ 计算异常</em>}
+    </div>
+  )
+}
+
+function MetricTierSection({ title, metrics }: { title: string; metrics: BacktestMetric[] }) {
+  if (metrics.length === 0) return null
+  return (
+    <div className="sw-metric-tier">
+      <h4>{title}</h4>
+      <div className="sw-metrics-grid">
+        {metrics.map((metric, index) => (
+          <MetricCard metric={metric} key={`${metric.key ?? metric.label}-${index}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 /**
- * 步骤⑤：结果报告。S2-2 先把既有验收/指标/代码/日志收拢到此；
- * 结论英雄区、指标分层、权益曲线与逐笔台账在 S2-4/S2-5 改造
- * （唯一图表数据源是 160055 独立回测，不从日志造数）。
+ * 步骤⑤：结果报告。S2-4 起为「结论英雄区 + 指标分层」：
+ * 核心 5 项大字，质量/风险分层展示，风险调整指标除式爆炸标⚠不洗绿，
+ * 其余工程指标默认折叠。权益曲线与逐笔台账在 S2-5 接入（唯一图表
+ * 数据源是 160055 独立回测，不从日志造数）。
  */
 export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
   const {
@@ -17,7 +74,20 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
   } = wizard
   const [copiedCode, setCopiedCode] = useState(false)
 
-  const metrics = backtestCards(lastVersion)
+  const groups: MetricGroups = useMemo(() => metricsFromVersion(lastVersion), [lastVersion])
+  const allMetrics = useMemo(
+    () => [...groups.core, ...groups.quality, ...groups.risk, ...groups.other],
+    [groups],
+  )
+  const anomalies = useMemo(() => anomalousMetrics(allMetrics), [allMetrics])
+  const coreByKey = useMemo(() => {
+    const map = new Map<string, BacktestMetric>()
+    for (const metric of groups.core) {
+      if (metric.key) map.set(metric.key, metric)
+    }
+    return map
+  }, [groups.core])
+
   const backtestLog = lastVersion?.backtest_summary?.trim() || ''
   const strategySummary = lastVersion?.description ? cleanStrategySummary(lastVersion.description) : ''
   const hasBacktestResult = lastVersion?.backtest_passed !== null && lastVersion?.backtest_passed !== undefined
@@ -82,6 +152,39 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
         <span className={`sw-badge sw-badge--${verdictTone}`}>{verdictText}</span>
       </header>
 
+      <div className={`sw-result-hero${hasBacktestResult ? ` sw-result-hero--${lastVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
+        <p className="sw-hero-oneliner">{heroOneLiner(wizard)}</p>
+        <div className="sw-hero-metrics">
+          {CORE_HERO_KEYS.map(({ key, fallbackLabel }) => {
+            const metric = coreByKey.get(key)
+            return (
+              <div
+                className={metric?.anomaly ? 'sw-hero-metric is-anomaly' : 'sw-hero-metric'}
+                key={key}
+                title={metric?.anomaly ? `${metric.label}：${metric.anomaly}` : undefined}
+              >
+                <small>{metric ? displayMetricLabel(metric.label) : displayMetricLabel(fallbackLabel)}</small>
+                <strong>{metric?.value || '—'}</strong>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {anomalies.length > 0 && (
+        <div className="sw-anomaly-banner" role="alert">
+          <h4>⚠ 计算异常（{anomalies.length}）</h4>
+          <ul>
+            {anomalies.map((metric) => (
+              <li key={metric.key ?? metric.label}>
+                <strong>{displayMetricLabel(metric.label)}</strong>
+                <span>{metric.anomaly}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {strategySummary && (
         <div className="sw-result-summary">
           <h3>策略概要</h3>
@@ -96,14 +199,20 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
       />
 
       <div className={`sw-result-metrics${hasBacktestResult ? ` sw-result-metrics--${lastVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
-        <header><h3>回测指标</h3><span>{metrics.length} 项</span></header>
-        {metrics.length > 0
-          ? <div className="sw-metrics-grid">{metrics.map((metric, index) => (
-            <div className={`sw-metric sw-metric--${metricTone(metric.label, metric.value)}`} key={`${metric.label}-${index}`}>
-              <small>{displayMetricLabel(metric.label)}</small>
-              <strong title={metric.value}>{metric.value}</strong>
-            </div>
-          ))}</div>
+        <header><h3>回测指标</h3><span>{allMetrics.length} 项</span></header>
+        {allMetrics.length > 0
+          ? <>
+            <MetricTierSection title="收益质量" metrics={groups.quality} />
+            <MetricTierSection title="风险" metrics={groups.risk} />
+            {groups.other.length > 0 && (
+              <Fold
+                title={`其他指标（${groups.other.length} 项）`}
+                meta={<span className="sw-fold-meta-text">工程 / 容量 / 哈希等</span>}
+              >
+                <MetricTierSection title="其他" metrics={groups.other} />
+              </Fold>
+            )}
+          </>
           : <p className="sw-inline-empty">回测完成后将在这里显示指标。</p>}
       </div>
 

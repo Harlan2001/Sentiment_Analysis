@@ -261,6 +261,61 @@ describe('StrategyPromptPage 五步向导（S2-2）', () => {
     expect(screen.getByText('总订单数')).toBeTruthy()
   })
 
+  it('结果报告：核心大字进英雄区，风险指标除式爆炸显⚠且不洗绿', async () => {
+    const version: StrategyVersion = {
+      id: 12,
+      source_message_id: 2,
+      local_version_no: 1,
+      name: 'v1',
+      description: '',
+      code: 'def initialize(ctx):\n    pass\n',
+      backtest_passed: false,
+      backtest_exit_code: '0',
+      backtest_summary: 'STATISTICS: ...',
+      backtest_metrics_json: [
+        { key: 'total_orders', label: 'Total Orders', value: '29', tier: 'core', numeric: 29 },
+        { key: 'compounding_annual_return', label: 'Compounding Annual Return', value: '0.000%', tier: 'core', numeric: 0 },
+        { key: 'drawdown', label: 'Drawdown', value: '0.000%', tier: 'core', numeric: 0 },
+        { key: 'win_rate', label: 'Win Rate', value: '0%', tier: 'core', numeric: 0 },
+        { key: 'net_profit', label: 'Net Profit', value: '0.000%', tier: 'core', numeric: 0 },
+        {
+          key: 'sharpe_ratio', label: 'Sharpe Ratio', value: '-42182.563', tier: 'risk',
+          numeric: -42182.563, anomaly: '数值 -42182.563 绝对值超过 10，疑似除式爆炸，不能据此评价风险收益',
+        },
+        { key: 'annual_standard_deviation', label: 'Annual Standard Deviation', value: '0', tier: 'risk', numeric: 0 },
+        { key: 'order_list_hash', label: 'OrderListHash', value: '83ab', tier: 'other', numeric: null },
+      ],
+      created_at: '2026-10-30T14:22:00+08:00',
+    }
+    vi.mocked(api.getStrategyConversation).mockResolvedValue(
+      makeDetail([makeAssistant({
+        status: 'succeeded',
+        final_sent_prompt: SYSTEM_DRAFT,
+        validation_json: {
+          verdict: 'backtest_failed', passed: false, retryable: true, steps: [],
+          trade_count: 29, raw_trade_line: null, symbol_whitelisted: true, reason: 'ghost orders',
+        },
+      })], [version]),
+    )
+    renderPage()
+
+    // 英雄区：5 个核心大字，成交笔数与缺失占位都在
+    expect(await screen.findByText('29')).toBeTruthy()
+    expect(screen.getByText('净利润')).toBeTruthy()
+    // 异常横幅：显式原因
+    expect(screen.getByText(/⚠ 计算异常（1）/)).toBeTruthy()
+    expect(screen.getByText(/绝对值超过 10/)).toBeTruthy()
+    // 风险分层存在；异常卡是警告色，不是涨跌色（不洗绿）
+    expect(screen.getByText('风险', { selector: 'h4' })).toBeTruthy()
+    const anomalyCard = document.querySelector('.sw-metric--anomaly')
+    expect(anomalyCard).toBeTruthy()
+    expect(anomalyCard?.querySelector('.sw-metric-anomaly')?.textContent).toContain('计算异常')
+    // 其他指标默认折叠（details 不带 open）
+    const otherFold = screen.getByText(/其他指标（1 项）/).closest('details')
+    expect(otherFold).toBeTruthy()
+    expect(otherFold?.open).toBe(false)
+  })
+
   it('旧 ?view=code 深链映射到⑤结果步骤', async () => {
     const version: StrategyVersion = {
       id: 11, source_message_id: 2, local_version_no: 2, name: 'v2', description: '',

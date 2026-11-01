@@ -1,23 +1,73 @@
 import type { StrategyVersion } from '@/api/strategy'
 
-export type MetricCard = { label: string; value: string }
+export type MetricTier = 'core' | 'quality' | 'risk' | 'other'
 
-/** 把 versions.backtest_metrics_json 摊平成指标卡；S2-4 再做分层与异常标记。 */
-export function backtestCards(version: StrategyVersion | null): MetricCard[] {
-  if (!version) return []
-  const cards: MetricCard[] = []
-  if (version.backtest_passed !== null && version.backtest_passed !== undefined) {
-    cards.push({ label: '回测状态', value: version.backtest_passed ? '✓ 通过' : '✗ 未通过' })
-  }
-  const list = version.backtest_metrics_json as
-    | Array<{ name?: string; label?: string; key?: string; value?: unknown }>
-    | null
-  if (Array.isArray(list)) {
-    for (const m of list) {
-      cards.push({ label: String(m.label || m.name || m.key || ''), value: String(m.value ?? '') })
+export type BacktestMetric = {
+  key?: string
+  label: string
+  value: string
+  /** 新数据由后端 backtest_log_parser 标注；历史版本无此字段，走本地兜底分组。 */
+  tier?: string
+  numeric?: number | null
+  /** 计算异常原因（如除式爆炸）；有值时前端必须显⚠，不得洗绿 */
+  anomaly?: string
+}
+
+const TIER_BY_LABEL: Record<string, MetricTier> = {
+  'Total Orders': 'core',
+  'Compounding Annual Return': 'core',
+  Drawdown: 'core',
+  'Win Rate': 'core',
+  'Net Profit': 'core',
+  'Profit-Loss Ratio': 'quality',
+  Expectancy: 'quality',
+  'Average Win': 'quality',
+  'Average Loss': 'quality',
+  'Total Fees': 'quality',
+  'Loss Rate': 'quality',
+  'Sharpe Ratio': 'risk',
+  'Sortino Ratio': 'risk',
+  'Probabilistic Sharpe Ratio': 'risk',
+  'Annual Standard Deviation': 'risk',
+  'Annual Variance': 'risk',
+  'Tracking Error': 'risk',
+}
+
+export type MetricGroups = Record<MetricTier, BacktestMetric[]>
+
+function asTier(value: string | undefined): MetricTier {
+  return value === 'core' || value === 'quality' || value === 'risk' ? value : 'other'
+}
+
+/** 把版本指标分四层；核心/质量/风险之外的全部进「其他」折叠。 */
+export function groupMetrics(raw: unknown): MetricGroups {
+  const groups: MetricGroups = { core: [], quality: [], risk: [], other: [] }
+  if (!Array.isArray(raw)) return groups
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const m = item as Record<string, unknown>
+    const label = String(m.label || m.name || m.key || '')
+    if (!label) continue
+    const metric: BacktestMetric = {
+      key: m.key ? String(m.key) : undefined,
+      label,
+      value: String(m.value ?? ''),
+      tier: typeof m.tier === 'string' ? m.tier : undefined,
+      numeric: typeof m.numeric === 'number' ? m.numeric : null,
+      anomaly: m.anomaly ? String(m.anomaly) : undefined,
     }
+    const tier = metric.tier ? asTier(metric.tier) : (TIER_BY_LABEL[label] ?? 'other')
+    groups[tier].push(metric)
   }
-  return cards
+  return groups
+}
+
+export function metricsFromVersion(version: StrategyVersion | null): MetricGroups {
+  return groupMetrics(version?.backtest_metrics_json)
+}
+
+export function anomalousMetrics(metrics: BacktestMetric[]): BacktestMetric[] {
+  return metrics.filter((metric) => Boolean(metric.anomaly))
 }
 
 export type MetricTone = 'positive' | 'negative' | 'neutral'
