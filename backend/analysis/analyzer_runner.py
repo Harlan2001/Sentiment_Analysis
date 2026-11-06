@@ -38,6 +38,7 @@ from backend.analysis.result_processor import AnalysisResultProcessor
 from backend.common.database import DatabaseConfig, get_db_connection, init_database
 from backend.common.db_operations import DBOperations
 from backend.config.config import MYSQL_CONFIG
+from backend.recommend.scoring import score_news_ids
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +305,16 @@ class NewsAnalyzerRunner:
 
                     conn.commit()
                     logger.info(f"新闻 {news_id} 处理成功")
+
+                    # 附属能力：分析结果落库后增量重算重要性分（S3-2）。
+                    # 打分失败不得影响新闻分析主流程，兜底由每晚全量窗口回算补回。
+                    try:
+                        score_news_ids([news_id])
+                    except Exception as score_exc:
+                        logger.warning(
+                            f"新闻 {news_id} 重要性打分失败（不影响分析结果）: {score_exc}"
+                        )
+
                     return {
                         "news_id": news_id,
                         "status": "success",
