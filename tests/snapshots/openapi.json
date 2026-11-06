@@ -4994,6 +4994,7 @@
           "discover"
         ],
         "summary": "Discover News",
+        "description": "新闻流。sort=latest 时间倒序（默认）；sort=recommend 按重要性分×时间衰减排序。",
         "operationId": "discover_news_sapi_discover_news_get",
         "parameters": [
           {
@@ -5049,6 +5050,85 @@
                 }
               ],
               "title": "Source"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "latest",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 90,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/discover/recommend-rankings": {
+      "get": {
+        "tags": [
+          "discover"
+        ],
+        "summary": "Recommend Rankings",
+        "description": "推荐排行榜四榜合一（新闻/因子/多空/类别分布），进程内 TTL 120s。",
+        "operationId": "recommend_rankings_sapi_discover_recommend_rankings_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
             }
           }
         ],

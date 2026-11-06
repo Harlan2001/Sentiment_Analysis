@@ -1,6 +1,6 @@
 -- 生产库 Sentiment_analysis 表结构只读快照（由 scripts/export_prod_schema.py 生成）
 
--- 生成时间: 2026-09-04 10:32; 用于重建测试库 Sentiment_analysis_test
+-- 生成时间: 2026-11-06 16:44; 用于重建测试库 Sentiment_analysis_test
 
 SET FOREIGN_KEY_CHECKS=0;
 
@@ -14,6 +14,10 @@ DROP TABLE IF EXISTS `ai_strategy_versions`;
 
 DROP TABLE IF EXISTS `analysis`;
 
+DROP TABLE IF EXISTS `bond_master`;
+
+DROP TABLE IF EXISTS `credit_curve`;
+
 DROP TABLE IF EXISTS `daily_news_summary_tasks`;
 
 DROP TABLE IF EXISTS `dashboard_metric_cache`;
@@ -24,7 +28,11 @@ DROP TABLE IF EXISTS `factor`;
 
 DROP TABLE IF EXISTS `factor_discovery_history`;
 
+DROP TABLE IF EXISTS `factor_event_study`;
+
 DROP TABLE IF EXISTS `forecast_report`;
+
+DROP TABLE IF EXISTS `futures_position`;
 
 DROP TABLE IF EXISTS `graph_augment_jobs`;
 
@@ -42,7 +50,15 @@ DROP TABLE IF EXISTS `news_content_blocks`;
 
 DROP TABLE IF EXISTS `news_factor`;
 
+DROP TABLE IF EXISTS `news_importance_score`;
+
 DROP TABLE IF EXISTS `news_vectors`;
+
+DROP TABLE IF EXISTS `policy_analysis`;
+
+DROP TABLE IF EXISTS `policy_document`;
+
+DROP TABLE IF EXISTS `policy_event`;
 
 DROP TABLE IF EXISTS `portfolio_strategy_analysis_cache`;
 
@@ -63,6 +79,8 @@ DROP TABLE IF EXISTS `strategy_push_history`;
 DROP TABLE IF EXISTS `task_events`;
 
 DROP TABLE IF EXISTS `task_runs`;
+
+DROP TABLE IF EXISTS `treasury_yield`;
 
 DROP TABLE IF EXISTS `user_behavior_profile`;
 
@@ -90,10 +108,6 @@ DROP TABLE IF EXISTS `workbench_project_members`;
 
 DROP TABLE IF EXISTS `workbench_project_memories`;
 
-DROP TABLE IF EXISTS `workbench_user_memory_settings`;
-
-DROP TABLE IF EXISTS `workbench_user_memories`;
-
 DROP TABLE IF EXISTS `workbench_projects`;
 
 DROP TABLE IF EXISTS `workbench_skill_attachment_chunks`;
@@ -103,6 +117,10 @@ DROP TABLE IF EXISTS `workbench_skill_attachments`;
 DROP TABLE IF EXISTS `workbench_skill_versions`;
 
 DROP TABLE IF EXISTS `workbench_skills`;
+
+DROP TABLE IF EXISTS `workbench_user_memories`;
+
+DROP TABLE IF EXISTS `workbench_user_memory_settings`;
 
 DROP TABLE IF EXISTS `workbench_user_system_skills`;
 
@@ -131,7 +149,7 @@ CREATE TABLE `ai_strategy_conversations` (
   KEY `idx_ai_strategy_conversations_owner_updated` (`owner_username`,`updated_at`),
   KEY `idx_ai_strategy_conversations_owner_status` (`owner_username`,`status`),
   KEY `idx_ai_strategy_conversations_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=62 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ai_strategy_messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -141,9 +159,6 @@ CREATE TABLE `ai_strategy_messages` (
   `role` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `status` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
-  `stage` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `stage_updated_at` datetime DEFAULT NULL,
-  `run_started_at` datetime DEFAULT NULL,
   `remote_message_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `generated_prompt` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `system_draft_prompt` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
@@ -151,17 +166,20 @@ CREATE TABLE `ai_strategy_messages` (
   `final_sent_prompt` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `references_json` json DEFAULT NULL,
   `context_json` json DEFAULT NULL,
-  `validation_json` json DEFAULT NULL,
-  `log_tail` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `validation_json` json DEFAULT NULL COMMENT '我方验收门结论',
   `elapsed_seconds` decimal(10,3) DEFAULT NULL,
   `public_error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `stage` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `stage_updated_at` datetime DEFAULT NULL,
+  `run_started_at` datetime DEFAULT NULL,
+  `log_tail` mediumtext COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_ai_strategy_messages_sequence` (`conversation_id`,`sequence_no`),
   KEY `idx_ai_strategy_messages_owner_conversation` (`owner_username`,`conversation_id`),
   CONSTRAINT `fk_ai_strategy_messages_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `ai_strategy_conversations` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=123 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ai_strategy_recommendation` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -176,7 +194,7 @@ CREATE TABLE `ai_strategy_recommendation` (
   UNIQUE KEY `analysis_date` (`analysis_date`),
   KEY `idx_ai_strategy_recommendation_date` (`analysis_date`),
   KEY `idx_ai_strategy_recommendation_updated` (`updated_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI strategy and target recommendation cache';
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI strategy and target recommendation cache';
 
 CREATE TABLE `ai_strategy_versions` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -200,7 +218,7 @@ CREATE TABLE `ai_strategy_versions` (
   KEY `fk_ai_strategy_versions_message` (`source_message_id`),
   CONSTRAINT `fk_ai_strategy_versions_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `ai_strategy_conversations` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ai_strategy_versions_message` FOREIGN KEY (`source_message_id`) REFERENCES `ai_strategy_messages` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `analysis` (
   `news_id` bigint(20) unsigned NOT NULL,
@@ -212,6 +230,44 @@ CREATE TABLE `analysis` (
   PRIMARY KEY (`news_id`,`model`),
   CONSTRAINT `fk_analysis_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻的分析表';
+
+CREATE TABLE `bond_master` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `bond_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '债券代码',
+  `bond_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '债券名称',
+  `bond_category` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '债券类别（复用组合分析的 9 类口径）',
+  `bond_market` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '市场：CNSESH=上交所 / CNSESZ=深交所',
+  `issuer` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发行人',
+  `rating` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '评级',
+  `maturity_date` date DEFAULT NULL COMMENT '到期日',
+  `coupon_rate` decimal(8,4) DEFAULT NULL COMMENT '票面利率(%)',
+  `issue_year` varchar(8) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发行年份',
+  `issue_scale` decimal(20,4) DEFAULT NULL COMMENT '发行规模（亿元）',
+  `industry` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '行业',
+  `source` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'manual' COMMENT '数据来源：manual / excel / eastmoney',
+  `source_updated_at` datetime(6) DEFAULT NULL COMMENT '数据源侧的更新时间',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `deleted_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_bond_master_owner_code` (`owner_username`,`bond_code`),
+  KEY `idx_bond_master_filter` (`owner_username`,`deleted_at`,`bond_category`,`rating`),
+  KEY `idx_bond_master_maturity` (`owner_username`,`deleted_at`,`maturity_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='债券档案（券池）';
+
+CREATE TABLE `credit_curve` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `trade_date` date NOT NULL COMMENT '日期',
+  `term` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '期限码：1Y/2Y/3Y/5Y/7Y/10Y/15Y/20Y/30Y',
+  `value` decimal(10,4) NOT NULL COMMENT '中短期票据到期收益率(%)',
+  `curve_type` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium_term_note' COMMENT '曲线类型',
+  `source` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'chinabond',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_credit_curve` (`trade_date`,`term`),
+  KEY `idx_credit_curve_date` (`trade_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=6670 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='中债中短期票据收益率曲线';
 
 CREATE TABLE `daily_news_summary_tasks` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -248,7 +304,7 @@ CREATE TABLE `dashboard_metric_cache` (
   PRIMARY KEY (`id`),
   KEY `idx_calc_time` (`calc_time`),
   KEY `idx_cache_hit` (`cache_type`,`calc_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=429 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每5分钟预计算A-F指标，前端直接读取缓存';
+) ENGINE=InnoDB AUTO_INCREMENT=467 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每5分钟预计算A-F指标，前端直接读取缓存';
 
 CREATE TABLE `dashboard_snapshot` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -269,7 +325,7 @@ CREATE TABLE `factor` (
   UNIQUE KEY `code` (`code`),
   KEY `idx_factor_code` (`code`),
   KEY `idx_factor_category` (`category`(100))
-) ENGINE=InnoDB AUTO_INCREMENT=377 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子表';
+) ENGINE=InnoDB AUTO_INCREMENT=382 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子表';
 
 CREATE TABLE `factor_discovery_history` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -289,7 +345,28 @@ CREATE TABLE `factor_discovery_history` (
   KEY `idx_discovery_source_news_id` (`source_news_id`),
   KEY `idx_discovery_created_at` (`created_at`),
   KEY `idx_discovery_similarity` (`max_similarity_score`)
-) ENGINE=InnoDB AUTO_INCREMENT=494 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子发现历史表';
+) ENGINE=InnoDB AUTO_INCREMENT=500 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子发现历史表';
+
+CREATE TABLE `factor_event_study` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `factor_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '因子代码',
+  `factor_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `holding_days` int(11) NOT NULL COMMENT '持有期（交易日）：1/5/20',
+  `sample_size` int(11) NOT NULL DEFAULT '0' COMMENT '样本数',
+  `hit_count` int(11) NOT NULL DEFAULT '0' COMMENT '方向命中数',
+  `hit_rate` decimal(6,4) DEFAULT NULL COMMENT '方向命中率',
+  `majority_base` decimal(6,4) DEFAULT NULL COMMENT '多数类基准（无脑猜多数方向的命中率）',
+  `avg_move_bp` decimal(10,4) DEFAULT NULL COMMENT '平均变动(bp)',
+  `median_move_bp` decimal(10,4) DEFAULT NULL COMMENT '中位数变动(bp)',
+  `period_start` date DEFAULT NULL COMMENT '样本起始',
+  `period_end` date DEFAULT NULL COMMENT '样本结束',
+  `period_label` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'all' COMMENT '统计分组：all 或年度(如 2025)',
+  `computed_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '计算时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_factor_event_study` (`factor_code`,`holding_days`,`period_label`),
+  KEY `idx_factor_event_study_code` (`factor_code`,`holding_days`),
+  KEY `idx_factor_event_study_hit` (`hit_rate`)
+) ENGINE=InnoDB AUTO_INCREMENT=3334 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子事件研究结果';
 
 CREATE TABLE `forecast_report` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -304,7 +381,30 @@ CREATE TABLE `forecast_report` (
   UNIQUE KEY `uk_date_type` (`trade_date`,`forecast_type`),
   KEY `idx_trade_date` (`trade_date`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=83 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='市场预测报告表';
+) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='市场预测报告表';
+
+CREATE TABLE `futures_position` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `trade_date` date NOT NULL COMMENT '交易日',
+  `variety` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '品种：T/TF/TS/TL',
+  `contract` varchar(24) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '合约代码，如 T2612',
+  `rank_no` int(11) NOT NULL COMMENT '排名（1-20）',
+  `volume_trader` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '成交量排名-会员简称',
+  `volume` int(11) DEFAULT NULL COMMENT '成交量',
+  `volume_change` int(11) DEFAULT NULL COMMENT '成交量较上一交易日增减',
+  `long_trader` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '持买单量排名-会员简称',
+  `long_position` int(11) DEFAULT NULL COMMENT '持买单量',
+  `long_change` int(11) DEFAULT NULL COMMENT '持买单量增减',
+  `short_trader` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '持卖单量排名-会员简称',
+  `short_position` int(11) DEFAULT NULL COMMENT '持卖单量',
+  `short_change` int(11) DEFAULT NULL COMMENT '持卖单量增减',
+  `source` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'cffex',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_futures_position` (`trade_date`,`contract`,`rank_no`),
+  KEY `idx_futures_position_variety` (`variety`,`trade_date`),
+  KEY `idx_futures_position_date` (`trade_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='国债期货持仓排名（中金所每日快照）';
 
 CREATE TABLE `graph_augment_jobs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -361,7 +461,7 @@ CREATE TABLE `llm_usage_log` (
   KEY `idx_call_source` (`call_source`),
   KEY `idx_model_name` (`model_name`),
   KEY `idx_user_date` (`user_id`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=1565 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用Token消耗日志';
+) ENGINE=InnoDB AUTO_INCREMENT=2887 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用Token消耗日志';
 
 CREATE TABLE `macro_indicator_data` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -401,7 +501,7 @@ CREATE TABLE `macro_signal_request_log` (
   KEY `idx_factor_signal_started` (`factor_code`,`signal_type`,`started_at`),
   KEY `idx_query_range` (`query_start_time`,`query_end_time`),
   KEY `idx_success_started` (`success`,`started_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=7824 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='宏观信号API请求日志表';
+) ENGINE=InnoDB AUTO_INCREMENT=7902 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='宏观信号API请求日志表';
 
 CREATE TABLE `news` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -420,7 +520,7 @@ CREATE TABLE `news` (
   UNIQUE KEY `uk_global_uid` (`global_uid`),
   KEY `idx_source` (`source`),
   KEY `idx_pub_time` (`pub_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=18499 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻主表';
+) ENGINE=InnoDB AUTO_INCREMENT=19426 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻主表';
 
 CREATE TABLE `news_content_blocks` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -442,7 +542,7 @@ CREATE TABLE `news_content_blocks` (
   KEY `idx_block_type` (`block_type`),
   KEY `idx_block_order` (`block_order`),
   CONSTRAINT `fk_news_content_blocks_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=510091 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻内容块表（用于前端渲染）';
+) ENGINE=InnoDB AUTO_INCREMENT=528836 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻内容块表（用于前端渲染）';
 
 CREATE TABLE `news_factor` (
   `news_id` bigint(20) unsigned NOT NULL,
@@ -460,6 +560,29 @@ CREATE TABLE `news_factor` (
   CONSTRAINT `fk_news_factor_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻及其对应因子表';
 
+CREATE TABLE `news_importance_score` (
+  `news_id` bigint(20) unsigned NOT NULL COMMENT '新闻 ID（FK news.id）',
+  `score_version` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'v1' COMMENT '打分公式版本',
+  `importance_score` decimal(8,4) NOT NULL DEFAULT '0.0000' COMMENT '静态重要性分 I_news，0-100',
+  `s_direction` decimal(6,4) DEFAULT NULL COMMENT '信号：最佳模型方向强度',
+  `s_agreement` decimal(6,4) DEFAULT NULL COMMENT '信号：多模型方向一致性',
+  `s_horizon` decimal(6,4) DEFAULT NULL COMMENT '信号：期限',
+  `s_category` decimal(6,4) DEFAULT NULL COMMENT '信号：因子最高类别权重',
+  `s_hit` decimal(6,4) DEFAULT NULL COMMENT '信号：因子命中率先验均值',
+  `s_nfactor` decimal(6,4) DEFAULT NULL COMMENT '信号：关联因子数量（饱和归一）',
+  `s_rich` decimal(6,4) DEFAULT NULL COMMENT '信号：内容丰富度（图/表/标题块）',
+  `s_policy` tinyint(1) NOT NULL DEFAULT '0' COMMENT '信号：政策标记 0/1',
+  `s_source` decimal(6,4) DEFAULT NULL COMMENT '信号：来源权重',
+  `factor_count` int(11) NOT NULL DEFAULT '0' COMMENT 'DISTINCT 关联因子数',
+  `top_category` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权重最高的因子类别',
+  `signals_json` json DEFAULT NULL COMMENT '全部信号子分与原始取值（解释/台账）',
+  `computed_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '本次计算时间',
+  PRIMARY KEY (`news_id`,`score_version`),
+  KEY `idx_nis_version_score` (`score_version`,`importance_score`),
+  KEY `idx_nis_computed` (`computed_at`),
+  CONSTRAINT `fk_nis_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻重要性打分（静态分量预计算，时间衰减读时施加）';
+
 CREATE TABLE `news_vectors` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `news_id` bigint(20) unsigned NOT NULL,
@@ -470,7 +593,64 @@ CREATE TABLE `news_vectors` (
   UNIQUE KEY `uk_news_id_version` (`news_id`,`vector_version`),
   KEY `idx_vector_version` (`vector_version`),
   CONSTRAINT `fk_news_vectors_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=69950 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻文本向量存储表';
+) ENGINE=InnoDB AUTO_INCREMENT=70877 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻文本向量存储表';
+
+CREATE TABLE `policy_analysis` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `document_id` bigint(20) NOT NULL,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `summary` text COLLATE utf8mb4_unicode_ci COMMENT '政策要点摘要',
+  `domains` json DEFAULT NULL COMMENT '涉及领域数组，如 ["货币政策","财政政策"]',
+  `impact_direction` enum('bullish','bearish','neutral') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '对债市影响方向',
+  `impact_reason` text COLLATE utf8mb4_unicode_ci COMMENT '影响推理说明',
+  `evidence` json DEFAULT NULL COMMENT '原文依据片段数组（方向判断必须附依据）',
+  `key_points` json DEFAULT NULL COMMENT '分条要点',
+  `model_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_policy_analysis_document` (`document_id`),
+  KEY `idx_policy_analysis_owner` (`owner_username`,`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='政策文件 AI 分析结果';
+
+CREATE TABLE `policy_document` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `file_hash` char(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件 SHA-256，用于去重',
+  `title` varchar(300) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '文件标题（解析或取文件名）',
+  `original_filename` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '原始文件名',
+  `issuer` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '发文机关',
+  `document_no` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文号，如 银发〔2026〕1号',
+  `publish_date` date DEFAULT NULL COMMENT '发布日期',
+  `full_text` mediumtext COLLATE utf8mb4_unicode_ci COMMENT '解析出的全文',
+  `page_count` int(11) DEFAULT NULL COMMENT '页数',
+  `status` enum('uploaded','analyzing','completed','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'uploaded',
+  `error_message` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `model_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '分析所用模型',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_policy_document_hash` (`owner_username`,`file_hash`),
+  KEY `idx_policy_document_list` (`owner_username`,`created_at`,`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='政策文件（用户上传）';
+
+CREATE TABLE `policy_event` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `news_id` bigint(20) unsigned NOT NULL COMMENT '关联 news.id',
+  `event_date` date NOT NULL COMMENT '事件日期（取新闻发布日期）',
+  `title` varchar(300) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `policy_category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '代表性 POLICY 因子 code',
+  `scope` enum('domestic','overseas') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'domestic' COMMENT '国内 / 涉外',
+  `status` enum('pending','confirmed','excluded') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '待确认 / 已确认 / 已剔除',
+  `note` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '剔除或确认备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_policy_event_owner_news` (`owner_username`,`news_id`),
+  KEY `idx_policy_event_list` (`owner_username`,`status`,`event_date`),
+  KEY `idx_policy_event_date` (`event_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='政策事件（人工确认态）';
 
 CREATE TABLE `portfolio_strategy_analysis_cache` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID，自增',
@@ -495,7 +675,7 @@ CREATE TABLE `portfolio_strategy_analysis_cache` (
   UNIQUE KEY `uk_cache_key` (`cache_key`),
   KEY `idx_target_news_date` (`target_news_date`),
   KEY `idx_status_created` (`status`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组合策略分析结果缓存表';
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组合策略分析结果缓存表';
 
 CREATE TABLE `report_analysis` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -598,7 +778,7 @@ CREATE TABLE `research_report` (
   `ai_model` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '模型名',
   `ai_raw_response` json DEFAULT NULL COMMENT 'LLM原始返回',
   `ai_evidence` json DEFAULT NULL COMMENT 'AI分析溯源：原文摘录+推断',
-  `ai_deep_markdown` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '深度拆解 Markdown（板块一）',
+  `ai_deep_markdown` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '深度拆解 Markdown（板块一）',
   `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT 'pending/parsing/parsed/analyzed/failed',
   `parse_error` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '解析失败原因',
   `retry_count` int(11) DEFAULT '0' COMMENT '分析重试次数',
@@ -663,7 +843,7 @@ CREATE TABLE `task_events` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_task_events_task_run_id` (`task_run_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10096 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14147 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_runs` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -682,7 +862,19 @@ CREATE TABLE `task_runs` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_runs_idempotency_key` (`idempotency_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=701 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2219 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `treasury_yield` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `trade_date` date NOT NULL COMMENT '日期（美方交易日）',
+  `term` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '期限码：2Y/10Y/30Y',
+  `value` decimal(10,4) NOT NULL COMMENT '收益率(%)',
+  `source` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'us_treasury',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_treasury_yield` (`trade_date`,`term`),
+  KEY `idx_treasury_yield_date` (`trade_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=616 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='美债收益率（美国财政部）';
 
 CREATE TABLE `user_behavior_profile` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -739,7 +931,7 @@ CREATE TABLE `user_page_view` (
   KEY `idx_action_type` (`action_type`),
   KEY `idx_action_target` (`action_target`(64)),
   KEY `idx_user_action` (`user_id`,`action_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=759 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='页面访问日志 - 每次页面切换记录一条';
+) ENGINE=InnoDB AUTO_INCREMENT=2538 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='页面访问日志 - 每次页面切换记录一条';
 
 CREATE TABLE `user_session` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -753,7 +945,7 @@ CREATE TABLE `user_session` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_login_time` (`login_time`),
   KEY `idx_user_login` (`user_id`,`login_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=504 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话记录 - 每次登录建立一条';
+) ENGINE=InnoDB AUTO_INCREMENT=1476 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话记录 - 每次登录建立一条';
 
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
@@ -772,7 +964,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
   UNIQUE KEY `uk_phone` (`phone`)
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统用户表';
+) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统用户表';
 
 CREATE TABLE `wechat_article` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -880,7 +1072,7 @@ CREATE TABLE `workbench_messages` (
 CREATE TABLE `workbench_project_members` (
   `project_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('manager','editor') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` enum('manager','editor') COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`project_id`,`username`),
@@ -919,6 +1111,21 @@ CREATE TABLE `workbench_projects` (
   KEY `idx_workbench_projects_updated` (`updated_at`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `workbench_skill_attachment_chunks` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `attachment_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `skill_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_location` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `chunk_index` int(10) unsigned NOT NULL,
+  `content` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_workbench_skill_attachment_chunk` (`attachment_id`,`chunk_index`),
+  KEY `idx_workbench_skill_attachment_chunks_skill` (`skill_id`,`attachment_id`),
+  CONSTRAINT `fk_workbench_skill_attachment_chunks_attachment` FOREIGN KEY (`attachment_id`) REFERENCES `workbench_skill_attachments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_workbench_skill_attachment_chunks_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `workbench_skill_attachments` (
   `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `skill_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -926,8 +1133,8 @@ CREATE TABLE `workbench_skill_attachments` (
   `stored_filename` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `content_type` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `size_bytes` bigint(20) unsigned NOT NULL,
-  `parse_status` enum('stored','pending','parsing','ready','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'stored',
-  `parse_error` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `parse_status` enum('stored','pending','parsing','ready','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'stored',
+  `parse_error` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `page_count` int(10) unsigned DEFAULT NULL,
   `parsed_at` datetime(6) DEFAULT NULL,
   `created_by` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -952,7 +1159,7 @@ CREATE TABLE `workbench_skill_versions` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_workbench_skill_versions` (`skill_id`,`version_no`),
   CONSTRAINT `fk_workbench_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=317 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_skills` (
   `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -973,32 +1180,17 @@ CREATE TABLE `workbench_skills` (
   KEY `idx_workbench_skills_system_updated` (`owner_type`,`status`,`updated_at`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `workbench_skill_attachment_chunks` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `attachment_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `skill_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `source_location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `chunk_index` int(10) unsigned NOT NULL,
-  `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_workbench_skill_attachment_chunk` (`attachment_id`,`chunk_index`),
-  KEY `idx_workbench_skill_attachment_chunks_skill` (`skill_id`,`attachment_id`),
-  CONSTRAINT `fk_workbench_skill_attachment_chunks_attachment` FOREIGN KEY (`attachment_id`) REFERENCES `workbench_skill_attachments` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_workbench_skill_attachment_chunks_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `workbench_user_memories` (
-  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `owner_username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `category` enum('response_preference','user_background','long_term_interest','personal_constraint') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'response_preference',
-  `normalized_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `source_type` enum('manual','explicit_chat','inferred_chat') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'manual',
-  `source_conversation_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `source_message_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('pending','active','disabled','deleted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` enum('response_preference','user_background','long_term_interest','personal_constraint') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'response_preference',
+  `normalized_key` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_type` enum('manual','explicit_chat','inferred_chat') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'manual',
+  `source_conversation_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source_message_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('pending','active','disabled','deleted') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
   `confidence` decimal(4,3) DEFAULT NULL,
   `is_pinned` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -1012,7 +1204,7 @@ CREATE TABLE `workbench_user_memories` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_user_memory_settings` (
-  `owner_username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
   `memory_enabled` tinyint(1) NOT NULL DEFAULT '1',
   `auto_extract_enabled` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -1021,8 +1213,8 @@ CREATE TABLE `workbench_user_memory_settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_user_system_skills` (
-  `username` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `skill_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `skill_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `enabled_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`username`,`skill_id`),

@@ -10,6 +10,7 @@ import type {
   MacroIndicatorsResponse,
   MacroDataResponse,
   DiscoverNewsResponse,
+  RecommendRankingsResponse,
   MarketPanelResponse,
   FactorDetailData,
   ReturnsCalendarResponse,
@@ -121,6 +122,7 @@ export function fetchDiscoverNews(params: {
   direction?: string;
   source?: string;
   days?: number;
+  sort?: 'latest' | 'recommend';
 }): Promise<DiscoverNewsResponse> {
   const sp = new URLSearchParams();
   if (params.page) sp.set('page', String(params.page));
@@ -128,7 +130,13 @@ export function fetchDiscoverNews(params: {
   if (params.direction) sp.set('direction', params.direction);
   if (params.source) sp.set('source', params.source);
   if (params.days) sp.set('days', String(params.days));
+  if (params.sort) sp.set('sort', params.sort);
   return request<DiscoverNewsResponse>(`${BASE}/discover/news?${sp}`);
+}
+
+/** 推荐排行榜四榜合一（后端进程内 TTL 120s）。 */
+export function fetchRecommendRankings(days = 7): Promise<RecommendRankingsResponse> {
+  return request<RecommendRankingsResponse>(`${BASE}/discover/recommend-rankings?days=${days}`)
 }
 
 export function fetchMarketPanel(): Promise<MarketPanelResponse> {
