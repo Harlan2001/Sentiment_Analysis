@@ -1,0 +1,70 @@
+/* ===================================================================
+   策略向导式工作台设计 tokens（S2）
+
+   只新增变量、不改动任何既有页面外观。变量名统一 --sw- 前缀
+   （strategy workbench），后续重构其他页面时再逐步把散落的硬编码色值
+   收敛到这里。色板取自现有深色体系（#0e0e0e 底 / #181818 面 / 白字 /
+   绿涨红跌黄中性），保证两页与全站观感一致。
+=================================================================== */
+
+:root {
+  /* 表面层级：底 → 卡片 → 浮层（下拉/弹层） */
+  --sw-color-bg: #0e0e0e;
+  --sw-color-surface: #161616;
+  --sw-color-surface-2: #1d1d1d;
+  --sw-color-overlay: #222222;
+
+  /* 描边：弱分隔 / 常规 / 强交互 */
+  --sw-color-border: #2a2a2a;
+  --sw-color-border-strong: #3a3a3a;
+  --sw-color-border-focus: #6b6b6b;
+
+  /* 文本：主 / 次 / 弱 */
+  --sw-color-text: #f0f0f0;
+  --sw-color-text-secondary: #9ca3af;
+  --sw-color-text-tertiary: #757575;
+
+  /* 主交互：黑底白字体系，主按钮=白底黑字 */
+  --sw-color-primary: #ffffff;
+  --sw-color-on-primary: #0e0e0e;
+
+  /* 状态色（与全站 --color-up/down/neutral 同色，另配低透明底做徽章） */
+  --sw-color-success: #52c41a;
+  --sw-color-success-bg: rgba(82, 196, 26, 0.12);
+  --sw-color-danger: #ff4d4f;
+  --sw-color-danger-bg: rgba(255, 77, 79, 0.12);
+  --sw-color-warning: #faad14;
+  --sw-color-warning-bg: rgba(250, 173, 20, 0.12);
+  --sw-color-info: #5aa7ff;
+  --sw-color-info-bg: rgba(90, 167, 255, 0.12);
+  --sw-color-neutral-bg: rgba(156, 163, 175, 0.14);
+
+  /* 间距：4 的倍数体系 */
+  --sw-space-1: 4px;
+  --sw-space-2: 8px;
+  --sw-space-3: 12px;
+  --sw-space-4: 16px;
+  --sw-space-5: 20px;
+  --sw-space-6: 24px;
+  --sw-space-8: 32px;
+
+  /* 字号 */
+  --sw-font-xs: 12px;
+  --sw-font-sm: 13px;
+  --sw-font-md: 15px;
+  --sw-font-lg: 17px;
+  --sw-font-xl: 20px;
+
+  /* 圆角：标签 / 卡片 / 大容器 */
+  --sw-radius-sm: 6px;
+  --sw-radius-md: 9px;
+  --sw-radius-lg: 12px;
+
+  /* 阴影：浮层与悬浮卡片 */
+  --sw-shadow-overlay: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --sw-shadow-card-hover: 0 2px 12px rgba(0, 0, 0, 0.35);
+
+  /* 动效节奏 */
+  --sw-duration-fast: 120ms;
+  --sw-duration: 200ms;
+}

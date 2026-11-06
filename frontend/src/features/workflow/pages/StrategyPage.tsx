@@ -1,84 +1,163 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { StrategyConversation, createStrategyConversation, deleteStrategyConversation, getStrategyConversations } from '@/api/strategy'
+import {
+  StrategyConversation,
+  StrategyConversationSummary,
+  createStrategyConversation,
+  deleteStrategyConversation,
+  getStrategyConversations,
+} from '@/api/strategy'
+import './strategy-workbench.css'
+
+type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+
+type Badge = { text: string; tone: Tone }
+
+const MODE_LABELS: Record<string, string> = {
+  bar: 'K线',
+  tick: 'Tick',
+  factor: '因子',
+}
 
 function timeLabel(value: string | null) {
   if (!value) return ''
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .format(new Date(value))
+    .replace(/\//g, '-')
 }
 
-function todayLabel() {
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replace(/\//g, '-')
+function turnBadge(summary: StrategyConversationSummary): Badge {
+  switch (summary.turn_status) {
+    case 'pending_confirmation':
+      return { text: '待确认', tone: 'warning' }
+    case 'running':
+      return { text: '生成中', tone: 'info' }
+    case 'cancelled':
+      return { text: '已放弃', tone: 'neutral' }
+    case 'failed':
+      return { text: '失败', tone: 'danger' }
+    case 'timed_out':
+      return { text: '已超时', tone: 'danger' }
+    case 'succeeded':
+      switch (summary.verdict) {
+        case 'passed':
+          return { text: '验收通过', tone: 'success' }
+        case 'no_trade':
+          return { text: '无成交 · 不合格', tone: 'warning' }
+        case 'backtest_failed':
+          return { text: '回测失败', tone: 'danger' }
+        case 'backtest_error':
+          return { text: '回测异常', tone: 'danger' }
+        default:
+          return { text: '已生成', tone: 'neutral' }
+      }
+    default:
+      return { text: '新会话', tone: 'neutral' }
+  }
 }
 
-function todayDate() {
-  return new Date()
-}
+const STATUS_OPTIONS = [
+  { value: '全部', match: () => true },
+  { value: '待确认', match: (s: StrategyConversationSummary) => s.turn_status === 'pending_confirmation' },
+  { value: '生成中', match: (s: StrategyConversationSummary) => s.turn_status === 'running' },
+  { value: '已完成', match: (s: StrategyConversationSummary) => s.turn_status === 'succeeded' },
+  { value: '失败', match: (s: StrategyConversationSummary) => s.turn_status === 'failed' || s.turn_status === 'timed_out' },
+]
 
-function matchesDate(iso: string, dateStr: string): boolean {
-  const d = new Date(iso)
-  const t = new Date(dateStr + 'T00:00:00')
-  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate()
-}
+const VERDICT_OPTIONS = [
+  { value: '全部', match: () => true },
+  { value: '验收通过', match: (s: StrategyConversationSummary) => s.verdict === 'passed' },
+  { value: '无成交', match: (s: StrategyConversationSummary) => s.verdict === 'no_trade' },
+  { value: '回测失败', match: (s: StrategyConversationSummary) => s.verdict === 'backtest_failed' },
+  { value: '回测异常', match: (s: StrategyConversationSummary) => s.verdict === 'backtest_error' },
+]
 
-const DAY_HEADERS = ['一','二','三','四','五','六','日']
-const MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  label: string
+  value: string
+  options: { value: string }[]
+  onSelect: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
-function getMonthDays(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(year, month, 1).getDay() || 7 // 周一=1 周日=7
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const days: (number | null)[] = []
-  for (let i = 1; i < firstDay; i++) days.push(null)
-  for (let d = 1; d <= daysInMonth; d++) days.push(d)
-  return days
+  useEffect(() => {
+    if (!open) return
+    function outside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', outside)
+    return () => document.removeEventListener('mousedown', outside)
+  }, [open])
+
+  return (
+    <div className="sw-filter" ref={ref}>
+      <button
+        type="button"
+        className={'sw-filter-chip' + (value !== '全部' ? ' is-active' : '')}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {label}：{value}
+        <i className="sw-caret" aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="sw-filter-menu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={option.value === value ? 'is-active' : ''}
+              onClick={() => {
+                onSelect(option.value)
+                setOpen(false)
+              }}
+            >
+              {option.value}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function StrategyPage() {
   const navigate = useNavigate()
-  // 策略生成只保留首页导航入口
   const promptBase = '/strategy/prompt'
   const [conversations, setConversations] = useState<StrategyConversation[]>([])
   const [request, setRequest] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [unreadOnly, setUnreadOnly] = useState(false)
-  const [archivedOnly, setArchivedOnly] = useState(false)
-  const [selectedDate, setSelectedDate] = useState('')
-  const [calOpen, setCalOpen] = useState(false)
-  const [calYear, setCalYear] = useState(todayDate().getFullYear())
-  const [calMonth, setCalMonth] = useState(todayDate().getMonth())
-  const [showAllPending, setShowAllPending] = useState(false)
-  const [showAllHistory, setShowAllHistory] = useState(false)
-  const calRef = useRef<HTMLDivElement>(null)
-
-  /* dropdown 状态 */
-  const [statusFilter, setStatusFilter] = useState<string>('全部')
-  const [statusOpen, setStatusOpen] = useState(false)
-  const statusRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function outside(e: MouseEvent) {
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false)
-    }
-    if (statusOpen) document.addEventListener('mousedown', outside)
-    return () => document.removeEventListener('mousedown', outside)
-  }, [statusOpen])
-
-  useEffect(() => {
-    function outside(e: MouseEvent) { if (calRef.current && !calRef.current.contains(e.target as Node)) setCalOpen(false) }
-    if (calOpen) document.addEventListener('mousedown', outside)
-    return () => document.removeEventListener('mousedown', outside)
-  }, [calOpen])
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState('全部')
+  const [verdictFilter, setVerdictFilter] = useState('全部')
 
   const loadConversations = useCallback(() => {
     setLoading(true)
     getStrategyConversations(50)
-      .then((data) => { setConversations(data.items); setError('') })
+      .then((data) => {
+        setConversations(data.items)
+        setError('')
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { loadConversations() }, [loadConversations])
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
 
   async function createStrategy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -87,9 +166,11 @@ export function StrategyPage() {
     setRequest('')
     setError('')
     try {
-      const created = await createStrategyConversation(req || '新策略对话')
+      const created = await createStrategyConversation(req)
       navigate(`${promptBase}?id=${created.id}`)
-    } catch (e) { setError(e instanceof Error ? e.message : '创建策略失败') }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '创建策略失败')
+    }
   }
 
   async function deleteStrategy(conversation: StrategyConversation) {
@@ -97,140 +178,138 @@ export function StrategyPage() {
     try {
       await deleteStrategyConversation(conversation.id)
       setConversations((current) => current.filter((item) => item.id !== conversation.id))
-    } catch (e) { setError(e instanceof Error ? e.message : '删除策略失败') }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '删除策略失败')
+    }
   }
 
-  const activeItems = conversations.filter((c) => c.status !== 'archived')
-  const archivedItems = conversations.filter((c) => c.status === 'archived')
   const visibleItems = useMemo(() => {
-    let items = archivedOnly ? archivedItems : activeItems
-    if (selectedDate) items = items.filter((c) => matchesDate(c.updated_at, selectedDate))
-    if (statusFilter === '待确认') items = items.filter((c) => c.current_local_version_no === 0)
-    if (statusFilter === '已完成') items = items.filter((c) => c.current_local_version_no > 0)
-    return items
-  }, [activeItems, archivedItems, archivedOnly, selectedDate, statusFilter])
-  const pendingItems = visibleItems.filter((c) => c.current_local_version_no === 0)
-  const historyItems = visibleItems.filter((c) => c.current_local_version_no > 0)
-
-  const displayPending = showAllPending ? pendingItems : pendingItems.slice(0, 2)
-  const displayHistory = showAllHistory ? historyItems : historyItems.slice(0, 4)
-  const totalCount = visibleItems.length
+    const word = keyword.trim().toLowerCase()
+    const statusMatcher = STATUS_OPTIONS.find((option) => option.value === statusFilter) ?? STATUS_OPTIONS[0]
+    const verdictMatcher = VERDICT_OPTIONS.find((option) => option.value === verdictFilter) ?? VERDICT_OPTIONS[0]
+    return conversations.filter((conversation) => {
+      const summary = conversation.summary
+      if (word && !(conversation.title || '').toLowerCase().includes(word)) return false
+      if (!statusMatcher.match(summary)) return false
+      if (!verdictMatcher.match(summary)) return false
+      return true
+    })
+  }, [conversations, keyword, statusFilter, verdictFilter])
 
   return (
-    <section className="computer-page">
-      <div className="computer-toolbar">
-        <div className="computer-dropdown" ref={statusRef}>
-          <button className={'computer-chip dropdown-chip ' + (statusFilter !== '全部' ? 'selected' : '')} onClick={() => { setStatusOpen((v) => !v) }}>
-            状态：{statusFilter}<i className="inline-caret" aria-hidden="true" />
-          </button>
-          {statusOpen && (
-            <div className="computer-dropdown-menu">
-              {['全部', '待确认', '已完成'].map((opt) => (
-                <button key={opt} className={statusFilter === opt ? 'active' : ''} onClick={() => { setStatusFilter(opt); setStatusOpen(false) }}>{opt}</button>
-              ))}
-            </div>
-          )}
+    <section className="sw-list-page">
+      <header className="sw-list-header">
+        <div>
+          <h1 className="sw-list-title">策略生成</h1>
+          <p className="sw-list-subtitle">AI 生成的研究草案，回测结果不代表实盘</p>
         </div>
-        <button className={'computer-chip ' + (unreadOnly ? 'selected' : '')} onClick={() => setUnreadOnly((v) => !v)}>仅未读</button>
-        <div style={{position:'relative',display:'inline-flex'}} ref={calRef}>
-          <button className={'computer-chip ' + (selectedDate ? 'selected' : '')} onClick={() => { const t = selectedDate ? new Date(selectedDate + 'T00:00:00') : todayDate(); setCalYear(t.getFullYear()); setCalMonth(t.getMonth()); setCalOpen((v) => !v) }}>
-            <span style={{marginRight:4}}>▣</span>{selectedDate || todayLabel()}
-          </button>
-          {selectedDate && <button className="computer-chip" onClick={() => setSelectedDate('')} style={{marginLeft:4}}>✕</button>}
-          {calOpen && (
-            <div className="calendar-popup">
-              <div className="calendar-head">
-                <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1) } else setCalMonth((m) => m - 1) }}>‹</button>
-                <strong>{calYear}年 {MONTH_NAMES[calMonth]}</strong>
-                <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1) } else setCalMonth((m) => m + 1) }}>›</button>
-              </div>
-              <div className="calendar-grid">
-                {DAY_HEADERS.map((d) => <span key={d} className="calendar-day-header">{d}</span>)}
-                {getMonthDays(calYear, calMonth).map((d, i) => {
-                  if (d === null) return <span key={`e${i}`} />
-                  const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-                  return <button key={ds} className={'calendar-day ' + (ds === selectedDate ? 'selected' : '')} onClick={() => { setSelectedDate(ds); setCalOpen(false) }}>{d}</button>
-                })}
-              </div>
-            </div>
-          )}
+        <div className="sw-list-controls">
+          <div className="sw-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="搜索策略名称"
+              aria-label="搜索策略"
+            />
+          </div>
+          <FilterDropdown label="状态" value={statusFilter} options={STATUS_OPTIONS} onSelect={setStatusFilter} />
+          <FilterDropdown label="结论" value={verdictFilter} options={VERDICT_OPTIONS} onSelect={setVerdictFilter} />
         </div>
-        <button className={'computer-chip ' + (archivedOnly ? 'selected' : '')} onClick={() => setArchivedOnly((v) => !v)}>已归档</button>
-        <span className="computer-spacer" />
-        <button className="computer-button primary" onClick={() => { const ta = document.querySelector<HTMLTextAreaElement>('.report-composer textarea'); ta?.focus() }}>＋ 新建策略</button>
-        <span className="computer-count">{loading ? '读取中…' : `${totalCount} 段策略会话`}</span>
-      </div>
+      </header>
 
-      {/* 需要处理 */}
-      <section className="computer-attention">
-        <div className="computer-attention-head"><strong>需要处理 · {pendingItems.length}</strong><span>⌃</span></div>
-        {pendingItems.length === 0 ? (
-          <div className="computer-attention-row">
-            <span className="attention-dot" />
-            <div><strong>当前无待处理的策略生成</strong><small>新建策略后将在此展示待确认项</small></div>
-            <span className="computer-spacer" />
+      {error && <p className="sw-list-error" role="alert">{error}</p>}
+
+      <div className="sw-card-list">
+        {loading ? (
+          <div className="sw-list-state">正在读取策略会话…</div>
+        ) : visibleItems.length === 0 ? (
+          <div className="sw-list-state">
+            {conversations.length === 0 ? '还没有策略会话，在下方输入一句话想法开始' : '没有符合筛选条件的策略'}
           </div>
         ) : (
-          <>
-            {displayPending.map((item) => (
-              <div className="computer-attention-row" key={item.id}>
-                <span className="attention-dot running" />
-                <div><strong>{item.title || '新策略对话'}</strong><small>{timeLabel(item.last_message_at)}</small></div>
-                <span className="computer-badge warning">等待确认</span>
-                <button className="computer-button primary" onClick={() => navigate(`${promptBase}?id=${item.id}`)}>查看并确认</button>
-                <time>{timeLabel(item.updated_at)}</time>
-              </div>
-            ))}
-            {pendingItems.length > 2 && (
-              <div style={{textAlign:'center',padding:'6px 0 2px'}}>
-                <button className="expand-toggle" onClick={() => setShowAllPending((v) => !v)} aria-label={showAllPending ? '收起' : '展开'}>
-                  <i className={'expand-arrow ' + (showAllPending ? 'up' : 'down')} />
-                </button>
-              </div>
-            )}
-          </>
+          visibleItems.map((conversation) => {
+            const summary = conversation.summary
+            const badge = turnBadge(summary)
+            const modeText = [
+              MODE_LABELS[summary.backtest_mode ?? ''] ?? summary.backtest_mode,
+              summary.candle_interval,
+            ]
+              .filter(Boolean)
+              .join(' / ')
+            return (
+              <article
+                key={conversation.id}
+                className="sw-card"
+                onClick={() => navigate(`${promptBase}?id=${conversation.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    navigate(`${promptBase}?id=${conversation.id}`)
+                  }
+                }}
+              >
+                <div className="sw-card-main">
+                  <h2 className="sw-card-title">{conversation.title || '新策略对话'}</h2>
+                  <p className="sw-card-meta">
+                    {summary.instrument || summary.instrument_code || '标的待草稿生成后回填'}
+                    {modeText ? ` · ${modeText}` : ''}
+                  </p>
+                  {summary.failure_reason && <p className="sw-card-reason">{summary.failure_reason}</p>}
+                </div>
+                <div className="sw-card-aside">
+                  <div className="sw-card-badges">
+                    <span className={`sw-badge sw-badge--${badge.tone}`}>{badge.text}</span>
+                    {conversation.current_local_version_no > 0 && (
+                      <span className="sw-badge sw-badge--neutral">v{conversation.current_local_version_no}</span>
+                    )}
+                  </div>
+                  <p className="sw-card-metrics">
+                    {summary.trade_count != null && <span>成交 {summary.trade_count} 笔</span>}
+                    {summary.annual_return && <span>年化 {summary.annual_return}</span>}
+                  </p>
+                  <div className="sw-card-foot">
+                    <time>{timeLabel(conversation.updated_at)}</time>
+                    <button
+                      type="button"
+                      className="sw-card-delete"
+                      aria-label={`删除策略 ${conversation.title || ''}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void deleteStrategy(conversation)
+                      }}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )
+          })
         )}
-      </section>
-
-      {/* 历史策略 */}
-      <div className="computer-list-head">
-        <div><strong>{archivedOnly ? '已归档' : todayLabel()}</strong><span>· {historyItems.length} 段会话</span></div>
-        <div className="computer-view-switch"><button className="active">会话与文档</button><button>仅会话</button><button>仅文档</button></div>
       </div>
 
-      <div className="computer-table-wrap">
-        <table className="computer-table">
-          <thead><tr><th /><th>任务会话</th><th>来源/类型</th><th>状态或结果</th><th>更新时间</th><th>操作</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={6} style={{textAlign:'center',padding:'24px',color:'#809188'}}>正在读取策略会话…</td></tr>
-            : historyItems.length === 0 ? <tr><td colSpan={6} style={{textAlign:'center',padding:'24px',color:'#809188'}}>暂无策略会话</td></tr>
-            : displayHistory.map((conv) => {
-                return (
-                  <tr key={conv.id} onClick={() => navigate(`${promptBase}?id=${conv.id}`)} style={{cursor:'pointer'}}>
-                    <td><span className={'computer-status ' + (conv.current_local_version_no > 0 ? 'done' : 'waiting')}>{conv.current_local_version_no > 0 ? '✓' : '●'}</span></td>
-                    <td><strong>{conv.title || '新策略对话'}</strong><small>{timeLabel(conv.last_message_at)}</small></td>
-                    <td>用户生成</td>
-                    <td><span className={'computer-badge ' + (conv.current_local_version_no > 0 ? 'file' : 'warning')}>{conv.current_local_version_no > 0 ? '已完成' : '待确认'}</span></td>
-                    <td><time>{timeLabel(conv.updated_at)}</time></td>
-                    <td><button className="computer-delete-button" onClick={(event) => { event.stopPropagation(); void deleteStrategy(conv) }} aria-label={`删除策略 ${conv.title || ''}`}>🗑</button></td>
-                  </tr>
-                )
-              })}
-          </tbody>
-        </table>
-        {historyItems.length > 4 && (
-          <div style={{textAlign:'center',padding:'6px 0 10px'}}>
-            <button className="expand-toggle" onClick={() => setShowAllHistory((v) => !v)} aria-label={showAllHistory ? '收起' : '展开'}>
-              <i className={'expand-arrow ' + (showAllHistory ? 'up' : 'down')} />
-            </button>
-          </div>
-        )}
-      </div>
-
-      <form className="report-composer" onSubmit={createStrategy}>
-        <textarea value={request} onChange={(event) => setRequest(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="描述策略目标、市场范围和回测要求…" rows={2} />
-        <div><button type="button" className="computer-button">＋ 添加文件</button><span className="computer-badge">⌁ 策略生成</span><button className="report-send" type="submit" disabled={!request.trim()} aria-label="创建策略">↑</button></div>
-        {error && <p className="chat-error">{error}</p>}
+      <form className="sw-composer" onSubmit={createStrategy}>
+        <textarea
+          value={request}
+          onChange={(event) => setRequest(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              event.currentTarget.form?.requestSubmit()
+            }
+          }}
+          placeholder="输入一句话策略想法（标的、方向、规则、回测要求）…"
+          rows={2}
+        />
+        <div className="sw-composer-foot">
+          <span className="sw-composer-hint">Enter 发送 · Shift+Enter 换行</span>
+          <button type="submit" className="sw-primary-button" disabled={!request.trim()}>
+            创建策略
+          </button>
+        </div>
       </form>
     </section>
   )

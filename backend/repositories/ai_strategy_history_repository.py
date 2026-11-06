@@ -14,6 +14,93 @@ from backend.config.config import MYSQL_CONFIG
 from backend.repositories.base import RecycleBinMixin, RepositoryError, json_default, serialize_row
 
 
+def _loads_maybe(value: Any) -> Any:
+    """消息/版本里的 JSON 列可能是 None、字符串或已解析对象，统一容错。"""
+    if value is None or isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_clause(text: str | None, limit: int = 48) -> str | None:
+    """失败原因只取首句上卡片，完整原因留在详情页。"""
+    cleaned = " ".join(str(text or "").split())
+    if not cleaned:
+        return None
+    positions = [
+        cleaned.find(delimiter)
+        for delimiter in ("，", "；", "。", "：", "（", "(")
+        if delimiter in cleaned
+    ]
+    if positions:
+        cleaned = cleaned[: min(positions)].strip()
+    return cleaned[:limit]
+
+
+def _metric_value(metrics: Any, key: str) -> str | None:
+    """从 backtest_metrics_json 的 [{key,label,value}] 里按 key 取原始值。"""
+    if not isinstance(metrics, list):
+        return None
+    for item in metrics:
+        if isinstance(item, dict) and item.get("key") == key:
+            value = item.get("value")
+            return str(value) if value not in (None, "") else None
+    return None
+
+
+def _parse_int_maybe(value: Any) -> int | None:
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def build_conversation_summary(
+    conversation: dict[str, Any],
+    latest_message: dict[str, Any] | None,
+    latest_version: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """组装列表卡片所需的最近一轮摘要（纯函数，便于单测）。
+
+    标的/模式优先取会话列（新草稿会回写），历史会话退回首条草稿 context_json；
+    验收结论取最后一条 assistant 消息，成交/年化取最新版本指标。
+    """
+    context_raw = (latest_message or {}).get("context_json")
+    validation_raw = (latest_message or {}).get("validation_json")
+    context = context_raw if isinstance(context_raw, dict) else {}
+    validation = validation_raw if isinstance(validation_raw, dict) else {}
+    metrics = (latest_version or {}).get("backtest_metrics_json") or []
+    status = (latest_message or {}).get("status") or "idle"
+
+    trade_count = validation.get("trade_count")
+    if trade_count is None:
+        trade_count = _parse_int_maybe(_metric_value(metrics, "total_orders"))
+    annual_return = _metric_value(metrics, "compounding_annual_return")
+
+    failure_reason: str | None = None
+    if validation.get("verdict") and not validation.get("passed"):
+        failure_reason = _first_clause(validation.get("reason"))
+    if not failure_reason and status in {"failed", "timed_out"}:
+        failure_reason = _first_clause(
+            (latest_message or {}).get("public_error_message")
+        )
+
+    return {
+        "turn_status": status,
+        "verdict": validation.get("verdict"),
+        "verdict_passed": bool(validation.get("passed")),
+        "failure_reason": failure_reason,
+        "instrument": conversation.get("instrument") or context.get("instrument"),
+        "instrument_code": context.get("instrument_code"),
+        "backtest_mode": context.get("backtest_mode"),
+        "candle_interval": context.get("candle_interval"),
+        "trade_count": trade_count,
+        "annual_return": annual_return,
+    }
+
+
 class ArchivedConversationError(RepositoryError):
     """已归档会话不可再写入，避免意外恢复历史策略。"""
 
@@ -138,7 +225,79 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     (owner_username, limit),
                 )
                 rows = cursor.fetchall()
-        return [serialize_row(row) for row in rows]
+                conversations = [serialize_row(row) for row in rows]
+                if conversations:
+                    latest_messages = self._fetch_latest_assistant_messages(
+                        cursor, [item["id"] for item in conversations]
+                    )
+                    latest_versions = self._fetch_latest_versions(
+                        cursor, [item["id"] for item in conversations]
+                    )
+        for conversation in conversations:
+            conversation["summary"] = build_conversation_summary(
+                conversation,
+                latest_messages.get(conversation["id"]),
+                latest_versions.get(conversation["id"]),
+            )
+        return conversations
+
+    @staticmethod
+    def _fetch_latest_assistant_messages(
+        cursor: Any, conversation_ids: list[int]
+    ) -> dict[int, dict[str, Any]]:
+        """每个会话最后一条 assistant 消息（草稿/运行中/终态都看它），一次批量取。"""
+        placeholders = ",".join(["%s"] * len(conversation_ids))
+        cursor.execute(
+            f"""SELECT m.conversation_id, m.status, m.validation_json,
+                              m.public_error_message, m.context_json
+                         FROM ai_strategy_messages m
+                         JOIN (
+                               SELECT conversation_id, MAX(sequence_no) AS max_sequence
+                                 FROM ai_strategy_messages
+                                WHERE conversation_id IN ({placeholders}) AND role = 'assistant'
+                                GROUP BY conversation_id
+                         ) latest ON latest.conversation_id = m.conversation_id
+                                AND latest.max_sequence = m.sequence_no""",
+            conversation_ids,
+        )
+        return {
+            int(row["conversation_id"]): {
+                "status": row["status"],
+                "validation_json": _loads_maybe(row.get("validation_json")),
+                "public_error_message": row.get("public_error_message"),
+                "context_json": _loads_maybe(row.get("context_json")) or {},
+            }
+            for row in cursor.fetchall()
+        }
+
+    @staticmethod
+    def _fetch_latest_versions(
+        cursor: Any, conversation_ids: list[int]
+    ) -> dict[int, dict[str, Any]]:
+        """每个会话最新版本的指标摘要，供列表卡片直接展示核心数字。"""
+        placeholders = ",".join(["%s"] * len(conversation_ids))
+        cursor.execute(
+            f"""SELECT v.conversation_id, v.local_version_no, v.backtest_metrics_json
+                         FROM ai_strategy_versions v
+                         JOIN (
+                               SELECT conversation_id, MAX(local_version_no) AS max_version
+                                 FROM ai_strategy_versions
+                                WHERE conversation_id IN ({placeholders})
+                                GROUP BY conversation_id
+                         ) latest ON latest.conversation_id = v.conversation_id
+                                AND latest.max_version = v.local_version_no""",
+            conversation_ids,
+        )
+        return {
+            int(row["conversation_id"]): {
+                "local_version_no": row["local_version_no"],
+                "backtest_metrics_json": _loads_maybe(
+                    row.get("backtest_metrics_json")
+                )
+                or [],
+            }
+            for row in cursor.fetchall()
+        }
 
     def get_conversation(
         self,

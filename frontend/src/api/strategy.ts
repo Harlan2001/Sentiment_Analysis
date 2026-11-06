@@ -1,4 +1,21 @@
 import { request } from './client'
+
+/** 列表卡片所需的最近一轮摘要（后端 build_conversation_summary） */
+export type StrategyConversationSummary = {
+  /** 最后一条 assistant 消息状态：idle/pending_confirmation/running/succeeded/failed/timed_out/cancelled */
+  turn_status: string
+  verdict: ValidationVerdict | null
+  verdict_passed: boolean
+  failure_reason: string | null
+  instrument: string | null
+  instrument_code: string | null
+  backtest_mode: string | null
+  candle_interval: string | null
+  trade_count: number | null
+  /** 年化收益原始值（如 "2.1%"），未跑出指标时为 null */
+  annual_return: string | null
+}
+
 export type StrategyConversation = {
   id: number
   title: string
@@ -8,6 +25,7 @@ export type StrategyConversation = {
   last_message_at: string | null
   created_at: string
   updated_at: string
+  summary: StrategyConversationSummary
 }
 
 export type StrategyMessage = {
