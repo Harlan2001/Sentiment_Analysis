@@ -56,7 +56,8 @@ class NewsImportanceRepository(BaseRepository):
                     f"""SELECT news_id, direction, horizon, model
                           FROM analysis
                          WHERE news_id IN ({ph})
-                         ORDER BY news_id, {AnalysisQueries.priority_case_sql()}""",
+                         ORDER BY news_id,
+                                  CASE model {AnalysisQueries.priority_case_sql()} ELSE 999 END""",
                     ids,
                 )
                 analysis_rows = cur.fetchall()
