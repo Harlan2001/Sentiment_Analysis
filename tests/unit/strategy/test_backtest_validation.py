@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from backend.strategy.backtest_validation import (
     VERDICT_BACKTEST_ERROR,
     VERDICT_BACKTEST_FAILED,

@@ -114,7 +114,11 @@ REMOTE_EOF
     "${SSH_CMD[@]}" "${SERVER_USER}@${SERVER_HOST}" << REMOTE_EOF
 cd ${SERVER_PATH}
 echo "  重启容器..."
+# up 只在 compose 配置/镜像变化时重建容器；代码走 bind mount（./backend → /app/backend），
+# 宿主机文件内容变化不触发重建，uvicorn 会一直跑内存里的旧代码（新路由 404）。
+# 因此 up 之后必须再 restart，强制进程重新加载挂载进去的新代码。
 docker compose up -d backend mcp
+docker compose restart backend mcp
 echo ""
 echo "  容器状态:"
 docker compose ps

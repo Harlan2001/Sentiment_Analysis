@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Iterable
 from urllib.parse import urlsplit
 
-
 NewsReference = dict[str, Any]
 
 
