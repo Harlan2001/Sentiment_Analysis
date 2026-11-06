@@ -1312,6 +1312,11 @@ export interface DiscoverNewsItem {
   direction: string | null;       // positive | negative | neutral
   reason: string;
   factors: { id: number; name: string }[];
+  // 推荐排序（sort=recommend）时由后端返回，时间排序模式下为 null
+  importance_score: number | null;  // 静态重要性分 0-100
+  final_score: number | null;       // 叠加时间衰减后的最终分
+  score_signals: Record<string, number> | null;
+  top_category: string | null;
 }
 
 export interface DiscoverNewsResponse {

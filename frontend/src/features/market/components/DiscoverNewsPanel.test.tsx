@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
@@ -12,13 +12,20 @@ function makeItem(overrides: Partial<DiscoverNewsItem> = {}): DiscoverNewsItem {
   return {
     id: Math.floor(Math.random() * 1e6),
     title: '测试新闻',
+    summary: '',
     direction: 'positive',
-    source: '来源',
+    source: 'wallstreetcn',
+    source_name: '数据源1',
     pub_time: '2026-09-01 10:00',
     thumbnail: null,
-    summary: '摘要',
+    reason: '',
+    factors: [],
+    importance_score: null,
+    final_score: null,
+    score_signals: null,
+    top_category: null,
     ...overrides,
-  } as DiscoverNewsItem
+  }
 }
 
 // DiscoverNewsPanel 在挂载时创建 IntersectionObserver —— jsdom 没有该 API, 需 stub。
@@ -60,7 +67,7 @@ function mockDiscover(items: DiscoverNewsItem[]) {
 }
 
 describe('DiscoverNewsPanel', () => {
-  it('渲染新闻标题并支持点击回调', async () => {
+  it('以紧凑行渲染新闻标题并支持点击回调', async () => {
     const items = [
       makeItem({ id: 1, title: '有图新闻', thumbnail: 'http://img.local/1.png' }),
       makeItem({ id: 2, title: '无图新闻' }),
@@ -83,13 +90,19 @@ describe('DiscoverNewsPanel', () => {
     await waitFor(() => expect(screen.getByText('暂无新闻数据')).toBeInTheDocument())
   })
 
-  it('请求失败展示加载失败', async () => {
+  it('请求失败展示加载失败，点击重试后恢复', async () => {
+    mockDiscover([makeItem({ id: 1, title: '重试后新闻' })])
     server.use(
-      http.get(`${API_PREFIX}/discover/news`, () =>
-        HttpResponse.json({ detail: '错误' }, { status: 500 }),
+      http.get(
+        `${API_PREFIX}/discover/news`,
+        () => HttpResponse.json({ detail: '错误' }, { status: 500 }),
+        { once: true },
       ),
     )
     renderWithProviders(<DiscoverNewsPanel onNewsClick={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('加载失败')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(screen.getByText('重试后新闻')).toBeInTheDocument())
   })
 })
