@@ -831,6 +831,110 @@
   color: var(--sw-color-text-tertiary);
 }
 
+.sw-result-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-3);
+  padding: var(--sw-space-3);
+  border: 1px solid var(--sw-color-border);
+  border-left: 3px solid var(--sw-color-text-tertiary);
+  border-radius: var(--sw-radius-md);
+  background: var(--sw-color-surface-2);
+}
+
+.sw-result-hero--passed { border-left-color: var(--sw-color-success); }
+.sw-result-hero--failed { border-left-color: var(--sw-color-warning); }
+
+.sw-hero-oneliner {
+  margin: 0;
+  font-size: var(--sw-font-sm);
+  color: var(--sw-color-text);
+}
+
+.sw-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sw-space-2);
+}
+
+.sw-hero-metric {
+  padding: 10px 12px;
+  border: 1px solid var(--sw-color-border);
+  border-radius: var(--sw-radius-sm);
+  background: var(--sw-color-surface-1);
+  overflow: hidden;
+}
+
+.sw-hero-metric small {
+  display: block;
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-text-tertiary);
+}
+
+.sw-hero-metric strong {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--sw-font-lg, 20px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sw-hero-metric.is-anomaly {
+  border-color: var(--sw-color-warning);
+  background: var(--sw-color-warning-bg, var(--sw-color-surface-1));
+}
+
+.sw-hero-metric.is-anomaly strong { color: var(--sw-color-warning); }
+
+.sw-anomaly-banner {
+  padding: var(--sw-space-3);
+  border: 1px solid var(--sw-color-warning);
+  border-radius: var(--sw-radius-md);
+  background: var(--sw-color-warning-bg, var(--sw-color-surface-2));
+}
+
+.sw-anomaly-banner h4 {
+  margin: 0 0 var(--sw-space-2);
+  font-size: var(--sw-font-sm);
+  color: var(--sw-color-warning);
+}
+
+.sw-anomaly-banner ul {
+  margin: 0;
+  padding-left: var(--sw-space-4, 18px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sw-anomaly-banner li {
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-text-secondary);
+}
+
+.sw-anomaly-banner li strong {
+  color: var(--sw-color-warning);
+  margin-right: 6px;
+}
+
+.sw-metric-tier {
+  margin-top: var(--sw-space-3);
+}
+
+.sw-metric-tier:first-of-type {
+  margin-top: var(--sw-space-2);
+}
+
+.sw-metric-tier h4 {
+  margin: 0 0 var(--sw-space-2);
+  font-size: var(--sw-font-xs);
+  font-weight: 600;
+  color: var(--sw-color-text-tertiary);
+}
+
 .sw-metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -863,6 +967,22 @@
 .sw-metric--positive strong { color: #58d39b; }
 .sw-metric--negative strong { color: #ff8487; }
 .sw-metric--neutral strong { color: var(--sw-color-text); }
+
+/* 计算异常：警告色覆盖涨跌着色（不洗绿），整卡可 hover 看原因 */
+.sw-metric--anomaly {
+  border-color: var(--sw-color-warning);
+  background: var(--sw-color-warning-bg, var(--sw-color-surface-2));
+}
+
+.sw-metric--anomaly strong { color: var(--sw-color-warning); }
+
+.sw-metric-anomaly {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-warning);
+}
 
 .sw-backtest-log {
   margin: 0;

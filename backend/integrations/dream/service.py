@@ -29,6 +29,7 @@ from backend.integrations.dream.client import (
     DreamClient,
     prepare_protobuf_modules,
 )
+from backend.strategy.backtest_log_parser import parse_backtest_metrics
 from backend.strategy.backtest_validation import (
     build_retry_feedback,
     validate_strategy_result,
@@ -384,75 +385,6 @@ def _merge_backtest_log(previous: str, incoming: str) -> str:
     return previous.rstrip() + "\n" + incoming.lstrip()
 
 
-_BACKTEST_STATISTIC_NAMES = (
-    "Total Orders",
-    "Average Win",
-    "Average Loss",
-    "Compounding Annual Return",
-    "Drawdown",
-    "Expectancy",
-    "Start Equity",
-    "End Equity",
-    "Net Profit",
-    "Sharpe Ratio",
-    "Sortino Ratio",
-    "Probabilistic Sharpe Ratio",
-    "Loss Rate",
-    "Win Rate",
-    "Profit-Loss Ratio",
-    "Alpha",
-    "Beta",
-    "Annual Standard Deviation",
-    "Annual Variance",
-    "Information Ratio",
-    "Tracking Error",
-    "Treynor Ratio",
-    "Total Fees",
-    "Estimated Strategy Capacity",
-    "Lowest Capacity Asset",
-    "Portfolio Turnover",
-    "Drawdown Recovery",
-    "OrderListHash",
-)
-
-
-def _parse_backtest_metrics(backtest_log: str) -> list[dict[str, str]]:
-    """Extract every structured statistic emitted by ksquant-piloppolicy.
-
-    Known labels preserve their exact multi-word names. Unknown labels are
-    retained as well, rather than silently dropping platform-added metrics.
-    """
-
-    metrics: list[dict[str, str]] = []
-
-    def _metric(label: str, value: str) -> dict[str, str]:
-        return {
-            "key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_"),
-            "label": label,
-            "value": value,
-        }
-
-    for line in backtest_log.splitlines():
-        if "STATISTICS::" not in line:
-            continue
-        statistic = line.split("STATISTICS::", 1)[1].strip()
-        for label in _BACKTEST_STATISTIC_NAMES:
-            if statistic == label or statistic.startswith(f"{label} "):
-                metrics.append(_metric(label, statistic[len(label):].strip()))
-                break
-        else:
-            # Keep fields added by new policy versions without inventing their
-            # values. The usual format is ``label: value`` or ``label  value``.
-            matched = re.match(r"^(.*?)(?:\s*[:=]\s*|\s{2,})(.+)$", statistic)
-            if matched:
-                label, value = (part.strip() for part in matched.groups())
-            else:
-                label, value = statistic, ""
-            if label:
-                metrics.append(_metric(label, value))
-    return metrics
-
-
 def generate_strategy(
     prompt: str,
     settings: DreamStrategySettings | None = None,
@@ -681,7 +613,7 @@ def _run_single_generation(
         "backtest_passed": strategy.get("backtest_passed"),
         "backtest_exit_code": strategy.get("backtest_exit_code"),
         "backtest_summary": _summarize_backtest_log(backtest_log),
-        "backtest_metrics": _parse_backtest_metrics(backtest_log),
+        "backtest_metrics": parse_backtest_metrics(backtest_log)["metrics"],
         "elapsed_seconds": round(time.monotonic() - started_at, 3),
     }
 
@@ -943,7 +875,7 @@ def run_template_backtest(
             "trades": _serialize_trades(response.trades),
             "traces": [str(item) for item in response.traces],
             "backtest_log": _summarize_backtest_log(backtest_log),
-            "backtest_metrics": _parse_backtest_metrics(backtest_log),
+            "backtest_metrics": parse_backtest_metrics(backtest_log)["metrics"],
             "elapsed_seconds": round(time.monotonic() - started_at, 3),
         }
     finally:
