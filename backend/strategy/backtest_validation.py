@@ -4,8 +4,12 @@
 ``total_trade_count=0 is OK``）。实测 25 个历史模板里 21 个 0 成交但全部 passed，
 其中我们正在用的那个甚至只打印信号日志、一次下单接口都没调。
 
+2026-10-30 会话 #60 又暴露第二种假阳性：``Total Orders 29`` 但 Average Win/Loss
+均为 0%、换手率 0%、净利润 0.000%——订单提交了却没有任何真实成交盈亏（废单/未
+撮合）。所以"订单数"也不等于成交，必须再查成交的经济实质。
+
 所以必须由我们自己再判一道，且要区分三种失败——它们的处置完全不同：
-失败/异常都不值得重试，只有"跑完了但没成交"才该带着原因让模型重生。
+失败/异常默认不值得重试，只有"跑完了但没成交/成交无实质/演示稿"才带原因重生。
 """
 
 from __future__ import annotations
@@ -13,6 +17,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+from backend.strategy.strategy_code_review import review_generated_code
 
 # 判定结论，前端据此选徽章文案，不自行推断。
 VERDICT_PASSED = "passed"
@@ -30,8 +36,89 @@ _TOTAL_ORDERS_PATTERN = re.compile(r"STATISTICS::\s*Total Orders\s+(-?\d+)")
 _XBOND_PATTERN = re.compile(r"BusinessType\.XBOND")
 _FUTURES_HINT_PATTERN = re.compile(r"FCT_|CFFEX|期货|\.CFFEX", re.IGNORECASE)
 
-# 建议的最低成交笔数（按每年），低于此值视为策略没有真正运转。
-MIN_TRADES_PER_YEAR = 10
+# FCT_T_MAIN 与代码 100040 是同一品种的两个别名，指定标的校验时互通。
+_INSTRUMENT_ALIASES: dict[str, frozenset[str]] = {
+    "FCT_T_MAIN": frozenset({"FCT_T_MAIN", "100040"}),
+    "100040": frozenset({"FCT_T_MAIN", "100040"}),
+}
+
+
+def _statistic_pattern(label: str) -> re.Pattern[str]:
+    # 不锚行尾：对端日志的 STATISTICS 行可能粘连在同一行。
+    return re.compile(r"STATISTICS::\s*" + re.escape(label) + r"\s+(-?[\d,]+(?:\.\d+)?)(\s*%)?")
+
+
+# 废单判定需要的指标。百分比指标带 %，数值指标不带。
+_STATISTIC_FIELDS = (
+    "avg_win",
+    "Average Win",
+    True,
+), (
+    "avg_loss",
+    "Average Loss",
+    True,
+), (
+    "net_profit_pct",
+    "Net Profit",
+    True,
+), (
+    "turnover_pct",
+    "Portfolio Turnover",
+    True,
+), (
+    "win_rate_pct",
+    "Win Rate",
+    True,
+), (
+    "loss_rate_pct",
+    "Loss Rate",
+    True,
+)
+
+
+def _extract_statistics(backtest_log: str) -> dict[str, float | None]:
+    """从 Lean STATISTICS 块提取废单判定所需指标；缺失即 None（证据不足不判）。"""
+    metrics: dict[str, float | None] = {}
+    for key, label, _is_percent in _STATISTIC_FIELDS:
+        match = _statistic_pattern(label).search(backtest_log)
+        if not match:
+            metrics[key] = None
+            continue
+        try:
+            metrics[key] = float(match.group(1).replace(",", ""))
+        except ValueError:
+            metrics[key] = None
+    return metrics
+
+
+def _detect_ghost_orders(
+    trade_count: int, statistics: dict[str, float | None]
+) -> tuple[bool, str]:
+    """订单数 > 0 但没有真实成交盈亏时判为废单。
+
+    只在指标确实存在时下结论（指标缺失视为证据不足，保持既有行为），
+    满足任一证据链即判废单：
+    A. 平均盈利/亏损全是 0%，但存在胜率统计——说明平仓被记录了却没有盈亏；
+    B. 换手率 0% 且净利润约等于 0——订单从未形成真实持仓周转。
+    """
+    if trade_count <= 0:
+        return False, ""
+    avg_win = statistics.get("avg_win")
+    avg_loss = statistics.get("avg_loss")
+    win_rate = statistics.get("win_rate_pct")
+    loss_rate = statistics.get("loss_rate_pct")
+    if avg_win is not None and avg_loss is not None:
+        has_rate = (win_rate is not None and win_rate > 0) or (
+            loss_rate is not None and loss_rate > 0
+        )
+        if has_rate and abs(avg_win) < 0.005 and abs(avg_loss) < 0.005:
+            return True, "平均盈利与平均亏损均为 0%（订单无真实成交盈亏）"
+    turnover = statistics.get("turnover_pct")
+    net_profit = statistics.get("net_profit_pct")
+    if turnover is not None and net_profit is not None:
+        if turnover < 0.005 and abs(net_profit) < 0.01:
+            return True, "组合换手率 0% 且净利润 0.00%（订单未形成真实持仓周转）"
+    return False, ""
 
 
 @dataclass
@@ -56,6 +143,8 @@ class ValidationResult:
     raw_trade_line: str | None = None
     symbol_whitelisted: bool = True
     reason: str = ""
+    # 默认只有 no_trade 可重生；标的不符这类"模型能修"的错误可显式打开。
+    force_retryable: bool | None = None
 
     @property
     def passed(self) -> bool:
@@ -63,7 +152,9 @@ class ValidationResult:
 
     @property
     def retryable(self) -> bool:
-        """只有"无成交"值得带原因重生；回测失败/异常重试也不会变好。"""
+        """只有"无成交/可修正的代码问题"值得带原因重生；平台级失败重试无用。"""
+        if self.force_retryable is not None:
+            return self.force_retryable
         return self.verdict == VERDICT_NO_TRADE
 
     def to_dict(self) -> dict[str, Any]:
@@ -175,7 +266,26 @@ def validate_strategy_result(
         result_obj.reason = "回测未正常结束，平台未给回测通过状态"
         return result_obj
 
-    # ② 日志里能否解析到成交笔数。
+    # ② 代码静态检查：演示稿/只打印不下单在回测之前就能判定，无需再看成交。
+    review = review_generated_code(code)
+    steps.append(
+        ValidationStep(
+            "code_places_real_orders",
+            review.ok,
+            review.reason if not review.ok else "代码包含真实下单调用",
+        )
+    )
+    if not review.ok and review.syntactically_valid:
+        result_obj.verdict = VERDICT_NO_TRADE
+        result_obj.reason = review.reason + (f"（代码原句：{review.evidence}）" if review.evidence else "")
+        return result_obj
+    if not review.ok:
+        result_obj.verdict = VERDICT_BACKTEST_ERROR
+        result_obj.force_retryable = True
+        result_obj.reason = review.reason
+        return result_obj
+
+    # ③ 日志里能否解析到成交笔数。
     trade_count, raw_line = _find_trade_line(backtest_log)
     parsed = trade_count is not None
     steps.append(
@@ -194,7 +304,7 @@ def validate_strategy_result(
         )
         return result_obj
 
-    # ③ 成交笔数是否为正。
+    # ④ 成交笔数是否为正。
     traded = trade_count > 0
     steps.append(
         ValidationStep(
@@ -203,6 +313,28 @@ def validate_strategy_result(
             f"成交 {trade_count} 笔",
         )
     )
+    if not traded:
+        result_obj.verdict = VERDICT_NO_TRADE
+        result_obj.reason = f"回测正常结束但成交 {trade_count} 笔，策略未真实运转"
+        return result_obj
+
+    # ⑤ 成交的经济实质：订单数 >0 不等于真实成交（会话 #60：29 单全是废单）。
+    statistics = _extract_statistics(backtest_log)
+    ghost, ghost_detail = _detect_ghost_orders(trade_count, statistics)
+    steps.append(
+        ValidationStep(
+            "fills_have_economic_value",
+            not ghost,
+            "订单存在真实成交盈亏" if not ghost else ghost_detail,
+        )
+    )
+    if ghost:
+        result_obj.verdict = VERDICT_NO_TRADE
+        result_obj.reason = (
+            f"提交 {trade_count} 单但没有真实成交盈亏（{ghost_detail}），"
+            "订单可能全部废单/未撮合；订单数不等于成交"
+        )
+        return result_obj
 
     # 附加：标的是否在白名单内。
     symbol_ok = True
@@ -210,6 +342,27 @@ def validate_strategy_result(
         symbol_ok, symbol_detail = _check_symbol_whitelist(code, whitelist)
         steps.append(ValidationStep("symbol_whitelisted", symbol_ok, symbol_detail))
     result_obj.symbol_whitelisted = symbol_ok
+    if not symbol_ok:
+        result_obj.verdict = VERDICT_BACKTEST_ERROR
+        result_obj.reason = "策略使用的标的不在任务卡白名单内"
+        return result_obj
+
+    # 附加：是否真的用了任务卡指定的那一个标的（白名单只保证不出圈）。
+    if expected_instrument:
+        used = _instruments_used_in_code(code)
+        accepted = _INSTRUMENT_ALIASES.get(
+            expected_instrument, frozenset({expected_instrument})
+        )
+        if used and not (used & accepted):
+            detail = f"任务卡指定 {expected_instrument}，代码实际使用：{'、'.join(sorted(used))}"
+            steps.append(ValidationStep("expected_instrument_used", False, detail))
+            result_obj.verdict = VERDICT_BACKTEST_ERROR
+            result_obj.force_retryable = True
+            result_obj.reason = "代码没有使用任务卡指定的标的"
+            return result_obj
+        steps.append(
+            ValidationStep("expected_instrument_used", True, f"使用了指定标的 {expected_instrument}")
+        )
 
     # 附加：下单类型与标的类型是否匹配。
     mismatch = _detect_order_type_mismatch(code)
@@ -221,20 +374,9 @@ def validate_strategy_result(
                 "期货标的上使用了现券下单类型 BusinessType.XBOND",
             )
         )
-
-    if mismatch:
         result_obj.verdict = VERDICT_BACKTEST_ERROR
+        result_obj.force_retryable = True
         result_obj.reason = "下单类型与标的类型不匹配（期货标的用了现券下单类型）"
-        return result_obj
-
-    if not traded:
-        result_obj.verdict = VERDICT_NO_TRADE
-        result_obj.reason = f"回测正常结束但成交 {trade_count} 笔，策略未真实运转"
-        return result_obj
-
-    if not symbol_ok:
-        result_obj.verdict = VERDICT_BACKTEST_ERROR
-        result_obj.reason = "策略使用的标的不在任务卡白名单内"
         return result_obj
 
     result_obj.verdict = VERDICT_PASSED
@@ -259,10 +401,12 @@ def build_retry_feedback(validation: ValidationResult, result: dict[str, Any]) -
         lines.append(f"回测成交记录：{validation.raw_trade_line}")
     lines.append(
         "硬性要求（不得违反）："
-        "1）必须真实调用下单接口建立和了结仓位；"
+        "1）必须真实调用下单接口建立和了结仓位，订单必须真实撮合成交；"
         "2）禁止只打印信号日志、禁止做成不下单的演示稿；"
         "3）交易标的必须沿用任务卡指定的品种，不得更换；"
-        "4）回测必须产生真实成交记录。"
+        "4）回测必须产生真实成交记录和非零的成交盈亏——"
+        "提交订单但 Average Win/Average Loss 为 0%、换手率为 0% 视为废单，必须修正；"
+        "5）检查订单价格、数量、撮合时段与可交易状态，确保订单不会被全部拒单。"
     )
     if snippet.strip():
         lines.append("回测日志摘要：")

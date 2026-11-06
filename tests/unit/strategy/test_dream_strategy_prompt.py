@@ -13,6 +13,7 @@ from backend.strategy.dream_strategy_prompt import (
     EDITABLE_SECTION_END,
     EDITABLE_SECTION_START,
     GOLD_SCOPE,
+    PROMPT_TOKEN_BUDGET,
     _default_trading_parameters,
     _format_events,
     _format_yields,
@@ -21,6 +22,8 @@ from backend.strategy.dream_strategy_prompt import (
     apply_user_edited_requirement,
     build_dream_strategy_continuation_prompt,
     build_dream_strategy_first_prompt,
+    estimate_message_tokens,
+    resolve_instrument,
 )
 
 
@@ -101,7 +104,84 @@ class TestSentimentGuidance:
     def test_balanced(self):
         counts = {"positive": 2, "negative": 2, "neutral": 0}
         conclusion, _ = _sentiment_guidance(counts, BOND_SCOPE)
-        assert "均衡或不足" in conclusion
+        assert "信号均衡" in conclusion
+
+    def test_news_negative_but_panel_bull_is_flagged_conflict(self):
+        """S0 实证：新闻利空占优、因子面板 7 个全多时必须显式标注冲突。"""
+        counts = {"positive": 1, "negative": 3, "neutral": 0}
+        panel = [{"direction": "positive"}] * 7
+        conclusion, action = _sentiment_guidance(counts, BOND_SCOPE, panel)
+        assert "信号冲突" in conclusion
+        assert "因子面板偏多" in conclusion
+        assert "利空" in conclusion
+        assert "单边做空" in action
+
+    def test_news_positive_but_panel_bear_is_flagged_conflict(self):
+        counts = {"positive": 4, "negative": 1, "neutral": 0}
+        panel = [{"direction": "negative"}] * 3
+        conclusion, action = _sentiment_guidance(counts, BOND_SCOPE, panel)
+        assert "信号冲突" in conclusion
+        assert "因子面板偏空" in conclusion
+        assert "单边做多" in action
+
+    def test_no_news_but_panel_has_direction_uses_panel(self):
+        counts = {"positive": 0, "negative": 0, "neutral": 0}
+        panel = [{"direction": "positive"}] * 5 + [{"direction": "negative"}] * 2
+        conclusion, action = _sentiment_guidance(counts, BOND_SCOPE, panel)
+        assert "因子面板偏多" in conclusion
+        assert "同向门控" in action
+
+    def test_aligned_news_and_panel_keeps_plain_conclusion(self):
+        counts = {"positive": 4, "negative": 1, "neutral": 0}
+        panel = [{"direction": "positive"}] * 3
+        conclusion, _ = _sentiment_guidance(counts, BOND_SCOPE, panel)
+        assert "信号冲突" not in conclusion
+        assert "利多债券市场信号占优" in conclusion
+
+
+class TestResolveInstrument:
+    def test_explicit_whitelisted_code_passes(self):
+        code, label = resolve_instrument("随便", "FCT_TS_MAIN")
+        assert code == "FCT_TS_MAIN"
+        assert "2年期" in label
+
+    def test_numeric_alias_100040_passes(self):
+        code, _label = resolve_instrument("随便", "100040")
+        assert code == "100040"
+
+    def test_excluded_gold_raises_with_reason(self):
+        with pytest.raises(ValueError, match="本期不支持"):
+            resolve_instrument("黄金策略", "FCT_AU_MAIN")
+
+    def test_unknown_code_lists_alternatives(self):
+        with pytest.raises(ValueError, match="FCT_T_MAIN"):
+            resolve_instrument("随便", "NOT_A_CODE")
+
+    def test_text_detection_finds_whitelisted_code(self):
+        code, _label = resolve_instrument("帮我用 FCT_TL_MAIN 做一个趋势策略")
+        assert code == "FCT_TL_MAIN"
+
+    def test_default_when_nothing_matches(self):
+        code, _label = resolve_instrument("随便生成一个策略")
+        assert code == "FCT_T_MAIN"
+
+
+class TestTokenBudget:
+    def test_empty_is_zero(self):
+        assert estimate_message_tokens("") == 0
+
+    def test_ascii_one_token_per_four_chars(self):
+        assert estimate_message_tokens("abcd") == 1
+        assert estimate_message_tokens("a" * 400) == 100
+
+    def test_chinese_roughly_one_and_half_tokens_per_char(self):
+        # 与对端 EstimateTokenCount 同算法：一个三字节汉字记 6/4 = 1.5 token。
+        assert estimate_message_tokens("国" * 2) == 3
+        assert estimate_message_tokens("国" * 100) == 150
+
+    def test_budget_holds_margin_below_remote_limit(self):
+        # 对端硬上限 10,000 token；我方 6,000 必须保留明显余量给系统提示与输出。
+        assert PROMPT_TOKEN_BUDGET <= 6000
 
 
 class TestBuildFirstPrompt:

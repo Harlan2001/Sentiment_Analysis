@@ -128,6 +128,61 @@ class TestBuildSynthesis:
         out = _build_synthesis({}, scope)
         assert "风险背景和信号过滤" in out
 
+    def test_news_bear_but_factors_bull_is_flagged_conflict(self):
+        """S0 实证 P1：7 个因子全多，新闻却利空占优——必须显式标注冲突。"""
+        bull_factors = [{"name": f"f{i}"} for i in range(7)]
+        out = _build_synthesis(
+            {"positive": 1, "negative": 4, "neutral": 0},
+            DEFAULT_MARKET_SCOPE,
+            positive_factors=bull_factors,
+            negative_factors=[],
+        )
+        assert "情报口径冲突" in out
+        assert "正向因子7个" in out
+        assert "单边做空" in out
+
+    def test_news_bull_but_factors_bear_is_flagged_conflict(self):
+        bear_factors = [{"name": f"f{i}"} for i in range(3)]
+        out = _build_synthesis(
+            {"positive": 4, "negative": 1, "neutral": 0},
+            DEFAULT_MARKET_SCOPE,
+            positive_factors=[],
+            negative_factors=bear_factors,
+        )
+        assert "情报口径冲突" in out
+        assert "负向因子3个" in out
+        assert "单边做多" in out
+
+    def test_aligned_directions_are_not_conflict(self):
+        out = _build_synthesis(
+            {"positive": 4, "negative": 1, "neutral": 0},
+            DEFAULT_MARKET_SCOPE,
+            positive_factors=[{"name": "f1"}, {"name": "f2"}],
+            negative_factors=[],
+        )
+        assert "冲突" not in out
+        assert "同向偏多" in out
+
+    def test_no_news_with_bull_factors_uses_factor_gate(self):
+        out = _build_synthesis(
+            {"positive": 0, "negative": 0, "neutral": 0},
+            DEFAULT_MARKET_SCOPE,
+            positive_factors=[{"name": "f1"}],
+            negative_factors=[],
+        )
+        assert "没有方向明确的新闻" in out
+        assert "因子面板整体偏多" in out
+
+    def test_balanced_news_with_bull_factors_is_not_conflict(self):
+        out = _build_synthesis(
+            {"positive": 2, "negative": 2, "neutral": 0},
+            DEFAULT_MARKET_SCOPE,
+            positive_factors=[{"name": "f1"}, {"name": "f2"}],
+            negative_factors=[],
+        )
+        assert "冲突" not in out
+        assert "因子面板作同向门控" in out
+
 
 class TestScopeFilter:
     def test_no_keywords_empty(self):

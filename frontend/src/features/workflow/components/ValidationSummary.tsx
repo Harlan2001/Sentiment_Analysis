@@ -20,9 +20,12 @@ const VERDICT_TONES: Record<ValidationVerdict, string> = {
 
 const STEP_LABELS: Record<string, string> = {
   backtest_finished: '回测正常结束',
+  code_places_real_orders: '代码包含真实下单调用',
   trade_count_parsed: '解析到成交笔数',
   trade_count_positive: '成交笔数大于 0',
+  fills_have_economic_value: '成交具有真实盈亏',
   symbol_whitelisted: '标的在白名单内',
+  expected_instrument_used: '使用了指定标的',
   order_type_matched: '下单类型与标的匹配',
 }
 

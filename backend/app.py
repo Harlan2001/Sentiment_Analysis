@@ -132,6 +132,17 @@ def health():
 def startup_event():
     db_config = DatabaseConfig(**MYSQL_CONFIG)
     init_database(db_config)
+    # 显式探活一次：连接池 mincached 已在建池时拨号，这里再确认鉴权可用，
+    # 让 DB 不可达在启动日志里立刻暴露，而不是拖慢第一个用户请求。
+    try:
+        from backend.common.database import get_repo_connection
+
+        with get_repo_connection() as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        logger.info("Repo DB connection warmed up")
+    except Exception:
+        logger.warning("Repo DB warmup failed, startup continues", exc_info=True)
     try:
         store = get_faiss_store()
         logger.info("FaissStore loaded | vectors=%d, dim=%d", store.size(), store.dim)
@@ -145,7 +156,15 @@ def startup_workbench():
     app.state.repository = ProjectManagementRepository.from_environment()
     app.state.user_memory_repository = UserMemoryRepository.from_environment()
     app.state.repository.ensure_tables()
-    AiStrategyHistoryRepository.from_environment().ensure_recycle_bin_schema()
+    history_repository = AiStrategyHistoryRepository.from_environment()
+    try:
+        history_repository.warmup()
+        logger.info("AI strategy history DB connection warmed up")
+    except Exception:
+        logger.warning(
+            "AI strategy history DB warmup failed, startup continues", exc_info=True
+        )
+    history_repository.ensure_recycle_bin_schema()
     app.state.feishu_mcp_repository = FeishuConnectionRepository()
     interrupted_reports = ReportGenerationRepository.from_environment().mark_incomplete_failed()
     if interrupted_reports:

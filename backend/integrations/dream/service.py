@@ -14,12 +14,14 @@ import re
 import time
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable
 
 from backend.integrations.dream.client import (
     CI_LOGIN,
     CI_PUSH_SESSION_KEY,
     EI_ADD_SESSION,
+    EI_BACKTEST,
     EI_GET_TEMPLATE,
     EI_PUSH_MESSAGE,
     EI_SEND_PROMPT,
@@ -602,3 +604,267 @@ def _run_single_generation(
         "backtest_metrics": _parse_backtest_metrics(backtest_log),
         "elapsed_seconds": round(time.monotonic() - started_at, 3),
     }
+
+
+# 与回测相关的默认参数：与 DreamStrategy 自身发起回测时的口径保持一致
+# （初始资金 1000 万，文档"回测是怎么跑的"一节）。
+DEFAULT_BACKTEST_INITIAL_CAPITAL = 10_000_000.0
+DEFAULT_BACKTEST_COMMISSION_RATIO = 0.0
+
+_SIDE_LABELS = {1: "buy", 2: "sell"}
+_OFFSET_LABELS = {1: "open", 2: "close"}
+_ORDER_TYPE_LABELS = {1: "limit", 2: "market"}
+_ORDER_STATUS_LABELS = {
+    1: "pending",
+    2: "partial_filled",
+    3: "partial_canceled",
+    4: "filled",
+    5: "canceled",
+}
+_POSITION_STATUS_LABELS = {1: "open", 2: "partial_closed", 3: "closed"}
+
+
+def _build_backtest_parameters(
+    extension_pb2: Any, parameters: dict[str, Any] | None
+) -> list[Any]:
+    """把 ``{"name": value}`` 参数映射成 protobuf 参数消息。
+
+    参数类型由值推断：bool → BOOL，int/float → NUMBER，其余按 STRING。
+    显式传入 ``None`` 的参数会被跳过。
+    """
+
+    if not parameters:
+        return []
+    params: list[Any] = []
+    for name, value in parameters.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            param_type = 3  # ASV2TPT_BOOL
+            rendered = "true" if value else "false"
+        elif isinstance(value, (int, float)):
+            param_type = 2  # ASV2TPT_NUMBER
+            rendered = str(value)
+        else:
+            param_type = 1  # ASV2TPT_STRING
+            rendered = str(value)
+        params.append(
+            extension_pb2.AiStrategyV2TemplateParameter(
+                name=str(name), value=rendered, type=param_type
+            )
+        )
+    return params
+
+
+def _timestamp_ms(value: Any) -> int | None:
+    """datetime/秒级时间统一成对端要求的毫秒时间戳；0 视为未指定。"""
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        timestamp = int(value.timestamp() * 1000)
+    else:
+        timestamp = int(value)
+    return timestamp or None
+
+
+def _serialize_daily_stats(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "trading_day": item.trading_day,
+            "trade_count": item.trade_count,
+            "win_count": item.win_count,
+            "lose_count": item.lose_count,
+            "win_rate": item.win_rate,
+            "win_pnl": item.win_pnl,
+            "lose_pnl": item.lose_pnl,
+            "profit_factor": item.profit_factor,
+            "best_trade_pnl": item.best_trade_pnl,
+            "worst_trade_pnl": item.worst_trade_pnl,
+            "commission_fee": item.commission_fee,
+            "unrealized_pnl": item.unrealized_pnl,
+            "realized_pnl": item.realized_pnl,
+            "total_pnl": item.total_pnl,
+        }
+        for item in items
+    ]
+
+
+def _serialize_period_stats(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "period": int(item.period),
+            "trade_count": item.trade_count,
+            "win_count": item.win_count,
+            "lose_count": item.lose_count,
+            "win_rate": item.win_rate,
+            "win_pnl": item.win_pnl,
+            "lose_pnl": item.lose_pnl,
+            "profit_factor": item.profit_factor,
+            "commission_fee": item.commission_fee,
+            "unrealized_pnl": item.unrealized_pnl,
+            "realized_pnl": item.realized_pnl,
+            "total_pnl": item.total_pnl,
+        }
+        for item in items
+    ]
+
+
+def _serialize_equity_curve(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "timestamp_ms": item.timestamp,
+            "realized_pnl": item.realized_pnl,
+            "total_pnl": item.total_pnl,
+            "equity": item.equity,
+        }
+        for item in items
+        if item.timestamp
+    ]
+
+
+def _serialize_orders(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item.open_id,
+            "trading_day": item.trading_day or None,
+            "create_timestamp_ms": item.create_timestamp or None,
+            "cancel_timestamp_ms": item.cancel_timestamp or None,
+            "commodity_key": item.commodity_key,
+            "commodity_name": item.commodity_name,
+            "side": _SIDE_LABELS.get(int(item.side), "unknown"),
+            "offset": _OFFSET_LABELS.get(int(item.offset), "unknown"),
+            "order_type": _ORDER_TYPE_LABELS.get(int(item.order_type), "unknown"),
+            "price": item.price,
+            "volume": item.volume,
+            "remaining_volume": item.remaining_volume,
+            "status": _ORDER_STATUS_LABELS.get(int(item.order_status), "unknown"),
+            "comment": item.comment,
+            "exchange_order_id": item.exchange_order_id,
+        }
+        for item in items
+    ]
+
+
+def _serialize_positions(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item.open_id,
+            "trading_day": item.trading_day or None,
+            "commodity_key": item.commodity_key,
+            "commodity_name": item.commodity_name,
+            "side": _SIDE_LABELS.get(int(item.side), "unknown"),
+            "price": item.price,
+            "volume": item.volume,
+            "remaining_volume": item.remaining_volume,
+            "unrealized_pnl": item.unrealized_pnl,
+            "realized_pnl": item.realized_pnl,
+            "status": _POSITION_STATUS_LABELS.get(int(item.status), "unknown"),
+            "comment": item.comment,
+        }
+        for item in items
+    ]
+
+
+def _serialize_trades(items: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item.open_id,
+            "trading_day": item.trading_day or None,
+            "create_timestamp_ms": item.create_timestamp or None,
+            "commodity_key": item.commodity_key,
+            "commodity_name": item.commodity_name,
+            "side": _SIDE_LABELS.get(int(item.side), "unknown"),
+            "offset": _OFFSET_LABELS.get(int(item.offset), "unknown"),
+            "order_type": _ORDER_TYPE_LABELS.get(int(item.order_type), "unknown"),
+            "price": item.price,
+            "volume": item.volume,
+            "order_id": item.order_id,
+            "position_id": item.position_id,
+            "realized_pnl": item.realized_pnl,
+            "commission_fee": item.commission_fee,
+            "comment": item.comment,
+            "exchange_trade_id": item.exchange_trade_id,
+        }
+        for item in items
+    ]
+
+
+def run_template_backtest(
+    code: str | None = None,
+    version_id: str | None = None,
+    *,
+    template_id: str | None = None,
+    parameters: dict[str, Any] | None = None,
+    begin_time: datetime | int | None = None,
+    end_time: datetime | int | None = None,
+    initial_capital: float = DEFAULT_BACKTEST_INITIAL_CAPITAL,
+    commission_ratio: float = DEFAULT_BACKTEST_COMMISSION_RATIO,
+    settings: DreamStrategySettings | None = None,
+) -> dict[str, Any]:
+    """通过 160055 对已有版本（或直接给代码）独立发起一次回测。
+
+    与"生成策略"不同：此函数不会新建聊天会话、不调用模型、不产生新版本，
+    只是让 Bond-Backtest 按给定代码/参数复跑，并同步返回结构化结果
+    （权益曲线、日次/区间绩效、委托/持仓/成交、控制台日志与指标）。
+
+    ``code`` 与 ``version_id`` 二选一：传 ``code`` 时按代码临时回测，
+    传 ``version_id`` 时重跑模板历史版本。两者都不传直接报错，避免误把
+    空代码发到对端。
+    """
+
+    if not str(code or "").strip() and not str(version_id or "").strip():
+        raise ValueError("独立回测必须提供 code 或 version_id")
+    settings = settings or DreamStrategySettings.from_environment()
+    selected_template_id = (template_id or settings.template_id).strip()
+    if not selected_template_id:
+        raise ValueError("独立回测缺少 template_id")
+
+    common_pb2, extension_pb2 = prepare_protobuf_modules()
+    ws_url, token = _load_portal_connection(settings)
+    client = _connect_and_login(ws_url, token, settings.timeout_seconds, common_pb2)
+    started_at = time.monotonic()
+    try:
+        request_kwargs: dict[str, Any] = {
+            "template_id": selected_template_id,
+            "params": _build_backtest_parameters(extension_pb2, parameters),
+            "initial_capital": float(initial_capital),
+            "commission_ratio": float(commission_ratio),
+        }
+        begin_ms = _timestamp_ms(begin_time)
+        end_ms = _timestamp_ms(end_time)
+        if begin_ms is not None:
+            request_kwargs["begin_timestamp"] = begin_ms
+        if end_ms is not None:
+            request_kwargs["end_timestamp"] = end_ms
+        if str(code or "").strip():
+            request_kwargs["code"] = str(code)
+        if str(version_id or "").strip():
+            request_kwargs["version_id"] = str(version_id).strip()
+
+        response = client.request(
+            EI_BACKTEST,
+            extension_pb2.BacktestAiStrategyV2TemplateRequest(**request_kwargs),
+            extension_pb2.BacktestAiStrategyV2TemplateResponse,
+        )
+        _ensure_success("DreamStrategy 独立回测", response)
+
+        backtest_log = str(response.backtest_log or "")
+        return {
+            "template_id": selected_template_id,
+            "version_id": str(version_id or "").strip() or None,
+            "backtest_passed": bool(response.backtest_passed),
+            "backtest_exit_code": int(response.backtest_exit_code),
+            "daily_stats": _serialize_daily_stats(response.daily_stats),
+            "period_stats": _serialize_period_stats(response.period_stats),
+            "equity_curve": _serialize_equity_curve(response.equity_curve),
+            "orders": _serialize_orders(response.orders),
+            "positions": _serialize_positions(response.positions),
+            "trades": _serialize_trades(response.trades),
+            "traces": [str(item) for item in response.traces],
+            "backtest_log": _summarize_backtest_log(backtest_log),
+            "backtest_metrics": _parse_backtest_metrics(backtest_log),
+            "elapsed_seconds": round(time.monotonic() - started_at, 3),
+        }
+    finally:
+        client.close()

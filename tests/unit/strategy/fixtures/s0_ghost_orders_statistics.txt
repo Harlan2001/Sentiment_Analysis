@@ -1,0 +1,52 @@
+STATISTICS:: Total Orders 29
+STATISTICS:: Average Win 0.00%
+STATISTICS:: Average Loss 0.00%
+STATISTICS:: Compounding Annual Return 0.000%
+STATISTICS:: Drawdown 0.000%
+STATISTICS:: Expectancy 0.061
+STATISTICS:: Start Equity 1000000
+STATISTICS:: End Equity 1000000.24
+STATISTICS:: Net Profit 0.000%
+STATISTICS:: Sharpe Ratio -42182.563
+STATISTICS:: Sortino Ratio -39432.269
+STATISTICS:: Probabilistic Sharpe Ratio 2.707%
+STATISTICS:: Loss Rate 36%
+STATISTICS:: Win Rate 64%
+STATISTICS:: Profit-Loss Ratio 0.65
+STATISTICS:: Alpha 0
+STATISTICS:: Beta 0
+STATISTICS:: Annual Standard Deviation 0
+STATISTICS:: Annual Variance 0
+STATISTICS:: Information Ratio 0.045
+STATISTICS:: Tracking Error 0
+STATISTICS:: Treynor Ratio 0
+STATISTICS:: Total Fees $0.00
+STATISTICS:: Estimated Strategy Capacity $0
+STATISTICS:: Lowest Capacity Asset FCT_T_MAIN.MockMinuteBar 2S
+STATISTICS:: Portfolio Turnover 0.00%
+STATISTICS:: Drawdown Recovery 121
+STATISTICS:: OrderListHash 83a25f94e4116584f71e6d8b76531bcf
+20261030 03:32:41.119 TRACE:: BacktestingResultHandler.SendAnalysisResult(): Processed final packet
+20261030 03:32:41.120 TRACE:: Engine.Run(): Disconnecting from brokerage...
+20261030 03:32:41.120 TRACE:: Engine.Run(): Disposing of setup handler...
+20261030 03:32:41.120 TRACE:: Engine.Main(): Analysis Completed and Results Posted.
+20261030 03:32:41.121 TRACE:: StopSafely(): Waiting for '' thread to stop...
+20261030 03:32:41.124 TRACE:: DataMonitor.GenerateReport():
+DATA USAGE:: Total data requests 2
+DATA USAGE:: Succeeded data requests 2
+DATA USAGE:: Failed data requests 0
+DATA USAGE:: Failed data requests percentage 0%
+DATA USAGE:: Total universe data requests 0
+DATA USAGE:: Succeeded universe data requests 0
+DATA USAGE:: Failed universe data requests 0
+DATA USAGE:: Failed universe data requests percentage 0%
+Engine.Main(): Analysis Complete.
+20261030 03:32:41.137 TRACE:: Engine.Main(): Packet removed from queue: BasicTemplateFrameworkAlgorithm
+20261030 03:32:41.137 TRACE:: LeanEngineSystemHandlers.Dispose(): start...
+20261030 03:32:41.138 TRACE:: LeanEngineSystemHandlers.Dispose(): Disposed of system handlers.
+20261030 03:32:41.139 TRACE:: LeanEngineAlgorithmHandlers.Dispose(): start...
+20261030 03:32:41.139 TRACE:: LeanEngineAlgorithmHandlers.Dispose(): Disposed of algorithm handlers.
+20261030 03:32:41.140 TRACE:: StopSafely(): Waiting for 'CpuPerformance' thread to stop...
+20261030 03:32:41.141 TRACE:: PythonInitializer.Shutdown(): start
+20261030 03:32:49.313 TRACE:: PythonInitializer.Shutdown(): ended
+20261030 03:32:49.313 TRACE:: Program.Main(): Exiting Lean...
