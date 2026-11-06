@@ -51,7 +51,10 @@ const MarketPage: React.FC = () => {
     <div className="market-workspace">
       <div className="market-workspace-body">
         <div className="market-discover-panel">
-          <DiscoverNewsPanel onNewsClick={(newsId) => openDetail({ type: 'news', newsId })} />
+          <DiscoverNewsPanel
+            onNewsClick={(newsId) => openDetail({ type: 'news', newsId })}
+            onFactorClick={(factorId) => openDetail({ type: 'factor', factorId })}
+          />
         </div>
         <div className="market-side-panel">
           <MarketSidePanel

@@ -6,6 +6,7 @@ import { fetchFactorActivityOverview, fetchMacroData, fetchMacroIndicators } fro
 import type { FactorDefinition } from '@/api/market'
 import { Skeleton } from '@/components/ui'
 import { WatchlistAction } from '../components/WatchlistAction'
+import FilterDropdown from '../components/FilterDropdown'
 
 const CATEGORIES: Record<string, string> = { LIQUIDITY: '货币流动性', POLICY: '政策监管', MACRO: '经济增长', RISK: '债券供需', SENTIMENT: '情绪风险', INDUSTRY: '债券供需' }
 const DOMAINS = [
@@ -90,8 +91,6 @@ function FactorSignals() {
 
 function factorUpdated(value: string | null) { if (!value) return '暂无事件'; const date = new Date(value.replace(' ', 'T')); if (Number.isNaN(date.getTime())) return value.slice(0, 10); return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date) }
 function FactorMiniTrend({ values }: { values: number[] }) { if (!values.length) return <span className="factor-mini-trend-empty">暂无趋势</span>; const max = Math.max(...values, 1); const min = Math.min(...values, 0); const range = max - min || 1; const coords = values.map((value, index) => ({ x: index * (100 / Math.max(values.length - 1, 1)), y: 26 - ((value - min) / range) * 20 })); const clampY = (value: number) => Math.max(3, Math.min(27, value)); let path = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`; for (let index = 0; index < coords.length - 1; index++) { const previous = coords[index - 1] || coords[index]; const current = coords[index]; const next = coords[index + 1]; const afterNext = coords[index + 2] || next; const control1 = { x: current.x + (next.x - previous.x) / 6, y: clampY(current.y + (next.y - previous.y) / 6) }; const control2 = { x: next.x - (afterNext.x - current.x) / 6, y: clampY(next.y - (afterNext.y - current.y) / 6) }; path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}` } return <svg className="factor-mini-trend mx-auto" viewBox="0 0 100 30" preserveAspectRatio="none" aria-label={`最近七日活跃度：${values.join('、')}`}><path d={path} /></svg> }
-
-function FilterDropdown({ label, value, options, onChange }: { label: string; value: string; options: string[][]; onChange: (value: string) => void }) { const [open, setOpen] = useState(false); const selected = options.find(option => option[0] === value)?.[1] || value; return <div className="factor-filter-dropdown"><button type="button" onClick={() => setOpen(current => !current)} aria-expanded={open}><span>{label}</span><b>{selected}</b><i /></button>{open && <div className="factor-filter-menu">{options.map(([key, text]) => <button type="button" key={key} className={key === value ? 'active' : ''} onClick={() => { onChange(key); setOpen(false) }}>{text}</button>)}</div>}</div> }
 
 const RANKING_COLOR = '#f97316'
 const RANKING_GRADIENT = 'linear-gradient(90deg, #f59e0b 0%, #f97316 48%, #ef4444 100%)'

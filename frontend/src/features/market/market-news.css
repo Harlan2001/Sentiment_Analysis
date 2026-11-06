@@ -218,8 +218,301 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── 工具栏：排序分段 + 筛选下拉（S3-3） ──────────────────────────── */
+
+.news-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-3) var(--sw-space-4) var(--sw-space-2);
+}
+
+.news-toolbar-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sw-space-2);
+}
+
+/* 复刻 .policy-segmented 视觉，颜色改用 --sw-* token */
+.news-sort-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--sw-color-border);
+  border-radius: var(--sw-radius-md);
+  background: var(--sw-color-bg);
+}
+
+.news-sort-segmented button {
+  min-width: 72px;
+  height: 28px;
+  padding: 0 var(--sw-space-3);
+  border: 0;
+  border-radius: var(--sw-radius-sm);
+  background: transparent;
+  color: var(--sw-color-text-tertiary);
+  font-size: var(--sw-font-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--sw-duration-fast) ease,
+    color var(--sw-duration-fast) ease;
+}
+
+.news-sort-segmented button:hover {
+  color: var(--sw-color-text-secondary);
+}
+
+.news-sort-segmented button.active {
+  background: var(--sw-color-overlay);
+  color: var(--sw-color-text);
+  font-weight: 500;
+}
+
+/* ── 推荐排行榜折叠面板（S3-3） ───────────────────────────────────── */
+
+.news-ranking-panel {
+  --news-divider: #1f1f1f;
+  --news-ranking-accent: #f97316;
+  --news-ranking-gradient: linear-gradient(90deg, #f59e0b 0%, #f97316 48%, #ef4444 100%);
+
+  margin: var(--sw-space-2) var(--sw-space-4) 0;
+  border: 1px solid var(--sw-color-border);
+  border-radius: var(--sw-radius-lg);
+  background: var(--sw-color-surface);
+  overflow: hidden;
+}
+
+.news-ranking-header {
+  display: flex;
+  align-items: center;
+}
+
+.news-ranking-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  width: 100%;
+  padding: var(--sw-space-3) var(--sw-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--sw-color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.news-ranking-caret {
+  color: var(--sw-color-text-tertiary);
+  font-size: var(--sw-font-xs);
+}
+
+.news-ranking-toggle h2 {
+  margin: 0;
+  font-size: var(--sw-font-md);
+  font-weight: 600;
+}
+
+.news-ranking-sub {
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-text-tertiary);
+}
+
+.news-ranking-body {
+  padding: 0 var(--sw-space-4) var(--sw-space-3);
+}
+
+.news-ranking-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: var(--sw-space-2);
+  border: 1px solid var(--sw-color-border);
+  border-radius: var(--sw-radius-md);
+  background: var(--sw-color-bg);
+}
+
+.news-ranking-tabs button {
+  height: 26px;
+  padding: 0 var(--sw-space-3);
+  border: 0;
+  border-radius: var(--sw-radius-sm);
+  background: transparent;
+  color: var(--sw-color-text-tertiary);
+  font-size: var(--sw-font-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.news-ranking-tabs button.active {
+  background: var(--sw-color-overlay);
+  color: var(--sw-color-text);
+  font-weight: 500;
+}
+
+.news-ranking-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.news-ranking-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: var(--sw-space-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--news-divider);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.news-ranking-list li:last-child .news-ranking-item {
+  border-bottom: 0;
+}
+
+.news-ranking-item:hover .news-ranking-copy b {
+  color: #ffffff;
+}
+
+.news-ranking-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  min-width: 0;
+}
+
+.news-ranking-copy em {
+  flex-shrink: 0;
+  width: 18px;
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--sw-font-sm);
+  color: var(--news-ranking-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.news-ranking-copy b {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--sw-font-sm);
+  font-weight: 500;
+  color: var(--sw-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--sw-duration-fast) ease;
+}
+
+.news-ranking-copy strong {
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-text-secondary);
+}
+
+.news-ranking-track {
+  height: 4px;
+  margin-left: 26px;
+  border-radius: 999px;
+  background: var(--sw-color-surface-2);
+  overflow: hidden;
+}
+
+.news-ranking-track i {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  background-image: var(--news-ranking-gradient);
+}
+
+.news-ranking-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  margin-left: 26px;
+  font-size: 11px;
+  color: var(--sw-color-text-tertiary);
+}
+
+.news-ranking-hint {
+  padding: var(--sw-space-4) 0;
+  font-size: var(--sw-font-xs);
+  color: var(--sw-color-text-tertiary);
+  text-align: center;
+}
+
+.news-ranking-hint--error {
+  color: var(--sw-color-warning);
+}
+
+/* 类别分布：因子榜底部紧凑标签行 */
+.news-ranking-categories {
+  margin-top: var(--sw-space-3);
+  padding-top: var(--sw-space-2);
+  border-top: 1px solid var(--news-divider);
+}
+
+.news-ranking-categories h3 {
+  margin: 0 0 var(--sw-space-2);
+  font-size: var(--sw-font-xs);
+  font-weight: 500;
+  color: var(--sw-color-text-tertiary);
+}
+
+.news-ranking-category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sw-space-2);
+}
+
+.news-ranking-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--sw-space-2);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--sw-color-text-secondary);
+  background: var(--sw-color-neutral-bg);
+}
+
+.news-ranking-category b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 多空榜：两组纵向堆叠 */
+.news-ranking-direction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-3);
+}
+
+.news-ranking-direction-group h3 {
+  margin: 0 0 var(--sw-space-1);
+  font-size: var(--sw-font-xs);
+  font-weight: 500;
+  color: var(--sw-color-text-tertiary);
+}
+
 @media (max-width: 620px) {
   .news-row-thumb {
     display: none;
+  }
+
+  .news-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .news-toolbar-filters {
+    justify-content: space-between;
   }
 }

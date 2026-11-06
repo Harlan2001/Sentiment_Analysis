@@ -1327,6 +1327,46 @@ export interface DiscoverNewsResponse {
   total_pages: number;
 }
 
+// ── 推荐排行榜（S3-3）────────────────────────────────────────────────
+
+export type NewsDirection = 'positive' | 'negative' | 'neutral'
+
+export interface RankingNewsItem {
+  id: number;
+  title: string;
+  pub_time: string;
+  source_name: string;
+  direction: NewsDirection | null;
+  importance_score: number | null;
+  final_score: number | null;
+  top_category: string | null;
+}
+
+export interface RankingFactorItem {
+  id: number;
+  name: string;
+  category: string;
+  news_count: number;
+  hit_rate: number | null;
+}
+
+export interface CategoryShare {
+  category: string;
+  news_count: number;
+  share: number;
+}
+
+export interface RecommendRankingsResponse {
+  days: number;
+  top_news: RankingNewsItem[];
+  hot_factors: RankingFactorItem[];
+  direction_board: {
+    positive: RankingNewsItem[];
+    negative: RankingNewsItem[];
+  };
+  category_distribution: CategoryShare[];
+}
+
 export interface YieldRateItem {
   period: string;
   label: string;

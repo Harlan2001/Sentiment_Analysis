@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -139,3 +140,55 @@ class TestNewsImportanceScoring:
         assert row["top_category"] is None
         assert float(row["s_direction"]) == 0.2
         assert float(row["s_nfactor"]) == 0.0
+
+
+class TestRankingQueries:
+    """排行榜仓储查询：窗口过滤、final_score 排序、DISTINCT 计数与多空榜。"""
+
+    def test_rankings_window_order_and_counts(self, mysql_conn, clean_tables):
+        clean_tables(*_CLEAN_TABLES)
+        factor_id = insert_factor(mysql_conn, "TEST_RANK_POL", "排行政策因子", "POLICY")
+        now = datetime.now()
+        fmt = "%Y-%m-%d %H:%M:%S"
+        fresh_pos = insert_news(
+            mysql_conn, title="窗口内利多新闻",
+            pub_time=(now - timedelta(hours=1)).strftime(fmt),
+        )
+        fresh_plain = insert_news(
+            mysql_conn, title="窗口内无分析新闻",
+            pub_time=(now - timedelta(hours=2)).strftime(fmt),
+        )
+        stale = insert_news(
+            mysql_conn, title="窗口外旧闻",
+            pub_time=(now - timedelta(days=40)).strftime(fmt),
+        )
+
+        # 同一因子关联两条窗口内新闻（其中一条双模型行，计数仍须 DISTINCT）
+        _insert_factor_link(mysql_conn, fresh_pos, factor_id, "glm")
+        _insert_factor_link(mysql_conn, fresh_pos, factor_id, "kimi")
+        _insert_factor_link(mysql_conn, fresh_plain, factor_id, "glm")
+        _insert_analysis(mysql_conn, fresh_pos, "glm", "positive", "中期(1-6月)")
+
+        assert score_news_ids([fresh_pos, fresh_plain, stale]) == 3
+        repo = NewsImportanceRepository.from_environment()
+
+        top = repo.top_news(days=7)
+        top_ids = {int(r["id"]) for r in top}
+        assert fresh_pos in top_ids and fresh_plain in top_ids
+        assert stale not in top_ids  # 窗口外排除
+        finals = [float(r["final_score"]) for r in top]
+        assert finals == sorted(finals, reverse=True)  # final_score 降序
+
+        hot = repo.hot_factors(days=7)
+        assert hot and int(hot[0]["id"]) == factor_id
+        assert int(hot[0]["news_count"]) == 2  # DISTINCT，双模型行不膨胀
+
+        distribution = repo.category_distribution(days=7)
+        policy = next(r for r in distribution if r["category"] == "POLICY")
+        assert int(policy["news_count"]) == 2
+        assert 0 < float(policy["share"]) <= 1
+
+        positive_board = repo.top_news(days=7, direction="positive")
+        board_ids = {int(r["id"]) for r in positive_board}
+        assert fresh_pos in board_ids
+        assert fresh_plain not in board_ids  # 无分析方向不进多空榜

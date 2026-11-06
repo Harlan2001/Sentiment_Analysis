@@ -26,10 +26,16 @@ from backend.config.config import (
     RECOMMEND_MIN_STUDY_SAMPLES,
 )
 
-# 方向归一化词表，与 routers/discover.py 的 _map_direction 对齐，单点维护
-_POSITIVE_WORDS = {"bullish", "positive", "up", "涨", "利多", "利好"}
-_NEGATIVE_WORDS = {"bearish", "negative", "down", "跌", "利空"}
-_NEUTRAL_WORDS = {"neutral", "中性"}
+# 方向归一化词表单点维护：Python 侧 normalize_direction 与 SQL 侧 IN-list
+# （routers/discover.py 的 direction 筛选）都从这里取，杜绝两份词表漂移。
+DIRECTION_WORDS: dict[str, tuple[str, ...]] = {
+    "positive": ("bullish", "positive", "up", "涨", "利多", "利好"),
+    "negative": ("bearish", "negative", "down", "跌", "利空"),
+    "neutral": ("neutral", "中性"),
+}
+_POSITIVE_WORDS = set(DIRECTION_WORDS["positive"])
+_NEGATIVE_WORDS = set(DIRECTION_WORDS["negative"])
+_NEUTRAL_WORDS = set(DIRECTION_WORDS["neutral"])
 
 # 期限打分：中期事件最贴合仓位决策，短期时效性已由时间衰减体现
 _HORIZON_SCORES = (("中期", 1.0), ("长期", 0.8), ("短期", 0.65))
@@ -256,6 +262,15 @@ def time_decay_weight(
     now = now or datetime.now()
     age_days = max((now - pub_time).total_seconds() / 86400.0, 0.0)
     return math.exp(-decay_lambda * age_days)
+
+
+# 与 time_decay_weight 数学等价的 SQL 表达式，供推荐流/排行榜在库侧施加读时衰减。
+# 占位参数传 -RECOMMEND_DECAY_LAMBDA；GREATEST 把未来发布时间钳到 0 天。
+# 引用别名：打分表须以 s 别名接入，新闻表须以 n 别名接入。
+FINAL_SCORE_EXPR = (
+    "s.importance_score * EXP(%s * GREATEST("
+    "TIMESTAMPDIFF(MINUTE, n.pub_time, NOW()) / 1440.0, 0))"
+)
 
 
 def apply_decay(

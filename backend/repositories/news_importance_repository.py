@@ -17,10 +17,17 @@ from typing import Any, Iterator, Optional
 from backend.common.database import build_in_placeholders
 from backend.common.db_analysis import AnalysisQueries
 from backend.config.config import (
+    FACTOR_CATEGORY_WEIGHTS,
+    RECOMMEND_DECAY_LAMBDA,
     RECOMMEND_HOLDING_DAYS,
     RECOMMEND_SCORE_VERSION,
 )
-from backend.recommend.importance import FactorStudy, ImportanceInput
+from backend.recommend.importance import (
+    DIRECTION_WORDS,
+    FINAL_SCORE_EXPR,
+    FactorStudy,
+    ImportanceInput,
+)
 from backend.repositories.base import BaseRepository
 
 
@@ -237,3 +244,98 @@ class NewsImportanceRepository(BaseRepository):
                     (version, *news_ids),
                 )
                 return {row["news_id"]: row for row in cur.fetchall()}
+
+    # ── 排行榜（S3-3）────────────────────────────────────────────────
+
+    def _window_clause(self, days: int) -> tuple[str, tuple]:
+        return "n.pub_time >= DATE_SUB(NOW(), INTERVAL %s DAY)", (int(days),)
+
+    def top_news(
+        self,
+        days: int,
+        limit: int = 10,
+        direction: Optional[str] = None,
+        version: str = RECOMMEND_SCORE_VERSION,
+    ) -> list[dict[str, Any]]:
+        """窗口内按 final_score（静态分×读时衰减）排序的新闻榜。
+
+        direction 给 positive/negative 时追加最佳模型方向归一化过滤（多空榜复用）；
+        只 INNER JOIN 已打分新闻，排行榜不展示未打分条目。
+        """
+        where, params = self._window_clause(days)
+        join_sql = AnalysisQueries.best_analysis_join()
+        if direction in DIRECTION_WORDS:
+            words = DIRECTION_WORDS[direction]
+            where += f" AND LOWER(a.direction) IN ({build_in_placeholders(words)})"
+            params += words
+        with self._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""SELECT n.id, n.title, n.pub_time, n.source,
+                               s.importance_score,
+                               {FINAL_SCORE_EXPR} AS final_score,
+                               a.direction AS best_direction, s.top_category
+                          FROM news n
+                          JOIN news_importance_score s
+                            ON s.news_id = n.id AND s.score_version = %s
+                          {join_sql}
+                         WHERE {where}
+                         ORDER BY final_score DESC, n.pub_time DESC, n.id DESC
+                         LIMIT %s""",
+                    (-RECOMMEND_DECAY_LAMBDA, version, *params, int(limit)),
+                )
+                return list(cur.fetchall())
+
+    def hot_factors(self, days: int, limit: int = 10) -> list[dict[str, Any]]:
+        """窗口内按 DISTINCT 关联新闻数排名的因子榜，附事件研究 hit_rate。"""
+        where, params = self._window_clause(days)
+        with self._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""SELECT f.id, f.name, f.category,
+                               COUNT(DISTINCT nf.news_id) AS news_count,
+                               es.hit_rate
+                          FROM news_factor nf
+                          JOIN factor f ON f.id = nf.factor_id
+                          JOIN news n ON n.id = nf.news_id
+                          LEFT JOIN factor_event_study es
+                            ON es.factor_code = f.code
+                           AND es.period_label = 'all'
+                           AND es.holding_days = %s
+                         WHERE {where}
+                         GROUP BY f.id, f.name, f.category, es.hit_rate
+                         ORDER BY news_count DESC, f.id
+                         LIMIT %s""",
+                    (RECOMMEND_HOLDING_DAYS, *params, int(limit)),
+                )
+                return list(cur.fetchall())
+
+    def category_distribution(self, days: int) -> list[dict[str, Any]]:
+        """六类因子在窗口内的关联新闻数与占比（占比在 Python 侧归一）。"""
+        categories = tuple(FACTOR_CATEGORY_WEIGHTS.keys())
+        where, params = self._window_clause(days)
+        with self._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""SELECT UPPER(f.category) AS category,
+                               COUNT(DISTINCT nf.news_id) AS news_count
+                          FROM news_factor nf
+                          JOIN factor f ON f.id = nf.factor_id
+                          JOIN news n ON n.id = nf.news_id
+                         WHERE {where}
+                           AND UPPER(f.category) IN ({build_in_placeholders(categories)})
+                         GROUP BY UPPER(f.category)""",
+                    (*params, *categories),
+                )
+                rows = list(cur.fetchall())
+        total = sum(int(r["news_count"] or 0) for r in rows)
+        result = []
+        for row in rows:
+            count = int(row["news_count"] or 0)
+            result.append({
+                "category": row["category"],
+                "news_count": count,
+                "share": round(count / total, 4) if total else 0.0,
+            })
+        result.sort(key=lambda item: item["news_count"], reverse=True)
+        return result
