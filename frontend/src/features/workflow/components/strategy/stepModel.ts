@@ -33,6 +33,8 @@ export type StepSnapshot = {
   confirmed: boolean
   /** 已有落库版本（无论验收是否通过） */
   hasVersion: boolean
+  /** 最近一轮以失败/超时/放弃等待收尾；失败面板内嵌在第④步，默认落④ */
+  failedTurn?: boolean
 }
 
 export type StepInfo = StepDef & { state: StepState }
@@ -42,7 +44,7 @@ export function deriveSteps(snapshot: StepSnapshot): StepInfo[] {
     requirement: true,
     intel: snapshot.hasDraft,
     confirm: snapshot.pendingConfirmation || snapshot.confirmed || snapshot.hasVersion,
-    generation: snapshot.confirmed || snapshot.running,
+    generation: snapshot.confirmed || snapshot.running || Boolean(snapshot.failedTurn),
     result: snapshot.hasVersion,
   }
   const done: Record<StepId, boolean> = {
@@ -61,6 +63,8 @@ export function deriveSteps(snapshot: StepSnapshot): StepInfo[] {
 /** 当前数据状态下应该落在的步骤（首次加载/状态推进时用）。 */
 export function defaultStep(snapshot: StepSnapshot): StepId {
   if (snapshot.running) return 'generation'
+  // 最近一轮失败要先看到④里的失败面板；旧版本可通过步骤轨手动回看。
+  if (snapshot.failedTurn) return 'generation'
   if (snapshot.hasVersion) return 'result'
   if (snapshot.pendingConfirmation) return 'confirm'
   if (snapshot.hasDraft) return 'intel'

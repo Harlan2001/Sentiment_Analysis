@@ -44,6 +44,47 @@ _STRATEGY_RESULT_CONTENT_TYPE = 4
 # given up (requirement doc FR-4).
 _ERROR_CONTENT_TYPE = 5
 _STATUS_ERROR = 5
+# 对端 strategy_generation_status → 我方阶段口径（B1 进度回写）。
+# 1 生成中 / 2 检查回测中 / 3 重生中；其它取值（0/4 等）不映射，避免误报。
+_REMOTE_STAGE_BY_STATUS = {1: "generating", 2: "backtest_checking", 3: "regenerating"}
+# log_tail 只取尾部约 28 行，并按字符兜底，避免高频控制台输出灌爆消息行。
+LOG_TAIL_MAX_LINES = 28
+LOG_TAIL_MAX_CHARS = 4_000
+# 纯日志尾部更新的最小回写间隔；阶段变化不受此限。
+_PROGRESS_MIN_INTERVAL = 1.5
+
+
+def _backtest_log_tail(backtest_log: str) -> str:
+    lines = str(backtest_log or "").splitlines()[-LOG_TAIL_MAX_LINES:]
+    return "\n".join(lines)[-LOG_TAIL_MAX_CHARS:]
+
+
+class _ProgressEmitter:
+    """把阶段变化/日志尾部节流后投递给仓储层（B1）；回调失败不影响生成主流程。"""
+
+    def __init__(self, on_progress: Callable[[str, str | None], None] | None) -> None:
+        self._cb = on_progress
+        self._last_emit = 0.0
+        self._stage = ""
+
+    def __call__(self, stage: str = "", log_tail: str | None = None, force: bool = False) -> None:
+        if not self._cb:
+            return
+        stage = stage or self._stage or "generating"
+        now = time.monotonic()
+        stage_changed = stage != self._stage
+        # 阶段没变又没有新日志：纯重复帧，不回写。
+        if not force and not stage_changed and log_tail is None:
+            return
+        # 阶段没变的纯日志更新受节流；阶段变化立即回写。
+        if not force and not stage_changed and now - self._last_emit < _PROGRESS_MIN_INTERVAL:
+            return
+        self._last_emit = now
+        self._stage = stage
+        try:
+            self._cb(stage, log_tail)
+        except Exception:
+            logger.warning("DreamStrategy progress callback failed", exc_info=True)
 
 
 class DreamGenerationError(RuntimeError):
@@ -281,9 +322,11 @@ def _wait_for_strategy_backtest(
     template_id: str,
     version_id: str,
     deadline: float,
+    on_log: Callable[[str], None] | None = None,
 ) -> dict[str, Any] | None:
     """Poll the persisted template until its code and terminal test result exist."""
 
+    seen_log = ""
     latest: dict[str, Any] | None = None
     while True:
         try:
@@ -292,6 +335,10 @@ def _wait_for_strategy_backtest(
             )
             if candidate:
                 latest = candidate
+                incoming_log = str(candidate.get("backtest_log") or "")
+                if on_log and incoming_log and incoming_log != seen_log:
+                    seen_log = incoming_log
+                    on_log(incoming_log)
                 if str(candidate.get("code") or "").strip() and _backtest_is_complete(
                     candidate
                 ):
@@ -413,6 +460,7 @@ def generate_strategy(
     on_session_created: Callable[[str], None] | None = None,
     validation_context: dict[str, Any] | None = None,
     max_regenerations: int = 2,
+    on_progress: Callable[[str, str | None], None] | None = None,
 ) -> dict[str, Any]:
     """提交一次真实 DreamStrategy 生成并取回可展示的公开结果。
 
@@ -423,11 +471,14 @@ def generate_strategy(
         ``{"expected_instrument": "FCT_T_MAIN", "whitelist": {...}}``。
     :param max_regenerations: 验收不通过时最多重发几轮修正请求。对端自身还有
         3 次自动重生，叠加后总耗时仍可控（需求文档定 2 轮）。
+    :param on_progress: 可选回调 ``(stage, log_tail)``，阶段变化立即回调，
+        日志尾部更新按约 1.5s 节流。阶段取值见 sql/026 迁移注释。
     """
 
     if not prompt.strip():
         raise ValueError("策略提示词不能为空")
     settings = settings or DreamStrategySettings.from_environment()
+    emitter = _ProgressEmitter(on_progress)
     common_pb2, extension_pb2 = prepare_protobuf_modules()
     ws_url, token = _load_portal_connection(settings)
     client = _connect_and_login(ws_url, token, settings.timeout_seconds, common_pb2)
@@ -459,11 +510,13 @@ def generate_strategy(
                 session_id,
                 current_prompt,
                 started_at,
+                emitter,
             )
             if not validation_context:
                 result["regenerations"] = regenerations
                 return result
 
+            emitter("validating", force=True)
             validation = validate_strategy_result(
                 result,
                 expected_instrument=validation_context.get("expected_instrument"),
@@ -481,6 +534,7 @@ def generate_strategy(
                 return result
 
             attempt += 1
+            emitter("revising", force=True)
             feedback = build_retry_feedback(validation, result)
             regenerations.append(
                 {
@@ -507,9 +561,11 @@ def _run_single_generation(
     session_id: str,
     prompt: str,
     started_at: float,
+    emitter: _ProgressEmitter | None = None,
 ) -> dict[str, Any]:
     """发送一轮提示词并等到终态结果；不含验收与重生逻辑。"""
 
+    emitter = emitter or _ProgressEmitter(None)
     send_response = client.request(
         EI_SEND_PROMPT,
         extension_pb2.AddAiStrategyV2TemplateChatMessageRequest(
@@ -521,6 +577,9 @@ def _run_single_generation(
         extension_pb2.AddAiStrategyV2TemplateChatMessageResponse,
     )
     _ensure_success("发送 DreamStrategy 提示词", send_response)
+    # 提交成功即从 preparing 进入 generating；即使对端状态帧延迟，前端也不会
+    # 一直停在“提交中”。
+    emitter("generating", force=True)
 
     final_message: Any | None = None
     backtest_log = ""
@@ -559,6 +618,16 @@ def _run_single_generation(
             continue
         if message.backtest_log:
             backtest_log = _merge_backtest_log(backtest_log, message.backtest_log)
+        # 对端阶段帧（1/2/3）与分批日志都可能在任意推送里到达；阶段变化
+        # 立即回写，纯日志更新由 emitter 节流。
+        remote_stage = _REMOTE_STAGE_BY_STATUS.get(
+            int(getattr(message, "strategy_generation_status", 0) or 0)
+        )
+        if remote_stage or message.backtest_log:
+            emitter(
+                remote_stage or "",
+                _backtest_log_tail(backtest_log) if message.backtest_log else None,
+            )
         if is_strategy_result and str(message.template_version_id or "").strip():
             # The subscribed session is exclusive to this serialized local
             # turn, so this version id belongs to this exact user request.
@@ -567,16 +636,27 @@ def _run_single_generation(
 
     if final_message is None:
         raise RuntimeError("DreamStrategy 未返回完成消息")
+    # 进入产物轮询：阶段变化会立即投递；若最后一帧已把阶段带到
+    # backtest_checking，这里是纯重复，交给 emitter 去重。
+    emitter("backtest_checking")
     artifact_deadline = min(
         started_at + settings.timeout_seconds,
         time.monotonic() + settings.backtest_wait_seconds,
     )
+
+    def _on_poll_log(incoming: str) -> None:
+        nonlocal backtest_log
+        if incoming:
+            backtest_log = _merge_backtest_log(backtest_log, incoming)
+            emitter("backtest_checking", _backtest_log_tail(backtest_log))
+
     strategy = _wait_for_strategy_backtest(
         client,
         extension_pb2,
         settings.template_id,
         final_message.template_version_id,
         artifact_deadline,
+        on_log=_on_poll_log,
     )
     if not strategy or not str(strategy.get("code") or "").strip():
         raise RuntimeError("DreamStrategy 正式策略结果未包含可执行回测代码。")

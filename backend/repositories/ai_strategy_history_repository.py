@@ -196,6 +196,31 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     )
             conn.commit()
 
+    def ensure_progress_schema(self) -> None:
+        """B1 进度回写所需的三列（stage/stage_updated_at/log_tail），幂等迁移。
+
+        对应 sql/026_ai_strategy_progress.sql；这里补一道运行时兜底，让尚未
+        执行迁移脚本的环境也能随启动自动补列。
+        """
+        additions = (
+            ("stage", "ALTER TABLE ai_strategy_messages ADD COLUMN stage VARCHAR(32) NULL"),
+            ("stage_updated_at", "ALTER TABLE ai_strategy_messages ADD COLUMN stage_updated_at DATETIME NULL"),
+            ("run_started_at", "ALTER TABLE ai_strategy_messages ADD COLUMN run_started_at DATETIME NULL"),
+            ("log_tail", "ALTER TABLE ai_strategy_messages ADD COLUMN log_tail MEDIUMTEXT NULL"),
+        )
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                for column_name, ddl in additions:
+                    cursor.execute(
+                        """SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+                           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_strategy_messages'
+                             AND COLUMN_NAME = %s""",
+                        (column_name,),
+                    )
+                    if int(cursor.fetchone()["count"]) == 0:
+                        cursor.execute(ddl)
+            conn.commit()
+
     def create_conversation(self, owner_username: str, title: str) -> dict[str, Any]:
         title = " ".join(title.split())[:255] or "新策略对话"
         with self._connection() as conn:
@@ -469,7 +494,10 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 cursor.execute(
                     """UPDATE ai_strategy_messages
                                   SET user_edited_prompt = %s, final_sent_prompt = %s, generated_prompt = %s,
-                                      status = 'running', updated_at = CURRENT_TIMESTAMP
+                                      status = 'running', stage = 'preparing',
+                                      stage_updated_at = CURRENT_TIMESTAMP,
+                                      run_started_at = CURRENT_TIMESTAMP, log_tail = NULL,
+                                      updated_at = CURRENT_TIMESTAMP
                                   WHERE id = %s AND conversation_id = %s AND owner_username = %s
                                     AND role = 'assistant' AND status = 'pending_confirmation'""",
                     (
@@ -508,6 +536,78 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     raise ConversationNotFoundError("History conversation not found")
             conn.commit()
 
+    def update_generation_progress(
+        self,
+        owner_username: str,
+        conversation_id: int,
+        assistant_message_id: int,
+        stage: str,
+        log_tail: str | None = None,
+    ) -> bool:
+        """B1：把接收循环观察到的阶段/日志尾部回写到仍在 running 的消息行。
+
+        只更新 running 行：用户「放弃等待」后行已置 cancelled，迟到的回写
+        不能把它冲回生成中。顺带刷新 updated_at，让 16 分钟兜底 sweep 只
+        作用于真正断连的任务。
+        """
+        stage = stage[:32]
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                if log_tail is None:
+                    cursor.execute(
+                        """UPDATE ai_strategy_messages
+                                      SET stage = %s, stage_updated_at = CURRENT_TIMESTAMP,
+                                          updated_at = CURRENT_TIMESTAMP
+                                      WHERE id = %s AND conversation_id = %s AND owner_username = %s
+                                        AND role = 'assistant' AND status = 'running'""",
+                        (stage, assistant_message_id, conversation_id, owner_username),
+                    )
+                else:
+                    cursor.execute(
+                        """UPDATE ai_strategy_messages
+                                      SET stage = %s, log_tail = %s, stage_updated_at = CURRENT_TIMESTAMP,
+                                          updated_at = CURRENT_TIMESTAMP
+                                      WHERE id = %s AND conversation_id = %s AND owner_username = %s
+                                        AND role = 'assistant' AND status = 'running'""",
+                        (stage, log_tail[:100_000], assistant_message_id, conversation_id, owner_username),
+                    )
+                updated = cursor.rowcount == 1
+            conn.commit()
+        return updated
+
+    def cancel_waiting_generation(
+        self,
+        owner_username: str,
+        conversation_id: int,
+        assistant_message_id: int,
+    ) -> bool:
+        """放弃等待：本地置 cancelled；协议没有取消命令，对端仍会跑完。
+
+        迟到的完成结果会因 complete_generation 只认 running 行而被丢弃，
+        正好兑现「结果不回收」的承诺。
+        """
+        note = "已放弃等待：对端仍会跑完本轮生成，但结果不再回收。"
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """UPDATE ai_strategy_messages
+                                  SET status = 'cancelled', stage = 'cancelled',
+                                      content = %s, public_error_message = %s,
+                                      stage_updated_at = CURRENT_TIMESTAMP,
+                                      updated_at = CURRENT_TIMESTAMP
+                                  WHERE id = %s AND conversation_id = %s AND owner_username = %s
+                                    AND role = 'assistant' AND status = 'running'""",
+                    (note, note, assistant_message_id, conversation_id, owner_username),
+                )
+                cancelled = cursor.rowcount == 1
+                if cancelled:
+                    cursor.execute(
+                        "UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
+                        (conversation_id, owner_username),
+                    )
+            conn.commit()
+        return cancelled
+
     def complete_generation(
         self,
         owner_username: str,
@@ -515,7 +615,11 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         assistant_message_id: int,
         result: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Persist the remote answer and its strategy version in one transaction."""
+        """Persist the remote answer and its strategy version in one transaction.
+
+        只认仍在 running 的行；若用户已「放弃等待」（cancelled），整份远端
+        产物（含版本）不落库。
+        """
         strategy = result.get("strategy")
         has_strategy_code = bool(strategy and str(strategy.get("code") or "").strip())
         message_status = "succeeded" if has_strategy_code else "failed"
@@ -534,10 +638,15 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                 if not conversation:
                     raise ConversationNotFoundError("History conversation not found")
                 cursor.execute(
-                    """UPDATE ai_strategy_messages SET content = %s, status = %s, public_error_message = %s, remote_message_id = %s, elapsed_seconds = %s, validation_json = %s, updated_at = CURRENT_TIMESTAMP
-                                  WHERE id = %s AND conversation_id = %s AND owner_username = %s""",
+                    """UPDATE ai_strategy_messages SET content = %s, status = %s, stage = %s,
+                                      public_error_message = %s, remote_message_id = %s,
+                                      elapsed_seconds = %s, validation_json = %s,
+                                      stage_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                                  WHERE id = %s AND conversation_id = %s AND owner_username = %s
+                                    AND role = 'assistant' AND status = 'running'""",
                     (
                         result.get("summary", ""),
+                        message_status,
                         message_status,
                         public_error,
                         result.get("message_id") or None,
@@ -555,7 +664,9 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
                     ),
                 )
                 if cursor.rowcount != 1:
-                    raise ConversationNotFoundError("History conversation not found")
+                    # 行已不存在或已被「放弃等待」置为 cancelled：放弃迟到的远端产物。
+                    conn.commit()
+                    return None
                 version = None
                 if has_strategy_code:
                     local_version_no = int(conversation["current_local_version_no"]) + 1
@@ -607,22 +718,29 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """UPDATE ai_strategy_messages SET content = %s, public_error_message = %s, status = %s, updated_at = CURRENT_TIMESTAMP
-                                  WHERE id = %s AND conversation_id = %s AND owner_username = %s""",
+                    """UPDATE ai_strategy_messages SET content = %s, public_error_message = %s,
+                                      status = %s, stage = %s,
+                                      stage_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                                  WHERE id = %s AND conversation_id = %s AND owner_username = %s
+                                    AND role = 'assistant' AND status = 'running'""",
                     (
                         message,
                         message,
+                        status,
                         status,
                         assistant_message_id,
                         conversation_id,
                         owner_username,
                     ),
                 )
-                cursor.execute(
-                    "UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
-                    (conversation_id, owner_username),
-                )
+                applied = cursor.rowcount == 1
+                if applied:
+                    cursor.execute(
+                        "UPDATE ai_strategy_conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND owner_username = %s",
+                        (conversation_id, owner_username),
+                    )
             conn.commit()
+        return applied
 
     def sweep_stale_running(self, owner_username: str, conversation_id: int) -> None:
         """Flip any ``running`` message stuck for >16 minutes to ``timed_out``.
@@ -634,7 +752,10 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """UPDATE ai_strategy_messages SET status = 'timed_out', content = 'DreamStrategy generation timed out; retry this conversation.', public_error_message = 'DreamStrategy generation timed out; retry this conversation.', updated_at = CURRENT_TIMESTAMP
+                    """UPDATE ai_strategy_messages SET status = 'timed_out', stage = 'timed_out',
+                                      content = 'DreamStrategy generation timed out; retry this conversation.',
+                                      public_error_message = 'DreamStrategy generation timed out; retry this conversation.',
+                                      stage_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                                   WHERE conversation_id = %s AND owner_username = %s AND status = 'running' AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 16 MINUTE)""",
                     (conversation_id, owner_username),
                 )
@@ -650,7 +771,10 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """SELECT id, sequence_no, role, content, status, generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt, references_json, context_json, validation_json, public_error_message, remote_message_id, elapsed_seconds, created_at, updated_at
+                    """SELECT id, sequence_no, role, content, status, stage, stage_updated_at, run_started_at, log_tail,
+                                      generated_prompt, system_draft_prompt, user_edited_prompt, final_sent_prompt,
+                                      references_json, context_json, validation_json, public_error_message,
+                                      remote_message_id, elapsed_seconds, created_at, updated_at
                                   FROM ai_strategy_messages WHERE conversation_id = %s AND owner_username = %s ORDER BY sequence_no ASC""",
                     (conversation_id, owner_username),
                 )
