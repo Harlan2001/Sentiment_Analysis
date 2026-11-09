@@ -1312,6 +1312,11 @@ export interface DiscoverNewsItem {
   direction: string | null;       // positive | negative | neutral
   reason: string;
   factors: { id: number; name: string }[];
+  // 推荐排序（sort=recommend）时由后端返回，时间排序模式下为 null
+  importance_score: number | null;  // 静态重要性分 0-100
+  final_score: number | null;       // 叠加时间衰减后的最终分
+  score_signals: Record<string, number> | null;
+  top_category: string | null;
 }
 
 export interface DiscoverNewsResponse {
@@ -1320,6 +1325,46 @@ export interface DiscoverNewsResponse {
   page: number;
   page_size: number;
   total_pages: number;
+}
+
+// ── 推荐排行榜（S3-3）────────────────────────────────────────────────
+
+export type NewsDirection = 'positive' | 'negative' | 'neutral'
+
+export interface RankingNewsItem {
+  id: number;
+  title: string;
+  pub_time: string;
+  source_name: string;
+  direction: NewsDirection | null;
+  importance_score: number | null;
+  final_score: number | null;
+  top_category: string | null;
+}
+
+export interface RankingFactorItem {
+  id: number;
+  name: string;
+  category: string;
+  news_count: number;
+  hit_rate: number | null;
+}
+
+export interface CategoryShare {
+  category: string;
+  news_count: number;
+  share: number;
+}
+
+export interface RecommendRankingsResponse {
+  days: number;
+  top_news: RankingNewsItem[];
+  hot_factors: RankingFactorItem[];
+  direction_board: {
+    positive: RankingNewsItem[];
+    negative: RankingNewsItem[];
+  };
+  category_distribution: CategoryShare[];
 }
 
 export interface YieldRateItem {

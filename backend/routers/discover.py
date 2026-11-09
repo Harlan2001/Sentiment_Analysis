@@ -3,10 +3,11 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -14,7 +15,21 @@ from backend.common.api_response import ok
 from backend.common.database import build_in_placeholders, get_db_connection
 from backend.common.db_analysis import AnalysisQueries
 from backend.common.pagination import paginated_payload
-from backend.config.config import API_PREFIX, NEWS_SOURCE_LABELS
+from backend.common.ttl_cache import TTLCache
+from backend.config.config import (
+    API_PREFIX,
+    NEWS_SOURCE_LABELS,
+    RECOMMEND_DECAY_LAMBDA,
+    RECOMMEND_MAX_WINDOW_DAYS,
+    RECOMMEND_SCORE_VERSION,
+    RECOMMEND_WINDOW_DAYS,
+)
+from backend.recommend.importance import (
+    DIRECTION_WORDS,
+    FINAL_SCORE_EXPR,
+    normalize_direction,
+)
+from backend.recommend.rankings import build_rankings
 from backend.repositories.forecast_report_repository import ForecastReportRepository
 
 logger = logging.getLogger(__name__)
@@ -26,70 +41,41 @@ def _forecast_repository() -> ForecastReportRepository:
 
 
 def _map_direction(d, default=None):
-    """把分析侧方向归一化为前端约定的 positive/negative；无方向/未知返回 default。"""
-    if not d:
-        return default
-    dv = str(d).lower()
-    if dv in ("bullish", "positive", "up", "涨", "利多", "利好"):
-        return "positive"
-    if dv in ("bearish", "negative", "down", "跌", "利空"):
-        return "negative"
-    return default
+    """把分析侧方向归一化为前端约定的 positive/negative；无方向/未知返回 default。
+
+    词表收敛到 recommend.importance.DIRECTION_WORDS 单点维护，SQL 筛选与
+    Python 映射共用同一份归一化来源。
+    """
+    return normalize_direction(d) or default
 # 按新闻选最高优先级模型的 analysis 的关联子句（discover / returns 共用同一来源）
 _BEST_ANALYSIS_JOIN = AnalysisQueries.best_analysis_join()
+
+# 排行榜进程内缓存：TTL 120s，key=(days)，分页新闻流不缓存
+_rankings_cache: TTLCache[Dict[str, Any]] = TTLCache(ttl_seconds=120)
 
 
 # ── 1. 发现页新闻列表 ──────────────────────────────────────────────────
 
 
-@router.get("/discover/news")
-def discover_news(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=50),
-    direction: Optional[str] = Query(None),
-    source: Optional[str] = Query(None),
-):
-    offset = (page - 1) * page_size
+def _parse_score_signals(raw: Any) -> Optional[Dict[str, Any]]:
+    """signals_json 在 PyMySQL 下通常是字符串，容错解析；脏数据回退 None。"""
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except (TypeError, json.JSONDecodeError):
+        return None
 
-    dir_join = ""
-    if direction:
-        # 按最佳模型（glm 优先，历史 doubao 兜底）取每条新闻的方向做过滤
-        dir_join = AnalysisQueries.best_analysis_join()
 
-    where_clauses = ["1=1"]
-    where_params: List[str] = []
-    if source:
-        where_clauses.append("n.source = %s")
-        where_params.append(source)
-    if direction:
-        where_clauses.append("a.direction = %s")
-        where_params.append(direction)
+def _enrich_news_items(news_rows: List[tuple]) -> List[Dict[str, Any]]:
+    """对分页主查询结果批量补缩略图/最佳模型分析/因子，并合并打分列。
 
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-        # 无条件返回全部新闻，pub_time DESC 无限滚动
-        cur.execute(f"""
-            SELECT n.id, n.title, n.pub_time, n.source, n.url, n.global_uid
-            FROM news n {dir_join}
-            WHERE {' AND '.join(where_clauses)}
-            ORDER BY n.pub_time DESC
-            LIMIT %s OFFSET %s
-        """, where_params + [page_size, offset])
-        news_rows = cur.fetchall()
-
-        cur.execute(f"""
-            SELECT COUNT(*) FROM news n {dir_join}
-            WHERE {' AND '.join(where_clauses)}
-        """, where_params)
-        total = (cur.fetchone() or [0])[0]
-
-    logger.info("discover/news: page=%d returned %d rows (total=%d)", page, len(news_rows), total)
-
+    两排序模式共用：latest 模式打分四列恒为 NULL，输出可空字段。
+    """
     news_ids = [r[0] for r in news_rows]
-
-    # 空页直接返回，避免 IN () 语法错误
-    if not news_ids:
-        return ok(paginated_payload([], total, page, page_size))
 
     # 批量取缩略图
     with get_db_connection() as conn:
@@ -142,7 +128,8 @@ def discover_news(
 
     items = []
     for r in news_rows:
-        nid, title, pub_time, src, url, gid = r
+        nid, title, pub_time, src, url, gid = r[:6]
+        importance, final_score, signals, top_category = r[6:]
         adir, areason = analysis_map.get(nid, (None, ""))
         items.append({
             "id": nid,
@@ -157,9 +144,120 @@ def discover_news(
             "direction": adir,
             "reason": areason or "",
             "factors": factors_map.get(nid, []),
+            "importance_score": float(importance) if importance is not None else None,
+            "final_score": round(float(final_score), 4) if final_score is not None else None,
+            "score_signals": _parse_score_signals(signals),
+            "top_category": top_category,
         })
 
+    return items
+
+
+@router.get("/discover/news")
+def discover_news(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+    direction: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    sort: Optional[str] = Query("latest"),
+    days: Optional[int] = Query(None, ge=1, le=90),
+):
+    """新闻流。sort=latest 时间倒序（默认）；sort=recommend 按重要性分×时间衰减排序。"""
+    sort = sort if sort in ("latest", "recommend") else "latest"
+    offset = (page - 1) * page_size
+
+    where_clauses = ["1=1"]
+    where_params: List[Any] = []
+
+    dir_join = ""
+    if direction in DIRECTION_WORDS:
+        # 按最佳模型（glm 优先，历史 doubao 兜底）取方向，SQL 内归一化兼容中英混存
+        dir_join = AnalysisQueries.best_analysis_join()
+        words = DIRECTION_WORDS[direction]
+        where_clauses.append(f"LOWER(a.direction) IN ({build_in_placeholders(words)})")
+        where_params.extend(words)
+    elif direction:
+        logger.info("discover/news: 未知 direction=%s，已忽略该筛选", direction)
+
+    if source:
+        where_clauses.append("n.source = %s")
+        where_params.append(source)
+
+    # recommend 硬窗口：缺省 7 天、上限 30 天；latest 的 days 可选（前端早已在传）
+    effective_days = days
+    if sort == "recommend":
+        effective_days = min(days or RECOMMEND_WINDOW_DAYS, RECOMMEND_MAX_WINDOW_DAYS)
+    if effective_days:
+        where_clauses.append("n.pub_time >= DATE_SUB(NOW(), INTERVAL %s DAY)")
+        where_params.append(effective_days)
+
+    where_sql = " AND ".join(where_clauses)
+
+    if sort == "recommend":
+        # LEFT JOIN：未打分新闻 final 折算为 0 沉底，但不会从列表丢失
+        score_join = (
+            "LEFT JOIN news_importance_score s "
+            "ON s.news_id = n.id AND s.score_version = %s"
+        )
+        select_cols = (
+            "n.id, n.title, n.pub_time, n.source, n.url, n.global_uid, "
+            f"s.importance_score, {FINAL_SCORE_EXPR} AS final_score, "
+            "s.signals_json, s.top_category"
+        )
+        order_sql = "ORDER BY final_score DESC, n.pub_time DESC, n.id DESC"
+        # SELECT 衰减表达式的 %s 最先出现，其次 JOIN 的 version，再是 WHERE 参数
+        page_params: List[Any] = [-RECOMMEND_DECAY_LAMBDA, RECOMMEND_SCORE_VERSION, *where_params]
+        count_params: List[Any] = [RECOMMEND_SCORE_VERSION, *where_params]
+    else:
+        score_join = ""
+        select_cols = (
+            "n.id, n.title, n.pub_time, n.source, n.url, n.global_uid, "
+            "NULL AS importance_score, NULL AS final_score, "
+            "NULL AS signals_json, NULL AS top_category"
+        )
+        order_sql = "ORDER BY n.pub_time DESC"
+        page_params = [*where_params]
+        count_params = [*where_params]
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(f"""
+            SELECT {select_cols}
+            FROM news n {dir_join} {score_join}
+            WHERE {where_sql}
+            {order_sql}
+            LIMIT %s OFFSET %s
+        """, page_params + [page_size, offset])
+        news_rows = cur.fetchall()
+
+        cur.execute(f"""
+            SELECT COUNT(*) FROM news n {dir_join} {score_join}
+            WHERE {where_sql}
+        """, count_params)
+        total = (cur.fetchone() or [0])[0]
+
+    logger.info(
+        "discover/news: sort=%s days=%s page=%d returned %d rows (total=%d)",
+        sort, effective_days, page, len(news_rows), total,
+    )
+
+    # 空页直接返回，避免 IN () 语法错误
+    if not news_rows:
+        return ok(paginated_payload([], total, page, page_size))
+
+    items = _enrich_news_items(news_rows)
     return ok(paginated_payload(items, total, page, page_size))
+
+
+@router.get("/discover/recommend-rankings")
+def recommend_rankings(
+    days: int = Query(RECOMMEND_WINDOW_DAYS, ge=1, le=RECOMMEND_MAX_WINDOW_DAYS),
+):
+    """推荐排行榜四榜合一（新闻/因子/多空/类别分布），进程内 TTL 120s。"""
+    payload = _rankings_cache.get_or_set(
+        ("recommend-rankings", days), lambda: build_rankings(days)
+    )
+    return ok(payload)
 
 
 # ── 2. 市场数据面板 ────────────────────────────────────────────────────

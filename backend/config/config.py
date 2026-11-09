@@ -212,6 +212,52 @@ def mask_news_source(source_key: str) -> str:
     return NEWS_SOURCE_LABELS.get(source_key, "数据源")
 
 
+# ====================== 新闻推荐打分配置（S3-2） ======================
+# 设计说明：静态重要性分 I_news（0-100）预计算落 news_importance_score，
+# 读时再叠加时间衰减 final = I * EXP(-lambda * age_days)。调参只改本处。
+RECOMMEND_SCORE_VERSION = "v1"
+RECOMMEND_DECAY_LAMBDA = 0.08          # 半衰期约 8.7 天，适配 7-30 天推荐窗口
+RECOMMEND_WINDOW_DAYS = 7              # 推荐流默认窗口
+RECOMMEND_MAX_WINDOW_DAYS = 30         # 推荐流窗口硬上限
+RECOMMEND_HOLDING_DAYS = 5             # 命中率先验取 factor_event_study 的持有期
+RECOMMEND_MIN_STUDY_SAMPLES = 20       # 事件研究样本充足门槛，不足向 0.5 收缩
+
+# 因子类别权重：利率交易员视角（政策 > 宏观 > 资金面 > 风险 > 情绪 > 行业）
+FACTOR_CATEGORY_WEIGHTS = {
+    "POLICY": 1.00,
+    "MACRO": 0.90,
+    "LIQUIDITY": 0.85,
+    "RISK": 0.70,
+    "SENTIMENT": 0.55,
+    "INDUSTRY": 0.45,
+}
+
+# 九个信号在静态分中的权重，和必须为 1（test_importance 会校验）
+NEWS_IMPORTANCE_WEIGHTS = {
+    "direction": 0.18,   # 最佳模型方向强度
+    "agreement": 0.14,   # 多模型方向一致性
+    "horizon": 0.08,     # 期限（中期最贴合仓位决策）
+    "category": 0.20,    # 关联因子的最高类别权重
+    "hit": 0.12,         # 因子事件研究命中率先验
+    "nfactor": 0.10,     # 关联因子数量（5 个饱和）
+    "rich": 0.08,        # 内容丰富度（图/表/标题块）
+    "policy": 0.07,      # 政策标记（POLICY 因子或标题关键词）
+    "source": 0.03,      # 来源权重（v1 两源同分，保留配置位）
+}
+
+# 政策标题关键词（无实体表，POLICY 因子之外的兜底政策信号）
+POLICY_TITLE_KEYWORDS = (
+    "降准", "降息", "MLF", "LPR", "逆回购", "公开市场", "国债", "财政部",
+    "央行", "货币政策", "再贷款", "再贴现", "国库定存", "SLF", "PSL",
+)
+
+# 来源权重：合规脱敏后 v1 不人为区分，待行为数据上线再拉开
+NEWS_SOURCE_WEIGHTS = {
+    "wallstreetcn": 1.0,
+    "yicai": 1.0,
+}
+
+
 # ====================== 组合策略配置 ======================
 
 # 组合策略时区：统一使用北京时间进行日期计算和时间戳生成
