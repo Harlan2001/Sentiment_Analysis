@@ -2,7 +2,7 @@
 # Sentiment 定时任务（大前台）：分析补偿任务（兜底处理）
 # 建议执行时间：每天 23:00
 # 用法：./analysis_fallback_main.sh
-# 或在 crontab 中：0 23 * * * /opt/sentiment-tasks/analysis_fallback_main.sh
+# 或在 crontab 中：0 23 * * * /opt/sentiment-tasks/scripts/analysis_fallback_main.sh
 
 set -e
 
