@@ -2,7 +2,7 @@
 # Sentiment 定时任务（大前台）：收益率数据更新（先下载最新 Excel，再追加导入）
 # 建议执行时间：每天 19:00
 # 用法：./yield_update_main.sh
-# 或在 crontab 中：0 19 * * * /opt/sentiment-tasks/yield_update_main.sh
+# 或在 crontab 中：0 19 * * * /opt/sentiment-tasks/scripts/yield_update_main.sh
 
 set -e
 

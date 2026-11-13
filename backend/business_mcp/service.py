@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 from backend.agent.chat_service import agent_chat_stream
 from backend.agent.references import cited_news_references
+from backend.returns.rules import classify_market_alignment, direction_label
 from backend.routers.forecast import get_forecast_report
 from backend.routers.returns import returns_calendar
 
@@ -49,12 +50,7 @@ def _data(response: Any) -> Any:
 
 
 def _direction(value: Any) -> str:
-    normalized = str(value or "").strip().lower()
-    if normalized in {"positive", "bullish", "利多", "利好", "涨"}:
-        return "利多"
-    if normalized in {"negative", "bearish", "利空", "跌"}:
-        return "利空"
-    return "中性"
+    return direction_label(value)
 
 
 async def ask_sentiment(question: str) -> dict[str, Any]:
@@ -209,13 +205,14 @@ def explain_bond_market_move(trade_date: str, maturity: str = "10Y") -> dict[str
             break
 
     diff_bp = yield_point.get("diff_bp") if yield_point else None
-    expected_news_direction = "利空" if diff_bp and diff_bp > 0 else "利多" if diff_bp and diff_bp < 0 else None
-    supporting = [item for item in news if _direction(item.get("direction")) == expected_news_direction]
-    contradicting = [
-        item
-        for item in news
-        if expected_news_direction and _direction(item.get("direction")) not in {expected_news_direction, "中性"}
-    ]
+    supporting = []
+    contradicting = []
+    for item in news:
+        alignment = classify_market_alignment(diff_bp, item.get("direction"))
+        if alignment == "supporting":
+            supporting.append(item)
+        elif alignment == "opposing":
+            contradicting.append(item)
     confidence = 0.0
     if yield_point:
         confidence += 0.35

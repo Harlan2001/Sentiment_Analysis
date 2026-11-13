@@ -1476,9 +1476,12 @@ export interface CalendarDayItem {
 export interface YieldChangeItem {
   label: string;
   value: number;
-  diff_bp: number;
-  direction: 'up' | 'down' | 'flat';
+  previous_date: string | null;
+  diff_bp: number | null;
+  direction: 'up' | 'down' | 'flat' | 'unavailable';
 }
+
+export type CalendarMarketAlignment = 'supporting' | 'opposing' | 'neutral' | 'unavailable'
 
 export interface CalendarNewsItem {
   id: number;
@@ -1489,6 +1492,11 @@ export interface CalendarNewsItem {
   reason: string;
   horizon: string;
   factors: { id: number; name: string; direction: string }[];
+  importance_score: number | null;
+  score_signals: Record<string, number> | null;
+  top_category: string | null;
+  score_version: string | null;
+  market_alignment: CalendarMarketAlignment;
 }
 
 export interface MacroDataSnapshot {

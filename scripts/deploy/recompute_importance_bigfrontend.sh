@@ -2,7 +2,7 @@
 # Sentiment 定时任务（大前台）：新闻重要性分窗口兜底重算（S3-2）
 # 建议执行时间：每天 23:30（分析补偿 23:00 之后，确保当日新分析新闻已落库）
 # 用法：./recompute_importance_bigfrontend.sh
-# 或在 crontab 中：30 23 * * * /opt/sentiment-tasks/recompute_importance_bigfrontend.sh
+# 或在 crontab 中：30 23 * * * /opt/sentiment-tasks/scripts/recompute_importance_bigfrontend.sh
 #
 # 说明：新闻分析完成时 analyzer_runner 已增量打分，本任务是兜底——
 # 重算近 30 天（推荐流最大窗口）新闻，修复增量失败/公式调参后的分值漂移。

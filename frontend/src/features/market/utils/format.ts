@@ -17,3 +17,10 @@ export function fmtTime(t: string | null | undefined): string {
   const hours = Math.floor(diff / 36e5)
   return hours > 0 ? `${hours}小时前` : '刚刚'
 }
+
+/** 历史日历不做时区换算，直接展示后端发布时间中的绝对时分。 */
+export function fmtClockTime(t: string | null | undefined): string {
+  if (!t) return ''
+  const match = t.match(/[T\s](\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : ''
+}
