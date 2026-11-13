@@ -2,7 +2,7 @@
 # Sentiment 定时任务（SAAS）：分析补偿任务（兜底处理）
 # 建议执行时间：每天 23:00
 # 用法：./analysis_fallback_saas.sh
-# 或在 crontab 中：0 23 * * * /data/sentiment-tasks/analysis_fallback_saas.sh
+# 或在 crontab 中：0 23 * * * /data/sentiment-tasks/scripts/analysis_fallback_saas.sh
 
 set -e
 

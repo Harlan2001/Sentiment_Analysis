@@ -2,7 +2,7 @@
 # Sentiment 定时任务（大前台）：生成昨日交易日报告（不推送飞书）
 # 建议执行时间：每天 09:00
 # 用法：./report_push_bigfrontend.sh
-# 或在 crontab 中：0 9 * * * /opt/sentiment-tasks/report_push_bigfrontend.sh
+# 或在 crontab 中：0 9 * * * /opt/sentiment-tasks/scripts/report_push_bigfrontend.sh
 
 # 配置工作目录
 # 允许通过环境变量覆盖，便于测试/灰度验证

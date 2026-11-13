@@ -2,7 +2,7 @@
 # Sentiment 定时任务（SAAS）：生成昨日交易日报告 + 飞书推送
 # 建议执行时间：每天 09:00
 # 用法：./report_push_saas.sh
-# 或在 crontab 中：0 9 * * * /data/sentiment-tasks/report_push_saas.sh
+# 或在 crontab 中：0 9 * * * /data/sentiment-tasks/scripts/report_push_saas.sh
 
 # 配置工作目录
 # 允许通过环境变量覆盖，便于测试/灰度验证
