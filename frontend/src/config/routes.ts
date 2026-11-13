@@ -6,7 +6,7 @@
  * features / shell / 行为统计改从此处读取标题、导航、白名单等派生值。
  */
 
-export type PageGroupId = '市场板块' | '首页' | '工作台' | '自定义' | '项目与对话' | '设置'
+export type PageGroupId = '市场板块' | '首页' | '工作台' | '自定义' | '项目与对话'
 
 export interface RouteMeta {
   path: string
@@ -80,10 +80,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/projects/new', title: '项目 · 新建', shellTitle: '项目 · 新建', redirect: undefined },
   { path: '/projects/:projectId', title: '项目', shellTitle: '项目空间' },
 
-  // ── 设置 ──
-  { path: '/settings', title: '设置', shellTitle: '设置', group: '设置', track: true },
-
-  // ── 详情深链（供演示对话链接跳转） ──
+  // ── 详情深链 ──
   { path: '/news/:newsId', title: '新闻详情', shellTitle: '新闻详情' },
   { path: '/yield/:period', title: '收益率详情', shellTitle: '收益率详情' },
   { path: '/factor/:factorId', title: '因子详情', shellTitle: '因子详情' },
