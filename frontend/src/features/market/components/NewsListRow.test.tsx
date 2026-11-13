@@ -89,6 +89,46 @@ describe('NewsListRow', () => {
     expect(screen.queryByText('87')).not.toBeInTheDocument()
   })
 
+  it('calendar 变体展示静态重要性、理由、期限和绝对 HH:mm，不使用衰减分', () => {
+    const item = {
+      ...makeItem({
+        pub_time: '2026-01-04 09:05:59',
+        reason: '资金面转松，短端收益率下行',
+        importance_score: 81.6,
+        final_score: 12.3,
+        source_name: '数据源1',
+        factors: [
+          { id: 1, name: '资金面' },
+          { id: 2, name: '货币政策' },
+          { id: 3, name: '利率债' },
+        ],
+      }),
+      horizon: '中期',
+    }
+    render(<NewsListRow item={item} variant="calendar" onClick={vi.fn()} />)
+
+    expect(screen.getByText('82')).toBeInTheDocument()
+    expect(screen.queryByText('12')).not.toBeInTheDocument()
+    expect(screen.getByText('09:05')).toBeInTheDocument()
+    expect(screen.queryByText(/天前|月前/)).not.toBeInTheDocument()
+    expect(screen.getByText('资金面转松，短端收益率下行')).toBeInTheDocument()
+    expect(screen.getByText('中期')).toBeInTheDocument()
+    expect(screen.getByText('利率债')).toBeInTheDocument()
+  })
+
+  it('calendar 变体缺分显示暂未评分，不改用 0 或 final_score', () => {
+    render(
+      <NewsListRow
+        item={makeItem({ importance_score: null, final_score: 66 })}
+        variant="calendar"
+        onClick={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('暂未评分')).toBeInTheDocument()
+    expect(screen.queryByText('66')).not.toBeInTheDocument()
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
   it('点击行或按 Enter 触发 onClick', async () => {
     const onClick = vi.fn()
     render(<NewsListRow item={makeItem({ id: 9, title: '可点标题' })} onClick={onClick} />)
