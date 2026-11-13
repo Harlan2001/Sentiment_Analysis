@@ -142,12 +142,35 @@ export interface ForecastPrediction {
   分析理由: string
   置信度?: number
   假设条件?: string[]
+  失效条件?: string[]
+}
+
+export interface ForecastDriver {
+  类型: string
+  方向?: '上行' | '下行' | '中性'
+  适用周期?: Array<'日' | '周' | '月'>
+  理由: string
+  证据新闻ID?: number[]
+}
+
+export interface ForecastDataStatus {
+  包含新闻?: boolean
+  包含收益率?: boolean
+  新闻截至?: string | null
+  收益率截至?: string | null
+}
+
+export interface ForecastTarget {
+  名称?: string
+  期限?: string
+  方向口径?: string
 }
 
 export interface ScenarioItem {
   描述: string
   概率: number
   触发条件?: string
+  应对关注?: string
 }
 
 export interface ScenarioAnalysis {
@@ -158,7 +181,10 @@ export interface ScenarioAnalysis {
 }
 
 export interface FullForecastReport {
-  // 全部使用中文键名，扁平文本字段
+  // 历史报告以中文键名为主；新增字段均为可选，保证旧报告可读。
+  预测标的?: ForecastTarget
+  数据状态?: ForecastDataStatus
+  核心驱动?: ForecastDriver[]
   市场概览?: string
   技术分析?: string
   因子分析?: string

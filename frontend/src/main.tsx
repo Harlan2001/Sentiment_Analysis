@@ -8,7 +8,6 @@ import App from '@/App'
 import './index.css'
 import './styles/tokens.css'
 import './styles/workbench.css'
-import './styles/demo-notice.css'
 
 // 创建React Query客户端
 const queryClient = new QueryClient({

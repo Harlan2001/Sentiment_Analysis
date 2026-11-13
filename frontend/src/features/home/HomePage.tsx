@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useRef, useState } from 'react'
+import { FormEvent, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const marketCards = [
@@ -28,7 +28,7 @@ export function HomePage() {
   const [activeTab, setActiveTab] = useState('市场')
   const [question, setQuestion] = useState('')
   const [updatedAt, setUpdatedAt] = useState('10:20')
-  const signalLabel = useMemo(() => activeTab === '市场' ? '市场情绪：谨慎偏多' : `${activeTab}视图 · Mock 数据`, [activeTab])
+  const signalLabel = activeTab === '市场' ? '市场情绪：谨慎偏多' : `${activeTab}视图`
 
   function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
