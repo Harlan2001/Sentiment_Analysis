@@ -30,6 +30,16 @@ def test_returns_calendar_real_sql_enrichment_and_deduplication(mysql_conn):
         news_ids = [first, second, unscored]
 
         with mysql_conn.cursor() as cur:
+            # 前序用例 TRUNCATE news 不会级联清理已关闭外键检查的子表；
+            # 这些自增 ID 刚由本用例重新分配，同 ID 旧行必为无有效新闻的孤儿残留。
+            # 定向清理可避免评分主键冲突，也保证 unscored 不被旧分污染。
+            placeholders = ",".join(["%s"] * len(news_ids))
+            for table in ("news_importance_score", "news_factor", "analysis"):
+                cur.execute(
+                    f"DELETE FROM {table} WHERE news_id IN ({placeholders})",
+                    news_ids,
+                )
+
             cur.executemany(
                 """INSERT INTO analysis (news_id, direction, horizon, reason, model, created_at)
                    VALUES (%s, %s, '中期', '集成测试理由', %s, NOW())""",
