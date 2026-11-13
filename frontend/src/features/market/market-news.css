@@ -6,12 +6,14 @@
    与旧 NewsCard 及 .factor-direction 保持一致，在本文件单点定义。
 =================================================================== */
 
-.news-list {
+:root {
   --news-divider: #1f1f1f;
   --news-dir-up: #ef4444;
   --news-dir-down: #22c55e;
   --news-dir-neutral: #6b7280;
+}
 
+.news-list {
   padding: var(--sw-space-2) var(--sw-space-4) var(--sw-space-4);
 }
 
@@ -139,6 +141,35 @@
   font-size: var(--sw-font-sm);
   font-weight: 600;
   color: var(--sw-color-text-secondary);
+}
+
+.importance-badge--empty {
+  color: var(--sw-color-text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.news-row--calendar {
+  align-items: flex-start;
+  padding: var(--sw-space-3);
+}
+
+.news-row--calendar .news-row-summary {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.news-row--calendar .news-row-meta {
+  flex-wrap: wrap;
+}
+
+.news-row-horizon {
+  flex-shrink: 0;
+  color: var(--sw-color-text-tertiary);
+  white-space: nowrap;
 }
 
 .news-dir-badge {

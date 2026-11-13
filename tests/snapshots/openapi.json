@@ -5260,7 +5260,7 @@
           "returns"
         ],
         "summary": "Returns Calendar",
-        "description": "收益日历聚合接口（一次返回整周数据，前端本地切换日期，避免重复请求）：\n- 每日利多/利空新闻计数\n- 每日收益率变动（各期限 bp 变化）\n- 每日活跃因子 top5\n- 每日方向性新闻列表\n- 各月宏观数据",
+        "description": "一次返回日期范围数据，前端本地选日；Top N 仅用于展示，不截断新闻。",
         "operationId": "returns_calendar_sapi_returns_calendar_get",
         "parameters": [
           {

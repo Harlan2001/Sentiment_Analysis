@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { API_PREFIX } from '@/api/client'
 import { server } from '@/test/server'
-import { fetchAllFactors, fetchNewsById, fetchSimilarNews } from '@/api/market'
+import { fetchAllFactors, fetchNewsById, fetchReturnsCalendar, fetchSimilarNews } from '@/api/market'
 
 const NEWS_BASE = `${API_PREFIX}/news`
 
@@ -50,6 +50,20 @@ describe('market api — request 封装', () => {
     const res = await fetchAllFactors()
     expect(res.factors).toHaveLength(1)
     expect(res.factors[0].code).toBe('RATE')
+  })
+
+  it('fetchReturnsCalendar 只发送自然月 start/end，不发送无效 selected 参数', async () => {
+    let url = ''
+    server.use(http.get(`${API_PREFIX}/returns/calendar`, (info) => {
+      url = info.request.url
+      return HttpResponse.json({ data: { days: [], yields_by_date: {}, news_by_date: {}, macro_by_month: {}, query: { start: '2026-11-01', end: '2026-11-30' } } })
+    }))
+    await fetchReturnsCalendar({ start: '2026-11-01', end: '2026-11-30' })
+    const parsed = new URL(url)
+    expect(parsed.searchParams.get('start')).toBe('2026-11-01')
+    expect(parsed.searchParams.get('end')).toBe('2026-11-30')
+    expect(parsed.searchParams.has('selected')).toBe(false)
+    expect([...parsed.searchParams.keys()].sort()).toEqual(['end', 'start'])
   })
 
   it('fetchSimilarNews 解析 data 数组', async () => {

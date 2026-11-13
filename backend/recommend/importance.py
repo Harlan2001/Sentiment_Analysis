@@ -11,11 +11,12 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from backend.config.config import (
     FACTOR_CATEGORY_WEIGHTS,
@@ -62,6 +63,19 @@ def normalize_direction(value) -> Optional[str]:
     if word in _NEUTRAL_WORDS:
         return "neutral"
     return None
+
+
+def parse_score_signals(raw: Any) -> Optional[dict[str, Any]]:
+    """容错读取数据库 JSON 子分；脏数据或非对象 JSON 一律降级为 None。"""
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def direction_score(best_direction) -> float:
