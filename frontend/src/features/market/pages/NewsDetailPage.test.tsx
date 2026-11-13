@@ -30,6 +30,7 @@ function renderDetail(route: string) {
     <Routes>
       <Route path="/news/:newsId" element={<><NewsDetailPage /><LocationProbe /></>} />
       <Route path="/returns" element={<LocationProbe />} />
+      <Route path="/forecast" element={<LocationProbe />} />
       <Route path="/market" element={<LocationProbe />} />
       <Route path="/strategy/prompt" element={<LocationProbe />} />
     </Routes>,
@@ -50,6 +51,17 @@ describe('NewsDetailPage — 来源上下文', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/returns?date=2026-11-10')
   })
 
+  it('预测证据和相似新闻均保留原报告日期', async () => {
+    renderDetail('/news/1?from=forecast&date=2026-11-06')
+
+    expect(screen.getByRole('button', { name: '返回预测' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '打开相似新闻' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/news/99?from=forecast&date=2026-11-06')
+
+    await userEvent.click(screen.getByRole('button', { name: '返回预测' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/forecast?date=2026-11-06')
+  })
+
   it('保持策略详情返回和相似新闻 strategyId 旧行为', async () => {
     renderDetail('/news/1?strategyId=7')
 
@@ -57,6 +69,15 @@ describe('NewsDetailPage — 来源上下文', () => {
     await userEvent.click(screen.getByRole('button', { name: '打开相似新闻' }))
     expect(screen.getByTestId('location')).toHaveTextContent('/news/99?strategyId=7')
 
+    await userEvent.click(screen.getByRole('button', { name: '返回策略生成' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/strategy/prompt?id=7&view=strategy-news')
+  })
+
+  it('策略上下文优先于预测来源', async () => {
+    renderDetail('/news/1?strategyId=7&from=forecast&date=2026-11-06')
+
+    await userEvent.click(screen.getByRole('button', { name: '打开相似新闻' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/news/99?strategyId=7')
     await userEvent.click(screen.getByRole('button', { name: '返回策略生成' }))
     expect(screen.getByTestId('location')).toHaveTextContent('/strategy/prompt?id=7&view=strategy-news')
   })

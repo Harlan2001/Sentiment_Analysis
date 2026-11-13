@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { ForecastHistoryItem } from '@/types'
 
 const DAY_HEADERS = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -15,12 +16,24 @@ export default function ForecastCalendar({
   selectedDate,
   onSelect,
 }: {
-  history?: any[]
+  history?: ForecastHistoryItem[]
   selectedDate: string | null
   onSelect: (date: string) => void
 }) {
   const today = useMemo(() => new Date(), [])
-  const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const [month, setMonth] = useState(() => {
+    if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+      const [year, monthIndex] = selectedDate.split('-').map(Number)
+      return new Date(year, monthIndex - 1, 1)
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
+
+  useEffect(() => {
+    if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return
+    const [year, monthIndex] = selectedDate.split('-').map(Number)
+    setMonth(new Date(year, monthIndex - 1, 1))
+  }, [selectedDate])
 
   // 日期 -> 当日日度预测方向（看涨/看跌）
   const dayMap = useMemo(() => {
