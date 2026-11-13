@@ -1,11 +1,10 @@
 /**
- * 紧凑新闻行 — 高密度单列列表的基本单元（S3-1）
- * latest：标题 + meta（时间/来源/因子）+ 方向 badge
- * recommend：额外展示 reason 摘要一行与右侧时间衰减后分值
+ * 紧凑新闻行 — latest / recommend / calendar 共用最小展示结构。
+ * recommend 显示时间衰减后 final_score；calendar 只显示静态 importance_score 与绝对 HH:mm。
  */
 import React from 'react'
-import type { DiscoverNewsItem } from '@/types'
-import { fmtTime } from '../utils/format'
+import { fmtClockTime, fmtTime } from '../utils/format'
+import ImportanceBadge from './ImportanceBadge'
 import '../market-news.css'
 
 const DIR_META: Record<string, { label: string; cls: string }> = {
@@ -20,39 +19,58 @@ export const DirectionBadge: React.FC<{ direction?: string | null }> = ({ direct
   return <span className={`news-dir-badge ${meta.cls}`}>{meta.label}</span>
 }
 
-const MAX_VISIBLE_FACTORS = 2
-
-export const FactorChips: React.FC<{ factors: { id: number; name: string }[] }> = ({ factors }) => {
+export const FactorChips: React.FC<{
+  factors: { id: number; name: string }[]
+  maxVisible?: number
+}> = ({ factors, maxVisible = 2 }) => {
   if (!factors?.length) return null
-  const visible = factors.slice(0, MAX_VISIBLE_FACTORS)
+  const visible = factors.slice(0, maxVisible)
   const rest = factors.length - visible.length
   return (
     <span className="news-factor-chips">
-      {visible.map((f) => (
-        <span key={f.id} className="news-factor-chip" title={f.name}>{f.name}</span>
+      {visible.map((factor) => (
+        <span key={factor.id} className="news-factor-chip" title={factor.name}>{factor.name}</span>
       ))}
       {rest > 0 && <span className="news-factor-chip">+{rest}</span>}
     </span>
   )
 }
 
+/** DiscoverNewsItem 与此结构天然兼容；收益新闻通过显式 adapter 传入。 */
+export interface NewsListRowItem {
+  id: number
+  title: string
+  pub_time?: string | null
+  source_name?: string | null
+  thumbnail?: string | null
+  direction?: string | null
+  reason?: string | null
+  horizon?: string | null
+  factors?: { id: number; name: string }[]
+  importance_score?: number | null
+  final_score?: number | null
+  score_version?: string | null
+}
+
 interface Props {
-  item: DiscoverNewsItem
-  variant?: 'latest' | 'recommend'
+  item: NewsListRowItem
+  variant?: 'latest' | 'recommend' | 'calendar'
   onClick: () => void
 }
 
 const NewsListRow: React.FC<Props> = ({ item, variant = 'latest', onClick }) => {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
       onClick()
     }
   }
+  const showReason = variant === 'recommend' || variant === 'calendar'
+  const time = variant === 'calendar' ? fmtClockTime(item.pub_time) : fmtTime(item.pub_time)
 
   return (
     <article
-      className="news-row"
+      className={`news-row${variant === 'calendar' ? ' news-row--calendar' : ''}`}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -63,20 +81,20 @@ const NewsListRow: React.FC<Props> = ({ item, variant = 'latest', onClick }) => 
       )}
       <div className="news-row-main">
         <h3 className="news-row-title">{item.title}</h3>
-        {variant === 'recommend' && item.reason && (
-          <p className="news-row-summary">{item.reason}</p>
-        )}
+        {showReason && item.reason && <p className="news-row-summary">{item.reason}</p>}
         <div className="news-row-meta">
-          {item.pub_time && <span className="news-row-time">{fmtTime(item.pub_time)}</span>}
+          {time && <time className="news-row-time" dateTime={item.pub_time ?? undefined}>{time}</time>}
           {item.source_name && <span className="news-row-source">{item.source_name}</span>}
-          <FactorChips factors={item.factors ?? []} />
+          {variant === 'calendar' && item.horizon && <span className="news-row-horizon">{item.horizon}</span>}
+          <FactorChips factors={item.factors ?? []} maxVisible={variant === 'calendar' ? 3 : 2} />
         </div>
       </div>
       <div className="news-row-aside">
         {variant === 'recommend' && item.final_score != null && (
-          <span className="news-row-score" title="重要性评分（已叠加时间衰减）">
-            {Math.round(item.final_score)}
-          </span>
+          <ImportanceBadge score={item.final_score} mode="decayed" />
+        )}
+        {variant === 'calendar' && (
+          <ImportanceBadge score={item.importance_score} mode="static" scoreVersion={item.score_version} />
         )}
         <DirectionBadge direction={item.direction} />
       </div>

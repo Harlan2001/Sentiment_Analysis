@@ -152,12 +152,10 @@ export function fetchFactorDetail(factorId: number): Promise<FactorDetailData> {
 export function fetchReturnsCalendar(params: {
   start: string;
   end: string;
-  selected?: string;
 }): Promise<ReturnsCalendarResponse> {
   const sp = new URLSearchParams();
   sp.set('start', params.start);
   sp.set('end', params.end);
-  if (params.selected) sp.set('selected', params.selected);
   return request<ReturnsCalendarResponse>(`${BASE}/returns/calendar?${sp.toString()}`);
 }
 /** 因子历史表现（事件研究结果，按因子代码查询）。 */

@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -28,6 +27,7 @@ from backend.recommend.importance import (
     DIRECTION_WORDS,
     FINAL_SCORE_EXPR,
     normalize_direction,
+    parse_score_signals,
 )
 from backend.recommend.rankings import build_rankings
 from backend.repositories.forecast_report_repository import ForecastReportRepository
@@ -55,19 +55,6 @@ _rankings_cache: TTLCache[Dict[str, Any]] = TTLCache(ttl_seconds=120)
 
 
 # ── 1. 发现页新闻列表 ──────────────────────────────────────────────────
-
-
-def _parse_score_signals(raw: Any) -> Optional[Dict[str, Any]]:
-    """signals_json 在 PyMySQL 下通常是字符串，容错解析；脏数据回退 None。"""
-    if raw is None:
-        return None
-    if isinstance(raw, dict):
-        return raw
-    try:
-        parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else None
-    except (TypeError, json.JSONDecodeError):
-        return None
 
 
 def _enrich_news_items(news_rows: List[tuple]) -> List[Dict[str, Any]]:
@@ -146,7 +133,7 @@ def _enrich_news_items(news_rows: List[tuple]) -> List[Dict[str, Any]]:
             "factors": factors_map.get(nid, []),
             "importance_score": float(importance) if importance is not None else None,
             "final_score": round(float(final_score), 4) if final_score is not None else None,
-            "score_signals": _parse_score_signals(signals),
+            "score_signals": parse_score_signals(signals),
             "top_category": top_category,
         })
 
