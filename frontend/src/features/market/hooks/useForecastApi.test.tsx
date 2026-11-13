@@ -50,6 +50,27 @@ describe('useForecastReport', () => {
     expect(data.latestReport?.trade_date).toBe('2026-09-02')
   })
 
+  it('同日更晚的单周期记录不会抢占完整报告', async () => {
+    server.use(
+      http.get(`${API_PREFIX}/forecast`, () =>
+        HttpResponse.json({
+          data: {
+            count: 2,
+            reports: [
+              report('2026-11-06', 'full_report', '2026-11-06 18:00:00'),
+              report('2026-11-06', 'week', '2026-11-06 19:00:00'),
+            ],
+          },
+        }),
+      ),
+    )
+    const { result } = renderHook(() => useForecastReport('2026-11-06'), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data?.latestReport?.forecast_type).toBe('full_report')
+    expect(result.current.data?.latestReport?.created_at).toBe('2026-11-06 18:00:00')
+  })
+
   it('请求失败时 isError 为真', async () => {
     server.use(
       http.get(`${API_PREFIX}/forecast`, () =>
