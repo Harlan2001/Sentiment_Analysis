@@ -86,7 +86,7 @@ function mockRankings(payload: RecommendRankingsResponse = emptyRankings()) {
 const noop = () => {}
 
 describe('DiscoverNewsPanel', () => {
-  it('以紧凑行渲染新闻标题并支持点击回调', async () => {
+  it('以资讯卡片渲染新闻标题并支持点击回调', async () => {
     const items = [
       makeItem({ id: 1, title: '有图新闻', thumbnail: 'http://img.local/1.png' }),
       makeItem({ id: 2, title: '无图新闻' }),

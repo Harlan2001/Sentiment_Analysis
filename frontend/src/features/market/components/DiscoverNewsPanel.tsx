@@ -1,17 +1,18 @@
 /**
- * 新闻发现面板 — 高密度单列行列表（S3-1）+ 排序/筛选/排行榜（S3-3）
- * 无限滚动 + IntersectionObserver；排序模式由 URL ?sort= 驱动并与 segmented 双向同步
+ * 新闻发现面板 —— 响应式资讯卡片 + 排序/筛选/排行榜。
+ * 无限滚动 + IntersectionObserver；排序模式由 URL ?sort= 驱动并与 segmented 双向同步。
  */
 import React, { useRef, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { fetchDiscoverNews } from '@/api/market'
-import NewsListRow from './NewsListRow'
+import NewsFeedCard from './NewsFeedCard'
 import NewsSortSegmented, { readSort } from './NewsSortSegmented'
 import RecommendRankingPanel from './RecommendRankingPanel'
 import FilterDropdown from './FilterDropdown'
 import { Skeleton } from '@/components/ui'
 import '../market-news.css'
+import '../news-feed-cards.css'
 
 interface Props {
   onNewsClick: (newsId: number) => void
@@ -39,12 +40,21 @@ const DAYS_OPTIONS: [string, string][] = [
 
 const NewsListSkeleton: React.FC = () => (
   <div className="news-list" aria-busy="true" aria-label="新闻加载中">
-    {Array.from({ length: 8 }).map((_, i) => (
+    {Array.from({ length: 6 }).map((_, i) => (
       <div key={i} className="news-row-skeleton">
-        <Skeleton width={88} height={66} variant="rectangular" />
+        <div className="news-row-skeleton-top">
+          <Skeleton width={72} height={12} variant="rectangular" />
+          <Skeleton width={40} height={20} variant="rectangular" />
+        </div>
         <div className="news-row-skeleton-main">
-          <Skeleton height={13} variant="rectangular" />
-          <Skeleton height={11} width="55%" variant="rectangular" />
+          <Skeleton height={17} width="92%" variant="rectangular" />
+          <Skeleton height={17} width="68%" variant="rectangular" />
+          <Skeleton height={12} variant="rectangular" />
+          <Skeleton height={12} width="76%" variant="rectangular" />
+        </div>
+        <div className="news-row-skeleton-footer">
+          <Skeleton width={112} height={20} variant="rectangular" />
+          <Skeleton width={48} height={12} variant="rectangular" />
         </div>
       </div>
     ))}
@@ -88,6 +98,7 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick, onFactorClick }) => {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const all = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data])
+  const total = data?.pages[0]?.total ?? 0
 
   const backToLatest = () => {
     const params = new URLSearchParams(searchParams)
@@ -95,16 +106,20 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick, onFactorClick }) => {
     setSearchParams(params, { replace: true })
   }
 
-  if (isLoading) return <NewsListSkeleton />
-  if (isError) return (
-    <div className="news-list-state">
-      <span>加载失败</span>
-      <button type="button" className="btn-secondary" onClick={() => refetch()}>重试</button>
-    </div>
-  )
-
   return (
-    <>
+    <div className="news-feed">
+      <header className="news-feed-header">
+        <div>
+          <div className="news-feed-kicker"><span />BOND MARKET · NEWS</div>
+          <h1>市场资讯</h1>
+          <p>追踪债市要闻，捕捉政策与情绪变化</p>
+        </div>
+        <div className="news-feed-count" aria-label={`共 ${total} 条资讯`}>
+          <strong>{isLoading ? '—' : total}</strong>
+          <span>条资讯</span>
+        </div>
+      </header>
+
       <div className="news-toolbar">
         <NewsSortSegmented />
         <div className="news-toolbar-filters">
@@ -118,7 +133,14 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick, onFactorClick }) => {
         <RecommendRankingPanel days={effectiveDays ?? 7} onNewsClick={onNewsClick} onFactorClick={onFactorClick} />
       )}
 
-      {all.length === 0 ? (
+      {isLoading ? (
+        <NewsListSkeleton />
+      ) : isError ? (
+        <div className="news-list-state">
+          <span>加载失败</span>
+          <button type="button" className="btn-secondary" onClick={() => refetch()}>重试</button>
+        </div>
+      ) : all.length === 0 ? (
         <div className="news-list-state">
           <span>{sort === 'recommend' ? '当前筛选下暂无可推荐新闻' : '暂无新闻数据'}</span>
           {sort === 'recommend' && (
@@ -126,22 +148,28 @@ const DiscoverNewsPanel: React.FC<Props> = ({ onNewsClick, onFactorClick }) => {
           )}
         </div>
       ) : (
-        <div className="news-list">
-          {all.map((item) => (
-            <NewsListRow
-              key={item.id}
-              item={item}
-              variant={sort === 'recommend' ? 'recommend' : 'latest'}
-              onClick={() => onNewsClick(item.id)}
-            />
-          ))}
-          <div ref={sentinel} className="news-list-sentinel">
-            {isFetchingNextPage && <div className="news-list-spinner" />}
-            {!hasNextPage && all.length > 0 && <span>已加载全部新闻</span>}
+        <>
+          <div className="news-list-heading">
+            <h2>{sort === 'recommend' ? '推荐要闻' : '最新发布'}</h2>
+            <span>{sort === 'recommend' ? '重要性与时效综合排序' : '按发布时间持续更新'}</span>
           </div>
-        </div>
+          <div className="news-list">
+            {all.map((item) => (
+              <NewsFeedCard
+                key={item.id}
+                item={item}
+                variant={sort === 'recommend' ? 'recommend' : 'latest'}
+                onClick={() => onNewsClick(item.id)}
+              />
+            ))}
+            <div ref={sentinel} className="news-list-sentinel">
+              {isFetchingNextPage && <div className="news-list-spinner" />}
+              {!hasNextPage && all.length > 0 && <span><i />已加载全部新闻<i /></span>}
+            </div>
+          </div>
+        </>
       )}
-    </>
+    </div>
   )
 }
 
