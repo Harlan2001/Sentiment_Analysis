@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/ui/Modal'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 import './mcp.css'
 
 type Connector = {
@@ -143,10 +142,6 @@ export function McpPage() {
 
   return <section className="custom-page mcp-page">
     <div className="custom-tabs"><button className="active">MCP</button><button onClick={() => navigate('/custom/skills')}>Skills</button><button onClick={() => navigate('/custom/memory')}>记忆</button></div>
-    <DemoNotice
-      title="MCP 连接为演示版本"
-      description="当前连接状态、账号和权限范围均为演示数据，不会连接或授权任何真实外部服务；实际功能尚在开发中。"
-    />
     <header className="skills-head"><div><h1>MCP 连接</h1><p>将已授权的数据源接入研究工作流。</p></div><div className="skills-actions"><label><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务或厂商" /></label></div></header>
     <div className="mcp-toolbar"><div className="skills-filter-tabs">{([['all', '全部'], ['connected', '已连接'], ['available', '可连接']] as const).map(([key, label]) => <button className={filter === key ? 'active' : ''} onClick={() => setFilter(key)} key={key}>{label}</button>)}</div><span className={'mcp-summary ' + (connectedCount ? 'active' : '')}><i />已连接 {connectedCount}/{CONNECTORS.length}</span></div>
     <div className="mcp-grid">{visible.map((connector) => {
@@ -163,7 +158,7 @@ export function McpPage() {
 
     <Modal isOpen={Boolean(selected)} onClose={() => setSelected(null)} title={selected ? `授权 · ${selected.name}` : '授权'} size="sm" panelClassName="mcp-auth-modal" contentClassName="mcp-auth-content">
       {selected && <div className="mcp-auth-form">
-        <div className="mcp-auth-brand"><b>{selected.name.slice(0, 1)}</b><span><strong>{selected.name}</strong><small>{selected.vendor} · 模拟授权</small></span></div>
+        <div className="mcp-auth-brand"><b>{selected.name.slice(0, 1)}</b><span><strong>{selected.name}</strong><small>{selected.vendor}</small></span></div>
         <p>选择连接账号与访问范围。确认后，连接状态将保存在当前设备。</p>
         <label>连接账号<select value={account} onChange={(event) => setAccount(event.target.value)}>{selected.accounts.map((item) => <option key={item}>{item}</option>)}</select></label>
         <fieldset><legend><span>授权范围</span><small>已选 {selectedScopes.length}/{selected.scopes.length}</small></legend>{selected.scopes.map((scope) => <label className="mcp-scope" key={scope.id}><input type="checkbox" checked={selectedScopes.includes(scope.id)} onChange={() => toggleScope(scope.id)} /><span><strong>{scope.label}</strong><small>{scope.description}</small></span></label>)}</fieldset>

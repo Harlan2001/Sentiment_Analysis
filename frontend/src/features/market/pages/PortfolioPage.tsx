@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DemoNotice } from '@/components/ui/DemoNotice'
 
 type Allocation = {
   id: string
@@ -61,7 +60,7 @@ export default function PortfolioPage() {
         setNotice('已恢复本浏览器保存的方案草稿。')
       }
     } catch {
-      // Ignore an invalid local draft and continue with the AI demonstration data.
+      // Ignore an invalid local draft and continue with the default allocation.
     }
   }, [])
 
@@ -98,21 +97,17 @@ export default function PortfolioPage() {
       return
     }
     window.localStorage.setItem('bondsense-portfolio-draft', JSON.stringify({ allocation: manual, duration, portfolioSize }))
-    setNotice('配置方案已保存为本浏览器草稿，不会产生交易动作。')
+    setNotice('配置方案已保存为本浏览器草稿。')
   }
 
   return <div className="market-workspace" style={{ position: 'absolute', inset: 0 }}>
     <div className="market-workspace-body">
       <div className="market-discover-panel">
         <main className="space-y-4 pb-4 pl-4 pr-px pt-2">
-          <DemoNotice
-            title="投资组合为演示功能"
-            description="当前持仓、配置建议、风险指标和保存结果均为演示数据，不代表真实账户或交易指令；实际功能尚在开发中。"
-          />
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><h1 className="text-lg font-bold text-white">稳健型债券组合</h1><span className="rounded border border-[#343438] bg-[#191919] px-1.5 py-0.5 text-[10px] text-gray-300">研究方案</span></div>
-              <p className="mt-1 text-xs text-gray-400">基于对话策略结论生成的演示配置；不连接真实持仓或交易。</p>
+              <p className="mt-1 text-xs text-gray-400">基于对话策略结论生成研究配置。</p>
             </div>
             <div className="inline-flex rounded-lg border border-[#2a2a2e] bg-[#111111] p-0.5 text-xs">
               <button onClick={() => setMode('current')} className={`rounded-md px-3 py-1.5 ${mode === 'current' ? 'bg-[#29292d] text-white' : 'text-gray-500 hover:text-gray-300'}`}>当前配置</button>

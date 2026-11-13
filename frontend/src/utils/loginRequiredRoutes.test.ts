@@ -26,7 +26,6 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/custom/memory',
   '/projects/new',
   '/projects/:projectId',
-  '/settings',
 ])
 
 const PUBLIC_ROUTES = [
@@ -76,17 +75,13 @@ describe('LOGIN_REQUIRED_ROUTES', () => {
     expect(LOGIN_REQUIRED_ROUTES.has('/projects/:projectId')).toBe(true)
   })
 
-  it('should require login for /settings', () => {
-    expect(LOGIN_REQUIRED_ROUTES.has('/settings')).toBe(true)
-  })
-
   it('should NOT require login for market data routes (市场/因子/收益/预测)', () => {
     for (const route of PUBLIC_ROUTES) {
       expect(LOGIN_REQUIRED_ROUTES.has(route)).toBe(false)
     }
   })
 
-  it('should have exactly 16 login-required routes', () => {
-    expect(LOGIN_REQUIRED_ROUTES.size).toBe(16)
+  it('should have exactly 15 login-required routes', () => {
+    expect(LOGIN_REQUIRED_ROUTES.size).toBe(15)
   })
 })

@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ROUTES } from '@/config/routes'
 import { WorkbenchShell } from '@/shell/WorkbenchShell'
-import { PlaceholderPage } from '@/shell/PlaceholderPage'
 import { HomePage } from '@/features/home/HomePage'
 import { ChatPage } from '@/features/chat/ChatPage'
 import { WorkflowHomePage } from '@/features/workflow/pages/WorkflowHomePage'
@@ -79,12 +78,6 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/news/:newsId': <NewsDetailPage />,
   '/yield/:period': <YieldDetailPage />,
   '/factor/:factorId': <FactorDetailPage />,
-  '/settings': (
-    <PlaceholderPage
-      title="设置"
-      description="Account settings and sign-out will be available in a later module."
-    />
-  ),
 }
 
 const LOGIN_REQUIRED_ROUTES = new Set([
@@ -104,7 +97,6 @@ const LOGIN_REQUIRED_ROUTES = new Set([
   '/file-library',
   '/projects/new',
   '/projects/:projectId',
-  '/settings',
 ])
 
 /** 壳内路由：由 config/routes.ts 驱动（含重定向），未匹配路径兜底到 /market */
