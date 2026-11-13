@@ -24,12 +24,17 @@ export const useForecastReport = (date?: string) => {
       sortedReports: [...data.reports].sort(
         (a, b) => new Date(b.trade_date).getTime() - new Date(a.trade_date).getTime()
       ),
-      // 最新报告（空数组时返回 undefined，避免取 reports[0] 越界）
-      latestReport: data.reports.length
-        ? data.reports.reduce((latest, current) =>
-            new Date(current.created_at) > new Date(latest.created_at) ? current : latest
-          )
-        : undefined,
+      // 页面主体必须优先使用 full_report，避免同日更晚写入的单周期记录抢占主报告。
+      // 没有 full_report 时保留旧的回退行为，供异常/兼容场景展示。
+      latestReport: (() => {
+        const fullReports = data.reports.filter((report) => report.forecast_type === 'full_report')
+        const candidates = fullReports.length ? fullReports : data.reports
+        return candidates.length
+          ? candidates.reduce((latest, current) =>
+              new Date(current.created_at) > new Date(latest.created_at) ? current : latest
+            )
+          : undefined
+      })(),
     }),
   })
 }

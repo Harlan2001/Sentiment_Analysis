@@ -135,7 +135,7 @@ class AnalysisQueries:
             limit: 最多返回条数
 
         Returns:
-            新闻分析列表，每条含 title/content/pub_date/direction/horizon/reason/model
+            新闻分析列表，每条含 id/title/content/pub_date/direction/horizon/reason/model
         """
         join_sql = AnalysisQueries.best_analysis_join()
 
@@ -147,7 +147,7 @@ class AnalysisQueries:
                            COALESCE(a.direction, '中性') AS direction,
                            COALESCE(a.horizon, '短期') AS horizon,
                            COALESCE(a.reason, '') AS reason,
-                           a.model
+                           a.model, n.id
                     FROM news n
                     {join_sql}
                     WHERE DATE(n.pub_time) BETWEEN %s AND %s
@@ -172,6 +172,7 @@ class AnalysisQueries:
                     "horizon": row[4],
                     "reason": row[5] or "",
                     "model": row[6] or "",
+                    "id": row[7],
                 }
             )
         return results
