@@ -1,15 +1,31 @@
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.common.api_response import ok
-from backend.common.pagination import paginated_payload
+from backend.common.pagination import (
+    page_param,
+    page_size_param,
+    paginated_payload,
+)
 from backend.config.config import API_PREFIX
 from backend.factor.factor_management import get_factors_from_db, get_factors_paged
+from backend.repositories.factor_event_repository import FactorEventRepository
 
 router = APIRouter(prefix=API_PREFIX, tags=["factors"])
 
 _VALID_CATEGORIES = {"POLICY", "MACRO", "LIQUIDITY", "RISK", "SENTIMENT", "INDUSTRY"}
+_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def _normalize_shanghai_naive(value: datetime) -> datetime:
+    """按存储约定返回上海墙钟的 naive datetime。"""
+    if value.tzinfo is not None:
+        return value.astimezone(_SHANGHAI_TZ).replace(tzinfo=None)
+    return value
 
 
 @router.get("/factors")
@@ -29,6 +45,50 @@ def get_factors_paged_api(
     return ok(
         paginated_payload(data["factors"], data["total"], data["page"], data["page_size"])
     )
+
+
+@router.get("/factors/events")
+def get_factor_events_api(
+    factor_code: str | None = Query(None, description="因子代码，多个用逗号分隔；不传为全部"),
+    start_time: datetime = Query(..., description="新闻发布时间起点，ISO 格式，闭区间"),
+    end_time: datetime = Query(..., description="新闻发布时间终点，ISO 格式，闭区间"),
+    model: str = Query("glm", description="事件抽取模型；每次查询仅使用一个模型"),
+    include_neutral: bool = Query(False, description="无 direction 过滤时是否包含 neutral"),
+    direction: str | None = Query(None, description="可选方向过滤：positive | negative"),
+    page: int = page_param(),
+    page_size: int = page_size_param(default=500, max_size=500),
+):
+    """读取原始因子事件时序；时间锚点固定为 news_factor.pub_time。"""
+    selected_model = model.strip()
+    if not selected_model:
+        raise HTTPException(status_code=400, detail="model 不能为空")
+
+    selected_direction = direction.strip().lower() if direction and direction.strip() else None
+    if selected_direction not in {None, "positive", "negative"}:
+        raise HTTPException(status_code=400, detail="direction 必须为 positive 或 negative")
+
+    start_dt = _normalize_shanghai_naive(start_time)
+    end_dt = _normalize_shanghai_naive(end_time)
+    if start_dt > end_dt:
+        raise HTTPException(status_code=400, detail="start_time 不能晚于 end_time")
+
+    factor_codes = (
+        list(dict.fromkeys(code.strip() for code in factor_code.split(",") if code.strip()))
+        if factor_code
+        else []
+    )
+
+    result = FactorEventRepository.from_environment().list_events(
+        factor_codes=factor_codes,
+        start_time=start_dt,
+        end_time=end_dt,
+        model=selected_model,
+        include_neutral=include_neutral,
+        direction=selected_direction,
+        page=page,
+        page_size=page_size,
+    )
+    return ok(paginated_payload(result["items"], result["total"], page, page_size))
 
 
 @router.get("/factors/by-category/{category}")
