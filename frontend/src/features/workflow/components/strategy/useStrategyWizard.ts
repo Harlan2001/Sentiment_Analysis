@@ -37,6 +37,7 @@ const FAILED_TURN_STATUSES = new Set(['failed', 'timed_out', 'cancelled'])
  */
 export function useStrategyWizard(conversationId: number, go: (step: StepId) => void) {
   const [detail, setDetail] = useState<StrategyConversationDetail | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [systemDraft, setSystemDraft] = useState('')
   const [draftData, setDraftData] = useState<StrategyDraft | null>(null)
@@ -251,6 +252,13 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
   const patchDraft = useCallback((next: string) => setDraft(next), [])
 
   const lastVersion: StrategyVersion | null = detail?.versions?.[0] || null
+  useEffect(() => {
+    // null 表示跟随最新；同一 latest ID 的轮询不会覆盖用户的版本选择。
+    setSelectedVersionId(null)
+  }, [conversationId, lastVersion?.id])
+  const selectedVersion = detail?.versions?.find(
+    (version) => version.id === selectedVersionId,
+  ) ?? lastVersion
   const isDraftReady = draftData?.status === 'pending_confirmation'
   const isDone = Boolean(lastVersion)
   const hasTextOnlyReply = !isDraftReady && !isRunning && !isDone && Boolean(lastAssistant?.content)
@@ -287,6 +295,14 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
     return raw && typeof raw === 'object' ? raw : null
   }, [lastAssistant])
 
+  const resultValidation = useMemo<StrategyValidation | null>(() => {
+    const sourceMessage = detail?.messages.find(
+      (message) => message.role === 'assistant' && message.id === selectedVersion?.source_message_id,
+    )
+    const raw = sourceMessage?.validation_json
+    return raw && typeof raw === 'object' ? raw : null
+  }, [detail?.messages, selectedVersion?.source_message_id])
+
   return {
     // 数据
     detail,
@@ -310,6 +326,9 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
     conversationId,
     lastAssistant,
     lastVersion,
+    selectedVersionId,
+    selectedVersion,
+    setSelectedVersionId,
     isDraftReady,
     isRunning,
     isDone,
@@ -322,6 +341,7 @@ export function useStrategyWizard(conversationId: number, go: (step: StepId) => 
     factorPanel,
     draftContext,
     validation,
+    resultValidation,
     // ④ 生成中：阶段/计时/轮询上限/放弃等待
     revisionRound,
     pollCapReached,

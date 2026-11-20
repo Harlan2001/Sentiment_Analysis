@@ -800,6 +800,18 @@
 
 /* ── ⑤ 结果报告 ───────────────────────────────────────── */
 
+.sw-result-head-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--sw-space-3);
+}
+
+.sw-result-version-field {
+  min-width: 132px;
+}
+
 .sw-result-summary {
   display: flex;
   flex-direction: column;
@@ -1042,5 +1054,14 @@
   .sw-req-grid,
   .sw-req-params-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sw-result-head {
+    flex-wrap: wrap;
+  }
+
+  .sw-result-head-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

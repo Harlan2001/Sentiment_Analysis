@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CodeHighlight } from '@/features/workflow/components/CodeHighlight'
 import { StrategySummary } from '@/features/workflow/components/StrategySummary'
 import { ValidationSummary } from '@/features/workflow/components/ValidationSummary'
@@ -23,14 +23,14 @@ const CORE_HERO_KEYS = [
 ]
 
 function heroOneLiner(wizard: StrategyWizardApi): string {
-  const { validation, lastVersion } = wizard
-  if (validation) {
-    if (validation.verdict === 'passed') return '已通过我方验收门（有成交），以下为回测表现概览。'
-    if (validation.verdict === 'no_trade') return '验收未通过：回测 0 成交，本版本不合格。'
-    if (validation.verdict === 'backtest_failed') return '验收未通过：平台回测执行失败。'
+  const { resultValidation, selectedVersion } = wizard
+  if (resultValidation) {
+    if (resultValidation.verdict === 'passed') return '已通过我方验收门（有成交），以下为回测表现概览。'
+    if (resultValidation.verdict === 'no_trade') return '验收未通过：回测 0 成交，本版本不合格。'
+    if (resultValidation.verdict === 'backtest_failed') return '验收未通过：平台回测执行失败。'
     return '验收未通过：回测过程异常，详见验收明细。'
   }
-  if (lastVersion?.backtest_passed) return '平台回测通过，但尚未经过我方验收门复核。'
+  if (selectedVersion?.backtest_passed) return '平台回测通过，但尚未经过我方验收门复核。'
   return '平台回测未通过，详见验收明细。'
 }
 
@@ -70,11 +70,23 @@ function MetricTierSection({ title, metrics }: { title: string; metrics: Backtes
  */
 export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
   const {
-    lastVersion, validation, isDone, loading, error: _error, setError: _setError,
+    detail, lastVersion, selectedVersion, setSelectedVersionId, resultValidation,
+    isDone, loading, error: _error, setError: _setError,
   } = wizard
   const [copiedCode, setCopiedCode] = useState(false)
+  const copyResetTimer = useRef<number | null>(null)
 
-  const groups: MetricGroups = useMemo(() => metricsFromVersion(lastVersion), [lastVersion])
+  useEffect(() => {
+    setCopiedCode(false)
+    return () => {
+      if (copyResetTimer.current !== null) {
+        window.clearTimeout(copyResetTimer.current)
+        copyResetTimer.current = null
+      }
+    }
+  }, [selectedVersion?.id])
+
+  const groups: MetricGroups = useMemo(() => metricsFromVersion(selectedVersion), [selectedVersion])
   const allMetrics = useMemo(
     () => [...groups.core, ...groups.quality, ...groups.risk, ...groups.other],
     [groups],
@@ -88,37 +100,37 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
     return map
   }, [groups.core])
 
-  const backtestLog = lastVersion?.backtest_summary?.trim() || ''
-  const strategySummary = lastVersion?.description ? cleanStrategySummary(lastVersion.description) : ''
-  const hasBacktestResult = lastVersion?.backtest_passed !== null && lastVersion?.backtest_passed !== undefined
-  const verdictText = !lastVersion
+  const backtestLog = selectedVersion?.backtest_summary?.trim() || ''
+  const strategySummary = selectedVersion?.description ? cleanStrategySummary(selectedVersion.description) : ''
+  const hasBacktestResult = selectedVersion?.backtest_passed !== null && selectedVersion?.backtest_passed !== undefined
+  const verdictText = !selectedVersion
     ? '待回测'
-    : validation
-      ? validation.verdict === 'passed'
+    : resultValidation
+      ? resultValidation.verdict === 'passed'
         ? '验收通过'
-        : validation.verdict === 'no_trade'
+        : resultValidation.verdict === 'no_trade'
           ? '无成交（不合格）'
-          : validation.verdict === 'backtest_failed'
+          : resultValidation.verdict === 'backtest_failed'
             ? '回测失败'
             : '回测异常'
-      : lastVersion.backtest_passed
+      : selectedVersion.backtest_passed
         ? '回测通过（未验收）'
         : '回测未通过'
-  const verdictTone = !lastVersion
+  const verdictTone = !selectedVersion
     ? 'neutral'
-    : validation
-      ? validation.verdict === 'passed' ? 'success' : 'warning'
-      : lastVersion.backtest_passed ? 'success' : 'warning'
+    : resultValidation
+      ? resultValidation.verdict === 'passed' ? 'success' : 'warning'
+      : selectedVersion.backtest_passed ? 'success' : 'warning'
 
   async function copyCode() {
-    if (!lastVersion?.code) return
+    if (!selectedVersion?.code) return
     let copied = false
     try {
-      await navigator.clipboard.writeText(lastVersion.code)
+      await navigator.clipboard.writeText(selectedVersion.code)
       copied = true
     } catch {
       const helper = document.createElement('textarea')
-      helper.value = lastVersion.code
+      helper.value = selectedVersion.code
       helper.style.position = 'fixed'
       helper.style.opacity = '0'
       document.body.appendChild(helper)
@@ -128,7 +140,11 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
     }
     if (!copied) { _setError('复制代码失败，请手动选择代码复制。'); return }
     setCopiedCode(true)
-    window.setTimeout(() => setCopiedCode(false), 1800)
+    if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current)
+    copyResetTimer.current = window.setTimeout(() => {
+      setCopiedCode(false)
+      copyResetTimer.current = null
+    }, 1800)
   }
 
   if (!isDone) {
@@ -144,15 +160,33 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
 
   return (
     <section className="sw-panel" aria-label="结果报告">
-      <header className="sw-panel-head">
+      <header className="sw-panel-head sw-result-head">
         <div>
           <h2>结果报告</h2>
           <p>验收结论优先于平台回测状态：0 成交一律判为不合格。AI 生成的研究草案，回测结果不代表实盘。</p>
         </div>
-        <span className={`sw-badge sw-badge--${verdictTone}`}>{verdictText}</span>
+        <div className="sw-result-head-actions">
+          {detail && detail.versions.length > 1 && (
+            <label className="sw-field sw-result-version-field">
+              <span>结果版本</span>
+              <select
+                aria-label="选择结果版本"
+                value={selectedVersion?.id ?? ''}
+                onChange={(event) => setSelectedVersionId(Number(event.target.value))}
+              >
+                {detail.versions.map((version) => (
+                  <option key={version.id} value={version.id}>
+                    版本 {version.local_version_no}{version.id === lastVersion?.id ? '（最新）' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <span className={`sw-badge sw-badge--${verdictTone}`}>{verdictText}</span>
+        </div>
       </header>
 
-      <div className={`sw-result-hero${hasBacktestResult ? ` sw-result-hero--${lastVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
+      <div className={`sw-result-hero${hasBacktestResult ? ` sw-result-hero--${selectedVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
         <p className="sw-hero-oneliner">{heroOneLiner(wizard)}</p>
         <div className="sw-hero-metrics">
           {CORE_HERO_KEYS.map(({ key, fallbackLabel }) => {
@@ -193,12 +227,12 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
       )}
 
       <ValidationSummary
-        validation={validation}
-        backtestPassed={lastVersion?.backtest_passed}
+        validation={resultValidation}
+        backtestPassed={selectedVersion?.backtest_passed}
         backtestSummary={backtestLog}
       />
 
-      <div className={`sw-result-metrics${hasBacktestResult ? ` sw-result-metrics--${lastVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
+      <div className={`sw-result-metrics${hasBacktestResult ? ` sw-result-metrics--${selectedVersion?.backtest_passed ? 'passed' : 'failed'}` : ''}`}>
         <header><h3>回测指标</h3><span>{allMetrics.length} 项</span></header>
         {allMetrics.length > 0
           ? <>
@@ -218,21 +252,21 @@ export function ResultStep({ wizard }: { wizard: StrategyWizardApi }) {
 
       <div className="sw-result-code">
         <header>
-          <h3>回测代码 · 版本 {lastVersion?.local_version_no} · Python</h3>
-          <button type="button" className="sw-ghost-button" onClick={() => void copyCode()} disabled={!lastVersion?.code}>
+          <h3>回测代码 · 版本 {selectedVersion?.local_version_no} · Python</h3>
+          <button type="button" className="sw-ghost-button" onClick={() => void copyCode()} disabled={!selectedVersion?.code}>
             {copiedCode ? '已复制' : '一键复制'}
           </button>
         </header>
-        {lastVersion?.code
-          ? <CodeHighlight code={lastVersion.code} />
+        {selectedVersion?.code
+          ? <CodeHighlight code={selectedVersion.code} />
           : <p className="sw-inline-empty">暂无代码。</p>}
       </div>
 
       <Fold
         title="完整回测日志"
         meta={<span className="sw-fold-meta-text">
-          {lastVersion?.backtest_exit_code !== null && lastVersion?.backtest_exit_code !== undefined && lastVersion?.backtest_exit_code !== ''
-            ? `退出码 ${lastVersion.backtest_exit_code}`
+          {selectedVersion?.backtest_exit_code !== null && selectedVersion?.backtest_exit_code !== undefined && selectedVersion?.backtest_exit_code !== ''
+            ? `退出码 ${selectedVersion.backtest_exit_code}`
             : '无退出码'}
         </span>}
       >
