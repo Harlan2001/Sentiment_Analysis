@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +19,7 @@ import type {
 } from '@/api/strategy'
 import { EDITABLE_END, EDITABLE_START } from '../components/strategy/promptSections'
 import { StrategyPromptPage } from './StrategyPromptPage'
+import { useStrategyWizard } from '../components/strategy/useStrategyWizard'
 
 const SYSTEM_DRAFT = `情报包前缀（受保护）
 ${EDITABLE_START}
@@ -84,6 +85,23 @@ function makeAssistant(overrides: Partial<StrategyMessage> = {}): StrategyMessag
     elapsed_seconds: null,
     created_at: '2026-10-30T14:01:00+08:00',
     updated_at: '2026-10-30T14:01:00+08:00',
+    ...overrides,
+  }
+}
+
+function makeVersion(overrides: Partial<StrategyVersion> = {}): StrategyVersion {
+  return {
+    id: 11,
+    source_message_id: 1,
+    local_version_no: 1,
+    name: 'v1',
+    description: '',
+    code: 'x = 1',
+    backtest_passed: true,
+    backtest_exit_code: '0',
+    backtest_summary: '',
+    backtest_metrics_json: [],
+    created_at: '2026-10-30T14:22:00+08:00',
     ...overrides,
   }
 }
@@ -259,6 +277,137 @@ describe('StrategyPromptPage 五步向导（S2-2）', () => {
 
     expect(await screen.findByText('验收通过')).toBeTruthy()
     expect(screen.getByText('总订单数')).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: '选择结果版本' })).toBeNull()
+  })
+
+  it('多版本：切换后概要、验收、指标、代码、日志和退出码同步更新', async () => {
+    const oldAssistant = makeAssistant({
+      id: 1,
+      sequence_no: 2,
+      status: 'succeeded',
+      final_sent_prompt: SYSTEM_DRAFT,
+      validation_json: {
+        verdict: 'backtest_failed', passed: false, retryable: true, steps: [],
+        trade_count: 7, raw_trade_line: null, symbol_whitelisted: true, reason: 'old failed',
+      },
+    })
+    const latestAssistant = makeAssistant({
+      id: 2,
+      sequence_no: 4,
+      status: 'succeeded',
+      final_sent_prompt: SYSTEM_DRAFT,
+      validation_json: {
+        verdict: 'passed', passed: true, retryable: false, steps: [],
+        trade_count: 31, raw_trade_line: null, symbol_whitelisted: true, reason: 'new passed',
+      },
+    })
+    const oldVersion = makeVersion({
+      description: '旧版概要：均值回归',
+      code: 'OLD_CODE_V1',
+      backtest_passed: false,
+      backtest_exit_code: '1',
+      backtest_summary: 'OLD_LOG_V1',
+      backtest_metrics_json: [{ key: 'total_orders', label: 'Total Orders', value: '7', tier: 'core', numeric: 7 }],
+    })
+    const latestVersion = makeVersion({
+      id: 22,
+      source_message_id: 2,
+      local_version_no: 2,
+      name: 'v2',
+      description: '新版概要：趋势跟随',
+      code: 'NEW_CODE_V2',
+      backtest_summary: 'NEW_LOG_V2',
+      backtest_metrics_json: [{ key: 'total_orders', label: 'Total Orders', value: '31', tier: 'core', numeric: 31 }],
+    })
+    vi.mocked(api.getStrategyConversation).mockResolvedValue(
+      makeDetail([oldAssistant, latestAssistant], [latestVersion, oldVersion]),
+    )
+    renderPage()
+
+    expect(await screen.findByText('新版概要：趋势跟随')).toBeTruthy()
+    const selector = screen.getByRole('combobox', { name: '选择结果版本' })
+    expect((selector as HTMLSelectElement).value).toBe('22')
+    expect(screen.getByText('验收通过')).toBeTruthy()
+    expect(screen.getByText('NEW_CODE_V2')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '回测代码 · 版本 2 · Python' })).toBeTruthy()
+    expect(document.querySelector('.sw-hero-metrics')?.textContent).toContain('31')
+    fireEvent.click(screen.getByText('完整回测日志'))
+    expect(screen.getByText('NEW_LOG_V2')).toBeTruthy()
+
+    fireEvent.change(selector, { target: { value: '11' } })
+
+    expect(await screen.findByText('旧版概要：均值回归')).toBeTruthy()
+    expect(screen.getByText('回测失败')).toBeTruthy()
+    expect(screen.queryByText('验收通过')).toBeNull()
+    expect(screen.getByText('OLD_CODE_V1')).toBeTruthy()
+    expect(screen.queryByText('NEW_CODE_V2')).toBeNull()
+    expect(screen.getByRole('heading', { name: '回测代码 · 版本 1 · Python' })).toBeTruthy()
+    expect(document.querySelector('.sw-hero-metrics')?.textContent).toContain('7')
+    expect(document.querySelector('.sw-hero-metrics')?.textContent).not.toContain('31')
+    expect(screen.getByText('OLD_LOG_V1')).toBeTruthy()
+    expect(screen.queryByText('NEW_LOG_V2')).toBeNull()
+    expect(screen.getByText('退出码 1')).toBeTruthy()
+    expect(api.createStrategyDraft).not.toHaveBeenCalled()
+    expect(api.confirmStrategyDraft).not.toHaveBeenCalled()
+  })
+
+  it('历史版本无验收数据时不串用最新版本的通过结论', async () => {
+    const oldAssistant = makeAssistant({
+      id: 1,
+      sequence_no: 2,
+      status: 'succeeded',
+      final_sent_prompt: SYSTEM_DRAFT,
+      validation_json: null,
+    })
+    const latestAssistant = makeAssistant({
+      id: 2,
+      sequence_no: 4,
+      status: 'succeeded',
+      final_sent_prompt: SYSTEM_DRAFT,
+      validation_json: {
+        verdict: 'passed', passed: true, retryable: false, steps: [],
+        trade_count: 31, raw_trade_line: null, symbol_whitelisted: true, reason: 'new passed',
+      },
+    })
+    const oldVersion = makeVersion({ description: '旧版未验收' })
+    const latestVersion = makeVersion({ id: 22, source_message_id: 2, local_version_no: 2 })
+    vi.mocked(api.getStrategyConversation).mockResolvedValue(
+      makeDetail([oldAssistant, latestAssistant], [latestVersion, oldVersion]),
+    )
+    renderPage()
+
+    expect(await screen.findByText('验收通过')).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: '选择结果版本' }), { target: { value: '11' } })
+
+    expect(await screen.findByText('回测通过（未验收）')).toBeTruthy()
+    expect(screen.getByText('平台回测通过，但尚未经过我方验收门复核。')).toBeTruthy()
+    expect(screen.queryByText('验收通过')).toBeNull()
+  })
+
+  it('版本选择在同版本刷新时保留，出现新版本时回到最新', async () => {
+    const oldAssistant = makeAssistant({ id: 1, sequence_no: 2, status: 'succeeded' })
+    const latestAssistant = makeAssistant({ id: 2, sequence_no: 4, status: 'succeeded' })
+    const oldVersion = makeVersion()
+    const latestVersion = makeVersion({ id: 22, source_message_id: 2, local_version_no: 2 })
+    const initialDetail = makeDetail([oldAssistant, latestAssistant], [latestVersion, oldVersion])
+    vi.mocked(api.getStrategyConversation).mockResolvedValue(initialDetail)
+
+    const { result } = renderHook(() => useStrategyWizard(7, vi.fn()))
+    await waitFor(() => expect(result.current.selectedVersion?.id).toBe(22))
+    act(() => result.current.setSelectedVersionId(11))
+    expect(result.current.selectedVersion?.id).toBe(11)
+
+    vi.mocked(api.getStrategyConversation).mockResolvedValueOnce(initialDetail)
+    await act(async () => { await result.current.refreshNow() })
+    expect(result.current.selectedVersion?.id).toBe(11)
+
+    const newAssistant = makeAssistant({ id: 3, sequence_no: 6, status: 'succeeded' })
+    const newVersion = makeVersion({ id: 33, source_message_id: 3, local_version_no: 3 })
+    vi.mocked(api.getStrategyConversation).mockResolvedValueOnce(
+      makeDetail([oldAssistant, latestAssistant, newAssistant], [newVersion, latestVersion, oldVersion]),
+    )
+    await act(async () => { await result.current.refreshNow() })
+    await waitFor(() => expect(result.current.selectedVersion?.id).toBe(33))
   })
 
   it('结果报告：核心大字进英雄区，风险指标除式爆炸显⚠且不洗绿', async () => {
