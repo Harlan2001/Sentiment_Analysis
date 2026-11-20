@@ -980,6 +980,145 @@
         }
       }
     },
+    "/sapi/factors/events": {
+      "get": {
+        "tags": [
+          "factors"
+        ],
+        "summary": "Get Factor Events Api",
+        "description": "读取原始因子事件时序；时间锚点固定为 news_factor.pub_time。",
+        "operationId": "get_factor_events_api_sapi_factors_events_get",
+        "parameters": [
+          {
+            "name": "factor_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "因子代码，多个用逗号分隔；不传为全部",
+              "title": "Factor Code"
+            },
+            "description": "因子代码，多个用逗号分隔；不传为全部"
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "新闻发布时间起点，ISO 格式，闭区间",
+              "title": "Start Time"
+            },
+            "description": "新闻发布时间起点，ISO 格式，闭区间"
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "新闻发布时间终点，ISO 格式，闭区间",
+              "title": "End Time"
+            },
+            "description": "新闻发布时间终点，ISO 格式，闭区间"
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "事件抽取模型；每次查询仅使用一个模型",
+              "default": "glm",
+              "title": "Model"
+            },
+            "description": "事件抽取模型；每次查询仅使用一个模型"
+          },
+          {
+            "name": "include_neutral",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "无 direction 过滤时是否包含 neutral",
+              "default": false,
+              "title": "Include Neutral"
+            },
+            "description": "无 direction 过滤时是否包含 neutral"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "可选方向过滤：positive | negative",
+              "title": "Direction"
+            },
+            "description": "可选方向过滤：positive | negative"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 500,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/factors/by-category/{category}": {
       "get": {
         "tags": [
