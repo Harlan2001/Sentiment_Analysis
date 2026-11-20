@@ -1,6 +1,6 @@
 -- 生产库 Sentiment_analysis 表结构只读快照（由 scripts/export_prod_schema.py 生成）
 
--- 生成时间: 2026-11-06 16:44; 用于重建测试库 Sentiment_analysis_test
+-- 生成时间: 2026-11-20 18:36; 用于重建测试库 Sentiment_analysis_test
 
 SET FOREIGN_KEY_CHECKS=0;
 
@@ -149,7 +149,7 @@ CREATE TABLE `ai_strategy_conversations` (
   KEY `idx_ai_strategy_conversations_owner_updated` (`owner_username`,`updated_at`),
   KEY `idx_ai_strategy_conversations_owner_status` (`owner_username`,`status`),
   KEY `idx_ai_strategy_conversations_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=62 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ai_strategy_messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -304,7 +304,7 @@ CREATE TABLE `dashboard_metric_cache` (
   PRIMARY KEY (`id`),
   KEY `idx_calc_time` (`calc_time`),
   KEY `idx_cache_hit` (`cache_type`,`calc_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=467 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每5分钟预计算A-F指标，前端直接读取缓存';
+) ENGINE=InnoDB AUTO_INCREMENT=470 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每5分钟预计算A-F指标，前端直接读取缓存';
 
 CREATE TABLE `dashboard_snapshot` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -325,7 +325,7 @@ CREATE TABLE `factor` (
   UNIQUE KEY `code` (`code`),
   KEY `idx_factor_code` (`code`),
   KEY `idx_factor_category` (`category`(100))
-) ENGINE=InnoDB AUTO_INCREMENT=382 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子表';
+) ENGINE=InnoDB AUTO_INCREMENT=385 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子表';
 
 CREATE TABLE `factor_discovery_history` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -345,7 +345,7 @@ CREATE TABLE `factor_discovery_history` (
   KEY `idx_discovery_source_news_id` (`source_news_id`),
   KEY `idx_discovery_created_at` (`created_at`),
   KEY `idx_discovery_similarity` (`max_similarity_score`)
-) ENGINE=InnoDB AUTO_INCREMENT=500 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子发现历史表';
+) ENGINE=InnoDB AUTO_INCREMENT=503 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='因子发现历史表';
 
 CREATE TABLE `factor_event_study` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -381,7 +381,7 @@ CREATE TABLE `forecast_report` (
   UNIQUE KEY `uk_date_type` (`trade_date`,`forecast_type`),
   KEY `idx_trade_date` (`trade_date`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='市场预测报告表';
+) ENGINE=InnoDB AUTO_INCREMENT=144 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='市场预测报告表';
 
 CREATE TABLE `futures_position` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -461,7 +461,7 @@ CREATE TABLE `llm_usage_log` (
   KEY `idx_call_source` (`call_source`),
   KEY `idx_model_name` (`model_name`),
   KEY `idx_user_date` (`user_id`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=2887 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用Token消耗日志';
+) ENGINE=InnoDB AUTO_INCREMENT=3176 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用Token消耗日志';
 
 CREATE TABLE `macro_indicator_data` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -520,7 +520,7 @@ CREATE TABLE `news` (
   UNIQUE KEY `uk_global_uid` (`global_uid`),
   KEY `idx_source` (`source`),
   KEY `idx_pub_time` (`pub_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=19426 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻主表';
+) ENGINE=InnoDB AUTO_INCREMENT=19681 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻主表';
 
 CREATE TABLE `news_content_blocks` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -542,7 +542,7 @@ CREATE TABLE `news_content_blocks` (
   KEY `idx_block_type` (`block_type`),
   KEY `idx_block_order` (`block_order`),
   CONSTRAINT `fk_news_content_blocks_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=528836 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻内容块表（用于前端渲染）';
+) ENGINE=InnoDB AUTO_INCREMENT=533882 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻内容块表（用于前端渲染）';
 
 CREATE TABLE `news_factor` (
   `news_id` bigint(20) unsigned NOT NULL,
@@ -593,7 +593,7 @@ CREATE TABLE `news_vectors` (
   UNIQUE KEY `uk_news_id_version` (`news_id`,`vector_version`),
   KEY `idx_vector_version` (`vector_version`),
   CONSTRAINT `fk_news_vectors_news_id` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=70877 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻文本向量存储表';
+) ENGINE=InnoDB AUTO_INCREMENT=71132 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='新闻文本向量存储表';
 
 CREATE TABLE `policy_analysis` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -675,7 +675,7 @@ CREATE TABLE `portfolio_strategy_analysis_cache` (
   UNIQUE KEY `uk_cache_key` (`cache_key`),
   KEY `idx_target_news_date` (`target_news_date`),
   KEY `idx_status_created` (`status`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组合策略分析结果缓存表';
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组合策略分析结果缓存表';
 
 CREATE TABLE `report_analysis` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -843,7 +843,7 @@ CREATE TABLE `task_events` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_task_events_task_run_id` (`task_run_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14147 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15070 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_runs` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -862,7 +862,7 @@ CREATE TABLE `task_runs` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_runs_idempotency_key` (`idempotency_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=2219 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2560 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `treasury_yield` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -931,7 +931,7 @@ CREATE TABLE `user_page_view` (
   KEY `idx_action_type` (`action_type`),
   KEY `idx_action_target` (`action_target`(64)),
   KEY `idx_user_action` (`user_id`,`action_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=2538 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='页面访问日志 - 每次页面切换记录一条';
+) ENGINE=InnoDB AUTO_INCREMENT=2695 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='页面访问日志 - 每次页面切换记录一条';
 
 CREATE TABLE `user_session` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -945,7 +945,7 @@ CREATE TABLE `user_session` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_login_time` (`login_time`),
   KEY `idx_user_login` (`user_id`,`login_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=1476 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话记录 - 每次登录建立一条';
+) ENGINE=InnoDB AUTO_INCREMENT=1552 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话记录 - 每次登录建立一条';
 
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
@@ -1159,7 +1159,7 @@ CREATE TABLE `workbench_skill_versions` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_workbench_skill_versions` (`skill_id`,`version_no`),
   CONSTRAINT `fk_workbench_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `workbench_skills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=317 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=371 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_skills` (
   `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,

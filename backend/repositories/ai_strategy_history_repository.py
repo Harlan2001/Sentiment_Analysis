@@ -153,7 +153,7 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
     @classmethod
     def from_environment(cls) -> "AiStrategyHistoryRepository":
         # 独立历史库若配置了 AI_STRATEGY_HISTORY_MYSQL_DATABASE 则用它；
-        # 未配置时回退业务库，与建表脚本的目标保持一致
+        # 未配置时回退业务库。
         settings = dict(MYSQL_CONFIG)
         history_db = os.getenv("AI_STRATEGY_HISTORY_MYSQL_DATABASE")
         if history_db:
@@ -197,10 +197,10 @@ class AiStrategyHistoryRepository(RecycleBinMixin):
             conn.commit()
 
     def ensure_progress_schema(self) -> None:
-        """B1 进度回写所需的三列（stage/stage_updated_at/log_tail），幂等迁移。
+        """B1 进度回写所需的四列，幂等迁移。
 
-        对应 sql/026_ai_strategy_progress.sql；这里补一道运行时兜底，让尚未
-        执行迁移脚本的环境也能随启动自动补列。
+        权威定义见 sql/schema_full.sql；这里补一道运行时兜底，让早期环境也能
+        随启动自动补列。
         """
         additions = (
             ("stage", "ALTER TABLE ai_strategy_messages ADD COLUMN stage VARCHAR(32) NULL"),

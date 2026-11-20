@@ -404,7 +404,7 @@ def generate_strategy(
     :param max_regenerations: 验收不通过时最多重发几轮修正请求。对端自身还有
         3 次自动重生，叠加后总耗时仍可控（需求文档定 2 轮）。
     :param on_progress: 可选回调 ``(stage, log_tail)``，阶段变化立即回调，
-        日志尾部更新按约 1.5s 节流。阶段取值见 sql/026 迁移注释。
+        日志尾部更新按约 1.5s 节流。阶段取值见本文件的状态映射与进度发射器。
     """
 
     if not prompt.strip():
