@@ -1,6 +1,6 @@
 /**
  * ④ 生成与回测步骤的阶段口径（B1 / S2-3）。
- * 纯函数，便于单测；阶段取值与 sql/026_ai_strategy_progress.sql 注释对齐。
+ * 纯函数，便于单测；阶段口径与后端 Dream 服务的状态映射对齐。
  */
 
 export const RUNNING_STAGE_LABELS: Record<string, string> = {
