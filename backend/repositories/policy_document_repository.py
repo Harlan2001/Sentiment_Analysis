@@ -6,9 +6,15 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository, serialize_row
+from backend.common.task_logging import add_task_event, finish_task_run
+from backend.repositories.base import (
+    BaseRepository,
+    ExecutionLeaseError,
+    serialize_row,
+)
 
 
 def _json_or_none(value: Any) -> str | None:
@@ -65,6 +71,8 @@ class PolicyDocumentRepository(BaseRepository):
         publish_date: Any,
         full_text: str,
         page_count: int,
+        focus_title: str | None = None,
+        analysis_requirement: str | None = None,
     ) -> int:
         """新建政策文件记录，返回自增 id。"""
         with self._connection() as conn:
@@ -72,8 +80,9 @@ class PolicyDocumentRepository(BaseRepository):
                 cursor.execute(
                     """INSERT INTO policy_document
                            (owner_username, file_hash, title, original_filename, issuer,
-                            document_no, publish_date, full_text, page_count, status)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'uploaded')""",
+                            document_no, publish_date, full_text, page_count, status,
+                            focus_title, analysis_requirement)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'uploaded', %s, %s)""",
                     (
                         owner_username,
                         file_hash,
@@ -84,6 +93,8 @@ class PolicyDocumentRepository(BaseRepository):
                         publish_date,
                         full_text,
                         page_count,
+                        focus_title,
+                        analysis_requirement,
                     ),
                 )
                 document_id = cursor.lastrowid
@@ -106,7 +117,13 @@ class PolicyDocumentRepository(BaseRepository):
             conn.commit()
 
     def save_analysis(
-        self, document_id: int, owner_username: str, analysis: dict[str, Any]
+        self,
+        document_id: int,
+        owner_username: str,
+        analysis: dict[str, Any],
+        *,
+        lease_token: str | None = None,
+        run_id: int | None = None,
     ) -> None:
         """写入分析结果；同一文件重复分析时覆盖（按 document_id 唯一）。"""
         with self._connection() as conn:
@@ -136,34 +153,99 @@ class PolicyDocumentRepository(BaseRepository):
                         analysis.get("model_name"),
                     ),
                 )
+                lease_sql = (
+                    ", stage='succeeded', lease_token=NULL, "
+                    "lease_expires_at=NULL, active_run_id=NULL"
+                    if lease_token
+                    else ""
+                )
+                where_sql = "id=%s AND owner_username=%s"
+                params: list[Any] = [document_id, owner_username]
+                if lease_token:
+                    where_sql += " AND status='analyzing' AND lease_token=%s"
+                    params.append(lease_token)
+                affected = cursor.execute(
+                    f"""UPDATE policy_document
+                           SET status='completed', error_message=NULL{lease_sql}
+                         WHERE {where_sql}""",
+                    tuple(params),
+                )
+                if lease_token and affected != 1:
+                    conn.rollback()
+                    raise ExecutionLeaseError("政策分析租约已失效，未写入结果")
+                if run_id is not None:
+                    finish_task_run(
+                        conn,
+                        run_id,
+                        "succeeded",
+                        processed_count=1,
+                        result={"document_id": document_id},
+                    )
+                    add_task_event(
+                        conn, run_id, "succeeded", "政策解读结果已保存", status="succeeded"
+                    )
             conn.commit()
 
     def list_documents(
-        self, owner_username: str, limit: int = 20, offset: int = 0
+        self,
+        owner_username: str,
+        limit: int = 20,
+        offset: int = 0,
+        *,
+        keyword: str | None = None,
+        direction: str | None = None,
+        date_start: date | None = None,
+        date_end: date | None = None,
     ) -> dict[str, Any]:
-        """列表（含分析状态与影响方向），按上传时间倒序。"""
+        """在同一用户与筛选集合上分页和统计，避免只统计当前页。"""
+        conditions = ["d.owner_username = %s"]
+        params: list[Any] = [owner_username]
+        if keyword:
+            conditions.append("(d.title LIKE %s OR d.issuer LIKE %s OR d.document_no LIKE %s)")
+            like = f"%{keyword.strip()}%"
+            params.extend([like, like, like])
+        if direction:
+            conditions.append("a.impact_direction = %s")
+            params.append(direction)
+        if date_start:
+            conditions.append("DATE(d.created_at) >= %s")
+            params.append(date_start)
+        if date_end:
+            conditions.append("DATE(d.created_at) <= %s")
+            params.append(date_end)
+        where = " AND ".join(conditions)
+        join = "LEFT JOIN policy_analysis a ON a.document_id = d.id"
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT COUNT(*) AS total FROM policy_document WHERE owner_username = %s",
-                    (owner_username,),
+                    f"""SELECT COUNT(*) AS total,
+                               COALESCE(SUM(d.status = 'completed'), 0) AS analyzed,
+                               COALESCE(SUM(d.status = 'completed' AND a.impact_direction = 'bullish'), 0) AS bullish,
+                               COALESCE(SUM(d.status = 'completed' AND a.impact_direction = 'bearish'), 0) AS bearish,
+                               COALESCE(SUM(d.status = 'completed' AND a.impact_direction = 'neutral'), 0) AS neutral
+                          FROM policy_document d {join} WHERE {where}""",
+                    tuple(params),
                 )
-                total = int(cursor.fetchone()["total"] or 0)
-
+                stats_row = cursor.fetchone()
+                stats = {key: int(stats_row[key] or 0) for key in ("total", "analyzed", "bullish", "bearish", "neutral")}
                 cursor.execute(
-                    """SELECT d.id, d.title, d.original_filename, d.issuer, d.document_no,
+                    f"""SELECT d.id, d.title, d.original_filename, d.issuer, d.document_no,
                               d.publish_date, d.page_count, d.status, d.error_message,
-                              d.model_name, d.created_at,
+                              d.model_name, d.created_at, d.updated_at, d.stage,
+                              d.focus_title, d.analysis_requirement, d.retry_count,
                               a.impact_direction
-                         FROM policy_document d
-                         LEFT JOIN policy_analysis a ON a.document_id = d.id
-                        WHERE d.owner_username = %s
+                         FROM policy_document d {join}
+                        WHERE {where}
                         ORDER BY d.created_at DESC, d.id DESC
                         LIMIT %s OFFSET %s""",
-                    (owner_username, limit, offset),
+                    (*params, limit, offset),
                 )
                 rows = cursor.fetchall()
-        return {"items": [serialize_row(row) or {} for row in rows], "total": total}
+        return {
+            "items": [serialize_row(row) or {} for row in rows],
+            "total": stats["total"],
+            "stats": stats,
+        }
 
     def get_document(self, owner_username: str, document_id: int) -> dict[str, Any] | None:
         """详情（含分析结果；serialize_row 会自动反序列化 *_json 列）。"""
@@ -172,7 +254,8 @@ class PolicyDocumentRepository(BaseRepository):
                 cursor.execute(
                     """SELECT id, title, original_filename, issuer, document_no,
                               publish_date, page_count, status, error_message,
-                              model_name, created_at, full_text
+                              model_name, created_at, updated_at, stage, retry_count,
+                              focus_title, analysis_requirement, full_text
                          FROM policy_document
                         WHERE id = %s AND owner_username = %s LIMIT 1""",
                     (document_id, owner_username),

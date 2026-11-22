@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
+from collections.abc import Callable
 from typing import Any
 
 from backend.common.llm_call import llm_chat_async
@@ -82,14 +83,26 @@ async def generate_daily_news_summary(
     repository: DailyNewsSummaryRepository,
     owner_username: str,
     task_id: int,
+    *,
+    lease_token: str | None = None,
+    run_id: int | None = None,
+    stage_callback: Callable[[str, str], None] | None = None,
 ) -> None:
     task = await asyncio.to_thread(repository.get_task, owner_username, task_id)
-    if not task or not await asyncio.to_thread(
+    if not task:
+        raise RuntimeError("新闻总结任务不存在")
+    if lease_token is None and not await asyncio.to_thread(
         repository.mark_running, owner_username, task_id
     ):
         return
+
+    async def stage(name: str, message: str) -> None:
+        if stage_callback:
+            await asyncio.to_thread(stage_callback, name, message)
+
     try:
         source_keys = task.get("sources_json") or []
+        await stage("loading", "正在读取日期范围内的真实新闻")
         items = await asyncio.to_thread(
             get_news,
             date=None,
@@ -114,6 +127,7 @@ async def generate_daily_news_summary(
             for item in items[:MAX_REFERENCES]
         ]
         if not items:
+            await stage("saving", "筛选范围内无新闻，正在保存空结果")
             await asyncio.to_thread(
                 repository.complete_task,
                 owner_username,
@@ -123,6 +137,8 @@ async def generate_daily_news_summary(
                 source_stats={},
                 summary="该日期范围和来源下没有可总结的新闻，未调用 AI。",
                 references=[],
+                lease_token=lease_token,
+                run_id=run_id,
             )
             return
 
@@ -132,6 +148,7 @@ async def generate_daily_news_summary(
             f"来源统计：{source_stats}\n关注重点：{focus}\n"
         )
         chunk_summaries: list[str] = []
+        await stage("summarizing", f"正在分批总结 {len(items)} 条新闻")
         for index in range(0, len(items), CHUNK_SIZE):
             chunk = items[index : index + CHUNK_SIZE]
             prompt = (
@@ -149,6 +166,7 @@ async def generate_daily_news_summary(
         if len(chunk_summaries) == 1:
             summary = chunk_summaries[0]
         else:
+            await stage("merging", "正在合并分批摘要并去重")
             final_material = "\n\n---\n\n".join(
                 item[:FINAL_CHUNK_CHARS] for item in chunk_summaries
             )
@@ -174,6 +192,7 @@ async def generate_daily_news_summary(
                         for index, item in enumerate(chunk_summaries)
                     )
                 )
+        await stage("saving", "正在保存新闻总结与引用")
         await asyncio.to_thread(
             repository.complete_task,
             owner_username,
@@ -183,9 +202,13 @@ async def generate_daily_news_summary(
             source_stats=source_stats,
             summary=summary,
             references=references,
+            lease_token=lease_token,
+            run_id=run_id,
         )
     except Exception as exc:
         logger.exception("Daily-news summary task %s failed", task_id)
+        if lease_token is not None:
+            raise
         await asyncio.to_thread(
             repository.fail_task,
             owner_username,

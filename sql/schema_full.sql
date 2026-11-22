@@ -277,6 +277,12 @@ CREATE TABLE `daily_news_summary_tasks` (
   `sources_json` json DEFAULT NULL,
   `focus` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `queued_at` datetime(6) DEFAULT NULL,
+  `lease_token` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lease_expires_at` datetime(6) DEFAULT NULL,
+  `stage` varchar(48) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `active_run_id` bigint(20) DEFAULT NULL,
+  `retry_count` int(11) NOT NULL DEFAULT '0',
   `news_count` int(10) unsigned NOT NULL DEFAULT '0',
   `source_stats_json` json DEFAULT NULL,
   `summary` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
@@ -292,7 +298,9 @@ CREATE TABLE `daily_news_summary_tasks` (
   KEY `idx_daily_news_summary_owner_updated` (`owner_username`,`updated_at`),
   KEY `idx_daily_news_summary_owner_status` (`owner_username`,`status`),
   KEY `idx_daily_news_summary_range` (`start_date`,`end_date`),
-  KEY `idx_daily_news_summary_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`)
+  KEY `idx_daily_news_summary_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`),
+  KEY `idx_daily_news_task_queue` (`status`,`queued_at`,`id`),
+  KEY `idx_daily_news_task_lease` (`lease_token`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `dashboard_metric_cache` (
@@ -623,14 +631,25 @@ CREATE TABLE `policy_document` (
   `publish_date` date DEFAULT NULL COMMENT '发布日期',
   `full_text` mediumtext COLLATE utf8mb4_unicode_ci COMMENT '解析出的全文',
   `page_count` int(11) DEFAULT NULL COMMENT '页数',
-  `status` enum('uploaded','analyzing','completed','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'uploaded',
+  `status` enum('uploaded','queued','analyzing','completed','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'uploaded',
   `error_message` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `model_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '分析所用模型',
+  `queued_at` datetime(6) DEFAULT NULL,
+  `lease_token` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lease_expires_at` datetime(6) DEFAULT NULL,
+  `stage` varchar(48) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `active_run_id` bigint(20) DEFAULT NULL,
+  `retry_count` int(11) NOT NULL DEFAULT '0',
+  `focus_title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `analysis_requirement` text COLLATE utf8mb4_unicode_ci,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_policy_document_hash` (`owner_username`,`file_hash`),
-  KEY `idx_policy_document_list` (`owner_username`,`created_at`,`id`)
+  KEY `idx_policy_document_list` (`owner_username`,`created_at`,`id`),
+  KEY `idx_policy_task_queue` (`status`,`queued_at`,`id`),
+  KEY `idx_policy_task_lease` (`lease_token`),
+  KEY `idx_policy_task_owner_status` (`owner_username`,`status`,`updated_at`,`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='政策文件（用户上传）';
 
 CREATE TABLE `policy_event` (
@@ -738,6 +757,12 @@ CREATE TABLE `report_generation_tasks` (
   `version_no` int(11) NOT NULL DEFAULT '1' COMMENT '版本号，再生成递增',
   `parent_task_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '再生成来源任务',
   `status` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'queued',
+  `queued_at` datetime(6) DEFAULT NULL,
+  `lease_token` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lease_expires_at` datetime(6) DEFAULT NULL,
+  `stage` varchar(48) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `active_run_id` bigint(20) DEFAULT NULL,
+  `requested_model` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `model_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `result_markdown` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
@@ -750,8 +775,46 @@ CREATE TABLE `report_generation_tasks` (
   PRIMARY KEY (`id`),
   KEY `idx_report_generation_owner_updated` (`owner_username`,`updated_at`),
   KEY `idx_report_generation_owner_status` (`owner_username`,`status`),
-  KEY `idx_report_generation_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`)
+  KEY `idx_report_generation_owner_deleted_updated` (`owner_username`,`deleted_at`,`updated_at`),
+  KEY `idx_report_task_queue` (`status`,`queued_at`,`created_at`),
+  KEY `idx_report_task_lease` (`lease_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `research_portfolios` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner_username` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `size_amount` decimal(20,2) NOT NULL DEFAULT '0.00' COMMENT '研究规模（人民币元，非真实市值）',
+  `as_of_date` date NOT NULL COMMENT '持仓指标对应日期',
+  `target_duration` decimal(10,4) DEFAULT NULL COMMENT '可选目标久期（年）',
+  `status` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active' COMMENT 'active / archived',
+  `version` int(10) unsigned NOT NULL DEFAULT '1' COMMENT '乐观锁版本',
+  `archived_at` datetime(6) DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_research_portfolio_owner_updated` (`owner_username`,`status`,`updated_at`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='账号级研究组合（研究配置，不含交易与实时估值）';
+
+CREATE TABLE `research_portfolio_holdings` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `portfolio_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `bond_code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `bond_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `asset_category` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `weight_pct` decimal(9,6) NOT NULL COMMENT '配置权重（百分数）',
+  `yield_pct` decimal(10,6) DEFAULT NULL COMMENT '用户录入到期收益率（百分数）',
+  `duration_years` decimal(10,4) DEFAULT NULL COMMENT '用户录入久期（年）',
+  `sort_order` int(11) NOT NULL DEFAULT '0',
+  `note` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_research_portfolio_holding_code` (`portfolio_id`,`bond_code`),
+  KEY `idx_research_portfolio_holding_order` (`portfolio_id`,`sort_order`,`id`),
+  CONSTRAINT `fk_research_portfolio_holding_portfolio` FOREIGN KEY (`portfolio_id`) REFERENCES `research_portfolios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='研究组合持仓及手工指标快照';
 
 CREATE TABLE `research_report` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -779,7 +842,13 @@ CREATE TABLE `research_report` (
   `ai_raw_response` json DEFAULT NULL COMMENT 'LLM原始返回',
   `ai_evidence` json DEFAULT NULL COMMENT 'AI分析溯源：原文摘录+推断',
   `ai_deep_markdown` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '深度拆解 Markdown（板块一）',
-  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT 'pending/parsing/parsed/analyzed/failed',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT 'pending/parsing/parsed/queued/processing/analyzed/failed',
+  `queued_at` datetime(6) DEFAULT NULL,
+  `lease_token` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lease_expires_at` datetime(6) DEFAULT NULL,
+  `stage` varchar(48) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `active_run_id` bigint(20) DEFAULT NULL,
+  `requested_model` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `parse_error` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '解析失败原因',
   `retry_count` int(11) DEFAULT '0' COMMENT '分析重试次数',
   `source` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'eastmoney/sina/manual/arxiv',
@@ -797,7 +866,9 @@ CREATE TABLE `research_report` (
   KEY `idx_institution` (`institution`),
   KEY `idx_status` (`status`),
   KEY `idx_market_view` (`ai_market_view`),
-  KEY `idx_asset_class` (`asset_class`)
+  KEY `idx_asset_class` (`asset_class`),
+  KEY `idx_research_task_queue` (`status`,`queued_at`,`id`),
+  KEY `idx_research_task_lease` (`lease_token`)
 ) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='券商研报主表';
 
 CREATE TABLE `strategy_change_snapshot` (

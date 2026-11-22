@@ -7,8 +7,10 @@ import uuid
 from datetime import date
 from typing import Any
 
+from backend.common.task_logging import add_task_event, finish_task_run
 from backend.repositories.base import (
     BaseRepository,
+    ExecutionLeaseError,
     RecycleBinMixin,
     RepositoryError,
     serialize_row,
@@ -278,18 +280,49 @@ class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
         return self.get_task(row["owner_username"], task_id) if row else None
 
     def finish_task_success(
-        self, task_id: str, *, model_name: str, result_markdown: str
+        self,
+        task_id: str,
+        *,
+        model_name: str,
+        result_markdown: str,
+        lease_token: str | None = None,
+        run_id: int | None = None,
     ) -> None:
         with self._connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """UPDATE report_generation_tasks
+                lease_sql = (
+                    ", stage='succeeded', lease_token=NULL, "
+                    "lease_expires_at=NULL, active_run_id=NULL"
+                    if lease_token
+                    else ""
+                )
+                where_sql = "id = %s AND status = 'running' AND deleted_at IS NULL"
+                params: list[Any] = [model_name, result_markdown, task_id]
+                if lease_token:
+                    where_sql += " AND lease_token = %s"
+                    params.append(lease_token)
+                affected = cursor.execute(
+                    f"""UPDATE report_generation_tasks
                           SET status = 'completed', model_name = %s,
                               result_markdown = %s, error_message = NULL,
-                              finished_at = NOW(6), updated_at = NOW(6)
-                        WHERE id = %s AND status = 'running' AND deleted_at IS NULL""",
-                    (model_name, result_markdown, task_id),
+                              finished_at = NOW(6), updated_at = NOW(6){lease_sql}
+                        WHERE {where_sql}""",
+                    tuple(params),
                 )
+                if lease_token and affected != 1:
+                    conn.rollback()
+                    raise ExecutionLeaseError("综合研报租约已失效，未写入结果")
+                if run_id is not None:
+                    finish_task_run(
+                        conn,
+                        run_id,
+                        "succeeded",
+                        processed_count=1,
+                        result={"task_id": task_id},
+                    )
+                    add_task_event(
+                        conn, run_id, "succeeded", "综合研报已保存", status="succeeded"
+                    )
             conn.commit()
 
     def finish_task_failed(self, task_id: str, error_message: str) -> None:
@@ -335,7 +368,8 @@ class ReportGenerationRepository(BaseRepository, RecycleBinMixin):
                     """UPDATE report_generation_tasks
                           SET status = 'failed', error_message = '服务重启导致生成中断，请重试',
                               finished_at = NOW(6), updated_at = NOW(6)
-                        WHERE status IN ('queued', 'running')"""
+                        WHERE status = 'running'
+                          AND (lease_token IS NULL OR lease_expires_at <= NOW(6))"""
                 )
                 updated = cursor.rowcount
             conn.commit()

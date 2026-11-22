@@ -159,7 +159,7 @@ def test_analyzed_report_can_be_reanalyzed_with_force(client, monkeypatch):
     start = _patch_analyze(monkeypatch, "analyzed")
     r = client.post(PREFIX + "/1/analyze", params={"model": "glm", "force": "true"})
     assert r.status_code == 200
-    assert r.json()["data"]["status"] == "processing"
+    assert r.json()["data"]["status"] == "queued"
     start.assert_called_once()
 
 

@@ -10,13 +10,28 @@ import type {
   PolicyDocumentListResponse,
 } from '@/types'
 
+export type PolicyDocumentFilters = {
+  keyword?: string
+  direction?: string
+  date_start?: string
+  date_end?: string
+}
+
 export function fetchPolicyDocuments(
   page = 1,
   pageSize = 20,
+  filters: PolicyDocumentFilters = {},
 ): Promise<PolicyDocumentListResponse> {
-  return request<PolicyDocumentListResponse>(
-    `${BASE}/policy-documents?page=${page}&page_size=${pageSize}`,
-  )
+  const search = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  })
+  const keyword = filters.keyword?.trim()
+  if (keyword) search.set('keyword', keyword)
+  if (filters.direction) search.set('direction', filters.direction)
+  if (filters.date_start) search.set('date_start', filters.date_start)
+  if (filters.date_end) search.set('date_end', filters.date_end)
+  return request<PolicyDocumentListResponse>(`${BASE}/policy-documents?${search}`)
 }
 
 export function fetchPolicyDocument(documentId: number): Promise<PolicyDocumentDetail> {
@@ -26,8 +41,8 @@ export function fetchPolicyDocument(documentId: number): Promise<PolicyDocumentD
 /** 重新解读（用于失败重试或换模型复跑）。 */
 export function reanalyzePolicyDocument(
   documentId: number,
-): Promise<{ document_id: number; status: string }> {
-  return request<{ document_id: number; status: string }>(
+): Promise<{ document_id: number; status: 'queued' | 'analyzing' }> {
+  return request<{ document_id: number; status: 'queued' | 'analyzing' }>(
     `${BASE}/policy-documents/${documentId}/analyze`,
     { method: 'POST' },
   )

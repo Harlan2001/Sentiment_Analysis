@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import tempfile
-import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +36,9 @@ def ingest_policy_pdf(
     pdf_bytes: bytes,
     original_filename: str,
     owner_username: str,
+    *,
+    focus_title: str | None = None,
+    analysis_requirement: str | None = None,
 ) -> dict[str, Any]:
     """接收上传的 PDF，完成去重、解析与入库（不含 LLM 分析）。
 
@@ -88,6 +91,8 @@ def ingest_policy_pdf(
         publish_date=parsed.publish_date,
         full_text=parsed.full_text,
         page_count=parsed.page_count,
+        focus_title=focus_title,
+        analysis_requirement=analysis_requirement,
     )
 
     return {
@@ -103,28 +108,47 @@ def ingest_policy_pdf(
     }
 
 
-def run_analysis(document_id: int, owner_username: str) -> None:
-    """同步执行分析（供后台线程调用）。
-
-    失败时把状态置为 failed 并记录原因 —— 不静默失败。
-    """
+def run_analysis(
+    document_id: int,
+    owner_username: str,
+    *,
+    lease_token: str | None = None,
+    run_id: int | None = None,
+    stage_callback: Callable[[str, str], None] | None = None,
+) -> None:
+    """执行政策解读；队列模式下异常交由统一调度器按租约落失败。"""
     repository = PolicyDocumentRepository.from_environment()
     document = repository.get_document(owner_username, document_id)
     if not document:
-        logger.error("政策文件不存在: %s", document_id)
-        return
+        raise RuntimeError("政策文件不存在")
 
-    repository.set_status(document_id, "analyzing")
+    if lease_token is None:
+        repository.set_status(document_id, "analyzing")
     try:
-        # 分析需要全文，get_document 只返回预览，这里回查完整正文
         full_text = _load_full_text(repository, owner_username, document_id)
-        analysis = analyze_policy_document(full_text)
-        repository.save_analysis(document_id, owner_username, analysis)
-        repository.set_status(document_id, "completed")
+        if stage_callback:
+            stage_callback("analyzing", "正在按文件与分析要求生成政策解读")
+        analysis = analyze_policy_document(
+            full_text,
+            focus_title=document.get("focus_title"),
+            analysis_requirement=document.get("analysis_requirement"),
+        )
+        if stage_callback:
+            stage_callback("saving", "政策解读已返回，正在保存结果")
+        repository.save_analysis(
+            document_id,
+            owner_username,
+            analysis,
+            lease_token=lease_token,
+            run_id=run_id,
+        )
         logger.info("政策文件分析完成: id=%s 方向=%s", document_id, analysis.get("impact_direction"))
     except Exception as exc:
         logger.exception("政策文件分析失败: id=%s", document_id)
-        repository.set_status(document_id, "failed", str(exc)[:500])
+        if lease_token is None:
+            repository.set_status(document_id, "failed", str(exc)[:500])
+        else:
+            raise
 
 
 def _load_full_text(
@@ -142,11 +166,15 @@ def _load_full_text(
 
 
 def start_analysis_async(document_id: int, owner_username: str) -> None:
-    """后台线程执行分析，避免阻塞上传请求（与研报模块同做法）。"""
-    thread = threading.Thread(
-        target=run_analysis,
-        args=(document_id, owner_username),
-        name=f"policy-analysis-{document_id}",
-        daemon=True,
+    """兼容原入口：持久化入队并唤醒统一调度器。"""
+    from backend.task_execution.dispatcher import wake_dispatcher
+    from backend.task_execution.queue import AITaskQueue
+
+    queued = AITaskQueue.from_environment().enqueue(
+        "policy_document",
+        document_id,
+        allowed_statuses=("uploaded", "failed", "completed"),
     )
-    thread.start()
+    if queued:
+        wake_dispatcher()
+        logger.info("政策分析已入队: document_id=%s owner=%s", document_id, owner_username)

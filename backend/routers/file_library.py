@@ -127,8 +127,10 @@ def download_file(
                 cursor.execute(
                     """SELECT title, status, ai_deep_markdown
                          FROM research_report
-                        WHERE id=%s AND uploaded_by=%s""",
-                    (record_id, username),
+                        WHERE id=%s AND (uploaded_by=%s OR (
+                            %s='admin' AND (uploaded_by IS NULL OR uploaded_by IN ('web','admin'))
+                        ))""",
+                    (record_id, username, username),
                 )
                 report = cursor.fetchone()
         if not report or report["status"] != "analyzed" or not report["ai_deep_markdown"]:
@@ -155,8 +157,11 @@ def download_file(
         with conn.cursor() as cursor:
             if source == "research_report":
                 cursor.execute(
-                    "SELECT title, file_path FROM research_report WHERE id=%s AND uploaded_by=%s",
-                    (record_id, username),
+                    """SELECT title, file_path FROM research_report
+                         WHERE id=%s AND (uploaded_by=%s OR (
+                             %s='admin' AND (uploaded_by IS NULL OR uploaded_by IN ('web','admin'))
+                         ))""",
+                    (record_id, username, username),
                 )
                 row = cursor.fetchone()
                 if not row:
@@ -169,8 +174,10 @@ def download_file(
                     """SELECT f.image_path, f.caption, f.page_number, f.figure_order
                          FROM report_figure f
                          JOIN research_report r ON r.id = f.report_id
-                        WHERE f.id=%s AND r.uploaded_by=%s""",
-                    (record_id, username),
+                        WHERE f.id=%s AND (r.uploaded_by=%s OR (
+                            %s='admin' AND (r.uploaded_by IS NULL OR r.uploaded_by IN ('web','admin'))
+                        ))""",
+                    (record_id, username, username),
                 )
                 row = cursor.fetchone()
                 if not row:

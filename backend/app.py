@@ -16,7 +16,6 @@ from backend.config.config import MYSQL_CONFIG
 from backend.integrations.feishu.repository import FeishuConnectionRepository
 from backend.repositories.ai_strategy_history_repository import AiStrategyHistoryRepository
 from backend.repositories.project_management_repository import ProjectManagementRepository
-from backend.repositories.report_generation_repository import ReportGenerationRepository
 from backend.repositories.user_memory_repository import UserMemoryRepository
 from backend.routers.ai_strategy_generation import (
     router as ai_strategy_generation_router,
@@ -39,6 +38,7 @@ from backend.routers.mcp_business import router as mcp_business_router
 from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.policy_documents import router as policy_documents_router
+from backend.routers.portfolios import router as portfolios_router
 from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
 from backend.routers.research import router as research_router
@@ -93,6 +93,7 @@ app.include_router(factors_router)
 app.include_router(news_router)
 app.include_router(pipeline_router)
 app.include_router(policy_documents_router)
+app.include_router(portfolios_router)
 app.include_router(forecast_router)
 app.include_router(futures_router)
 app.include_router(graph_augment_router)
@@ -167,18 +168,25 @@ def startup_workbench():
     history_repository.ensure_recycle_bin_schema()
     history_repository.ensure_progress_schema()
     app.state.feishu_mcp_repository = FeishuConnectionRepository()
-    interrupted_reports = ReportGenerationRepository.from_environment().mark_incomplete_failed()
-    if interrupted_reports:
-        logger.warning("Marked %d interrupted report generation tasks as failed", interrupted_reports)
     interrupted = app.state.repository.mark_streaming_messages_interrupted()
     if interrupted:
         logger.warning("已将 %d 条未完成工作台助手消息标记为 interrupted", interrupted)
-    from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 
-    interrupted_summaries = (
-        DailyNewsSummaryRepository.from_environment().mark_interrupted_tasks_failed()
-    )
-    if interrupted_summaries:
-        logger.warning(
-            "已将 %d 个中断的新闻总结任务标记为 failed", interrupted_summaries
-        )
+
+@app.on_event("startup")
+async def startup_ai_tasks():
+    """启动统一 AI 队列；数据库暂不可用时保持原有启动降级策略。"""
+    from backend.task_execution.dispatcher import start_dispatcher, stop_dispatcher
+
+    try:
+        await start_dispatcher(app)
+    except Exception:
+        logger.exception("AI 任务调度器启动失败，排队任务将在数据库恢复后的重启中继续")
+        await stop_dispatcher(app)
+
+
+@app.on_event("shutdown")
+async def shutdown_ai_tasks():
+    from backend.task_execution.dispatcher import stop_dispatcher
+
+    await stop_dispatcher(app)

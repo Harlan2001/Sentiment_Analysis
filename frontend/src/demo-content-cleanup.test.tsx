@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -17,7 +18,12 @@ describe('demo content cleanup', () => {
     ['投资组合', <PortfolioPage />],
     ['首页', <HomePage />],
   ])('%s 页面不展示演示或 Mock 标记', (_name, page) => {
-    const { container } = render(<MemoryRouter>{page}</MemoryRouter>)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{page}</MemoryRouter>
+      </QueryClientProvider>,
+    )
 
     expect(screen.queryByRole('status', { name: '演示功能提示' })).not.toBeInTheDocument()
     expect(container).not.toHaveTextContent(/演示功能|演示数据|演示版本|演示配置|模拟授权|Mock 数据|DEMO/)

@@ -51,6 +51,12 @@ class RepositoryError(Exception):
     status_code: int = 400
 
 
+class ExecutionLeaseError(RepositoryError):
+    """执行租约已失效，禁止旧 worker 覆盖新执行结果。"""
+
+    status_code = 409
+
+
 class BaseRepository:
     """提供面向 repositories/ 的共享连接管理与工厂方法，避免各仓储重复样板。"""
 

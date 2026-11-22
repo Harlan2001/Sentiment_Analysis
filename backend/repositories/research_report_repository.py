@@ -10,7 +10,12 @@ import json
 from datetime import date
 from typing import Any
 
-from backend.repositories.base import BaseRepository, RepositoryError
+from backend.common.task_logging import add_task_event, finish_task_run
+from backend.repositories.base import (
+    BaseRepository,
+    ExecutionLeaseError,
+    RepositoryError,
+)
 
 
 class ResearchReportConflictError(RepositoryError):
@@ -309,6 +314,8 @@ class ResearchReportRepository(BaseRepository):
         parsed: dict[str, Any],
         raw: str,
         deep_markdown: str | None = None,
+        lease_token: str | None = None,
+        run_id: int | None = None,
     ) -> None:
         """写入 AI 分析结果，状态转 analyzed。
 
@@ -317,33 +324,54 @@ class ResearchReportRepository(BaseRepository):
         """
         with self._connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE research_report SET
+                lease_sql = (
+                    ", stage='succeeded', lease_token=NULL, "
+                    "lease_expires_at=NULL, active_run_id=NULL"
+                    if lease_token
+                    else ""
+                )
+                where_sql = "id=%s"
+                params: list[Any] = [
+                    str(parsed.get("summary", ""))[:1024],
+                    json.dumps(parsed.get("key_points", []), ensure_ascii=False),
+                    json.dumps(parsed.get("symbols", []), ensure_ascii=False),
+                    json.dumps(parsed.get("industries", []), ensure_ascii=False),
+                    parsed.get("market_view", "neutral"),
+                    float(parsed.get("view_strength", 0.5) or 0.5),
+                    parsed.get("time_horizon", "medium"),
+                    json.dumps(parsed.get("evidence", []), ensure_ascii=False),
+                    deep_markdown,
+                    model_name,
+                    json.dumps(raw, ensure_ascii=False) if isinstance(raw, str) else raw,
+                    report_id,
+                ]
+                if lease_token:
+                    where_sql += " AND status='processing' AND lease_token=%s"
+                    params.append(lease_token)
+                affected = cursor.execute(
+                    f"""UPDATE research_report SET
                         ai_summary=%s, ai_key_points=%s, ai_symbols=%s, ai_industries=%s,
                         ai_market_view=%s, ai_view_strength=%s, ai_time_horizon=%s,
                         ai_evidence=%s, ai_deep_markdown=%s,
                         ai_analyzed_at=NOW(), ai_model=%s, ai_raw_response=%s,
-                        status='analyzed', parse_error=NULL
-                    WHERE id=%s
-                    """,
-                    (
-                        str(parsed.get("summary", ""))[:1024],
-                        json.dumps(parsed.get("key_points", []), ensure_ascii=False),
-                        json.dumps(parsed.get("symbols", []), ensure_ascii=False),
-                        json.dumps(parsed.get("industries", []), ensure_ascii=False),
-                        parsed.get("market_view", "neutral"),
-                        float(parsed.get("view_strength", 0.5) or 0.5),
-                        parsed.get("time_horizon", "medium"),
-                        json.dumps(parsed.get("evidence", []), ensure_ascii=False),
-                        deep_markdown,
-                        model_name,
-                        json.dumps(raw, ensure_ascii=False)
-                        if isinstance(raw, str)
-                        else raw,
-                        report_id,
-                    ),
+                        status='analyzed', parse_error=NULL{lease_sql}
+                    WHERE {where_sql}""",
+                    tuple(params),
                 )
+                if lease_token and affected != 1:
+                    conn.rollback()
+                    raise ExecutionLeaseError("研报分析租约已失效，未写入结果")
+                if run_id is not None:
+                    finish_task_run(
+                        conn,
+                        run_id,
+                        "succeeded",
+                        processed_count=1,
+                        result={"report_id": report_id},
+                    )
+                    add_task_event(
+                        conn, run_id, "succeeded", "研报分析结果已保存", status="succeeded"
+                    )
             conn.commit()
 
     def mark_analysis_failed(self, report_id: int, error_message: str) -> None:

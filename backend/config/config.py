@@ -263,6 +263,13 @@ NEWS_SOURCE_WEIGHTS = {
 # 组合策略时区：统一使用北京时间进行日期计算和时间戳生成
 PORTFOLIO_TZ = ZoneInfo("Asia/Shanghai")
 
+# ====================== AI 任务统一执行 ======================
+AI_TASK_POLL_SECONDS = _get_env_int("AI_TASK_POLL_SECONDS", 2)
+AI_TASK_MAX_WORKERS = _get_env_int("AI_TASK_MAX_WORKERS", 4)
+AI_TASK_DOMAIN_MAX_WORKERS = _get_env_int("AI_TASK_DOMAIN_MAX_WORKERS", 2)
+AI_TASK_LEASE_SECONDS = _get_env_int("AI_TASK_LEASE_SECONDS", 180)
+AI_TASK_HEARTBEAT_SECONDS = _get_env_int("AI_TASK_HEARTBEAT_SECONDS", 45)
+
 # ====================== API 路由前缀 ======================
 # 可通过环境变量 API_PREFIX 覆盖（默认 /sapi）
 API_PREFIX = _get_env_str("API_PREFIX") or "/sapi"
