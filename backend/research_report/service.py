@@ -8,15 +8,14 @@
 import hashlib
 import json
 import logging
-import threading
 import time
 import traceback
+from collections.abc import Callable
 from datetime import datetime
 
 from backend.common.llm_logger import log_llm_usage
 from backend.repositories.research_report_repository import ResearchReportRepository
 from backend.research_report.constants import (
-    ANALYSIS_MAX_CONCURRENCY,
     DATA_ROOT,
     FIGURE_MAX_PER_REPORT,
     FIGURE_ROOT,
@@ -191,45 +190,39 @@ def ingest_uploaded_pdf(
 # ========================================================================
 
 
-# 批量重跑会为每份研报起一个线程；用信号量把同时进行的 LLM 分析限制在
-# ANALYSIS_MAX_CONCURRENCY 个，排队中的任务保持 parsed/failed 状态等待空位。
-_ANALYSIS_SLOTS = threading.BoundedSemaphore(ANALYSIS_MAX_CONCURRENCY)
+def run_analysis_async(report_id: int, model: str | None = None) -> None:
+    """兼容原入口：只持久化入队并唤醒有界调度器，不再创建任务线程。"""
+    from backend.task_execution.dispatcher import wake_dispatcher
+    from backend.task_execution.queue import AITaskQueue
 
-
-def run_analysis_async(report_id: int, model: str | None = None):
-    """
-    在后台线程中启动 AI 分析，立即返回。
-
-    参数:
-        report_id: 研报 ID
-        model: provider model 全名，默认取研报默认模型
-    """
-    model = model or resolve_provider_model()
-
-    def _run():
-        with _ANALYSIS_SLOTS:
-            _analyze_report_sync(report_id, model)
-
-    t = threading.Thread(
-        target=_run,
-        name=f"research-analyze-{report_id}",
-        daemon=True,
+    provider_model = model or resolve_provider_model()
+    queued = AITaskQueue.from_environment().enqueue(
+        "research_report",
+        report_id,
+        allowed_statuses=("parsed", "failed"),
+        requested_model=provider_model,
     )
-    t.start()
-    logger.info("后台分析已启动: report_id=%d model=%s", report_id, model)
+    if queued:
+        wake_dispatcher()
+        logger.info("研报分析已入队: report_id=%d model=%s", report_id, provider_model)
 
 
-def _analyze_report_sync(report_id: int, model: str):
-    """同步执行 AI 分析（在后台线程中调用）"""
+def _analyze_report_sync(
+    report_id: int,
+    model: str,
+    *,
+    lease_token: str | None = None,
+    run_id: int | None = None,
+    stage_callback: Callable[[str, str], None] | None = None,
+):
+    """执行分析；队列模式下结果与执行日志必须匹配当前租约。"""
     repository = ResearchReportRepository.from_environment()
     model_short = get_research_model_name()
     t_start = time.time()
     try:
-        # 1. 抢占任务锁
-        if not repository.claim_for_analysis(report_id):
-            logger.warning(
-                "抢占失败 report_id=%d（可能已被处理或状态不合法）", report_id
-            )
+        # 调度器已原子抢占；无租约的旧内部调用保留原行为。
+        if lease_token is None and not repository.claim_for_analysis(report_id):
+            logger.warning("抢占失败 report_id=%d（状态不合法）", report_id)
             return
 
         # 2. 加载研报数据与图表
@@ -237,8 +230,7 @@ def _analyze_report_sync(report_id: int, model: str):
             report_id, figure_limit=FIGURE_MAX_PER_REPORT
         )
         if analysis_input is None:
-            logger.error("研报不存在 report_id=%d", report_id)
-            return
+            raise RuntimeError("研报不存在或正文不可用")
         title, full_text, image_paths = analysis_input
         figure_paths = []
         for p in image_paths:
@@ -246,7 +238,8 @@ def _analyze_report_sync(report_id: int, model: str):
             if fp.exists():
                 figure_paths.append(fp)
 
-        # 3. LLM 深度拆解（结构不达标会抛 RuntimeError，进入失败分支）
+        if stage_callback:
+            stage_callback("analyzing", "正在调用模型解析研报观点与证据")
         deep_markdown, meta, usage = analyze_report(
             full_text,
             figure_paths=figure_paths if figure_paths else None,
@@ -258,12 +251,16 @@ def _analyze_report_sync(report_id: int, model: str):
         raw_envelope = json.dumps(
             {"markdown": deep_markdown, **meta}, ensure_ascii=False
         )
+        if stage_callback:
+            stage_callback("saving", "模型返回已校验，正在保存分析结果")
         repository.finish_analysis(
             report_id,
             model_name=model_short,
             parsed=meta,
             raw=raw_envelope,
             deep_markdown=deep_markdown,
+            lease_token=lease_token,
+            run_id=run_id,
         )
 
         # 5. 记录 LLM 用量
@@ -292,10 +289,11 @@ def _analyze_report_sync(report_id: int, model: str):
             "分析失败 report_id=%d: %s\n%s", report_id, err, traceback.format_exc()
         )
 
-        try:
-            repository.mark_analysis_failed(report_id, err)
-        except Exception:
-            logger.error("写入失败状态时出错", exc_info=True)
+        if lease_token is None:
+            try:
+                repository.mark_analysis_failed(report_id, err)
+            except Exception:
+                logger.error("写入失败状态时出错", exc_info=True)
 
         log_llm_usage(
             call_source="research",
@@ -304,3 +302,5 @@ def _analyze_report_sync(report_id: int, model: str):
             success=False,
             error_message=err,
         )
+        if lease_token is not None:
+            raise

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   deletePolicyDocument,
@@ -6,7 +6,7 @@ import {
   reanalyzePolicyDocument,
 } from '@/api/policyDocuments'
 import PolicyUploadModal from '@/features/workflow/components/PolicyUploadModal'
-import type { PolicyDocumentItem, PolicyImpactDirection } from '@/types'
+import type { PolicyDocumentItem, PolicyDocumentStats, PolicyImpactDirection } from '@/types'
 
 /**
  * 政策文件分析（工作流内）。
@@ -20,6 +20,7 @@ import type { PolicyDocumentItem, PolicyImpactDirection } from '@/types'
 const PAGE_SIZE = 6
 
 const STATUS_LABEL: Record<string, string> = {
+  queued: '排队中',
   uploaded: '待解读',
   analyzing: '解读中',
   completed: '已解读',
@@ -27,6 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_CSS: Record<string, string> = {
+  queued: 'waiting',
   uploaded: 'waiting',
   analyzing: 'running',
   completed: 'done',
@@ -52,11 +54,16 @@ export default function PolicyDocumentsPage() {
   // ── 文件库 ──
   const [documents, setDocuments] = useState<PolicyDocumentItem[]>([])
   const [total, setTotal] = useState(0)
+  const [stats, setStats] = useState<PolicyDocumentStats>({
+    total: 0, analyzed: 0, bullish: 0, bearish: 0, neutral: 0,
+  })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [directionFilter, setDirectionFilter] = useState('')
+  const [dateStart, setDateStart] = useState('')
+  const [dateEnd, setDateEnd] = useState('')
 
   // ── 上传 ──
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -78,9 +85,18 @@ export default function PolicyDocumentsPage() {
     async (quiet = false) => {
       if (!quiet) setLoading(true)
       try {
-        const data = await fetchPolicyDocuments(page, PAGE_SIZE)
+        const data = await fetchPolicyDocuments(page, PAGE_SIZE, {
+          keyword,
+          direction: directionFilter,
+          date_start: dateStart,
+          date_end: dateEnd,
+        })
         setDocuments(data.items)
         setTotal(data.total)
+        // stats 是与筛选条件一致的全量统计；旧 mock 未返回时不再用当前页伪造。
+        setStats(data.stats ?? {
+          total: data.total, analyzed: 0, bullish: 0, bearish: 0, neutral: 0,
+        })
         setError('')
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : '读取政策文件失败')
@@ -88,51 +104,38 @@ export default function PolicyDocumentsPage() {
         if (!quiet) setLoading(false)
       }
     },
-    [page],
+    [dateEnd, dateStart, directionFilter, keyword, page],
   )
 
   useEffect(() => {
     void load()
   }, [load])
 
-  // 有解读中的任务时轮询
+  // queued/uploaded/analyzing 都是活动状态；隐藏标签页不发起轮询。
   const hasActive = documents.some(
-    (item) => item.status === 'analyzing' || item.status === 'uploaded',
+    (item) => item.status === 'queued' || item.status === 'analyzing' || item.status === 'uploaded',
   )
   useEffect(() => {
     if (!hasActive) return
-    const timer = window.setInterval(() => void load(true), 4000)
-    return () => window.clearInterval(timer)
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void load(true)
+    }
+    const timer = window.setInterval(refreshWhenVisible, 4000)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [hasActive, load])
 
-  // ── 前端筛选（关键词 + 方向）──
-  const filtered = useMemo(() => {
-    return documents.filter((item) => {
-      if (keyword && !item.title.toLowerCase().includes(keyword.toLowerCase())) return false
-      if (directionFilter && item.impact_direction !== directionFilter) return false
-      return true
-    })
-  }, [documents, keyword, directionFilter])
-
-  const activeItems = filtered.filter(
-    (item) => item.status === 'analyzing' || item.status === 'uploaded',
+  // 分组只针对服务端当前页，不再对当前页执行关键词或方向过滤。
+  const activeItems = documents.filter(
+    (item) => item.status === 'queued' || item.status === 'analyzing' || item.status === 'uploaded',
   )
-  const historyItems = filtered.filter(
+  const historyItems = documents.filter(
     (item) => item.status === 'completed' || item.status === 'failed',
   )
   const visibleHistory = showAllHistory ? historyItems : historyItems.slice(0, 5)
-
-  // ── 统计 ──
-  const stats = useMemo(() => {
-    const done = documents.filter((item) => item.status === 'completed')
-    return {
-      total,
-      analyzed: done.length,
-      bullish: done.filter((item) => item.impact_direction === 'bullish').length,
-      bearish: done.filter((item) => item.impact_direction === 'bearish').length,
-      neutral: done.filter((item) => item.impact_direction === 'neutral').length,
-    }
-  }, [documents, total])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -172,7 +175,10 @@ export default function PolicyDocumentsPage() {
             <button
               key={value || 'all'}
               className={directionFilter === value ? 'active' : ''}
-              onClick={() => setDirectionFilter(value)}
+              onClick={() => {
+                setDirectionFilter(value)
+                setPage(1)
+              }}
             >
               {label}
             </button>
@@ -220,18 +226,43 @@ export default function PolicyDocumentsPage() {
           <div className="report-library-filters">
             <input
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(event) => {
+                setKeyword(event.target.value)
+                setPage(1)
+              }}
               placeholder="搜索文件标题"
             />
             <select
+              aria-label="影响方向筛选"
               value={directionFilter}
-              onChange={(event) => setDirectionFilter(event.target.value)}
+              onChange={(event) => {
+                setDirectionFilter(event.target.value)
+                setPage(1)
+              }}
             >
               <option value="">全部影响方向</option>
               <option value="bullish">利多债券</option>
               <option value="bearish">利空债券</option>
               <option value="neutral">中性</option>
             </select>
+            <input
+              type="date"
+              aria-label="开始日期"
+              value={dateStart}
+              onChange={(event) => {
+                setDateStart(event.target.value)
+                setPage(1)
+              }}
+            />
+            <input
+              type="date"
+              aria-label="结束日期"
+              value={dateEnd}
+              onChange={(event) => {
+                setDateEnd(event.target.value)
+                setPage(1)
+              }}
+            />
           </div>
 
           <div className="report-source-list policy-card-list">
@@ -244,14 +275,14 @@ export default function PolicyDocumentsPage() {
                   重试
                 </button>
               </div>
-            ) : filtered.length === 0 ? (
+            ) : documents.length === 0 ? (
               <div className="report-empty">
-                {documents.length
+                {keyword || directionFilter || dateStart || dateEnd
                   ? '当前条件下没有匹配的文件，请调整筛选。'
                   : '暂无政策文件，点击右上角「上传政策文件」上传 PDF。'}
               </div>
             ) : (
-              filtered.map((item) => (
+              documents.map((item) => (
                 <button
                   type="button"
                   className="report-source-card"
@@ -312,7 +343,7 @@ export default function PolicyDocumentsPage() {
       {/* ── 需要处理 ── */}
       <section className="computer-attention">
         <div className="computer-attention-head">
-          <strong>需要处理 · {activeItems.length}</strong>
+          <strong>需要处理 · 本页 {activeItems.length}</strong>
           <span>实时状态</span>
         </div>
         {activeItems.length === 0 ? (
@@ -331,7 +362,11 @@ export default function PolicyDocumentsPage() {
                 <strong>{item.title}</strong>
                 <small>
                   {item.issuer || '未识别发文机关'} ·{' '}
-                  {item.status === 'uploaded' ? '等待开始解读' : 'AI 正在解读要点与影响方向'}
+                  {item.status === 'queued'
+                    ? '已加入队列，等待执行'
+                    : item.status === 'uploaded'
+                      ? '等待开始解读'
+                      : 'AI 正在解读要点与影响方向'}
                 </small>
               </div>
               <span className="computer-spacer" />
@@ -345,7 +380,7 @@ export default function PolicyDocumentsPage() {
                 >
                   查看详情
                 </button>
-                <time>{formatDateTime(item.created_at)}</time>
+                <time>{formatDateTime(item.updated_at || item.created_at)}</time>
               </span>
             </div>
           ))
@@ -356,7 +391,7 @@ export default function PolicyDocumentsPage() {
       <div className="computer-list-head" style={{ marginTop: 18 }}>
         <div>
           <strong>历史记录</strong>
-          <span>· {historyItems.length} 份</span>
+          <span>· 本页 {historyItems.length} 份</span>
         </div>
       </div>
       <div className="computer-table-wrap">
@@ -432,7 +467,7 @@ export default function PolicyDocumentsPage() {
                     )}
                   </td>
                   <td>
-                    <time>{formatDateTime(item.created_at)}</time>
+                    <time>{formatDateTime(item.updated_at || item.created_at)}</time>
                   </td>
                   <td>
                     <button
@@ -508,10 +543,14 @@ export default function PolicyDocumentsPage() {
         variant="computer"
         isOpen={uploadOpen}
         onClose={() => setUploadOpen(false)}
+        focusTitle={focusTitle}
+        requirement={requirement}
         onSubmitted={() => {
           setUploadOpen(false)
-          setPage(1)
-          void load()
+          setFocusTitle('')
+          setRequirement('')
+          if (page === 1) void load()
+          else setPage(1)
         }}
       />
     </section>

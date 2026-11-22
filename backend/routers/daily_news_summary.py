@@ -11,14 +11,12 @@ from pydantic import BaseModel, Field, model_validator
 from backend.common.api_response import ok
 from backend.common.pagination import limit_param
 from backend.config.config import API_PREFIX, NEWS_SOURCES
-from backend.news_summary.service import generate_daily_news_summary
 from backend.repositories.news_summary_repository import DailyNewsSummaryRepository
 from backend.routers.workbench_helpers import raise_repository_error
 
 router = APIRouter(
     prefix=f"{API_PREFIX}/daily-news-summaries", tags=["daily-news-summaries"]
 )
-_background_tasks: set[asyncio.Task] = set()
 
 
 class DailyNewsSummaryCreateRequest(BaseModel):
@@ -53,11 +51,13 @@ def _repository() -> DailyNewsSummaryRepository:
 
 
 def _start_generation(owner_username: str, task_id: int) -> None:
-    task = asyncio.create_task(
-        generate_daily_news_summary(_repository(), owner_username, task_id)
-    )
-    task.add_done_callback(_background_tasks.discard)
-    _background_tasks.add(task)
+    from backend.task_execution.dispatcher import wake_dispatcher
+    from backend.task_execution.queue import AITaskQueue
+
+    if AITaskQueue.from_environment().enqueue(
+        "daily_news", task_id, allowed_statuses=("pending",)
+    ):
+        wake_dispatcher()
 
 
 @router.get("")

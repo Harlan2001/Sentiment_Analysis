@@ -52,6 +52,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
   '/forecast': <ForecastPage />,
   '/watchlist': <WatchlistPage />,
   '/portfolio': <PortfolioPage />,
+  '/portfolio/:portfolioId': <PortfolioPage />,
   '/futures': <FuturesPage />,
   '/credit-spread': <CreditSpreadPage />,
   '/treasury-spread': <TreasurySpreadPage />,
@@ -83,6 +84,7 @@ const ROUTE_ELEMENTS: Record<string, ReactNode> = {
 const LOGIN_REQUIRED_ROUTES = new Set([
   '/watchlist',
   '/portfolio',
+  '/portfolio/:portfolioId',
   '/workflow',
   '/computer/reports',
   '/computer/reports/library',

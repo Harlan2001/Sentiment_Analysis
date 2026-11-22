@@ -328,8 +328,15 @@ def _start_analysis(report_id: int, model: str) -> None:
     run_analysis_async(report_id, resolve_provider_model(model))
 
 
+def _can_operate(request: Request, uploaded_by: Any) -> bool:
+    username = getattr(request.state, "username", None) or "admin"
+    if username == "admin":
+        return True
+    return bool(uploaded_by) and uploaded_by not in {"web", "admin"} and uploaded_by == username
+
+
 @router.post("/reanalyze/batch")
-def reanalyze_batch(payload: BatchReanalyzeRequest):
+def reanalyze_batch(request: Request, payload: BatchReanalyzeRequest):
     """按机构/行业/观点/关键词/发布日期筛选，批量重跑已分析研报（P0-3）。
 
     只重跑 status='analyzed' 的研报；逐份重置后排队，正在分析中的计入 skipped。
@@ -337,7 +344,7 @@ def reanalyze_batch(payload: BatchReanalyzeRequest):
     _validate_date_range(payload.date_start, payload.date_end)
     repository = ResearchReportRepository.from_environment()
     rows = repository.query_reports(
-        columns=("id", "status"),
+        columns=("id", "status", "uploaded_by"),
         status="analyzed",
         institution=payload.institution,
         industry=payload.industry,
@@ -354,6 +361,9 @@ def reanalyze_batch(payload: BatchReanalyzeRequest):
     skipped: list[int] = []
     for row in rows:
         report_id = int(row["id"])
+        if not _can_operate(request, row.get("uploaded_by")):
+            skipped.append(report_id)
+            continue
         try:
             repository.reset_for_reanalysis(report_id)
         except ResearchReportConflictError:
@@ -371,6 +381,7 @@ def reanalyze_batch(payload: BatchReanalyzeRequest):
 
 @router.post("/{report_id}/analyze")
 def trigger_analysis(
+    request: Request,
     report_id: int,
     model: str = Query(
         "glm", description="模型短名: glm / deepseek / qwen / kimi"
@@ -385,13 +396,13 @@ def trigger_analysis(
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, status FROM research_report WHERE id=%s",
+                "SELECT id, status, uploaded_by FROM research_report WHERE id=%s",
                 (report_id,),
             )
             row = cur.fetchone()
 
-    if not row:
-        raise HTTPException(status_code=404, detail="研报不存在")
+    if not row or not _can_operate(request, row[2] if len(row) > 2 else None):
+        raise HTTPException(status_code=404, detail="研报不存在或当前用户无权操作")
 
     current_status = row[1]
     if current_status == "analyzed":
@@ -405,11 +416,11 @@ def trigger_analysis(
             ResearchReportRepository.from_environment().reset_for_reanalysis(report_id)
         except ResearchReportConflictError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc))
-    elif current_status == "processing":
+    elif current_status in {"processing", "analyzing", "queued"}:
         return ok({
             "report_id": report_id,
-            "status": "processing",
-            "message": "正在分析中，请稍候",
+            "status": current_status,
+            "message": "任务已排队或正在分析，请稍候",
         })
     elif current_status not in ("parsed", "failed"):
         raise HTTPException(
@@ -421,8 +432,8 @@ def trigger_analysis(
 
     return ok({
         "report_id": report_id,
-        "status": "processing",
-        "message": "分析任务已提交",
+        "status": "queued",
+        "message": "分析任务已加入队列",
     })
 
 

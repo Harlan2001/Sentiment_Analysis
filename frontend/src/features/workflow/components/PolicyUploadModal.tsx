@@ -10,7 +10,7 @@ import { API_PREFIX, request } from '@/api/client'
  * 不像研报需要"先攒一批再合成"，省掉一次手动点击。
  */
 
-type Step = 'select' | 'uploading' | 'analyzing' | 'submitted' | 'error'
+type Step = 'select' | 'uploading' | 'submitted' | 'error'
 
 interface UploadResult {
   document_id: number
@@ -22,6 +22,7 @@ interface UploadResult {
   publish_date?: string | null
   page_count?: number
   warnings?: string[]
+  message?: string
 }
 
 interface PolicyUploadModalProps {
@@ -29,6 +30,8 @@ interface PolicyUploadModalProps {
   onClose: () => void
   onSubmitted: () => void
   variant?: 'default' | 'computer'
+  focusTitle?: string
+  requirement?: string
 }
 
 export default function PolicyUploadModal({
@@ -36,6 +39,8 @@ export default function PolicyUploadModal({
   onClose,
   onSubmitted,
   variant = 'default',
+  focusTitle = '',
+  requirement = '',
 }: PolicyUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('select')
@@ -81,15 +86,15 @@ export default function PolicyUploadModal({
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      // 后端在上传成功后会立即在后台启动分析
+      formData.append('focus_title', focusTitle.trim())
+      formData.append('requirement', requirement.trim())
+      // 上传响应只代表已入队；真实阶段由政策列表轮询统一任务状态。
       const data = await request<UploadResult>(`${API_PREFIX}/policy-documents/upload`, {
         method: 'POST',
         body: formData,
       })
       setResult(data)
-      setStep('analyzing')
-      // 给后台分析留出时间后进入完成态（分析在服务端异步进行）
-      setTimeout(() => setStep('submitted'), 1200)
+      setStep('submitted')
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : '上传失败，请重试')
       setStep('error')
@@ -106,7 +111,7 @@ export default function PolicyUploadModal({
     onSubmitted()
   }
 
-  const busy = step === 'uploading' || step === 'analyzing'
+  const busy = step === 'uploading'
 
   return (
     <Modal
@@ -201,18 +206,17 @@ export default function PolicyUploadModal({
           </>
         )}
 
-        {busy && step === 'analyzing' && (
-          <div className="flex flex-col items-center py-8">
-            <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
-            <p className="text-sm text-gray-300">AI 正在解读政策文件…</p>
-            <p className="mt-1 text-xs text-gray-500">解析要点、判断对债市的影响方向</p>
-          </div>
-        )}
-
         {step === 'submitted' && result && (
           <>
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-              <p className="text-sm font-medium text-emerald-300">上传成功，解读已启动</p>
+              <p className="text-sm font-medium text-emerald-300">
+                {result.is_duplicate ? '文件已存在' : '已加入队列'}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {result.is_duplicate
+                  ? result.message || '文件已存在，未自动重新分析；可在已有文件中确认重新解读。'
+                  : '后台将按真实进度解读，关闭后可在文件列表中查看排队与分析状态。'}
+              </p>
               <dl className="mt-3 space-y-1.5 text-xs">
                 <div className="flex gap-2">
                   <dt className="w-16 shrink-0 text-gray-500">标题</dt>
@@ -237,11 +241,6 @@ export default function PolicyUploadModal({
                   </div>
                 ) : null}
               </dl>
-              {result.is_duplicate && (
-                <p className="mt-3 text-xs text-amber-300">
-                  该文件此前已上传过，直接使用已有记录。
-                </p>
-              )}
             </div>
 
             {result.warnings?.length ? (
@@ -255,7 +254,7 @@ export default function PolicyUploadModal({
                 onClick={handleDone}
                 className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-black hover:bg-gray-200"
               >
-                查看解读结果
+                查看任务状态
               </button>
             </div>
           </>

@@ -6,8 +6,10 @@ import json
 from datetime import date
 from typing import Any
 
+from backend.common.task_logging import add_task_event, finish_task_run
 from backend.repositories.base import (
     BaseRepository,
+    ExecutionLeaseError,
     RecycleBinMixin,
     RepositoryError,
     json_default,
@@ -69,8 +71,9 @@ class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """INSERT INTO daily_news_summary_tasks
-                       (owner_username, start_date, end_date, sources_json, focus, retry_of_id)
-                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                       (owner_username, start_date, end_date, sources_json, focus,
+                        retry_of_id, queued_at, stage)
+                       VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(6), 'queued')""",
                     (
                         owner_username,
                         start_date,
@@ -131,25 +134,55 @@ class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
         source_stats: dict[str, int],
         summary: str,
         references: list[dict[str, Any]],
+        lease_token: str | None = None,
+        run_id: int | None = None,
     ) -> None:
         with self._connection() as conn:
             with conn.cursor() as cursor:
+                lease_sql = (
+                    ", stage = %s, lease_token = NULL, lease_expires_at = NULL, active_run_id = NULL"
+                    if lease_token
+                    else ""
+                )
+                where_sql = (
+                    "id = %s AND owner_username = %s AND status = 'running' "
+                    "AND deleted_at IS NULL"
+                )
+                params: list[Any] = [
+                    status,
+                    news_count,
+                    json.dumps(source_stats, ensure_ascii=False),
+                    summary,
+                    json.dumps(references, ensure_ascii=False, default=json_default),
+                ]
+                if lease_token:
+                    params.append("empty" if status == "empty" else "succeeded")
+                params.extend([task_id, owner_username])
+                if lease_token:
+                    where_sql += " AND lease_token = %s"
+                    params.append(lease_token)
                 affected = cursor.execute(
-                    """UPDATE daily_news_summary_tasks
+                    f"""UPDATE daily_news_summary_tasks
                        SET status = %s, news_count = %s, source_stats_json = %s,
                            summary = %s, references_json = %s, error_message = NULL,
-                           completed_at = CURRENT_TIMESTAMP(6)
-                       WHERE id = %s AND owner_username = %s AND status = 'running' AND deleted_at IS NULL""",
-                    (
-                        status,
-                        news_count,
-                        json.dumps(source_stats, ensure_ascii=False),
-                        summary,
-                        json.dumps(references, ensure_ascii=False, default=json_default),
-                        task_id,
-                        owner_username,
-                    ),
+                           completed_at = CURRENT_TIMESTAMP(6){lease_sql}
+                       WHERE {where_sql}""",
+                    tuple(params),
                 )
+                if lease_token and affected != 1:
+                    conn.rollback()
+                    raise ExecutionLeaseError("新闻总结租约已失效，未写入结果")
+                if run_id is not None:
+                    finish_task_run(
+                        conn,
+                        run_id,
+                        "succeeded",
+                        processed_count=news_count,
+                        result={"task_id": task_id, "status": status},
+                    )
+                    add_task_event(
+                        conn, run_id, status, "新闻总结已保存", status="succeeded"
+                    )
             conn.commit()
         if not affected:
             raise DailyNewsSummaryNotFoundError("新闻总结任务已不存在或状态已变化")
@@ -172,7 +205,8 @@ class DailyNewsSummaryRepository(BaseRepository, RecycleBinMixin):
                     """UPDATE daily_news_summary_tasks
                        SET status = 'failed', error_message = '服务重启中断了生成，请重试。',
                            completed_at = CURRENT_TIMESTAMP(6)
-                       WHERE status IN ('pending', 'running')"""
+                       WHERE status = 'running'
+                         AND (lease_token IS NULL OR lease_expires_at <= NOW(6))"""
                 )
             conn.commit()
         return int(affected)

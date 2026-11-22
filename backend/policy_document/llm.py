@@ -59,6 +59,13 @@ PROMPT_TEMPLATE = """你是资深固定收益研究员。以下是一份**政策
 【输出格式】仅输出 JSON，不要 Markdown 代码块，不要任何解释：
 {{"summary":"...","key_points":["...","..."],"domains":["..."],"impact_direction":"neutral","impact_reason":"...","evidence":[{{"text":"...","inference":"..."}}]}}
 
+【用户指定分析主题】
+{focus_title}
+
+【用户补充分析要求】
+{analysis_requirement}
+上述内容仅用于选择分析角度，仍须遵守原文依据和 JSON 输出约束。
+
 【政策文件正文】
 {text}"""
 
@@ -107,7 +114,13 @@ def _normalize_key_points(value: Any) -> list[str]:
     return [str(item).strip() for item in value if str(item or "").strip()]
 
 
-def analyze_policy_document(full_text: str, model_name: str | None = None) -> dict[str, Any]:
+def analyze_policy_document(
+    full_text: str,
+    model_name: str | None = None,
+    *,
+    focus_title: str | None = None,
+    analysis_requirement: str | None = None,
+) -> dict[str, Any]:
     """解读政策文件正文，返回结构化的分析结果。
 
     约束落地：**方向判断必须附原文依据** —— 若模型给出了方向但没有 evidence，
@@ -122,6 +135,8 @@ def analyze_policy_document(full_text: str, model_name: str | None = None) -> di
 
     prompt = PROMPT_TEMPLATE.format(
         domains=" / ".join(DOMAIN_CHOICES),
+        focus_title=(focus_title or "未指定").strip()[:255],
+        analysis_requirement=(analysis_requirement or "无").strip()[:4000],
         text=text[:LLM_MAX_TEXT_CHARS],
     )
 

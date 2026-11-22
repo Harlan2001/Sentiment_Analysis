@@ -1617,7 +1617,7 @@ export interface FuturesSyncResult {
 
 // ========== 政策文件分析（工作流内） ==========
 
-export type PolicyDocStatus = 'uploaded' | 'analyzing' | 'completed' | 'failed'
+export type PolicyDocStatus = 'queued' | 'uploaded' | 'analyzing' | 'completed' | 'failed'
 
 /** 对债市影响方向；neutral 表示中性或信息不足无法判断。 */
 export type PolicyImpactDirection = 'bullish' | 'bearish' | 'neutral'
@@ -1653,6 +1653,11 @@ export interface PolicyDocumentItem {
   model_name: string | null
   created_at: string
   impact_direction: PolicyImpactDirection | null
+  stage?: string | null
+  focus_title?: string | null
+  analysis_requirement?: string | null
+  retry_count?: number
+  updated_at?: string | null
 }
 
 export interface PolicyDocumentDetail extends Omit<PolicyDocumentItem, 'impact_direction'> {
@@ -1661,12 +1666,22 @@ export interface PolicyDocumentDetail extends Omit<PolicyDocumentItem, 'impact_d
   analysis: PolicyAnalysis | null
 }
 
+export interface PolicyDocumentStats {
+  total: number
+  analyzed: number
+  bullish: number
+  bearish: number
+  neutral: number
+}
+
 export interface PolicyDocumentListResponse {
   items: PolicyDocumentItem[]
   total: number
   page: number
   page_size: number
   total_pages: number
+  /** 与当前筛选条件相同的全量统计；可选用于兼容旧调用方 mock。 */
+  stats?: PolicyDocumentStats
 }
 
 // ========== 信用利差 ==========

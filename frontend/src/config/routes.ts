@@ -37,6 +37,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/forecast', title: '预测', tabLabel: '预测', brandTitle: true, group: '市场板块', track: true },
   { path: '/watchlist', title: '关注列表', tabLabel: '关注列表', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio', title: '投资组合', tabLabel: '投资组合', brandTitle: true, group: '市场板块', track: true },
+  { path: '/portfolio/:portfolioId', title: '投资组合', brandTitle: true },
   { path: '/backtest', title: '回测仿真', tabLabel: '回测仿真', brandTitle: true, group: '市场板块', track: true },
   { path: '/strategy', title: '策略生成', tabLabel: '策略生成', brandTitle: true, group: '市场板块', track: true },
   { path: '/strategy/prompt', title: '策略生成', shellTitle: '策略生成' },
