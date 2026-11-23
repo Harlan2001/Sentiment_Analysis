@@ -37,7 +37,13 @@ DEFAULT_MIN_COVERAGE = 80
 
 def _git(args: list[str]) -> str:
     return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
     ).stdout
 
 
@@ -59,6 +65,7 @@ def changed_py_files(base: str) -> list[str]:
 
     用 `git diff base`(而非 base...HEAD),这样本地改动没提交也能测;CI 里工作树
     即 PR 检出结果,二者一致。tests/、scripts/ 是非生产代码,不参与统计。
+    纯删除文件在工作树中不存在，也不参与新增行覆盖率统计。
     """
     tracked = _git(["diff", "--name-only", base, "--", "*.py"]).splitlines()
     untracked = _git(["ls-files", "--others", "--exclude-standard", "--", "*.py"]).splitlines()
@@ -66,7 +73,9 @@ def changed_py_files(base: str) -> list[str]:
         {
             p.strip()
             for p in tracked + untracked
-            if p.strip() and not p.startswith(("tests/", "scripts/"))
+            if p.strip()
+            and not p.startswith(("tests/", "scripts/"))
+            and (ROOT / p.strip()).is_file()
         }
     )
 
@@ -110,7 +119,7 @@ def load_coverage_xml(path: Path) -> dict[str, dict[int, bool]]:
             number = int(line.get("number", "0"))
             hits = int(line.get("hits", "0"))
             lines[number] = hits > 0
-        result[filename] = lines
+        result[filename.replace("\\", "/")] = lines
     return result
 
 
