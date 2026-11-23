@@ -54,6 +54,7 @@ describe('ReportSourceDetailPanel · 板块一', () => {
     render(<ReportSourceDetailPanel reportId={1} onClose={() => undefined} />)
     expect(await screen.findByText(/观点复现/)).toBeInTheDocument()
     expect(screen.getByText(/AI 分析解读（非作者观点）/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /导出/ })).toBeNull()
   })
 
   it('不再以全文前 5 段冒充原文摘录', async () => {

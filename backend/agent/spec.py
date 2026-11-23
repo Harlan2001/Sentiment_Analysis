@@ -78,7 +78,6 @@ NAME_OVERRIDES: Dict[str, str] = {
     "POST /sapi/change/compare": "compare",
     "POST /sapi/internal/pipeline/trigger": "run",
     "POST /sapi/report/generate-prediction": "generate",
-    "GET /sapi/report/files/{filename}": "download",
     "GET /sapi/graph-augment/job-by-news/{news_id}": "job-by-news",
     "POST /sapi/graph-augment/save": "save",
     "POST /sapi/chat": "ask",

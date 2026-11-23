@@ -1,4 +1,4 @@
-import { API_PREFIX, authHeaders, request } from './client'
+import { API_PREFIX, request } from './client'
 
 export type WorkflowTaskType =
   | 'research_report'
@@ -37,8 +37,6 @@ export type WorkflowTask = {
   updated_at: string
   needs_action: boolean
   result_url: string | null
-  file_id: string | null
-  download_url: string | null
 }
 
 export type WorkflowTaskTotals = Record<WorkflowTaskType, number> & { total: number }
@@ -111,40 +109,4 @@ export function retryWorkflowTask(taskType: WorkflowTaskType, domainId: string) 
     `${TASKS_URL}/${encodeURIComponent(taskType)}/${encodeURIComponent(domainId)}/retry`,
     { method: 'POST' },
   )
-}
-
-export type WorkflowTaskDownload = {
-  blob: Blob
-  filename: string
-}
-
-function filenameFromDisposition(value: string | null): string | null {
-  if (!value) return null
-  const encoded = value.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
-  if (encoded) {
-    try {
-      return decodeURIComponent(encoded.replace(/^"|"$/g, ''))
-    } catch {
-      // 服务端文件名编码异常时继续使用普通 filename 或任务标题。
-    }
-  }
-  return value.match(/filename="?([^";]+)"?/i)?.[1] ?? null
-}
-
-/** 下载必须显式携带 JWT，不能使用会丢失认证头的普通 href。 */
-export async function downloadWorkflowTaskFile(
-  task: Pick<WorkflowTask, 'title' | 'download_url'>,
-): Promise<WorkflowTaskDownload> {
-  if (!task.download_url) throw new Error('当前任务没有可下载文件')
-  const response = await fetch(task.download_url, { headers: authHeaders() })
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { detail?: string; message?: string; error?: { message?: string } }
-      | null
-    throw new Error(payload?.error?.message || payload?.detail || payload?.message || '文件下载失败')
-  }
-  return {
-    blob: await response.blob(),
-    filename: filenameFromDisposition(response.headers.get('Content-Disposition')) || `${task.title}.docx`,
-  }
 }

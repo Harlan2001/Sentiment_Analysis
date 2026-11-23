@@ -33,8 +33,9 @@
 
 ### 前端
 
-- Node.js 18+
+- Node.js 24+
 - npm
+- nvm
 
 ---
 
@@ -48,13 +49,7 @@
 uv sync
 ```
 
-### 2. 安装 Playwright 浏览器（PDF 生成所需）
-
-```powershell
-uv run playwright install chromium
-```
-
-### 3. 安装前端依赖
+### 2. 安装前端依赖
 
 ```powershell
 cd frontend
@@ -62,7 +57,7 @@ npm install
 cd ..
 ```
 
-### 4. 启动
+### 3. 启动
 
 ```powershell
 .\start.ps1

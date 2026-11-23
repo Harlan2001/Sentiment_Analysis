@@ -16,7 +16,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 uv sync --locked
-uv run playwright install chromium
 npm --prefix frontend ci
 npm --prefix frontend exec -- playwright install chromium
 ```
@@ -148,9 +147,9 @@ npm --prefix frontend run e2e
 
 ### 其他业务边界
 
-- 文档工作流分别位于 `research_report/`、`report/`、`policy_document/`、`news_summary/`，其路由只负责入队、查询、重试和导出。
+- 文档工作流分别位于 `research_report/`、`report/`、`policy_document/`、`news_summary/`，其路由只负责入队、查询和重试；研报结果仅在线查看，不提供 PDF/DOCX 导出。
 - `backend/portfolio/` 提供纯 Decimal 的组合指标；`portfolio_repository.py` 用父组合行锁和 version 处理权重与并发。组合是研究配置，不包含实时估值、交易或真实收益。
-- `file_library` 从现有业务表聚合文件，不复制文件内容；`mcp_server/`、`business_mcp/` 和 `integrations/feishu/` 是独立集成边界。
+- `file_library` 从现有业务表聚合上传原件与研报抽取图表，不复制文件内容，也不提供研报结果导出；`mcp_server/`、`business_mcp/` 和 `integrations/feishu/` 是独立集成边界。
 
 ## 前端架构
 

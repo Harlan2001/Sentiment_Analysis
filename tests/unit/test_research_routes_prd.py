@@ -3,7 +3,6 @@
 对应 docs/PRD-研报分析功能细化.md：
 - P0-2 研报库发布日期区间筛选（GET /sapi/research/list 支持 date_start/date_end）
 - P0-3 已分析研报可用 force=true 重新分析；批量重跑端点
-- P1-5 单篇深度拆解导出 PDF/DOCX（GET /sapi/research/{id}/export）
 - P1-6 failed 状态可重新触发分析（锁定既有行为）
 - P2-10 关键词检索覆盖正文与 AI 分析字段
 
@@ -182,45 +181,3 @@ def test_batch_reanalyze_endpoint(client, monkeypatch):
     assert payload["triggered"] == 2
     assert start.call_count == 2
     _FakeResearchRepository.candidate_rows = []
-
-
-# ── P1-5 单篇深度拆解导出 ────────────────────────────────────────────────
-
-# 导出端点 SELECT (title, status, ai_deep_markdown)
-_EXPORT_ROW = ("测试研报", "analyzed", "# 测试研报 · 深度拆解\n## 一、核心论点（作者观点）\n内容（原文：“……”，第1页）")
-
-
-def test_export_single_report_pdf(client, monkeypatch):
-    cursor = MagicMock()
-    cursor.fetchone.return_value = _EXPORT_ROW
-    monkeypatch.setattr(
-        "backend.routers.research.get_db_connection", _mock_connection(cursor)
-    )
-    monkeypatch.setattr(
-        "backend.report.export_service.generate_pdf",
-        lambda *a, **k: b"%PDF-1.4 fake",
-    )
-    r = client.get(PREFIX + "/1/export", params={"format": "pdf"})
-    assert r.status_code == 200
-    assert r.headers["content-type"] == "application/pdf"
-    assert r.content.startswith(b"%PDF")
-
-
-def test_export_rejects_unknown_format(client, monkeypatch):
-    cursor = MagicMock()
-    cursor.fetchone.return_value = _EXPORT_ROW
-    monkeypatch.setattr(
-        "backend.routers.research.get_db_connection", _mock_connection(cursor)
-    )
-    r = client.get(PREFIX + "/1/export", params={"format": "xlsx"})
-    assert r.status_code in (400, 422)
-
-
-def test_export_unanalyzed_report_conflicts(client, monkeypatch):
-    cursor = MagicMock()
-    cursor.fetchone.return_value = ("测试研报", "parsed", None)
-    monkeypatch.setattr(
-        "backend.routers.research.get_db_connection", _mock_connection(cursor)
-    )
-    r = client.get(PREFIX + "/1/export", params={"format": "pdf"})
-    assert r.status_code == 409

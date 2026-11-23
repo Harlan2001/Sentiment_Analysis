@@ -39,7 +39,6 @@ from backend.routers.news import router as news_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.policy_documents import router as policy_documents_router
 from backend.routers.portfolios import router as portfolios_router
-from backend.routers.report import router as report_router
 from backend.routers.report_generation import router as report_generation_router
 from backend.routers.research import router as research_router
 from backend.routers.returns import router as returns_router
@@ -97,7 +96,6 @@ app.include_router(portfolios_router)
 app.include_router(forecast_router)
 app.include_router(futures_router)
 app.include_router(graph_augment_router)
-app.include_router(report_router)
 app.include_router(report_generation_router)
 app.include_router(research_router)
 app.include_router(change_router)

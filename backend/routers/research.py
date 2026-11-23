@@ -9,17 +9,15 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Optional
-from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend.common.api_response import ok
 from backend.common.database import get_db_connection
 from backend.common.pagination import paginated_payload
 from backend.config.config import ANALYSIS_MODEL_REGISTRY, API_PREFIX
-from backend.report import export_service
 from backend.repositories.research_report_repository import (
     ResearchReportConflictError,
     ResearchReportRepository,
@@ -435,52 +433,6 @@ def trigger_analysis(
         "status": "queued",
         "message": "分析任务已加入队列",
     })
-
-
-# ── 单篇深度拆解导出（P1-5） ─────────────────────────────────────────────
-
-_EXPORT_MEDIA_TYPES = {
-    "pdf": "application/pdf",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-}
-
-
-@router.get("/{report_id}/export")
-def export_report(report_id: int, format: str = Query("pdf", description="pdf / docx")):
-    """导出单份研报的深度拆解 Markdown 为 PDF/DOCX。"""
-    fmt = format.lower()
-    if fmt not in _EXPORT_MEDIA_TYPES:
-        raise HTTPException(status_code=400, detail="仅支持导出 pdf 或 docx 格式")
-
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT title, status, ai_deep_markdown FROM research_report WHERE id=%s",
-                (report_id,),
-            )
-            row = cur.fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="研报不存在")
-    title, status, markdown = row
-    if status != "analyzed" or not markdown:
-        raise HTTPException(status_code=409, detail="该研报尚未生成深度拆解，无法导出")
-
-    if fmt == "pdf":
-        content = export_service.generate_pdf(title, markdown, [])
-    else:
-        content = export_service.generate_docx(title, markdown, [])
-
-    filename = export_service.export_filename(title, fmt)
-    return Response(
-        content=content,
-        media_type=_EXPORT_MEDIA_TYPES[fmt],
-        headers={
-            "Content-Disposition": (
-                f"attachment; filename*=UTF-8''{quote(filename)}"
-            )
-        },
-    )
 
 
 @router.get("/{report_id}/figures/{figure_id}/image")

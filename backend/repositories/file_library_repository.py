@@ -107,9 +107,7 @@ class FileLibraryRepository(BaseRepository):
                     )
 
                 cursor.execute(
-                    """SELECT id, title, file_path, file_size_kb, status, ai_analyzed_at,
-                              (ai_deep_markdown IS NOT NULL AND ai_deep_markdown <> '') AS has_deep_analysis,
-                              created_at
+                    """SELECT id, title, file_path, file_size_kb, status, created_at
                          FROM research_report
                         WHERE uploaded_by = %s
                         ORDER BY created_at DESC, id DESC""",
@@ -136,24 +134,6 @@ class FileLibraryRepository(BaseRepository):
                             ),
                         )
                     )
-                    if row["status"] == "analyzed" and row["has_deep_analysis"]:
-                        for extension in ("pdf", "docx"):
-                            files.append(
-                                _entry(
-                                    file_id=f"research-export:{report_id}:{extension}",
-                                    name=f"{row['title'] or '研报'}_深度分析.{extension}",
-                                    source="研报分析导出",
-                                    source_key="research_export",
-                                    source_ref=report_id,
-                                    created_at=row["ai_analyzed_at"] or row["created_at"],
-                                    kind="generated",
-                                    open_url=f"/computer/reports/library?reportId={report_id}",
-                                    download_url=(
-                                        f"{API_PREFIX}/file-library/download?source=research_export"
-                                        f"&record_id={report_id}&format={extension}"
-                                    ),
-                                )
-                            )
 
                 if report_rows:
                     report_ids = [int(row["id"]) for row in report_rows]
@@ -190,67 +170,4 @@ class FileLibraryRepository(BaseRepository):
                             )
                         )
 
-                cursor.execute(
-                    """SELECT id, title, OCTET_LENGTH(result_markdown) AS result_size_bytes,
-                              COALESCE(finished_at, updated_at) AS file_date
-                         FROM report_generation_tasks
-                        WHERE owner_username = %s
-                          AND deleted_at IS NULL
-                          AND status = 'completed'
-                          AND result_markdown IS NOT NULL
-                        ORDER BY COALESCE(finished_at, updated_at) DESC, id DESC""",
-                    (username,),
-                )
-                for row in cursor.fetchall():
-                    task_id = str(row["id"])
-                    title = row["title"] or "研报"
-                    detail_url = f"/computer/reports/{task_id}"
-                    files.append(
-                        _entry(
-                            file_id=f"report:{task_id}:md",
-                            name=f"{title}.md",
-                            source="研报生成",
-                            source_key="report_generation",
-                            source_ref=task_id,
-                            created_at=row["file_date"],
-                            kind="generated",
-                            size_bytes=int(row["result_size_bytes"] or 0),
-                            open_url=detail_url,
-                            download_url=(
-                                f"{API_PREFIX}/file-library/download?source=report_generation"
-                                f"&record_id={task_id}"
-                            ),
-                        )
-                    )
-                    for extension in ("pdf", "docx"):
-                        files.append(
-                            _entry(
-                                file_id=f"report:{task_id}:{extension}",
-                                name=f"{title}.{extension}",
-                                source="研报生成",
-                                source_key="report_generation",
-                                source_ref=task_id,
-                                created_at=row["file_date"],
-                                kind="generated",
-                                open_url=detail_url,
-                                download_url=(
-                                    f"{API_PREFIX}/report-generation/tasks/{task_id}/export"
-                                    f"?format={extension}"
-                                ),
-                            )
-                        )
-
         return sorted(files, key=lambda item: item["created_at"] or "", reverse=True)
-
-    def get_owned_generated_report(self, username: str, task_id: str) -> dict[str, Any] | None:
-        with self._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """SELECT title, result_markdown
-                         FROM report_generation_tasks
-                        WHERE id=%s AND owner_username=%s
-                          AND deleted_at IS NULL AND status='completed'
-                          AND result_markdown IS NOT NULL""",
-                    (task_id, username),
-                )
-                return cursor.fetchone()

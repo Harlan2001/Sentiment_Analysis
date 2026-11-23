@@ -161,7 +161,7 @@
 .report-source-detail-view{display:flex;align-items:center;gap:10px;margin:12px 0;padding:10px 14px;border:1px solid #333;border-radius:8px;background:#151515}.report-source-view-badge{padding:4px 8px;border-radius:5px;font-size:12px}.report-source-view-badge em{font-style:normal;margin-left:4px;opacity:.7}.report-source-view-badge.bullish{background:#351818;color:#e08080}.report-source-view-badge.bearish{background:#1a3020;color:#6cc87a}.report-source-view-badge.neutral{background:#222;color:#aaa}.report-source-horizon{padding:4px 8px;border:1px solid #444;border-radius:5px;color:#aaa;font-size:12px}
 .report-source-symbols{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.report-source-symbol{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border:1px solid #444;border-radius:5px;background:#1a1a1a;font-size:11px}.report-source-symbol.bullish{color:#e08080;border-color:#5a3030}.report-source-symbol.bearish{color:#6cc87a;border-color:#2a4a30}
 .report-source-evidence-item{margin-top:10px;padding:10px 12px;border-left:2px solid #555;background:#151515;border-radius:0 6px 6px 0}.report-source-evidence-text{color:#aaa;font-size:12px;line-height:1.6;font-style:italic}.report-source-evidence-inference{color:#c5c5c5;font-size:12px;margin-top:4px}
-.report-export-actions{display:flex;align-items:center;gap:8px;margin:0 0 12px 22px}.report-source-detail-inline{grid-column:1/-1;margin:0 0 10px}.report-source-detail-close-row{display:flex;justify-content:flex-end;padding:6px 0 0}
+.report-source-detail-inline{grid-column:1/-1;margin:0 0 10px}.report-source-detail-close-row{display:flex;justify-content:flex-end;padding:6px 0 0}
 /* 来源研报交互卡片与研报正文使用同一内容宽度，避免随标题长度收缩。 */
 .report-source-group,
 .report-source-group > button,

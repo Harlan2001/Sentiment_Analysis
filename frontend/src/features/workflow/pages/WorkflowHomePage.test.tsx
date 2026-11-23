@@ -7,7 +7,6 @@ vi.mock('@/api/tasks', () => ({
   getWorkflowTasks: vi.fn(),
   getWorkflowTaskDetail: vi.fn(),
   retryWorkflowTask: vi.fn(),
-  downloadWorkflowTaskFile: vi.fn(),
 }))
 
 vi.mock('@/features/workflow/components/WorkflowDatePicker', () => ({
@@ -17,7 +16,6 @@ vi.mock('@/features/workflow/components/WorkflowDatePicker', () => ({
 }))
 
 import {
-  downloadWorkflowTaskFile,
   getWorkflowTaskDetail,
   getWorkflowTasks,
   retryWorkflowTask,
@@ -45,8 +43,6 @@ function makeTask(overrides: Partial<WorkflowTask> = {}): WorkflowTask {
     updated_at: '2026-11-20T08:00:00Z',
     needs_action: true,
     result_url: '/computer/reports/task-1',
-    file_id: null,
-    download_url: null,
     ...overrides,
   }
 }
@@ -81,7 +77,6 @@ function renderPage() {
 const getTasksMock = vi.mocked(getWorkflowTasks)
 const getDetailMock = vi.mocked(getWorkflowTaskDetail)
 const retryMock = vi.mocked(retryWorkflowTask)
-const downloadMock = vi.mocked(downloadWorkflowTaskFile)
 
 beforeEach(() => {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
@@ -102,7 +97,6 @@ beforeEach(() => {
     ],
   })
   retryMock.mockResolvedValue(makeTask({ status: 'queued', status_label: '排队中', stage_label: '排队等待', error_message: null }))
-  downloadMock.mockResolvedValue({ blob: new Blob(['docx']), filename: '研报.docx' })
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: vi.fn(() => 'blob:task-result') })
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: vi.fn() })
 })
@@ -242,7 +236,7 @@ describe('WorkflowHomePage · 服务端任务中心', () => {
     expect(await screen.findByText('任务不存在或当前用户不可访问')).toBeInTheDocument()
   })
 
-  it('策略历史只读且不重试，成功任务提供结果与认证下载入口', async () => {
+  it('策略历史只读且不重试，成功任务提供结果入口', async () => {
     const strategy = makeTask({
       task_id: 'strategy:s1', domain_id: 's1', task_type: 'strategy', module: '策略生成',
       title: '历史策略', status: 'failed', status_label: '失败', result_url: '/strategy/prompt?id=s1',
@@ -259,19 +253,14 @@ describe('WorkflowHomePage · 服务端任务中心', () => {
     const succeeded = makeTask({
       title: '已完成研报', status: 'succeeded', domain_status: 'completed', status_label: '已完成',
       stage: 'succeeded', stage_label: '已完成', error_message: null, needs_action: false,
-      download_url: '/sapi/report-generation/tasks/task-1/export?format=docx', file_id: 'report:task-1:docx',
     })
     getTasksMock.mockResolvedValue(makeList([succeeded]))
     getDetailMock.mockResolvedValue({ task: succeeded, execution: null, items: [] })
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /已完成研报/ }))
     dialog = await screen.findByRole('dialog', { name: '任务详情' })
     expect(within(dialog).getByRole('link', { name: '查看结果' })).toBeVisible()
-    fireEvent.click(within(dialog).getByRole('button', { name: '下载文件' }))
-    await waitFor(() => expect(downloadMock).toHaveBeenCalledWith(succeeded))
-    expect(URL.createObjectURL).toHaveBeenCalled()
-    clickSpy.mockRestore()
+    expect(within(dialog).queryByRole('button', { name: '下载文件' })).toBeNull()
   })
 
   it('仅 queued/running 触发轮询，隐藏时暂停且终态后停止', async () => {
@@ -296,22 +285,5 @@ describe('WorkflowHomePage · 服务端任务中心', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(9000) })
     expect(getTasksMock).toHaveBeenCalledTimes(initialCalls + 1)
-  })
-})
-
-describe('统一任务下载 API', () => {
-  it('使用 authHeaders 并解析下载文件名', async () => {
-    localStorage.setItem('auth_token', JSON.stringify('task-token'))
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(new Blob(['docx']), {
-      status: 200,
-      headers: { 'Content-Disposition': 'attachment; filename="server-report.docx"' },
-    }))
-    const actual = await vi.importActual<typeof import('@/api/tasks')>('@/api/tasks')
-    const result = await actual.downloadWorkflowTaskFile({ title: '本地标题', download_url: '/sapi/download' })
-
-    expect(fetchSpy).toHaveBeenCalledWith('/sapi/download', {
-      headers: { Authorization: 'Bearer task-token' },
-    })
-    expect(result.filename).toBe('server-report.docx')
   })
 })
