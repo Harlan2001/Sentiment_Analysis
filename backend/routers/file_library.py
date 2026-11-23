@@ -6,14 +6,12 @@ import mimetypes
 from collections import Counter
 from datetime import date
 from pathlib import Path
-from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 
 from backend.common.api_response import ok
 from backend.config.config import API_PREFIX
-from backend.report.export_service import export_filename, generate_docx, generate_pdf
 from backend.repositories.file_library_repository import FileLibraryRepository
 
 router = APIRouter(prefix=f"{API_PREFIX}/file-library", tags=["file-library"])
@@ -99,7 +97,6 @@ def download_file(
     request: Request,
     source: str = Query(...),
     record_id: str = Query(...),
-    format: str | None = Query(None, pattern="^(pdf|docx)$"),
 ):
     """下载已有个人文件；所有路径都先从当前用户拥有的记录解析。"""
     from backend.repositories.skill_repository import ATTACHMENT_ROOT
@@ -107,51 +104,6 @@ def download_file(
 
     username = getattr(request.state, "username", None) or "admin"
     repository = _repository()
-
-    if source == "report_generation":
-        task = repository.get_owned_generated_report(username, record_id)
-        if not task:
-            raise HTTPException(status_code=404, detail="文件不存在或无权访问")
-        filename = (task["title"] or "研报") + ".md"
-        return Response(
-            content=task["result_markdown"] or "",
-            media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"},
-        )
-
-    if source == "research_export":
-        if not format:
-            raise HTTPException(status_code=400, detail="请选择导出格式")
-        with repository._connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """SELECT title, status, ai_deep_markdown
-                         FROM research_report
-                        WHERE id=%s AND (uploaded_by=%s OR (
-                            %s='admin' AND (uploaded_by IS NULL OR uploaded_by IN ('web','admin'))
-                        ))""",
-                    (record_id, username, username),
-                )
-                report = cursor.fetchone()
-        if not report or report["status"] != "analyzed" or not report["ai_deep_markdown"]:
-            raise HTTPException(status_code=404, detail="文件不存在或无权访问")
-        title = report["title"] or "研报"
-        markdown = report["ai_deep_markdown"]
-        try:
-            content = generate_pdf(title, markdown, []) if format == "pdf" else generate_docx(title, markdown, [])
-        except RuntimeError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-        filename = export_filename(title + "_深度分析", format)
-        media_type = (
-            "application/pdf"
-            if format == "pdf"
-            else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-        return Response(
-            content=content,
-            media_type=media_type,
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"},
-        )
 
     with repository._connection() as conn:
         with conn.cursor() as cursor:

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  downloadWorkflowTaskFile,
   getWorkflowTaskDetail,
   retryWorkflowTask,
   type WorkflowTask,
@@ -38,7 +37,6 @@ export function WorkflowTaskDetailPanel({
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [retrying, setRetrying] = useState(false)
-  const [downloading, setDownloading] = useState(false)
   const requestId = useRef(0)
 
   const loadDetail = useCallback(async (showLoading = true) => {
@@ -86,26 +84,6 @@ export function WorkflowTaskDetailPanel({
       else setActionError(taskErrorMessage(reason, '任务重试失败'))
     } finally {
       setRetrying(false)
-    }
-  }
-
-  async function handleDownload(task: WorkflowTask) {
-    setDownloading(true)
-    setActionError('')
-    try {
-      const file = await downloadWorkflowTaskFile(task)
-      const objectUrl = URL.createObjectURL(file.blob)
-      const anchor = document.createElement('a')
-      anchor.href = objectUrl
-      anchor.download = file.filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
-    } catch (reason) {
-      setActionError(taskErrorMessage(reason, '文件下载失败'))
-    } finally {
-      setDownloading(false)
     }
   }
 
@@ -199,11 +177,6 @@ export function WorkflowTaskDetailPanel({
             {actionError && <p role="alert">{actionError}</p>}
             <div>
               {canOpenResult && task.result_url && <Link className="primary" to={task.result_url}>查看结果</Link>}
-              {task.download_url && (
-                <button type="button" disabled={downloading} onClick={() => void handleDownload(task)}>
-                  {downloading ? '下载中…' : '下载文件'}
-                </button>
-              )}
               {canRetry && (
                 <button type="button" className="danger" disabled={retrying} onClick={() => void handleRetry()}>
                   {retrying ? '重试中…' : '重试任务'}

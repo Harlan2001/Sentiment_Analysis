@@ -3240,47 +3240,6 @@
         }
       }
     },
-    "/sapi/report/files/{filename}": {
-      "get": {
-        "tags": [
-          "report"
-        ],
-        "summary": "Get Pdf File",
-        "description": "获取PDF文件，外部可访问链接",
-        "operationId": "get_pdf_file_sapi_report_files__filename__get",
-        "parameters": [
-          {
-            "name": "filename",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Filename"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/sapi/report-generation/sources": {
       "get": {
         "tags": [
@@ -3788,56 +3747,6 @@
         }
       }
     },
-    "/sapi/report-generation/tasks/{task_id}/export": {
-      "get": {
-        "tags": [
-          "report-generation"
-        ],
-        "summary": "Export Report Generation Task",
-        "operationId": "export_report_generation_task_sapi_report_generation_tasks__task_id__export_get",
-        "parameters": [
-          {
-            "name": "task_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Task Id"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^(pdf|docx)$",
-              "title": "Format"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/sapi/research/summary": {
       "get": {
         "tags": [
@@ -4203,59 +4112,6 @@
               "title": "Force"
             },
             "description": "对已分析研报强制重新分析"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sapi/research/{report_id}/export": {
-      "get": {
-        "tags": [
-          "research"
-        ],
-        "summary": "Export Report",
-        "description": "导出单份研报的深度拆解 Markdown 为 PDF/DOCX。",
-        "operationId": "export_report_sapi_research__report_id__export_get",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Report Id"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "pdf / docx",
-              "default": "pdf",
-              "title": "Format"
-            },
-            "description": "pdf / docx"
           }
         ],
         "responses": {
@@ -8770,23 +8626,6 @@
             "schema": {
               "type": "string",
               "title": "Record Id"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^(pdf|docx)$"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Format"
             }
           }
         ],

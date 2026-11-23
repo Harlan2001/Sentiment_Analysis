@@ -6,7 +6,6 @@ from datetime import date
 from typing import Any
 
 from backend.common.pagination import paginated_payload
-from backend.config.config import API_PREFIX
 from backend.repositories.base import BaseRepository, serialize_row
 from backend.task_execution.queue import AITaskQueue
 
@@ -123,35 +122,23 @@ _STAGE_LABELS = {
 }
 
 
-def _links(task_type: str, domain_id: str, status: str) -> tuple[str | None, str | None, str | None]:
+def _result_url(task_type: str, domain_id: str) -> str:
     if task_type == "research_report":
-        result_url = f"/computer/reports/library?reportId={domain_id}"
-        download = (
-            f"{API_PREFIX}/file-library/download?source=research_export&record_id={domain_id}&format=docx"
-            if status == "succeeded"
-            else None
-        )
-        return result_url, f"research-export:{domain_id}:docx" if download else None, download
+        return f"/computer/reports/library?reportId={domain_id}"
     if task_type == "policy_document":
-        return f"/computer/policy/{domain_id}", None, None
+        return f"/computer/policy/{domain_id}"
     if task_type == "report_generation":
-        result_url = f"/computer/reports/{domain_id}"
-        download = (
-            f"{API_PREFIX}/report-generation/tasks/{domain_id}/export?format=docx"
-            if status == "succeeded"
-            else None
-        )
-        return result_url, f"report:{domain_id}:docx" if download else None, download
+        return f"/computer/reports/{domain_id}"
     if task_type == "daily_news":
-        return f"/computer/news/{domain_id}", None, None
-    return f"/strategy/prompt?id={domain_id}", None, None
+        return f"/computer/news/{domain_id}"
+    return f"/strategy/prompt?id={domain_id}"
 
 
 def _normalize(row: dict[str, Any]) -> dict[str, Any]:
     task_type = str(row["task_type"])
     domain_id = str(row["domain_id"])
     status = str(row["status"])
-    result_url, file_id, download_url = _links(task_type, domain_id, status)
+    result_url = _result_url(task_type, domain_id)
     stage = row.get("stage")
     return {
         "task_id": f"{task_type}:{domain_id}",
@@ -173,8 +160,6 @@ def _normalize(row: dict[str, Any]) -> dict[str, Any]:
         "updated_at": row.get("updated_at") or row.get("created_at"),
         "needs_action": status in {"failed", "pending_confirmation"},
         "result_url": result_url,
-        "file_id": file_id,
-        "download_url": download_url,
     }
 
 

@@ -8,8 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_NO_CACHE=1 \
     UV_LINK_MODE=copy \
-    UV_HTTP_TIMEOUT=600 \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+    UV_HTTP_TIMEOUT=600
 
 # 安装 uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -53,13 +52,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 
 # ------------------------------------------------------------
-# 安装 Playwright Chromium
-# ------------------------------------------------------------
-RUN mkdir -p /opt/playwright \
-    && uv run --no-sync playwright install chromium
-
-
-# ------------------------------------------------------------
 # 清理
 # ------------------------------------------------------------
 RUN find /app/.venv \
@@ -81,7 +73,6 @@ FROM python:3.12.11-slim-bookworm AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONWARNINGS=ignore::SyntaxWarning \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright \
     HOME=/home/appuser \
     PATH="/app/.venv/bin:$PATH"
 
@@ -98,26 +89,6 @@ RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g' \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         tini \
-        libnss3 \
-        libnspr4 \
-        libatk-bridge2.0-0 \
-        libatk1.0-0 \
-        libcups2 \
-        libdrm2 \
-        libdbus-1-3 \
-        libxkbcommon0 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxfixes3 \
-        libxrandr2 \
-        libgbm1 \
-        libasound2 \
-        libpango-1.0-0 \
-        libcairo2 \
-        libcurl4 \
-        libxshmfence1 \
-        libgdk-pixbuf-2.0-0 \
-        libpangoft2-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -137,11 +108,9 @@ RUN groupadd -r appgroup \
         /app/data \
         /app/logs \
         /app/models \
-        /opt/playwright \
         /home/appuser/.cache \
     && chown -R appuser:appgroup \
         /app \
-        /opt/playwright \
         /home/appuser
 
 
@@ -153,12 +122,6 @@ COPY --from=builder \
      --chown=appuser:appgroup \
      /app/.venv \
      /app/.venv
-
-
-COPY --from=builder \
-     --chown=appuser:appgroup \
-     /opt/playwright \
-     /opt/playwright
 
 
 

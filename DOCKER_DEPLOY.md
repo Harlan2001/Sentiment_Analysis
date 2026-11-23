@@ -201,8 +201,8 @@ curl http://localhost:8000/health
 # 每天 19:00 — 收益率数据更新
 0 19 * * * /opt/sentiment/yield_update.sh
 
-# 每天 09:00 — 生成并推送报告
-0 9 * * * /opt/sentiment/report_push.sh
+# 每天 09:00 — 生成预测报告（不生成 PDF，不推送飞书）
+0 9 * * * /opt/sentiment/report_gen.sh
 
 # 每天 23:00 — 分析补偿兜底
 0 23 * * * /opt/sentiment/analysis_fallback.sh

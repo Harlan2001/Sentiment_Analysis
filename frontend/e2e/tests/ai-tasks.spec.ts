@@ -20,8 +20,6 @@ type FixtureTask = {
   updated_at: string
   needs_action: boolean
   result_url: string | null
-  file_id: string | null
-  download_url: string | null
 }
 
 function makeTask(overrides: Partial<FixtureTask> = {}): FixtureTask {
@@ -45,8 +43,6 @@ function makeTask(overrides: Partial<FixtureTask> = {}): FixtureTask {
     updated_at: '2026-11-20T08:00:00Z',
     needs_action: true,
     result_url: '/computer/reports/e2e-report',
-    file_id: null,
-    download_url: null,
     ...overrides,
   }
 }
@@ -72,7 +68,6 @@ function responseBody(task: FixtureTask) {
 
 async function mockRetryableTask(page: Page) {
   let task = makeTask()
-  let downloadAuthorization = ''
   const json = (data: unknown, status = 200) => ({
     status,
     contentType: 'application/json',
@@ -122,16 +117,6 @@ async function mockRetryableTask(page: Page) {
     return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ detail: 'fixture route not found' }) })
   })
 
-  await page.route('**/sapi/report-generation/tasks/e2e-report/export**', async (route) => {
-    downloadAuthorization = route.request().headers().authorization ?? ''
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      headers: { 'Content-Disposition': 'attachment; filename="e2e-report.docx"' },
-      body: 'E2E DOCX fixture',
-    })
-  })
-
   return {
     complete() {
       task = makeTask({
@@ -144,16 +129,13 @@ async function mockRetryableTask(page: Page) {
         result: '查看结果',
         retry_count: 2,
         needs_action: false,
-        file_id: 'report:e2e-report:docx',
-        download_url: '/sapi/report-generation/tasks/e2e-report/export?format=docx',
         updated_at: '2026-11-20T08:03:00Z',
       })
     },
-    downloadAuthorization: () => downloadAuthorization,
   }
 }
 
-test('统一 AI 任务：失败详情与阶段、重试、完成结果和认证下载', async ({ page }) => {
+test('统一 AI 任务：失败详情与阶段、重试和完成结果', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('auth_token', JSON.stringify('e2e-task-token'))
   })
@@ -178,12 +160,7 @@ test('统一 AI 任务：失败详情与阶段、重试、完成结果和认证�
   dialog = page.getByRole('dialog', { name: '任务详情' })
   await expect(dialog.getByText('已完成', { exact: true }).first()).toBeVisible()
   await expect(dialog.getByRole('link', { name: '查看结果' })).toHaveAttribute('href', '/computer/reports/e2e-report')
-
-  const downloadPromise = page.waitForEvent('download')
-  await dialog.getByRole('button', { name: '下载文件' }).click()
-  const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe('e2e-report.docx')
-  expect(fixture.downloadAuthorization()).toBe('Bearer e2e-task-token')
+  await expect(dialog.getByRole('button', { name: '下载文件' })).toHaveCount(0)
 })
 
 test('策略历史只有结果链接，不展示重试', async ({ page }) => {

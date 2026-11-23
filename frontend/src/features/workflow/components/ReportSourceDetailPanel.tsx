@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { request, API_PREFIX, authHeaders } from '@/api/client'
+import { request } from '@/api/client'
 
 interface SymbolItem {
   code?: string
@@ -55,27 +55,9 @@ function parseSymbols(value: unknown): SymbolItem[] {
   try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
 }
 
-async function downloadExport(reportId: number, format: 'pdf' | 'docx'): Promise<void> {
-  const response = await fetch(`${API_PREFIX}/research/${reportId}/export?format=${format}`, {
-    headers: authHeaders(),
-  })
-  if (!response.ok) throw new Error(format === 'pdf' ? 'PDF 导出失败' : 'DOCX 导出失败')
-  const blob = await response.blob()
-  const disposition = response.headers.get('Content-Disposition') ?? ''
-  const match = /filename\*=UTF-8''(.+)$/.exec(disposition)
-  const filename = match ? decodeURIComponent(match[1]) : `research-${reportId}.${format}`
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: number; onClose: () => void }) {
   const [detail, setDetail] = useState<ResearchDetail | null>(null)
   const [error, setError] = useState('')
-  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -91,15 +73,6 @@ export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: numbe
   const symbols = detail ? parseSymbols(detail.ai_symbols) : []
 
   const dirIcon = (d?: string) => d === 'bullish' ? '↑' : d === 'bearish' ? '↓' : '－'
-
-  const handleExport = async (format: 'pdf' | 'docx') => {
-    setExportError('')
-    try {
-      await downloadExport(reportId, format)
-    } catch (reason) {
-      setExportError(reason instanceof Error ? reason.message : '导出失败')
-    }
-  }
 
   return <section className="report-source-detail" aria-live="polite">
     <div className="report-source-detail-head">
@@ -170,15 +143,6 @@ export function ReportSourceDetailPanel({ reportId, onClose }: { reportId: numbe
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{detail.ai_deep_markdown}</ReactMarkdown>
           </article>
         : <div className="report-source-detail-state">该研报尚未生成深度拆解。</div>}
-
-      {/* 单篇导出（P1-5） */}
-      {detail.ai_deep_markdown && (
-        <div className="report-source-export">
-          <button className="computer-button" onClick={() => handleExport('pdf')}>导出 PDF</button>
-          <button className="computer-button" onClick={() => handleExport('docx')}>导出 DOCX</button>
-          {exportError && <span className="error">{exportError}</span>}
-        </div>
-      )}
     </>}
   </section>
 }
