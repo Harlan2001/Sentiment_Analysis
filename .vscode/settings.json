@@ -3,15 +3,5 @@
     "python.terminal.activateEnvironment": true,
     "terminal.integrated.defaultProfile.windows": "PowerShell",
     "terminal.integrated.shellIntegration.enabled": true,
-    "terminal.integrated.profiles.windows": {
-        "PowerShell": {
-            "source": "PowerShell",
-            "args": [
-                "-NoExit",
-                "-Command",
-                "& 'D:\\Project\\Sentiment_Analysis\\.venv\\Scripts\\activate.ps1'"
-            ]
-        }
-    },
     "python.terminal.useEnvFile": true
 }
