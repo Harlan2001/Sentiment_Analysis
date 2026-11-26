@@ -8,6 +8,7 @@ logs/
 *.gz
 
 /data/pdf/
+/data/chat_attachments/
 
 # SQLite / database files
 *.db
@@ -228,6 +229,7 @@ Xiang
 /frontend/coverage/
 
 # Playwright E2E 产物
+/.playwright-cli/
 /frontend/test-results/
 /frontend/playwright-report/
 /frontend/playwright/.cache/

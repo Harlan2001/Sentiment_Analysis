@@ -7,6 +7,10 @@ from typing import Any
 
 import pymysql
 
+from backend.repositories.chat_attachment_repository import (
+    ChatAttachmentRepository,
+    purge_conversation_files,
+)
 from backend.repositories.workbench_repository import (
     WorkbenchConflictError,
     WorkbenchNotFoundError,
@@ -20,6 +24,16 @@ from backend.repositories.workbench_repository import (
 
 class ConversationRepository(WorkbenchRepository):
     """在基础项目仓储上补充通用会话操作。"""
+
+    @staticmethod
+    def _require_same_attachments(cursor: Any, message_id: str, attachment_ids: list[str]) -> None:
+        cursor.execute(
+            "SELECT id FROM workbench_chat_attachments WHERE message_id = %s ORDER BY id",
+            (message_id,),
+        )
+        actual = [row["id"] for row in cursor.fetchall()]
+        if actual != sorted(attachment_ids):
+            raise WorkbenchConflictError("相同 client_message_id 对应了不同附件")
 
     def get_conversation_detail(self, username: str, conversation_id: str, message_limit: int) -> dict[str, Any]:
         conversation = self.get_conversation(username, conversation_id)
@@ -46,6 +60,9 @@ class ConversationRepository(WorkbenchRepository):
                         skill_names_by_message.setdefault(usage["message_id"], []).append(usage["skill_name"])
                 for message in messages:
                     message["skill_names"] = skill_names_by_message.get(message["id"], [])
+                attachments_by_message = ChatAttachmentRepository.list_for_messages(cursor, message_ids)
+                for message in messages:
+                    message["attachments"] = attachments_by_message.get(message["id"], [])
         return {"conversation": conversation, "messages": [_serialize_row(message) for message in messages]}
 
     def list_conversations(
@@ -184,6 +201,7 @@ class ConversationRepository(WorkbenchRepository):
                 self._require_conversation_write(conversation, username)
                 cursor.execute("DELETE FROM workbench_conversations WHERE id = %s", (conversation_id,))
             conn.commit()
+        purge_conversation_files(conversation_id)
         return {"deleted": True}
 
     def permanently_delete_all_deleted_items(self, username: str) -> dict[str, int]:
@@ -198,6 +216,16 @@ class ConversationRepository(WorkbenchRepository):
                 )
                 project_ids = [row["id"] for row in cursor.fetchall()]
                 project_count = len(project_ids)
+                cursor.execute(
+                    """SELECT id FROM workbench_conversations
+                       WHERE project_id IN (SELECT p.id FROM workbench_projects p
+                         INNER JOIN workbench_project_members pm ON pm.project_id = p.id
+                         WHERE pm.username = %s AND pm.role IN ('manager', 'owner')
+                           AND p.deleted_at IS NOT NULL)
+                          OR (owner_username = %s AND project_id IS NULL AND deleted_at IS NOT NULL)""",
+                    (username, username),
+                )
+                deleted_conversation_ids = [row["id"] for row in cursor.fetchall()]
                 for project_id in project_ids:
                     cursor.execute("DELETE FROM workbench_conversations WHERE project_id = %s", (project_id,))
                     cursor.execute("DELETE FROM workbench_project_memories WHERE project_id = %s", (project_id,))
@@ -209,6 +237,8 @@ class ConversationRepository(WorkbenchRepository):
                 )
                 conversation_count = cursor.rowcount
             conn.commit()
+        for deleted_conversation_id in deleted_conversation_ids:
+            purge_conversation_files(deleted_conversation_id)
         return {"projects": project_count, "conversations": conversation_count}
 
     def list_deleted_items(self, username: str) -> dict[str, Any]:
@@ -257,6 +287,7 @@ class ConversationRepository(WorkbenchRepository):
         conversation_id: str,
         content: str,
         client_message_id: str,
+        attachment_ids: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Return an already accepted idempotent message before revalidating Skills."""
         with self._connection() as conn:
@@ -274,18 +305,23 @@ class ConversationRepository(WorkbenchRepository):
                     return None
                 if user_message["content"] != content:
                     raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
+                if attachment_ids is not None:
+                    self._require_same_attachments(cursor, user_message["id"], attachment_ids)
                 cursor.execute(
                     "SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1",
                     (user_message["id"],),
                 )
                 assistant_message = cursor.fetchone()
+                user_message["attachments"] = ChatAttachmentRepository.list_for_messages(
+                    cursor, [user_message["id"]]
+                ).get(user_message["id"], [])
         return {
             "created": False,
             "user_message": _serialize_row(user_message),
             "assistant_message": _serialize_row(assistant_message),
         }
 
-    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    def prepare_message(self, username: str, conversation_id: str, content: str, client_message_id: str, selected_skills: list[dict[str, Any]] | None = None, attachment_ids: list[str] | None = None) -> dict[str, Any]:
         """原子保存用户消息和占位助手消息，防止重试重复调用 Agent。
         并发重试撞唯一索引时回查已存消息做幂等返回（对齐 create_project 的兜底）。"""
         try:
@@ -305,8 +341,13 @@ class ConversationRepository(WorkbenchRepository):
                     if user_message:
                         if user_message["content"] != content:
                             raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
+                        self._require_same_attachments(cursor, user_message["id"], attachment_ids or [])
                         cursor.execute("SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1", (user_message["id"],))
-                        return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(cursor.fetchone())}
+                        assistant_message = cursor.fetchone()
+                        user_message["attachments"] = ChatAttachmentRepository.list_for_messages(
+                            cursor, [user_message["id"]]
+                        ).get(user_message["id"], [])
+                        return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(assistant_message)}
 
                     user_message_id, assistant_message_id = str(uuid.uuid4()), str(uuid.uuid4())
                     cursor.execute(
@@ -315,6 +356,10 @@ class ConversationRepository(WorkbenchRepository):
                            VALUES (%s, %s, 'user', %s, 'completed', %s, CURRENT_TIMESTAMP(6))""",
                         (user_message_id, conversation_id, content, client_message_id),
                     )
+                    if attachment_ids:
+                        ChatAttachmentRepository.bind_to_message(
+                            cursor, username, conversation_id, user_message_id, attachment_ids
+                        )
                     cursor.execute(
                         """INSERT INTO workbench_messages
                              (id, conversation_id, parent_message_id, role, content, status)
@@ -339,6 +384,9 @@ class ConversationRepository(WorkbenchRepository):
                         cursor.execute("UPDATE workbench_projects SET updated_at = CURRENT_TIMESTAMP(6) WHERE id = %s", (conversation["project_id"],))
                     cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (user_message_id,))
                     user_message = cursor.fetchone()
+                    user_message["attachments"] = ChatAttachmentRepository.list_for_messages(
+                        cursor, [user_message_id]
+                    ).get(user_message_id, [])
                     cursor.execute("SELECT * FROM workbench_messages WHERE id = %s", (assistant_message_id,))
                     assistant_message = cursor.fetchone()
                     conn.commit()
@@ -354,6 +402,11 @@ class ConversationRepository(WorkbenchRepository):
                         raise
                     if user_message["content"] != content:
                         raise WorkbenchConflictError("相同 client_message_id 对应了不同消息内容")
+                    self._require_same_attachments(cursor, user_message["id"], attachment_ids or [])
                     cursor.execute("SELECT * FROM workbench_messages WHERE parent_message_id = %s AND role = 'assistant' LIMIT 1", (user_message["id"],))
-                    return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(cursor.fetchone())}
+                    assistant_message = cursor.fetchone()
+                    user_message["attachments"] = ChatAttachmentRepository.list_for_messages(
+                        cursor, [user_message["id"]]
+                    ).get(user_message["id"], [])
+                    return {"created": False, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(assistant_message)}
         return {"created": True, "user_message": _serialize_row(user_message), "assistant_message": _serialize_row(assistant_message)}
