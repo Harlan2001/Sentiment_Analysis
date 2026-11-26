@@ -331,11 +331,19 @@ class WorkbenchRepository(BaseRepository):
                     raise WorkbenchNotFoundError("项目不存在或不在最近删除中")
                 if not self._is_project_manager(project.get("role")):
                     raise WorkbenchPermissionError("只有项目管理者才能永久删除项目")
+                cursor.execute(
+                    "SELECT id FROM workbench_conversations WHERE project_id = %s", (project_id,)
+                )
+                conversation_ids = [row["id"] for row in cursor.fetchall()]
                 # The conversation FK is RESTRICT, while messages cascade from conversations.
                 cursor.execute("DELETE FROM workbench_conversations WHERE project_id = %s", (project_id,))
                 cursor.execute("DELETE FROM workbench_project_memories WHERE project_id = %s", (project_id,))
                 cursor.execute("DELETE FROM workbench_projects WHERE id = %s", (project_id,))
             conn.commit()
+        from backend.repositories.chat_attachment_repository import purge_conversation_files
+
+        for conversation_id in conversation_ids:
+            purge_conversation_files(conversation_id)
         return {"deleted": True}
 
     def create_conversation(self, username: str, project_id: str | None, title: str | None, source: str) -> dict[str, Any]:

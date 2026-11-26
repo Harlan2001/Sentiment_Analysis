@@ -7103,6 +7103,106 @@
         }
       }
     },
+    "/sapi/workbench/conversations/{conversation_id}/attachments": {
+      "post": {
+        "tags": [
+          "workbench-conversations"
+        ],
+        "summary": "Upload Chat Attachment",
+        "operationId": "upload_chat_attachment_sapi_workbench_conversations__conversation_id__attachments_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_chat_attachment_sapi_workbench_conversations__conversation_id__attachments_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sapi/workbench/conversations/{conversation_id}/attachments/from-library": {
+      "post": {
+        "tags": [
+          "workbench-conversations"
+        ],
+        "summary": "Attach Library File",
+        "operationId": "attach_library_file_sapi_workbench_conversations__conversation_id__attachments_from_library_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryAttachmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sapi/workbench/conversations/{conversation_id}/messages": {
       "post": {
         "tags": [
@@ -8556,6 +8656,23 @@
             }
           },
           {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "chat_attachment",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -9663,6 +9780,20 @@
         ],
         "title": "Body_upload_attachment_sapi_skills__skill_id__attachments_post"
       },
+      "Body_upload_chat_attachment_sapi_workbench_conversations__conversation_id__attachments_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_chat_attachment_sapi_workbench_conversations__conversation_id__attachments_post"
+      },
       "Body_upload_policy_pdf_sapi_policy_documents_upload_post": {
         "properties": {
           "file": {
@@ -10292,6 +10423,31 @@
         ],
         "title": "InitialMemoryRequest"
       },
+      "LibraryAttachmentRequest": {
+        "properties": {
+          "source_key": {
+            "type": "string",
+            "enum": [
+              "skill_attachment",
+              "research_report",
+              "policy_document"
+            ],
+            "title": "Source Key"
+          },
+          "source_ref": {
+            "type": "string",
+            "maxLength": 191,
+            "minLength": 1,
+            "title": "Source Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_key",
+          "source_ref"
+        ],
+        "title": "LibraryAttachmentRequest"
+      },
       "LoginRequest": {
         "properties": {
           "username": {
@@ -10549,8 +10705,8 @@
         "properties": {
           "content": {
             "type": "string",
-            "minLength": 1,
-            "title": "Content"
+            "title": "Content",
+            "default": ""
           },
           "client_message_id": {
             "type": "string",
@@ -10565,11 +10721,18 @@
             "type": "array",
             "maxItems": 3,
             "title": "Skill Ids"
+          },
+          "attachment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Attachment Ids"
           }
         },
         "type": "object",
         "required": [
-          "content",
           "client_message_id"
         ],
         "title": "MessageCreateRequest"

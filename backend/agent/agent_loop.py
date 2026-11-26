@@ -77,11 +77,14 @@ def _process_chunk(chunk, acc: dict) -> str | None:
     if choice is not None and choice.finish_reason:
         acc["finish_reason"] = choice.finish_reason
 
-    content_sse = None
+    sse_events: list[str] = []
     if delta is not None:
+        reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+        if reasoning:
+            sse_events.append(_sse({"type": "reasoning", "content": reasoning}))
         if delta.content:
             acc["content_parts"].append(delta.content)
-            content_sse = _sse({"type": "content", "content": delta.content})
+            sse_events.append(_sse({"type": "content", "content": delta.content}))
         for tc in delta.tool_calls or []:
             slot = acc["tool_calls"].setdefault(
                 tc.index, {"id": None, "name": "", "arguments": ""}
@@ -95,7 +98,7 @@ def _process_chunk(chunk, acc: dict) -> str | None:
                 if fn.arguments:
                     slot["arguments"] += fn.arguments
 
-    return content_sse
+    return "".join(sse_events) or None
 
 
 def _usage_dict(usage) -> dict | None:
