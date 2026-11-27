@@ -11,16 +11,26 @@ export type Message = {
   id: string
   role: 'user' | 'assistant'
   content: string
+  thinking?: string
   status: 'pending' | 'streaming' | 'completed' | 'failed' | 'interrupted'
   error_code?: string | null
   skill_names?: string[]
+  attachments?: ChatAttachment[]
   created_at: string
   completed_at?: string | null
+}
+
+export type ChatAttachment = {
+  id: string
+  original_filename: string
+  size_bytes: number
+  page_count: number | null
 }
 
 type StreamEvent =
   | { event: 'message.accepted'; data: { message: Message } }
   | { event: 'assistant.started'; data: { message_id: string } }
+  | { event: 'assistant.thinking'; data: { message_id: string; kind: 'reasoning' | 'tool_start' | 'tool_done'; delta?: string; tool_name?: string; duration_ms?: number } }
   | { event: 'assistant.delta'; data: { message_id: string; delta: string } }
   | { event: 'assistant.completed'; data: { message: Message } }
   | { event: 'assistant.failed'; data: { message: Message; error: { code: string; message: string } } }
@@ -54,17 +64,44 @@ export function createConversation(input: { project_id?: string; source: 'home' 
   })
 }
 
+export async function uploadChatAttachment(conversationId: string, file: File): Promise<ChatAttachment> {
+  const form = new FormData()
+  form.append('file', file)
+  const response = await fetch(apiBaseUrl + `/sapi/workbench/conversations/${conversationId}/attachments`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    const detail = payload?.detail || '上传附件失败'
+    invalidateAuthentication(response.status, detail)
+    throw new Error(detail)
+  }
+  const payload = await response.json()
+  return payload.data as ChatAttachment
+}
+
+export function attachChatLibraryFile(conversationId: string, sourceKey: string, sourceRef: string) {
+  return request<ChatAttachment>(`/sapi/workbench/conversations/${conversationId}/attachments/from-library`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source_key: sourceKey, source_ref: sourceRef }),
+  })
+}
+
 export async function sendMessage(
   conversationId: string,
   content: string,
   clientMessageId: string,
   onEvent: (event: StreamEvent) => void,
   skillIds: string[] = [],
+  attachmentIds: string[] = [],
 ) {
   const response = await fetch(apiBaseUrl + `/sapi/workbench/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ content, client_message_id: clientMessageId, skill_ids: skillIds }),
+    body: JSON.stringify({ content, client_message_id: clientMessageId, skill_ids: skillIds, attachment_ids: attachmentIds }),
   })
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => null)

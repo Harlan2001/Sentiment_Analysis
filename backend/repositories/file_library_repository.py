@@ -7,6 +7,13 @@ from typing import Any
 
 from backend.config.config import API_PREFIX
 from backend.repositories.base import BaseRepository
+from backend.repositories.chat_attachment_repository import (
+    CHAT_ATTACHMENT_EXTENSIONS,
+    MAX_CHAT_ATTACHMENT_BYTES,
+)
+from backend.repositories.workbench_repository import WorkbenchNotFoundError
+
+CHAT_MOUNT_FORMATS = {extension.removeprefix(".").upper() for extension in CHAT_ATTACHMENT_EXTENSIONS}
 
 
 def _iso(value: Any) -> str | None:
@@ -29,6 +36,7 @@ def _entry(
     size_bytes: int | None = None,
     open_url: str | None = None,
     download_url: str | None = None,
+    chat_mountable: bool = False,
 ) -> dict[str, Any]:
     return {
         "id": file_id,
@@ -42,7 +50,20 @@ def _entry(
         "size_bytes": size_bytes,
         "open_url": open_url,
         "download_url": download_url,
+        "chat_mountable": chat_mountable,
     }
+
+
+def _owned_file(root: Path, relative_path: str) -> Path:
+    base = root.resolve()
+    path = (base / relative_path).resolve()
+    try:
+        path.relative_to(base)
+    except ValueError as exc:
+        raise WorkbenchNotFoundError("文件不存在或无权访问") from exc
+    if not path.is_file():
+        raise WorkbenchNotFoundError("文件不存在或无权访问")
+    return path
 
 
 class FileLibraryRepository(BaseRepository):
@@ -80,11 +101,16 @@ class FileLibraryRepository(BaseRepository):
                                 f"{API_PREFIX}/file-library/download?source=skill_attachment"
                                 f"&record_id={attachment_id}"
                             ),
+                            chat_mountable=(
+                                _extension(row["original_filename"]) in CHAT_MOUNT_FORMATS
+                                and int(row["size_bytes"] or 0) <= MAX_CHAT_ATTACHMENT_BYTES
+                            ),
                         )
                     )
 
                 cursor.execute(
-                    """SELECT id, title, original_filename, created_at
+                    """SELECT id, title, original_filename, created_at,
+                              OCTET_LENGTH(full_text) AS text_bytes
                          FROM policy_document
                         WHERE owner_username = %s
                         ORDER BY created_at DESC, id DESC""",
@@ -103,6 +129,9 @@ class FileLibraryRepository(BaseRepository):
                             created_at=row["created_at"],
                             kind="upload",
                             open_url=f"/computer/policy/{document_id}",
+                            chat_mountable=bool(
+                                row["text_bytes"] and row["text_bytes"] <= MAX_CHAT_ATTACHMENT_BYTES
+                            ),
                         )
                     )
 
@@ -131,6 +160,9 @@ class FileLibraryRepository(BaseRepository):
                             download_url=(
                                 f"{API_PREFIX}/file-library/download?source=research_report"
                                 f"&record_id={report_id}"
+                            ),
+                            chat_mountable=(
+                                int(row["file_size_kb"] or 0) * 1024 <= MAX_CHAT_ATTACHMENT_BYTES
                             ),
                         )
                     )
@@ -171,3 +203,61 @@ class FileLibraryRepository(BaseRepository):
                         )
 
         return sorted(files, key=lambda item: item["created_at"] or "", reverse=True)
+
+    def read_for_chat(self, username: str, source_key: str, record_id: str) -> tuple[str, bytes]:
+        """Read an owned library file for copying into one conversation message."""
+        with self._connection() as conn:
+            with conn.cursor() as cursor:
+                if source_key == "skill_attachment":
+                    cursor.execute(
+                        """SELECT a.skill_id, a.stored_filename, a.original_filename
+                             FROM workbench_skill_attachments a
+                             JOIN workbench_skills s ON s.id = a.skill_id
+                            WHERE a.id = %s AND a.created_by = %s
+                              AND s.owner_type = 'user' AND s.owner_username = %s""",
+                        (record_id, username, username),
+                    )
+                elif source_key == "research_report":
+                    cursor.execute(
+                        """SELECT title, file_path FROM research_report
+                            WHERE id = %s AND uploaded_by = %s""",
+                        (record_id, username),
+                    )
+                elif source_key == "policy_document":
+                    cursor.execute(
+                        """SELECT title, original_filename, full_text FROM policy_document
+                            WHERE id = %s AND owner_username = %s""",
+                        (record_id, username),
+                    )
+                else:
+                    raise ValueError("该文件类型不能挂载到对话")
+                row = cursor.fetchone()
+        if not row:
+            raise WorkbenchNotFoundError("文件不存在或无权访问")
+
+        if source_key == "policy_document":
+            text = str(row["full_text"] or "").strip()
+            if not text:
+                raise ValueError("该政策文件尚无可用的解析文本")
+            filename = f"{Path(row['original_filename'] or row['title'] or '政策文件').stem[:240]}.txt"
+            content = text.encode("utf-8")
+        else:
+            if source_key == "skill_attachment":
+                from backend.repositories.skill_repository import ATTACHMENT_ROOT
+
+                filename = row["original_filename"]
+                path = _owned_file(ATTACHMENT_ROOT, f"{row['skill_id']}/{row['stored_filename']}")
+            else:
+                from backend.research_report.constants import DATA_ROOT
+
+                filename = f"{str(row['title'] or '研报')[:250]}.pdf"
+                path = _owned_file(DATA_ROOT, row["file_path"])
+            if path.stat().st_size > MAX_CHAT_ATTACHMENT_BYTES:
+                raise ValueError("文件超过对话附件的 10 MB 限制")
+            content = path.read_bytes()
+
+        if Path(filename).suffix.lower() not in CHAT_ATTACHMENT_EXTENSIONS:
+            raise ValueError("该文件格式不能挂载到对话")
+        if len(content) > MAX_CHAT_ATTACHMENT_BYTES:
+            raise ValueError("文件超过对话附件的 10 MB 限制")
+        return filename, content

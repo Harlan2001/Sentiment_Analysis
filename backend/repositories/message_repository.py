@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.repositories.chat_attachment_repository import ChatAttachmentRepository
 from backend.repositories.conversation_repository import ConversationRepository
 from backend.repositories.workbench_repository import WorkbenchNotFoundError, _serialize_row
 
 
 class MessageRepository(ConversationRepository):
     """Agent 会话上下文与助手消息状态持久化，复用通用会话能力。"""
+
+    def get_chat_attachment_context(self, username: str, conversation_id: str, query: str) -> str:
+        return ChatAttachmentRepository.from_environment().get_attachment_context(
+            username, conversation_id, query
+        )
 
     def get_agent_history(self, username: str, conversation_id: str, limit: int) -> list[dict[str, str]]:
         self.get_conversation(username, conversation_id)
@@ -26,15 +32,22 @@ class MessageRepository(ConversationRepository):
                 rows = cursor.fetchall()
         return [{"role": row["role"], "content": row["content"]} for row in rows]
 
-    def finish_assistant_message(self, assistant_message_id: str, content: str, status: str, error_code: str | None = None) -> dict[str, Any]:
-        """在 SSE 结束、失败或断连时保存完整或部分助手内容。"""
+    def finish_assistant_message(
+        self,
+        assistant_message_id: str,
+        content: str,
+        status: str,
+        error_code: str | None = None,
+        thinking: str | None = None,
+    ) -> dict[str, Any]:
+        """在 SSE 结束、失败或断连时保存完整或部分助手内容及思维链。"""
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """UPDATE workbench_messages
-                         SET content = %s, status = %s, error_code = %s, completed_at = CURRENT_TIMESTAMP(6)
+                         SET content = %s, thinking = %s, status = %s, error_code = %s, completed_at = CURRENT_TIMESTAMP(6)
                        WHERE id = %s AND role = 'assistant'""",
-                    (content, status, error_code, assistant_message_id),
+                    (content, thinking, status, error_code, assistant_message_id),
                 )
                 cursor.execute(
                     """SELECT m.*, c.project_id FROM workbench_messages m

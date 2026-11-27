@@ -12,6 +12,7 @@ export type FileLibraryItem = {
   size_bytes: number | null
   open_url: string | null
   download_url: string | null
+  chat_mountable: boolean
 }
 
 export type FileLibraryResponse = {
@@ -36,6 +37,7 @@ export type FileLibraryFilters = {
   date_end?: string
   page?: number
   page_size?: number
+  purpose?: 'chat_attachment'
 }
 
 export function fetchFileLibrary(filters: FileLibraryFilters = {}) {

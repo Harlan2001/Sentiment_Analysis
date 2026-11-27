@@ -81,6 +81,9 @@ def test_authenticated_user_sends_message_through_own_identity(chat_client):
     repository.prepare_message.assert_called_once_with(
         "user1", "conv-001", "测试消息", "client-msg-001", []
     )
+    repository.get_message_retry.assert_called_once_with(
+        "user1", "conv-001", "测试消息", "client-msg-001", []
+    )
     repository.get_agent_history.assert_called_once()
     assert repository.get_agent_history.call_args.args[0] == "user1"
     assert repository.get_conversation.call_args.args[:2] == ("user1", "conv-001")
@@ -92,6 +95,7 @@ def test_authenticated_user_sends_message_through_own_identity(chat_client):
     [
         ("/workbench/conversations", {"source": "home"}),
         ("/workbench/conversations/conv-001/messages", {"content": "访客消息", "client_message_id": "visitor-msg-001"}),
+        ("/workbench/conversations/conv-001/attachments", None),
     ],
 )
 def test_anonymous_write_is_rejected_before_repository(chat_client, path, payload):
@@ -102,6 +106,64 @@ def test_anonymous_write_is_rejected_before_repository(chat_client, path, payloa
     assert response.status_code == 401
     repository.create_conversation.assert_not_called()
     repository.prepare_message.assert_not_called()
+
+
+@pytest.mark.parametrize("attachment_ids", [["paper-1"], ["paper-1", "notes-2", "data-3"]])
+def test_file_only_message_uses_default_question_and_bound_files(chat_client, attachment_ids):
+    client, repository = chat_client
+    repository.get_message_retry.return_value = None
+    repository.prepare_message.return_value = {
+        "created": True,
+        "user_message": {"id": "u1", "role": "user", "content": "请分析附件内容", "status": "completed"},
+        "assistant_message": {"id": "a1", "role": "assistant", "content": "", "status": "streaming"},
+    }
+    repository.get_agent_history.return_value = [{"role": "user", "content": "请分析附件内容"}]
+    repository.get_chat_attachment_context.return_value = "[文件：paper.pdf，第 2 页]\n回测结果"
+    repository.get_conversation.return_value = {"id": "conv-001", "project_id": None}
+    repository.finish_assistant_message.return_value = {"id": "a1", "role": "assistant", "content": "结论", "status": "completed"}
+    captured = {}
+
+    async def mock_stream(*args, **kwargs):
+        captured.update(kwargs)
+        yield "结论"
+
+    skill_repository = MagicMock()
+    skill_repository.list_chat_skills.return_value = []
+    skill_repository.get_attachment_context.return_value = ""
+    with patch("backend.routers.workbench_conversations.agent_chat_stream", mock_stream), \
+         patch("backend.routers.workbench_conversations.SkillRepository.from_environment", return_value=skill_repository):
+        response = client.post(
+            f"{PREFIX}/workbench/conversations/conv-001/messages",
+            json={"content": "", "client_message_id": "cm-1", "attachment_ids": attachment_ids},
+            headers={"Authorization": f"Bearer {_token()}"},
+        )
+
+    assert response.status_code == 200
+    repository.prepare_message.assert_called_once_with(
+        "user1", "conv-001", "请分析附件内容", "cm-1", [], attachment_ids
+    )
+    assert captured["chat_attachment_context"].startswith("[文件：paper.pdf")
+
+
+def test_pdf_upload_uses_authenticated_conversation_identity(chat_client):
+    client, _ = chat_client
+    attachment_repository = MagicMock()
+    attachment_repository.create_attachment.return_value = {
+        "id": "paper-1", "original_filename": "paper.pdf", "size_bytes": 12, "page_count": 1
+    }
+    with patch(
+        "backend.routers.workbench_conversations.ChatAttachmentRepository.from_environment",
+        return_value=attachment_repository,
+    ):
+        response = client.post(
+            f"{PREFIX}/workbench/conversations/conv-001/attachments",
+            files={"file": ("paper.pdf", b"%PDF-example", "application/pdf")},
+            headers={"Authorization": f"Bearer {_token()}"},
+        )
+    assert response.status_code == 201
+    attachment_repository.create_attachment.assert_called_once_with(
+        "user1", "conv-001", "paper.pdf", b"%PDF-example"
+    )
 
 
 def test_anonymous_read_uses_dedicated_anonymous_identity(chat_client):

@@ -1,4 +1,5 @@
 -- 生产库 Sentiment_analysis 表结构只读快照（由 scripts/export_prod_schema.py 生成）
+-- 另包含待手工应用的 030_chat_attachments.sql；生产执行后再重新导出权威快照。
 
 -- 生成时间: 2026-11-20 18:36; 用于重建测试库 Sentiment_analysis_test
 
@@ -93,6 +94,10 @@ DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `wechat_article`;
 
 DROP TABLE IF EXISTS `workbench_conversations`;
+
+DROP TABLE IF EXISTS `workbench_chat_attachment_chunks`;
+
+DROP TABLE IF EXISTS `workbench_chat_attachments`;
 
 DROP TABLE IF EXISTS `workbench_feishu_connections`;
 
@@ -1127,6 +1132,7 @@ CREATE TABLE `workbench_messages` (
   `parent_message_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `role` enum('user','assistant') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `thinking` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `status` enum('streaming','completed','failed','interrupted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `client_message_id` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `error_code` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -1138,6 +1144,34 @@ CREATE TABLE `workbench_messages` (
   KEY `fk_workbench_message_parent` (`parent_message_id`),
   CONSTRAINT `fk_workbench_message_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `workbench_conversations` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_workbench_message_parent` FOREIGN KEY (`parent_message_id`) REFERENCES `workbench_messages` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_chat_attachments` (
+  `id` char(36) NOT NULL,
+  `conversation_id` char(36) NOT NULL,
+  `message_id` char(36) DEFAULT NULL,
+  `owner_username` varchar(191) NOT NULL,
+  `original_filename` varchar(255) NOT NULL,
+  `stored_filename` varchar(255) NOT NULL,
+  `size_bytes` bigint unsigned NOT NULL,
+  `page_count` int unsigned DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_chat_attachments_conversation` (`conversation_id`, `created_at`),
+  KEY `idx_chat_attachments_message` (`message_id`),
+  CONSTRAINT `fk_chat_attachments_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `workbench_conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_chat_attachments_message` FOREIGN KEY (`message_id`) REFERENCES `workbench_messages` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `workbench_chat_attachment_chunks` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `attachment_id` char(36) NOT NULL,
+  `chunk_index` int unsigned NOT NULL,
+  `source_location` varchar(255) NOT NULL,
+  `content` mediumtext NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_chat_attachment_chunk` (`attachment_id`, `chunk_index`),
+  CONSTRAINT `fk_chat_attachment_chunks_attachment` FOREIGN KEY (`attachment_id`) REFERENCES `workbench_chat_attachments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `workbench_project_members` (

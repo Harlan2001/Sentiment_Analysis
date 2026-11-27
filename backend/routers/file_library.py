@@ -6,6 +6,7 @@ import mimetypes
 from collections import Counter
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -40,6 +41,7 @@ def list_file_library(
     format: str | None = None,
     date_start: date | None = None,
     date_end: date | None = None,
+    purpose: Literal["chat_attachment"] | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
 ):
@@ -63,6 +65,8 @@ def list_file_library(
     }
 
     filtered = files
+    if purpose == "chat_attachment":
+        filtered = [item for item in filtered if item["chat_mountable"]]
     if source:
         filtered = [item for item in filtered if item["source"] == source]
     if format:
