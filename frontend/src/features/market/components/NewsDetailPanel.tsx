@@ -7,6 +7,7 @@ import { fetchNewsById, fetchNewsYieldData, fetchSimilarNews } from '@/api/marke
 import NewsContentBlocks from './NewsContentBlocks'
 import { Loading } from '@/components/ui'
 import { WatchlistAction } from './WatchlistAction'
+import NewsAssetImpactSummary from './NewsAssetImpactSummary'
 
 interface Props { newsId: number; onClose: () => void; onNewsClick: (newsId: number) => void; closeLabel?: string }
 
@@ -49,10 +50,6 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
     staleTime: 0,
   })
 
-  const dirLabel = detail?.direction === 'positive' ? '利多债市' :
-    detail?.direction === 'negative' ? '利空债市' : '中性'
-  const dirColor = detail?.direction === 'positive' ? 'text-[#ef4444]' :
-    detail?.direction === 'negative' ? 'text-[#22c55e]' : 'text-[#6b7280]'
   const visibleYieldData = (yieldData?.data ?? []).slice(0, 10)
 
   return (
@@ -79,24 +76,10 @@ const NewsDetailPanel: React.FC<Props> = ({ newsId, onClose, onNewsClick, closeL
               <span>{detail.source}</span>
               <span>·</span>
               <span>{formatDateTime(detail.publish_time)}</span>
-              <div className="ml-auto flex items-center gap-2"><WatchlistAction objectType="news" objectId={String(detail.id)} title={detail.title} sourceUrl={`/news/${detail.id}`} /><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${dirColor} ${dirColor === 'text-[#ef4444]' ? 'bg-[#ef4444]/15' : dirColor === 'text-[#22c55e]' ? 'bg-[#22c55e]/15' : 'bg-[#6b7280]/15'}`}>AI：{dirLabel}</span></div>
+              <div className="ml-auto flex items-center gap-2"><WatchlistAction objectType="news" objectId={String(detail.id)} title={detail.title} sourceUrl={`/news/${detail.id}`} /></div>
             </div>
 
-            {/* 新闻总结与债市影响 */}
-            {detail.reason && (
-              <div className="rounded-xl bg-[#111111] border border-[#2a2a2a] p-5">
-                <div className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wide mb-3">新闻总结与债市影响</div>
-                <div className="border-l-2 border-[#f59e0b] pl-4">
-                  <p className={`text-[14px] font-semibold mb-2 ${dirColor}`}>{dirLabel} · {detail.horizon || '短期'}</p>
-                  <p className="text-[13px] text-[#8b949e] leading-relaxed">{detail.reason}</p>
-                </div>
-                <div className="mt-4 grid grid-cols-1 gap-2 border-t border-[#252525] pt-4 text-[12px] md:grid-cols-3">
-                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">判断对象</span><strong className="mt-1 block font-medium text-[#c9c9c9]">中国国债价格与收益率</strong></div>
-                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">影响方向</span><strong className={`mt-1 block font-medium ${dirColor}`}>{dirLabel}</strong></div>
-                  <div className="rounded-lg bg-[#171717] px-3 py-2.5"><span className="block text-[10px] text-[#666]">主要期限</span><strong className="mt-1 block font-medium text-[#c9c9c9]">{detail.horizon || '短期'}</strong></div>
-                </div>
-              </div>
-            )}
+            <NewsAssetImpactSummary news={detail} />
 
             {/* 关联因子与传导明细 */}
             {detail.factors && detail.factors.length > 0 && (

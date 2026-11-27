@@ -1,0 +1,16 @@
+.news-asset-impact{border:1px solid #2d2e34;border-radius:12px;background:#111115;overflow:hidden}
+.news-asset-impact>header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:13px 15px 11px;border-bottom:1px solid #26272c}
+.news-asset-impact>header span{display:block;margin-bottom:3px;color:#7488bd;font-size:8px;font-weight:700;letter-spacing:.13em}
+.news-asset-impact>header h2{margin:0;color:#e7e7ea;font-size:13px}
+.news-asset-impact>header p{margin:0;color:#65656e;font-size:9px}
+.news-asset-impact-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#292a30}
+.news-asset-impact-grid article{display:grid;gap:5px;min-width:0;padding:13px 14px;background:#151519}
+.news-asset-impact-grid article>span{color:#777781;font-size:9px}
+.news-asset-impact-grid strong{color:#90909a;font-size:14px;font-weight:650}
+.news-asset-impact-grid small{overflow:hidden;color:#5e5e67;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.news-asset-impact-grid .is-positive strong{color:#ef8585}
+.news-asset-impact-grid .is-negative strong{color:#68c79f}
+.news-asset-impact-grid .is-neutral strong{color:#b3b3bc}
+.news-asset-impact-grid .is-insufficient strong{color:#d4aa69}
+.news-asset-impact-grid .is-failed strong{color:#d07878}
+@media(max-width:720px){.news-asset-impact>header{align-items:flex-start;flex-direction:column}.news-asset-impact-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

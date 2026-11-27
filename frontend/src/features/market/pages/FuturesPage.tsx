@@ -28,6 +28,17 @@ const VARIETY_COLORS: Record<string, string> = {
   TL: '#a79bd0',
 }
 
+const VARIETY_NAMES: Record<string, string> = {
+  TS: '2年期国债期货',
+  TF: '5年期国债期货',
+  T: '10年期国债期货',
+  TL: '30年期国债期货',
+}
+
+function varietyName(variety: string) {
+  return VARIETY_NAMES[variety] ?? `${variety}国债期货`
+}
+
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
   return value.toLocaleString('en-US')
@@ -51,7 +62,10 @@ export default function FuturesPage() {
   })
 
   // 合约默认取主力（overview 已按品种排序，取第一个 T 系合约）
-  const activeContract = contract || overview?.contracts?.[0]?.contract || ''
+  const activeContract = contract
+    || overview?.contracts?.find((item) => item.variety === variety)?.contract
+    || overview?.contracts?.[0]?.contract
+    || ''
   const activeVariety =
     overview?.contracts?.find((item) => item.contract === activeContract)?.variety || variety
 
@@ -153,10 +167,10 @@ export default function FuturesPage() {
                       className={`fut-compare-item${item.variety === activeVariety ? ' active' : ''}`}
                       onClick={() => {
                         setVariety(item.variety)
-                        setContract('')
+                        setContract(overview.contracts.find((contractItem) => contractItem.variety === item.variety)?.contract ?? '')
                       }}
                     >
-                      <span className="fut-compare-name">{item.label}</span>
+                      <span className="fut-compare-name">{varietyName(item.variety)}</span>
                       <span
                         className="fut-compare-ratio"
                         style={{ color: VARIETY_COLORS[item.variety] }}
@@ -168,21 +182,36 @@ export default function FuturesPage() {
                 </div>
               </section>
 
-              {/* 合约切换 */}
-              <div className="factor-view-tabs">
-                {(overview.contracts ?? []).map((item) => (
-                  <button
-                    key={item.contract}
-                    onClick={() => {
-                      setContract(item.contract)
-                      setVariety(item.variety)
-                    }}
-                    className={`factor-view-tab${item.contract === activeContract ? ' active' : ''}`}
-                  >
-                    {item.contract}
-                  </button>
-                ))}
-              </div>
+              {/* 资产详情先展示整体持仓趋势，再下钻到会员排名。 */}
+              <ChartCard
+                title={`会员多空结构走势 · ${varietyName(activeVariety)}（${activeVariety}）`}
+                action={(
+                  <label className="fut-contract-select">
+                    <span>选择合约</span>
+                    <select
+                      value={activeContract}
+                      onChange={(event) => {
+                        const next = overview.contracts.find((item) => item.contract === event.target.value)
+                        setContract(event.target.value)
+                        if (next) setVariety(next.variety)
+                      }}
+                      aria-label="选择国债期货合约"
+                    >
+                      {overview.contracts.map((item) => (
+                        <option key={item.contract} value={item.contract}>
+                          {item.contract} · {varietyName(item.variety)}（{item.variety}）
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              >
+                {loadingTrend ? (
+                  <Skeleton height="260px" variant="rectangular" />
+                ) : (
+                  <TrendChart series={trend?.series ?? []} color={VARIETY_COLORS[activeVariety]} height={260} />
+                )}
+              </ChartCard>
 
               {/* 持仓排名 */}
               {loadingRanking ? (
@@ -261,14 +290,6 @@ export default function FuturesPage() {
 
         <aside className="home-section-sidebar fut-sidebar">
           <div className="space-y-4">
-            <ChartCard title={`多空比走势 · ${trend?.label ?? '10年期'}`}>
-              {loadingTrend ? (
-                <Skeleton height="150px" variant="rectangular" />
-              ) : (
-                <TrendChart series={trend?.series ?? []} color={VARIETY_COLORS[activeVariety]} />
-              )}
-            </ChartCard>
-
             <ChartCard title="四品种多空比">
               <ComparisonChart comparison={overview?.comparison ?? []} />
             </ChartCard>
@@ -321,9 +342,11 @@ export default function FuturesPage() {
 function TrendChart({
   series,
   color,
+  height = 150,
 }: {
   series: { date: string; ratio: number | null }[]
   color: string
+  height?: number
 }) {
   if (series.length < 2) {
     return <p className="diag-caption">历史样本不足（需至少 2 个交易日），可先用同步按钮逐日积累</p>
@@ -363,7 +386,7 @@ function TrendChart({
       },
     ],
   }
-  return <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height: 150 }} />
+  return <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height }} />
 }
 
 function ComparisonChart({
@@ -374,7 +397,7 @@ function ComparisonChart({
   if (!comparison.length) return <p className="diag-caption">暂无数据</p>
   const option = {
     tooltip: { trigger: 'axis', valueFormatter: (v: number) => v?.toFixed(3) },
-    grid: { left: 62, right: 20, top: 8, bottom: 8 },
+    grid: { left: 108, right: 20, top: 8, bottom: 8 },
     xAxis: {
       type: 'value',
       scale: true,
@@ -383,7 +406,7 @@ function ComparisonChart({
     },
     yAxis: {
       type: 'category',
-      data: comparison.map((item) => item.label),
+      data: comparison.map((item) => varietyName(item.variety)),
       axisLabel: { color: '#a7a7a7', fontSize: 10 },
       axisLine: { lineStyle: { color: '#333' } },
     },
@@ -408,10 +431,13 @@ function ComparisonChart({
   return <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height: 130 }} />
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-[#2a2a2e] bg-[#111111] p-4">
-      <h2 className="mb-2 text-sm font-medium text-gray-400">{title}</h2>
+      <header className="fut-chart-card-head">
+        <h2>{title}</h2>
+        {action}
+      </header>
       {children}
     </section>
   )

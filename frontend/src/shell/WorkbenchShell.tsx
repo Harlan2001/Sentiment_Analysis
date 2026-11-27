@@ -7,7 +7,14 @@ import { AccountInfoPanel } from '@/features/account/AccountInfoPanel'
 import { UserManagementPanel } from '@/features/account/UserManagementPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/features/auth/LoginModal'
-import { SECTION_TABS, PRODUCT_LINKS, HOME_PATHS, shellTitle } from '@/config/routes'
+import {
+  SECTION_GROUPS,
+  SECTION_TABS,
+  PRODUCT_LINKS,
+  HOME_PATHS,
+  sectionGroupForPath,
+  shellTitle,
+} from '@/config/routes'
 import { HomeChatDock } from '@/features/market/components/HomeChatDock'
 
 // 懒加载监控看板：其依赖的 ECharts 体积较大，仅在打开时加载
@@ -23,8 +30,8 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 const HOME_CHAT_PLACEHOLDERS: Record<string, string> = {
-  '/backtest': '\u8be2\u95ee\u56de\u6d4b\u7ed3\u679c\u3001\u56e0\u5b50\u547d\u4e2d\u7387\u6216\u6837\u672c\u60c5\u51b5\u2026',
-  '/info': '\u8be2\u95ee\u671f\u8d27\u6301\u4ed3\u3001\u4fe1\u7528\u5229\u5dee\u6216\u4e2d\u7f8e\u5229\u5dee\u2026',
+  '/backtest': '询问事件研究结果、因子命中率或有效样本…',
+  '/info': '询问中国国债、信用利差、期货持仓或美债数据…',
   '/factors': '\u8be2\u95ee\u56e0\u5b50\u8868\u73b0\u3001\u7b5b\u9009\u6761\u4ef6\u6216\u56e0\u5b50\u89e3\u8bfb\u2026',
   '/returns': '\u8be2\u95ee\u6536\u76ca\u7387\u53d8\u52a8\u3001\u6536\u76ca\u65e5\u5386\u6216\u5173\u8054\u65b0\u95fb\u2026',
   '/forecast': '\u8be2\u95ee\u9884\u6d4b\u7ed3\u8bba\u3001\u60c5\u666f\u5047\u8bbe\u6216\u98ce\u9669\u63d0\u793a\u2026',
@@ -57,6 +64,8 @@ export function WorkbenchShell() {
   const visitorBlockedHomePage = authEnabled && !isAuthenticated && (location.pathname === '/watchlist' || location.pathname === '/portfolio')
   const homeChatPlaceholder = visitorBlockedHomePage ? undefined : HOME_CHAT_PLACEHOLDERS[location.pathname]
   const topbarTitle = shellTitle(location.pathname, conversationTopic)
+  const activeSectionGroup = sectionGroupForPath(location.pathname)
+  const activeSectionTabs = SECTION_TABS.filter((tab) => activeSectionGroup.routes.includes(tab.to))
   const isWorkflowChild = location.pathname.startsWith('/computer/')
   const showWorkflowBack = new Set(['/computer/reports', '/computer/news', '/computer/policy']).has(location.pathname)
   const hideWorkflowDetailTopbar = location.pathname === '/strategy/prompt'
@@ -203,7 +212,7 @@ export function WorkbenchShell() {
           </> : <button className="login-button" onClick={() => setLoginOpen(true)}><span className="avatar avatar-ghost">未</span><span className="account-copy"><strong>未登录</strong><small>点击登录</small></span></button>}
         </div>
       </aside>
-      <main className="workspace-main" style={{ gridTemplateRows: hideWorkflowDetailTopbar ? 'minmax(0,1fr)' : isHome ? '68px 46px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
+      <main className="workspace-main" style={{ gridTemplateRows: hideWorkflowDetailTopbar ? 'minmax(0,1fr)' : isHome ? '68px 82px minmax(0,1fr)' : '68px minmax(0,1fr)' }}>
         {!hideWorkflowDetailTopbar && <header className="topbar">
           <div className="topbar-title">
             {showWorkflowBack && <button className="topbar-back-button" onClick={() => navigate('/workflow')} aria-label="返回工作流">←</button>}
@@ -217,11 +226,24 @@ export function WorkbenchShell() {
           <button className="topbar-action">通知</button>
         </header>}
         {isHome && (
-          <nav className="workspace-tabs" aria-label="市场板块">
-            {SECTION_TABS.map((s) => (
-              <NavLink key={s.to} to={s.to} className={({ isActive }) => `workspace-tab${isActive ? ' active' : ''}`}>{s.name}</NavLink>
-            ))}
-          </nav>
+          <div className="workspace-navigation">
+            <nav className="workspace-group-tabs" aria-label="债券市场智能分析分组">
+              {SECTION_GROUPS.map((group) => (
+                <NavLink
+                  key={group.id}
+                  to={group.routes[0]}
+                  className={`workspace-group-tab${group.id === activeSectionGroup.id ? ' active' : ''}`}
+                >
+                  {group.label}
+                </NavLink>
+              ))}
+            </nav>
+            <nav className="workspace-tabs" aria-label={`${activeSectionGroup.label}页面`}>
+              {activeSectionTabs.map((tab) => (
+                <NavLink key={tab.to} to={tab.to} className={({ isActive }) => `workspace-tab${isActive ? ' active' : ''}`}>{tab.name}</NavLink>
+              ))}
+            </nav>
+          </div>
         )}
         <div className="workspace-content">
           {homeChatPlaceholder ? (

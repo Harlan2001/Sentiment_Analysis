@@ -5,6 +5,8 @@ import { fetchReturnsCalendar } from '@/api/market'
 import { Skeleton } from '@/components/ui'
 import type { CalendarDayItem, CalendarNewsItem, ReturnsCalendarResponse, YieldChangeItem } from '@/types'
 import NewsListRow from '../components/NewsListRow'
+import { AssetScopeStrip, type AssetScope } from '../components/AssetScopeStrip'
+import MarketPerformanceView from '../components/MarketPerformanceView'
 import {
   bpArrow,
   dateKey,
@@ -296,22 +298,46 @@ export default function ReturnsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const today = useMemo(() => dateKey(new Date()), [])
   const requestedDate = searchParams.get('date')
+  const requestedAsset = searchParams.get('asset')
+  const asset: AssetScope = requestedAsset === 'cgb' || requestedAsset === 'credit' || requestedAsset === 'futures' || requestedAsset === 'ust'
+    ? requestedAsset
+    : requestedDate
+      ? 'cgb'
+      : 'all'
   const selectedDate = isValidDateKey(requestedDate) ? requestedDate : today
   const range = useMemo(() => monthRange(selectedDate), [selectedDate])
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['returns-calendar', range.start, range.end],
     queryFn: () => fetchReturnsCalendar(range),
     staleTime: 5 * 60 * 1000,
+    enabled: asset === 'cgb',
   })
 
   useEffect(() => {
-    if (requestedDate === selectedDate) return
+    if (asset !== 'cgb' || requestedDate === selectedDate) return
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
       next.set('date', selectedDate)
       return next
     }, { replace: true })
-  }, [requestedDate, selectedDate, setSearchParams])
+  }, [asset, requestedDate, selectedDate, setSearchParams])
+
+  useEffect(() => {
+    const scrollArea = document.querySelector<HTMLElement>('.home-chat-scroll')
+    if (scrollArea) scrollArea.scrollTop = 0
+  }, [asset])
+
+  function updateAsset(value: AssetScope) {
+    const next = new URLSearchParams(searchParams)
+    if (value === 'all') {
+      next.delete('asset')
+      next.delete('date')
+    } else {
+      next.set('asset', value)
+      if (value !== 'cgb') next.delete('date')
+    }
+    setSearchParams(next)
+  }
 
   function updateDate(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -324,12 +350,25 @@ export default function ReturnsPage() {
   const selectedDay = data?.days.find((day) => day.date === selectedDate)
   const returnPath = `/returns?date=${selectedDate}`
 
+  if (asset !== 'cgb') {
+    return (
+      <div className="returns-page returns-page--multi-asset">
+        <header className="returns-page-header">
+          <div><h1>市场表现</h1><p>中国国债、信用债、国债期货与美债的统一观察入口</p></div>
+        </header>
+        <AssetScopeStrip value={asset} onChange={updateAsset} compact selectionOnly />
+        <MarketPerformanceView asset={asset} onOpen={updateAsset} />
+      </div>
+    )
+  }
+
   return (
     <div className="returns-page">
       <header className="returns-page-header">
-        <div><h1>收益日历</h1><p>{shortDateLabel(selectedDate)} · 10Y 基准与每日新闻证据</p></div>
+        <div><h1>市场表现</h1><p>中国国债 · {shortDateLabel(selectedDate)} · 10Y 基准与每日新闻证据</p></div>
         <button type="button" className="returns-today-button" onClick={() => updateDate(today)}>回到今天</button>
       </header>
+      <AssetScopeStrip value={asset} onChange={updateAsset} compact selectionOnly />
       <div className="returns-layout">
         <main className="returns-daily">
           {isLoading ? <div className="returns-card returns-loading" aria-label="收益数据加载中" aria-busy="true"><Skeleton height="560px" variant="rectangular" /></div> : isError || !data ? (

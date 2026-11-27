@@ -5,6 +5,18 @@
   color: var(--sw-color-text);
 }
 
+.returns-page--multi-asset {
+  width: min(1400px, 100%);
+  height: auto;
+  min-height: 100%;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.returns-page--multi-asset .asset-scope-strip {
+  margin-bottom: var(--sw-space-4);
+}
+
 .returns-page button {
   font: inherit;
 }

@@ -1,0 +1,19 @@
+.asset-scope-strip{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px;padding:10px 16px;border-bottom:1px solid #2a2b31;background:#0e0e11}
+.asset-scope-strip button{min-width:0;border:1px solid #303138;border-radius:10px;background:#141418;color:#d6d6da;text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.asset-scope-strip button:hover{border-color:#50515a;background:#191a1f}
+.asset-scope-strip button.active{border-color:#6a79a6;background:#1b1e29;box-shadow:inset 0 0 0 1px rgba(122,162,247,.08)}
+.asset-scope-all{display:grid;align-content:center;gap:4px;padding:9px 12px}
+.asset-scope-all span{color:#b8c7ef;font-size:10px;font-weight:600}
+.asset-scope-all strong{color:#f0f0f2;font-size:12px}
+.asset-scope-all small{color:#666670;font-size:9px}
+.asset-scope-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.asset-scope-grid button{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:3px 8px;padding:9px 11px}
+.asset-scope-grid span{display:grid;gap:2px;color:#cfcfd4;font-size:11px;font-weight:600}
+.asset-scope-grid span small{color:#62626c;font-size:8px;font-weight:400}
+.asset-scope-grid strong{color:#f0f0f2;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}
+.asset-scope-grid em{grid-column:2;color:#7e7e88;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:8px;font-style:normal;text-align:right}
+.asset-scope-strip.is-compact{margin-bottom:14px;padding:0 0 12px;border-bottom-color:#2c2d33;background:transparent}
+.asset-scope-selection{display:flex;align-items:center;gap:4px;margin-bottom:15px;padding:0 0 11px;border-bottom:1px solid #2c2d33;overflow-x:auto;scrollbar-width:none}
+.asset-scope-selection::-webkit-scrollbar{display:none}.asset-scope-selection button{flex:none;height:30px;padding:0 11px;border:1px solid transparent;border-radius:7px;background:transparent;color:#777781;font-size:10px;cursor:pointer}.asset-scope-selection button:hover{color:#c8c8ce}.asset-scope-selection button.active{border-color:#474851;background:#292a31;color:#f0f0f2}
+@media(max-width:1050px){.asset-scope-strip{grid-template-columns:1fr}.asset-scope-all{display:flex;align-items:center;gap:9px}.asset-scope-all small{margin-left:auto}.asset-scope-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.asset-scope-strip{padding:8px}.asset-scope-grid{grid-template-columns:1fr 1fr}.asset-scope-grid button{padding:8px}.asset-scope-grid span small{display:none}}
