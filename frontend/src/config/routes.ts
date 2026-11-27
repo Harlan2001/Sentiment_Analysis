@@ -29,22 +29,22 @@ export const BRAND_TITLE = '债券市场智能分析'
 export const ROUTES: RouteMeta[] = [
   { path: '/', title: '市场', redirect: '/market' },
 
-  // ── 工作台 7 个板块 tab ──
+  // ── 债券市场智能分析页面（视觉上由 SECTION_GROUPS 二级分组） ──
   { path: '/market', title: '市场', tabLabel: '市场', brandTitle: true, group: '市场板块', track: true },
-  { path: '/info', title: '信息', tabLabel: '信息', brandTitle: true, group: '市场板块', track: true },
+  { path: '/info', title: '市场数据', tabLabel: '市场数据', brandTitle: true, group: '市场板块', track: true },
   { path: '/factors', title: '因子', tabLabel: '因子', brandTitle: true, group: '市场板块', track: true },
-  { path: '/returns', title: '收益', tabLabel: '收益', brandTitle: true, group: '市场板块', track: true },
+  { path: '/returns', title: '市场表现', tabLabel: '市场表现', brandTitle: true, group: '市场板块', track: true },
   { path: '/forecast', title: '预测', tabLabel: '预测', brandTitle: true, group: '市场板块', track: true },
   { path: '/watchlist', title: '关注列表', tabLabel: '关注列表', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio', title: '投资组合', tabLabel: '投资组合', brandTitle: true, group: '市场板块', track: true },
   { path: '/portfolio/:portfolioId', title: '投资组合', brandTitle: true },
-  { path: '/backtest', title: '回测仿真', tabLabel: '回测仿真', brandTitle: true, group: '市场板块', track: true },
+  { path: '/backtest', title: '事件研究', tabLabel: '事件研究', brandTitle: true, group: '市场板块', track: true },
   { path: '/strategy', title: '策略生成', tabLabel: '策略生成', brandTitle: true, group: '市场板块', track: true },
   { path: '/strategy/prompt', title: '策略生成', shellTitle: '策略生成' },
   // ── FICC 扩展（追加于末尾，不打乱既有标签顺序） ──
   { path: '/futures', title: '期货持仓', shellTitle: '期货持仓' },
   { path: '/credit-spread', title: '信用利差', shellTitle: '信用利差' },
-  { path: '/treasury-spread', title: '中美利差', shellTitle: '中美利差' },
+  { path: '/treasury-spread', title: '美债', shellTitle: '美债' },
 
   // ── 首页 ──
   { path: '/home', title: '首页', brandTitle: true, group: '首页', track: true },
@@ -165,6 +165,23 @@ export const SECTION_TABS: { name: string; to: string }[] = ROUTES.filter((r) =>
   name: r.tabLabel!,
   to: r.path,
 }))
+
+/** 页面与 URL 不变，只按客户研究任务重组导航的视觉层级。 */
+export const SECTION_GROUPS: {
+  id: 'market' | 'research' | 'portfolio' | 'strategy'
+  label: string
+  routes: string[]
+}[] = [
+  { id: 'market', label: '市场洞察', routes: ['/market', '/info', '/returns'] },
+  { id: 'research', label: '研究分析', routes: ['/factors', '/forecast'] },
+  { id: 'portfolio', label: '组合管理', routes: ['/watchlist', '/portfolio'] },
+  { id: 'strategy', label: '策略验证', routes: ['/backtest', '/strategy'] },
+]
+
+export function sectionGroupForPath(pathname: string) {
+  return SECTION_GROUPS.find((group) => group.routes.some((route) => pathname === route || pathname.startsWith(`${route}/`)))
+    ?? SECTION_GROUPS[0]
+}
 
 /** 侧边栏产品入口（替代 WorkbenchShell 原 productLinks） */
 export const PRODUCT_LINKS: { to: string; label: string; icon: string }[] = ROUTES.filter((r) => r.navLabel).map(

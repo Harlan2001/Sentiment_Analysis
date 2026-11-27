@@ -3,13 +3,14 @@
  * 点击新闻/收益率/因子/摘要/策略后显示对应的详情覆盖层
  */
 import React, { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { HomeChatDock } from '../components/HomeChatDock'
 import DiscoverNewsPanel from '../components/DiscoverNewsPanel'
 import MarketSidePanel from '../components/MarketSidePanel'
 import NewsDetailPanel from '../components/NewsDetailPanel'
 import YieldDetailPanel from '../components/YieldDetailPanel'
 import FactorDetailPanel from '../components/FactorDetailPanel'
+import { AssetScopeStrip, type AssetScope } from '../components/AssetScopeStrip'
 
 type DetailView =
   | { type: 'news'; newsId: number }
@@ -19,7 +20,17 @@ type DetailView =
 
 const MarketPage: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [detailView, setDetailView] = useState<DetailView>(null)
+  const rawAsset = searchParams.get('asset')
+  const asset: AssetScope = rawAsset === 'cgb' || rawAsset === 'credit' || rawAsset === 'futures' || rawAsset === 'ust' ? rawAsset : 'all'
+
+  const changeAsset = (next: AssetScope) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('asset')
+    else params.set('asset', next)
+    setSearchParams(params)
+  }
 
   React.useEffect(() => {
     const onPop = (event: PopStateEvent) => {
@@ -49,6 +60,15 @@ const MarketPage: React.FC = () => {
 
   return (
     <div className="market-workspace">
+      <div className="market-asset-scope">
+        <AssetScopeStrip value={asset} onChange={changeAsset} />
+        {asset !== 'all' && asset !== 'cgb' && (
+          <p className="market-asset-scope-note">
+            当前新闻流仍按公共事件统一展示；现有新闻方向字段仅具备中国国债语义，未将其直接转译为所选资产方向。
+            <button type="button" onClick={() => navigate(`/info?asset=${asset}`)}>查看该资产市场数据 →</button>
+          </p>
+        )}
+      </div>
       <div className="market-workspace-body">
         <div className="market-discover-panel">
           <DiscoverNewsPanel

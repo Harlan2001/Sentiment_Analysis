@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui'
 import type { BacktestOverviewItem, BacktestOverviewResponse } from '@/types'
 
 /**
- * 回测仿真。
+ * 因子事件研究（保留旧 /backtest URL）。
  *
  * 用事件研究法评估各因子的历史方向表现：某因子出现后 T+N 个交易日的
  * 10Y 国债收益率变动。**样本来自 news_factor（6.4 万行），按交易日对齐、
@@ -104,9 +104,9 @@ export default function BacktestPage() {
         <main className="home-section-main space-y-4">
           <header className="flex flex-wrap items-start justify-between gap-3 pt-2">
             <div>
-              <h1 className="text-lg font-bold text-white">回测仿真</h1>
+              <h1 className="text-lg font-bold text-white">因子事件研究</h1>
               <p className="mt-1 text-xs text-gray-500">
-                因子事件研究 · 按交易日对齐 · 严格防未来函数
+                结果类型：事件研究 · 按交易日对齐 · 严格防未来函数
               </p>
             </div>
             <div className="factor-view-tabs">
@@ -229,7 +229,7 @@ export default function BacktestPage() {
             </ChartCard>
 
             <p className="diag-footnote">
-              事件研究法：信号日 t 只用 t 及之前数据，收益从 t+1 起算
+              事件研究法：信号日 t 只用 t 及之前数据，市场反应从 t+1 起算；结果不代表可交易收益或盈利概率
             </p>
           </div>
         </aside>

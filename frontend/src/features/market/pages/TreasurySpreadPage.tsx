@@ -70,9 +70,9 @@ export default function TreasurySpreadPage() {
         <main className="home-section-main space-y-4">
           <header className="flex flex-wrap items-start justify-between gap-3 pt-2">
             <div>
-              <h1 className="text-lg font-bold text-white">中美利差</h1>
+              <h1 className="text-lg font-bold text-white">美债</h1>
               <p className="mt-1 text-xs text-gray-500">
-                中债收益率 − 美债收益率（美国财政部官方数据）
+                美国国债收益率与中美相对价值（美国财政部官方数据）
                 {latest ? ` · 数据日期 ${latest.date}` : ''}
               </p>
             </div>
@@ -109,14 +109,14 @@ export default function TreasurySpreadPage() {
             <>
               <section className="cs-hero">
                 <div className="cs-hero-main">
-                  <span className="cs-hero-label">当前{TERM_LABELS[term] ?? term}利差</span>
-                  <b className="cs-hero-value">{formatBp(latest.spread_bp)}</b>
+                  <span className="cs-hero-label">当前{TERM_LABELS[term] ?? term}美债收益率</span>
+                  <b className="cs-hero-value">{latest.us.toFixed(3)}%</b>
                   {data.percentile !== undefined && (
-                    <span className={`cs-percentile ${hint.tone}`}>历史分位 {data.percentile}%</span>
+                    <span className={`cs-percentile ${hint.tone}`}>中美利差分位 {data.percentile}%</span>
                   )}
                 </div>
                 <div className="cs-hero-sub">
-                  中债 {latest.cn.toFixed(2)}% − 美债 {latest.us.toFixed(2)}%
+                  中债 {latest.cn.toFixed(2)}% · 中美利差 {formatBp(latest.spread_bp)}
                 </div>
                 <div className="cs-hero-bars">
                   <div className="cs-bar-row">
@@ -141,6 +141,10 @@ export default function TreasurySpreadPage() {
                   {hint.text && <span className="cs-hint">{hint.text}</span>}
                 </div>
               </section>
+
+              <Card title={`${TERM_LABELS[term] ?? term}美债收益率走势`}>
+                <UstYieldChart series={data.series} />
+              </Card>
 
               <Card title={`${TERM_LABELS[term] ?? term}中美利差走势（bp）`}>
                 <SpreadChart series={data.series} />
@@ -190,6 +194,37 @@ export default function TreasurySpreadPage() {
       </div>
     </div>
   )
+}
+
+function UstYieldChart({ series }: { series: { date: string; us: number }[] }) {
+  if (series.length < 2) return <p className="diag-caption">样本不足，无法绘制走势</p>
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#202024',
+      borderColor: '#3a3a40',
+      textStyle: { color: '#eee', fontSize: 11 },
+      valueFormatter: (value: number) => `${value.toFixed(3)}%`,
+    },
+    grid: { left: 50, right: 18, top: 18, bottom: 34 },
+    xAxis: {
+      type: 'category', boundaryGap: false, data: series.map((item) => item.date),
+      axisLabel: { color: '#777', fontSize: 9, hideOverlap: true },
+      axisTick: { show: false }, axisLine: { lineStyle: { color: '#333' } },
+    },
+    yAxis: {
+      type: 'value', scale: true, splitNumber: 4,
+      axisLabel: { color: '#777', fontSize: 10 }, axisTick: { show: false }, axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#28282d', type: 'dashed' } },
+    },
+    series: [{
+      name: '美债收益率', type: 'line', smooth: .3, showSymbol: false,
+      data: series.map((item) => item.us),
+      lineStyle: { width: 2.25, color: '#65c9b2' }, itemStyle: { color: '#65c9b2' },
+      areaStyle: { color: 'rgba(101,201,178,.10)' },
+    }],
+  }
+  return <ReactECharts opts={{ renderer: 'svg' }} option={option} style={{ height: 240 }} />
 }
 
 function SpreadChart({ series }: { series: { date: string; spread_bp: number }[] }) {
